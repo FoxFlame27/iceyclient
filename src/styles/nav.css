@@ -1,0 +1,77 @@
+#nav-gradient {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 76px;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, var(--bg-primary));
+  pointer-events: none;
+  z-index: 997;
+}
+
+#bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 76px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 998;
+}
+
+.nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 10px;
+  margin: 6px 4px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.nav-icon, .nav-label {
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.nav-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.nav-tab:hover .nav-icon,
+.nav-tab:hover .nav-label {
+  color: var(--text-secondary);
+}
+
+.nav-tab:hover {
+  background: var(--accent-dim);
+}
+
+.nav-tab.active .nav-icon,
+.nav-tab.active .nav-label {
+  color: var(--accent);
+}
+
+.nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 0 8px var(--accent-glow);
+}

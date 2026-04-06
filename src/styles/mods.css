@@ -1,0 +1,465 @@
+#page-mods {
+  padding: 24px;
+}
+
+/* Guard state */
+.mods-guard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  gap: 12px;
+}
+
+.mods-guard svg {
+  color: var(--accent-dim);
+}
+
+.mods-guard-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mods-guard-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.btn-goto-installations {
+  margin-top: 12px;
+  padding: 10px 24px;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-goto-installations:hover {
+  background: var(--accent-dim);
+}
+
+/* Active state header */
+.mods-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.mods-active-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(14px);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.mods-active-pill img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.mods-active-pill-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mods-active-pill-version {
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.mods-search {
+  flex: 1;
+  max-width: 400px;
+  position: relative;
+}
+
+.mods-search input {
+  width: 100%;
+  padding-left: 36px;
+}
+
+.mods-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Drop zone */
+.mods-dropzone {
+  width: 100%;
+  height: 180px;
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  background: var(--bg-glass);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.mods-dropzone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  transform: scale(1.01);
+}
+
+.mods-dropzone svg {
+  color: var(--accent);
+}
+
+.mods-dropzone-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.mods-dropzone-subtext {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.btn-browse-files {
+  margin-top: 8px;
+  padding: 8px 20px;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-browse-files:hover {
+  background: var(--accent-dim);
+}
+
+/* Section headers */
+.mods-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  margin-top: 8px;
+}
+
+.mods-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mods-section-count {
+  padding: 2px 10px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Filter pills */
+.mods-filter-pills {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.mods-filter-pill {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mods-filter-pill.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.mods-filter-pill:hover:not(.active) {
+  border-color: var(--border-hover);
+}
+
+/* Results grid */
+.mods-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+/* Result card */
+.mod-result-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  height: 120px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.mod-result-card:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+.mod-result-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+}
+
+.mod-result-thumb-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-dim);
+}
+
+.mod-result-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mod-result-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod-result-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.mod-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.mod-result-author {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mod-result-downloads {
+  padding: 1px 8px;
+  background: var(--bg-secondary);
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.mod-result-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-install-mod {
+  padding: 6px 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-install-mod:hover {
+  background: var(--accent-bright);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.badge-installed {
+  padding: 4px 12px;
+  background: var(--green);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mod-source-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+/* Installed items */
+.mod-installed-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.mod-installed-card:hover {
+  border-color: var(--border-hover);
+}
+
+.mod-installed-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.mod-installed-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mod-installed-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod-installed-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.mod-type-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mod-type-badge.mod {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.mod-type-badge.resourcepack {
+  background: rgba(168,85,247,0.15);
+  color: #a78bfa;
+}
+
+.mod-installed-size {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.btn-delete-mod {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+.btn-delete-mod:hover {
+  color: var(--red);
+  background: var(--red-glow);
+}
+
+/* Empty / loading states */
+.mods-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.mods-loading {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.mod-skeleton {
+  height: 120px;
+  border-radius: 14px;
+}

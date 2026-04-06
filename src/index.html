@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: file:; connect-src https:; script-src 'self';">
+  <title>Icey Client</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/global.css">
+  <link rel="stylesheet" href="styles/titlebar.css">
+  <link rel="stylesheet" href="styles/nav.css">
+  <link rel="stylesheet" href="styles/home.css">
+  <link rel="stylesheet" href="styles/installations.css">
+  <link rel="stylesheet" href="styles/mods.css">
+  <link rel="stylesheet" href="styles/options.css">
+  <link rel="stylesheet" href="styles/modals.css">
+  <link rel="stylesheet" href="styles/toasts.css">
+</head>
+<body>
+  <!-- Titlebar -->
+  <div id="titlebar">
+    <div class="titlebar-left">
+      <svg class="titlebar-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="2" y1="12" x2="22" y2="12" opacity="0.3"/>
+        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+      </svg>
+      <span class="titlebar-title">ICEY CLIENT</span>
+    </div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" id="btn-minimize" title="Minimize">
+        <svg viewBox="0 0 12 12" width="12" height="12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+      <button class="titlebar-btn" id="btn-maximize" title="Maximize">
+        <svg viewBox="0 0 12 12" width="12" height="12"><rect x="2" y="2" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <button class="titlebar-btn titlebar-btn-close" id="btn-close" title="Close">
+        <svg viewBox="0 0 12 12" width="12" height="12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Page container -->
+  <div id="page-container">
+    <div id="page-home" class="page active"></div>
+    <div id="page-installations" class="page"></div>
+    <div id="page-mods" class="page"></div>
+    <div id="page-options" class="page"></div>
+  </div>
+
+  <!-- Bottom gradient fade -->
+  <div id="nav-gradient"></div>
+
+  <!-- Bottom navigation -->
+  <nav id="bottom-nav">
+    <button class="nav-tab active" data-page="home">
+      <svg class="nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+        <polygon points="8,5 19,12 8,19"/>
+      </svg>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-tab" data-page="installations">
+      <svg class="nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="18" height="5" rx="1.5"/><rect x="3" y="10" width="18" height="5" rx="1.5"/><rect x="3" y="17" width="18" height="5" rx="1.5"/>
+      </svg>
+      <span class="nav-label">Installations</span>
+    </button>
+    <button class="nav-tab" data-page="mods">
+      <svg class="nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+      <span class="nav-label">Mods</span>
+    </button>
+    <button class="nav-tab" data-page="options">
+      <svg class="nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+      <span class="nav-label">Options</span>
+    </button>
+  </nav>
+
+  <!-- Modal overlay -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-content" class="modal-card"></div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="utils/toast.js"></script>
+  <script src="utils/paths.js"></script>
+  <script src="utils/settings.js"></script>
+  <script src="utils/logger.js"></script>
+  <script src="utils/versions.js"></script>
+  <script src="utils/modrinth.js"></script>
+  <script src="utils/curseforge.js"></script>
+  <script src="utils/fabric.js"></script>
+  <script src="utils/minecraft.js"></script>
+  <script src="pages/home.js"></script>
+  <script src="pages/installations.js"></script>
+  <script src="pages/mods.js"></script>
+  <script src="pages/options.js"></script>
+  <script>
+    // Titlebar controls
+    document.getElementById('btn-minimize').addEventListener('click', () => window.icey.minimizeWindow());
+    document.getElementById('btn-maximize').addEventListener('click', () => window.icey.maximizeWindow());
+    document.getElementById('btn-close').addEventListener('click', () => window.icey.closeWindow());
+
+    // Tab navigation
+    const navTabs = document.querySelectorAll('.nav-tab');
+    const pages = document.querySelectorAll('.page');
+
+    function switchPage(pageName) {
+      pages.forEach(p => p.classList.remove('active'));
+      navTabs.forEach(t => t.classList.remove('active'));
+      const page = document.getElementById('page-' + pageName);
+      const tab = document.querySelector(`.nav-tab[data-page="${pageName}"]`);
+      if (page) page.classList.add('active');
+      if (tab) tab.classList.add('active');
+      // Trigger page init
+      if (pageName === 'home' && typeof HomePageInit === 'function') HomePageInit();
+      if (pageName === 'installations' && typeof InstallationsPageInit === 'function') InstallationsPageInit();
+      if (pageName === 'mods' && typeof ModsPageInit === 'function') ModsPageInit();
+      if (pageName === 'options' && typeof OptionsPageInit === 'function') OptionsPageInit();
+    }
+
+    navTabs.forEach(tab => {
+      tab.addEventListener('click', () => switchPage(tab.dataset.page));
+    });
+
+    // Modal management
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalContent = document.getElementById('modal-content');
+
+    function showModal(html) {
+      modalContent.innerHTML = html;
+      modalOverlay.classList.remove('hidden');
+      requestAnimationFrame(() => modalOverlay.classList.add('visible'));
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('visible');
+      setTimeout(() => {
+        modalOverlay.classList.add('hidden');
+        modalContent.innerHTML = '';
+      }, 200);
+    }
+
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // Init app
+    (async () => {
+      await SettingsManager.load();
+      switchPage('home');
+    })();
+  </script>
+</body>
+</html>
