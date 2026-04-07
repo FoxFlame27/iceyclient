@@ -75,32 +75,38 @@ function readIceyInstallations() {
 }
 
 function readInstallations() {
-  const iceyInstalls = readIceyInstallations();
+  let iceyInstalls;
+  try {
+    iceyInstalls = readIceyInstallations();
+  } catch (e) {
+    log('error', 'readIceyInstallations failed: ' + e.message);
+    iceyInstalls = [];
+  }
   const knownIds = new Set(iceyInstalls.map(i => i.id));
 
   // Scan real .minecraft/versions/ for MC launcher installations
-  const mcDir = getDefaultMcDir();
-  const versionsDir = path.join(mcDir, 'versions');
-  if (fs.existsSync(versionsDir)) {
-    try {
-      const dirs = fs.readdirSync(versionsDir, { withFileTypes: true });
-      for (const d of dirs) {
-        if (!d.isDirectory()) continue;
-        const versionId = d.name;
-        // Skip fabric-loader dirs (they inherit from a base version)
+  try {
+    const mcDir = getDefaultMcDir();
+    const versionsDir = path.join(mcDir, 'versions');
+    if (fs.existsSync(versionsDir)) {
+      const dirNames = fs.readdirSync(versionsDir);
+      for (const versionId of dirNames) {
         if (versionId.startsWith('fabric-loader')) continue;
-        // Skip if already tracked by Icey
         if (knownIds.has(versionId)) continue;
 
-        const jsonPath = path.join(versionsDir, versionId, versionId + '.json');
-        const jarPath = path.join(versionsDir, versionId, versionId + '.jar');
+        const vDir = path.join(versionsDir, versionId);
+        try {
+          const stat = fs.statSync(vDir);
+          if (!stat.isDirectory()) continue;
+        } catch (_) { continue; }
+
+        const jsonPath = path.join(vDir, versionId + '.json');
+        const jarPath = path.join(vDir, versionId + '.jar');
         if (!fs.existsSync(jsonPath) || !fs.existsSync(jarPath)) continue;
 
-        // Check if there's a fabric version for this MC version
         let hasFabric = false;
         try {
-          const allVersions = fs.readdirSync(versionsDir);
-          hasFabric = allVersions.some(v => v.startsWith('fabric-loader') && v.endsWith(versionId));
+          hasFabric = dirNames.some(v => v.startsWith('fabric-loader') && v.endsWith(versionId));
         } catch (_) { /* */ }
 
         iceyInstalls.push({
@@ -116,9 +122,9 @@ function readInstallations() {
         });
         knownIds.add(versionId);
       }
-    } catch (e) {
-      log('warn', 'Failed to scan .minecraft/versions: ' + e.message);
     }
+  } catch (e) {
+    log('warn', 'Failed to scan .minecraft/versions: ' + e.message);
   }
 
   return iceyInstalls;
@@ -344,39 +350,29 @@ function launchMinecraft(installationId) {
       return reject(new Error('Failed to parse version JSON: ' + e.message));
     }
 
-    // Build classpath from version JSON libraries
+    // Build classpath: walk ALL jars in .minecraft/libraries + client jar
     const sep = process.platform === 'win32' ? ';' : ':';
     const cpParts = [];
 
-    for (const lib of (versionJson.libraries || [])) {
-      // Check OS rules
-      if (lib.rules) {
-        let allowed = false;
-        for (const rule of lib.rules) {
-          if (rule.action === 'allow') {
-            if (!rule.os) allowed = true;
-            else if (rule.os.name === 'windows' && process.platform === 'win32') allowed = true;
-            else if (rule.os.name === 'osx' && process.platform === 'darwin') allowed = true;
-            else if (rule.os.name === 'linux' && process.platform === 'linux') allowed = true;
+    // Recursively collect every .jar from the libraries folder
+    if (fs.existsSync(libDir)) {
+      const walkJars = (dir) => {
+        try {
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) walkJars(full);
+            else if (entry.name.endsWith('.jar')) cpParts.push(full);
           }
-          if (rule.action === 'disallow') {
-            if (rule.os?.name === 'windows' && process.platform === 'win32') allowed = false;
-            if (rule.os?.name === 'osx' && process.platform === 'darwin') allowed = false;
-            if (rule.os?.name === 'linux' && process.platform === 'linux') allowed = false;
-          }
-        }
-        if (!allowed) continue;
-      }
-
-      const artifact = lib.downloads?.artifact;
-      if (artifact?.path) {
-        const jarPath = path.join(libDir, artifact.path);
-        if (fs.existsSync(jarPath)) cpParts.push(jarPath);
-      }
+        } catch (_) { /* skip permission errors */ }
+      };
+      walkJars(libDir);
     }
 
-    // Add fabric libraries
-    for (const fp of fabricLibs) cpParts.push(fp);
+    // Add fabric libraries that might be outside the standard path
+    for (const fp of fabricLibs) {
+      if (!cpParts.includes(fp)) cpParts.push(fp);
+    }
 
     // Add the client jar
     const clientJar = path.join(mcDir, 'versions', version, version + '.jar');
@@ -397,7 +393,11 @@ function launchMinecraft(installationId) {
     // JVM args
     args.push(`-Xmx${ram}M`, '-Xms512M');
     args.push('-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled');
-    args.push('-Djava.library.path=' + path.join(mcDir, 'versions', version, 'natives'));
+    // Natives: try version-specific folder, then shared natives folder
+    const nativesDir = path.join(mcDir, 'versions', version, 'natives');
+    const nativesDir2 = path.join(mcDir, 'versions', version, version + '-natives');
+    const actualNatives = fs.existsSync(nativesDir) ? nativesDir : fs.existsSync(nativesDir2) ? nativesDir2 : nativesDir;
+    args.push('-Djava.library.path=' + actualNatives);
     if (extraJvmArgs.length > 0) args.push(...extraJvmArgs);
     if (settings.jvmArgs) args.push(...settings.jvmArgs.split(/\s+/).filter(Boolean));
     args.push('-cp', classpath);
@@ -508,7 +508,7 @@ app.whenReady().then(() => {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    // mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
   mainWindow.on('closed', () => {
