@@ -3,8 +3,12 @@ let _homeStateCleanup = null;
 
 async function HomePageInit() {
   const page = document.getElementById('page-home');
+  try {
+  console.log('[HomePageInit] Starting...');
   const installations = await window.icey.getInstallations();
+  console.log('[HomePageInit] Installations:', installations);
   const settings = SettingsManager.getAll();
+  console.log('[HomePageInit] Settings:', settings);
   const selected = installations.find(i => i.selected);
   const opacity = settings.homeBackgroundOpacity ?? 80;
   const showTimer = settings.showSessionTimer !== false;
@@ -120,6 +124,12 @@ async function HomePageInit() {
       if (el) el.textContent = MinecraftLauncher.getSessionTime();
     }
   }, 1000);
+
+  console.log('[HomePageInit] Done rendering');
+  } catch (err) {
+    console.error('[HomePageInit] ERROR:', err);
+    page.innerHTML = `<div style="color:red;padding:40px;font-size:16px;">Error loading home page: ${err.message}<br><pre>${err.stack}</pre></div>`;
+  }
 }
 
 function _homeUpdateLaunchButton(state, showTimer) {
