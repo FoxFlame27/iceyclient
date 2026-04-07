@@ -9,8 +9,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 20px;
-  gap: 12px;
+  padding: 24px;
+  gap: 16px;
 }
 
 .console-header {
@@ -20,9 +20,10 @@
 }
 
 .console-title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .console-actions {
@@ -31,12 +32,13 @@
 }
 
 .console-btn {
-  padding: 6px 14px;
-  border-radius: 8px;
-  background: var(--bg-card);
+  padding: 8px 18px;
+  border-radius: 10px;
+  background: rgba(15,21,38,0.7);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -50,20 +52,21 @@
 
 .console-output {
   flex: 1;
-  background: #000000;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  padding: 16px;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  border: 1px solid rgba(91,200,245,0.1);
+  padding: 20px;
   overflow-y: auto;
   font-family: 'Courier New', 'Consolas', monospace;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: #c8d6e5;
   min-height: 0;
 }
 
 .console-output::-webkit-scrollbar-thumb {
-  background: #333;
+  background: rgba(91,200,245,0.2);
 }
 
 .console-line {
@@ -75,34 +78,36 @@
 .console-line-warn { color: #fbbf24; }
 .console-line-error { color: #f87171; }
 
-/* Placeholder with icon when no game is running */
+/* Placeholder */
 .console-placeholder {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  background: rgba(0,0,0,0.3);
-  border-radius: 14px;
-  border: 1px solid var(--border);
+  gap: 24px;
+  background: rgba(0,0,0,0.25);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  border: 1px solid rgba(91,200,245,0.08);
 }
 
 .console-placeholder-icon {
-  width: 180px;
-  height: 180px;
+  width: 160px;
+  height: 160px;
   object-fit: contain;
-  opacity: 0.4;
-  filter: grayscale(30%);
-  animation: consolePulse 3s ease-in-out infinite;
+  opacity: 0.35;
+  filter: grayscale(20%);
+  animation: consolePulse 4s ease-in-out infinite;
 }
 
 @keyframes consolePulse {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.05); }
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.06); }
 }
 
 .console-placeholder-text {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-muted);
+  font-weight: 500;
 }

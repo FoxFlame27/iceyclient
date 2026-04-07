@@ -11,24 +11,28 @@
 
 .installations-title {
   font-size: 24px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .btn-create-install {
-  padding: 10px 20px;
-  border: 1.5px solid var(--accent);
+  padding: 10px 24px;
+  border: 1.5px solid rgba(91,200,245,0.3);
   color: var(--accent);
-  background: transparent;
+  background: rgba(91,200,245,0.08);
+  backdrop-filter: blur(8px);
   border-radius: 12px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 .btn-create-install:hover {
-  background: var(--accent-dim);
-  box-shadow: 0 0 18px var(--accent-glow);
+  background: rgba(91,200,245,0.18);
+  border-color: var(--accent);
+  box-shadow: 0 0 24px var(--accent-glow);
+  transform: translateY(-1px);
 }
 
 .installations-grid {
@@ -41,12 +45,13 @@
 .install-card {
   width: 100%;
   height: 280px;
-  background: var(--bg-card);
+  background: rgba(15,21,38,0.85);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: 18px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   display: flex;
   flex-direction: column;
   position: relative;

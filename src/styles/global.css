@@ -64,17 +64,20 @@ html, body {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--accent);
+  background: rgba(91,200,245,0.25);
   border-radius: 999px;
 }
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(91,200,245,0.4);
+}
 
-/* Page container - positioned to the right of sidebar */
+/* Page container */
 #page-container {
   position: fixed;
   top: 40px;
@@ -82,14 +85,14 @@ html, body {
   right: 0;
   bottom: 0;
   overflow: hidden;
-  background: url('assets/background.png') center/cover no-repeat;
+  background: url('assets/background.png') center/cover no-repeat fixed;
 }
 
 #page-container::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(8,12,24,0.55);
+  background: rgba(8,12,24,0.5);
   pointer-events: none;
   z-index: 0;
 }
@@ -101,8 +104,8 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
   pointer-events: none;
   visibility: hidden;
 }
@@ -144,12 +147,13 @@ input, textarea, select {
   font-family: inherit;
   font-size: 14px;
   color: var(--text-primary);
-  background: var(--bg-secondary);
+  background: rgba(13,18,32,0.8);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 14px;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(4px);
 }
 
 input:focus, textarea:focus, select:focus {
