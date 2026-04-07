@@ -53,11 +53,16 @@ function writeJsonAtomic(filePath, data) {
 }
 
 // ── Installations ──────────────────────────────────────
-function getDefaultInstallations() {
-  return [];
+function getDefaultMcDir() {
+  if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || '', '.minecraft');
+  } else if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Application Support', 'minecraft');
+  }
+  return path.join(os.homedir(), '.minecraft');
 }
 
-function readInstallations() {
+function readIceyInstallations() {
   try {
     if (fs.existsSync(INSTALLATIONS_FILE)) {
       const data = JSON.parse(fs.readFileSync(INSTALLATIONS_FILE, 'utf-8'));
@@ -65,15 +70,64 @@ function readInstallations() {
     }
   } catch (e) {
     log('warn', 'Corrupt installations.json, resetting: ' + e.message);
-    if (mainWindow) {
-      mainWindow.webContents.send('mc-event', { type: 'toast', level: 'error', message: 'installations.json was corrupt and has been reset.' });
+  }
+  return [];
+}
+
+function readInstallations() {
+  const iceyInstalls = readIceyInstallations();
+  const knownIds = new Set(iceyInstalls.map(i => i.id));
+
+  // Scan real .minecraft/versions/ for MC launcher installations
+  const mcDir = getDefaultMcDir();
+  const versionsDir = path.join(mcDir, 'versions');
+  if (fs.existsSync(versionsDir)) {
+    try {
+      const dirs = fs.readdirSync(versionsDir, { withFileTypes: true });
+      for (const d of dirs) {
+        if (!d.isDirectory()) continue;
+        const versionId = d.name;
+        // Skip fabric-loader dirs (they inherit from a base version)
+        if (versionId.startsWith('fabric-loader')) continue;
+        // Skip if already tracked by Icey
+        if (knownIds.has(versionId)) continue;
+
+        const jsonPath = path.join(versionsDir, versionId, versionId + '.json');
+        const jarPath = path.join(versionsDir, versionId, versionId + '.jar');
+        if (!fs.existsSync(jsonPath) || !fs.existsSync(jarPath)) continue;
+
+        // Check if there's a fabric version for this MC version
+        let hasFabric = false;
+        try {
+          const allVersions = fs.readdirSync(versionsDir);
+          hasFabric = allVersions.some(v => v.startsWith('fabric-loader') && v.endsWith(versionId));
+        } catch (_) { /* */ }
+
+        iceyInstalls.push({
+          id: versionId,
+          name: versionId,
+          version: versionId,
+          platform: hasFabric ? 'fabric' : 'vanilla',
+          fabricActive: hasFabric,
+          selected: false,
+          image: null,
+          createdAt: 0,
+          fromMcLauncher: true
+        });
+        knownIds.add(versionId);
+      }
+    } catch (e) {
+      log('warn', 'Failed to scan .minecraft/versions: ' + e.message);
     }
   }
-  return getDefaultInstallations();
+
+  return iceyInstalls;
 }
 
 function writeInstallations(data) {
-  writeJsonAtomic(INSTALLATIONS_FILE, data);
+  // Only persist Icey-created installations (not auto-detected MC launcher ones)
+  const toSave = data.filter(i => !i.fromMcLauncher);
+  writeJsonAtomic(INSTALLATIONS_FILE, toSave);
 }
 
 // ── Settings ───────────────────────────────────────────
@@ -219,112 +273,158 @@ function autoDetectJava() {
   return '';
 }
 
-// ── Find official Minecraft launcher ──────────────────
-function findMinecraftLauncher() {
-  if (process.platform === 'win32') {
-    const candidates = [
-      // Standard installer locations
-      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
-      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
-      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
-      // Old launcher
-      path.join(process.env.APPDATA || '', '.minecraft', 'launcher', 'MinecraftLauncher.exe'),
-      // XboxPCApp / MS Store new launcher
-      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'WindowsApps', 'Microsoft.4297127D64EC6_*', 'Minecraft.exe'),
-    ];
-
-    for (const p of candidates) {
-      // Handle glob-style wildcards for WindowsApps
-      if (p.includes('*')) {
-        const dir = path.dirname(p);
-        const parentDir = path.dirname(dir);
-        const pattern = path.basename(dir);
-        if (fs.existsSync(parentDir)) {
-          try {
-            const matches = fs.readdirSync(parentDir).filter(d => d.startsWith(pattern.replace('*', '')));
-            for (const m of matches) {
-              const exe = path.join(parentDir, m, path.basename(p));
-              if (fs.existsSync(exe)) return exe;
-            }
-          } catch (_) { /* */ }
-        }
-      } else if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-
-    // Try Microsoft Store via shell:AppsFolder
-    try {
-      // This launches the MC launcher via its AppUserModelId
-      const result = execSync('powershell -Command "Get-StartApps | Where-Object {$_.Name -like \'*Minecraft*\'} | Select-Object -First 1 -ExpandProperty AppID"', { encoding: 'utf-8', timeout: 8000 }).trim();
-      if (result) {
-        log('info', 'Found MS Store Minecraft AppID: ' + result);
-        return 'shell:AppsFolder\\' + result;
-      }
-    } catch (_) { /* */ }
-
-    // Try where command
-    try {
-      const result = execSync('where MinecraftLauncher.exe', { encoding: 'utf-8', timeout: 5000 }).trim().split('\n')[0].trim();
-      if (result && fs.existsSync(result)) return result;
-    } catch (_) { /* */ }
-  } else if (process.platform === 'darwin') {
-    const macPath = '/Applications/Minecraft.app/Contents/MacOS/launcher';
-    if (fs.existsSync(macPath)) return macPath;
-  } else {
-    try {
-      const result = execSync('which minecraft-launcher', { encoding: 'utf-8', timeout: 5000 }).trim();
-      if (result && fs.existsSync(result)) return result;
-    } catch (_) { /* */ }
-    const linuxPaths = ['/usr/bin/minecraft-launcher', '/opt/minecraft-launcher/minecraft-launcher'];
-    for (const p of linuxPaths) {
-      if (fs.existsSync(p)) return p;
-    }
-  }
-  return null;
-}
-
-// ── Minecraft launch ───────────────────────────────────
+// ── Minecraft launch (direct Java, uses existing .minecraft) ─────
 function launchMinecraft(installationId) {
   return new Promise(async (resolve, reject) => {
     const installations = readInstallations();
     const installation = installations.find(i => i.id === installationId);
-    if (!installation) {
-      return reject(new Error('Installation not found'));
-    }
+    if (!installation) return reject(new Error('Installation not found'));
 
     const settings = readSettings();
+    const javaPath = settings.javaPath || autoDetectJava();
+    if (!javaPath) return reject(new Error('JAVA_NOT_FOUND'));
 
-    // Find the official Minecraft launcher
-    const launcherPath = settings.minecraftLauncherPath || findMinecraftLauncher();
-    if (!launcherPath) {
-      return reject(new Error('LAUNCHER_NOT_FOUND'));
+    // Use the real .minecraft folder (already has libraries from official launcher)
+    const mcDir = getDefaultMcDir();
+    const version = installation.version;
+    const libDir = path.join(mcDir, 'libraries');
+    const assetsDir = path.join(mcDir, 'assets');
+
+    // Determine which version JSON to read (fabric or vanilla)
+    let versionId = version;
+    let mainClass = 'net.minecraft.client.main.Main';
+    let extraJvmArgs = [];
+    let fabricLibs = [];
+
+    if (installation.platform === 'fabric') {
+      // Find fabric version directory
+      const versionsDir = path.join(mcDir, 'versions');
+      if (fs.existsSync(versionsDir)) {
+        const fabricDirs = fs.readdirSync(versionsDir).filter(d => d.startsWith('fabric-loader') && d.includes(version));
+        if (fabricDirs.length > 0) {
+          versionId = fabricDirs[0];
+          const fabricJsonPath = path.join(versionsDir, fabricDirs[0], fabricDirs[0] + '.json');
+          if (fs.existsSync(fabricJsonPath)) {
+            try {
+              const fabricJson = JSON.parse(fs.readFileSync(fabricJsonPath, 'utf-8'));
+              if (fabricJson.mainClass) mainClass = fabricJson.mainClass;
+              if (fabricJson.arguments?.jvm) {
+                extraJvmArgs = fabricJson.arguments.jvm.filter(a => typeof a === 'string');
+              }
+              if (fabricJson.libraries) {
+                for (const lib of fabricJson.libraries) {
+                  if (lib.name) {
+                    const parts = lib.name.split(':');
+                    if (parts.length >= 3) {
+                      const gp = parts[0].replace(/\./g, path.sep);
+                      const jarPath = path.join(libDir, gp, parts[1], parts[2], `${parts[1]}-${parts[2]}.jar`);
+                      if (fs.existsSync(jarPath)) fabricLibs.push(jarPath);
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              log('error', 'Failed to parse fabric json: ' + e.message);
+            }
+          }
+        }
+      }
     }
 
-    log('info', `Using Minecraft launcher: ${launcherPath}`);
+    // Read the vanilla version JSON for the library list
+    const versionJsonPath = path.join(mcDir, 'versions', version, version + '.json');
+    if (!fs.existsSync(versionJsonPath)) {
+      return reject(new Error('VERSION_NOT_FOUND'));
+    }
+
+    let versionJson;
+    try {
+      versionJson = JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
+    } catch (e) {
+      return reject(new Error('Failed to parse version JSON: ' + e.message));
+    }
+
+    // Build classpath from version JSON libraries
+    const sep = process.platform === 'win32' ? ';' : ':';
+    const cpParts = [];
+
+    for (const lib of (versionJson.libraries || [])) {
+      // Check OS rules
+      if (lib.rules) {
+        let allowed = false;
+        for (const rule of lib.rules) {
+          if (rule.action === 'allow') {
+            if (!rule.os) allowed = true;
+            else if (rule.os.name === 'windows' && process.platform === 'win32') allowed = true;
+            else if (rule.os.name === 'osx' && process.platform === 'darwin') allowed = true;
+            else if (rule.os.name === 'linux' && process.platform === 'linux') allowed = true;
+          }
+          if (rule.action === 'disallow') {
+            if (rule.os?.name === 'windows' && process.platform === 'win32') allowed = false;
+            if (rule.os?.name === 'osx' && process.platform === 'darwin') allowed = false;
+            if (rule.os?.name === 'linux' && process.platform === 'linux') allowed = false;
+          }
+        }
+        if (!allowed) continue;
+      }
+
+      const artifact = lib.downloads?.artifact;
+      if (artifact?.path) {
+        const jarPath = path.join(libDir, artifact.path);
+        if (fs.existsSync(jarPath)) cpParts.push(jarPath);
+      }
+    }
+
+    // Add fabric libraries
+    for (const fp of fabricLibs) cpParts.push(fp);
+
+    // Add the client jar
+    const clientJar = path.join(mcDir, 'versions', version, version + '.jar');
+    if (fs.existsSync(clientJar)) cpParts.push(clientJar);
+    else return reject(new Error('VERSION_NOT_FOUND'));
+
+    const classpath = cpParts.join(sep);
+
+    // Determine asset index
+    const assetIndex = versionJson.assetIndex?.id || version;
+
+    // Build arguments
+    const ram = settings.allocatedRam || 2048;
+    const username = settings.username || 'Player';
+    const uuid = settings.uuid || crypto.randomUUID();
+
+    const args = [];
+    // JVM args
+    args.push(`-Xmx${ram}M`, '-Xms512M');
+    args.push('-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled');
+    args.push('-Djava.library.path=' + path.join(mcDir, 'versions', version, 'natives'));
+    if (extraJvmArgs.length > 0) args.push(...extraJvmArgs);
+    if (settings.jvmArgs) args.push(...settings.jvmArgs.split(/\s+/).filter(Boolean));
+    args.push('-cp', classpath);
+    args.push(mainClass);
+    // Game args
+    args.push('--username', username);
+    args.push('--version', versionId);
+    args.push('--gameDir', mcDir);
+    args.push('--assetsDir', assetsDir);
+    args.push('--assetIndex', assetIndex);
+    args.push('--uuid', uuid);
+    args.push('--accessToken', '0');
+    args.push('--userType', 'legacy');
+
+    log('info', `Launching MC directly: java ${version} (${cpParts.length} libs, main: ${mainClass})`);
 
     if (mainWindow) {
-      mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Starting Minecraft via official launcher...', level: 'info' });
-      mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Launcher: ' + launcherPath, level: 'info' });
-      mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Version: ' + installation.version, level: 'info' });
+      mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Launching ${version} (${cpParts.length} libraries)`, level: 'info' });
     }
 
     try {
-      // MS Store apps use shell:AppsFolder\ prefix — launch via explorer.exe
-      if (launcherPath.startsWith('shell:')) {
-        mcProcess = spawn('explorer.exe', [launcherPath], {
-          stdio: 'pipe',
-          detached: false,
-          windowsHide: false,
-          shell: true
-        });
-      } else {
-        mcProcess = spawn(launcherPath, [], {
-          stdio: 'pipe',
-          detached: false,
-          windowsHide: false
-        });
-      }
+      mcProcess = spawn(javaPath, args, {
+        cwd: mcDir,
+        stdio: 'pipe',
+        detached: false,
+        windowsHide: false
+      });
 
       mcProcess.stdout.on('data', (data) => {
         const text = data.toString().trim();
@@ -332,6 +432,9 @@ function launchMinecraft(installationId) {
           log('info', '[MC] ' + text);
           if (mainWindow) {
             mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'info' });
+          }
+          if (text.includes('Setting user:') || text.includes('LWJGL') || text.includes('OpenAL')) {
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started' });
           }
         }
       });
@@ -347,37 +450,29 @@ function launchMinecraft(installationId) {
       });
 
       mcProcess.on('error', (err) => {
-        log('error', 'MC launcher error: ' + err.message);
+        log('error', 'MC process error: ' + err.message);
         mcProcess = null;
-        if (mainWindow) {
-          mainWindow.webContents.send('mc-event', { type: 'mc-error', message: err.message });
-        }
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-error', message: err.message });
       });
 
       mcProcess.on('close', (code) => {
-        log('info', `MC launcher exited with code ${code}`);
+        log('info', `MC exited with code ${code}`);
         mcProcess = null;
-        if (mainWindow) {
-          mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code });
-        }
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code });
       });
 
-      // Signal started after short delay
+      // Signal started quickly
       setTimeout(() => {
-        if (mcProcess && mainWindow) {
-          mainWindow.webContents.send('mc-event', { type: 'mc-started' });
-        }
-      }, 2000);
+        if (mcProcess && mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started' });
+      }, 1500);
 
       if (settings.closeLauncherOnStart) {
-        setTimeout(() => {
-          if (mainWindow) mainWindow.hide();
-        }, 3000);
+        setTimeout(() => { if (mainWindow) mainWindow.hide(); }, 2000);
       }
 
       resolve({ success: true });
     } catch (e) {
-      log('error', 'Failed to spawn MC launcher: ' + e.message);
+      log('error', 'Failed to spawn MC: ' + e.message);
       reject(e);
     }
   });
@@ -913,6 +1008,71 @@ app.whenReady().then(() => {
 
   // Get cache dir
   ipcMain.handle('get-cache-dir', () => CACHE_DIR);
+
+  // Get real .minecraft directory
+  ipcMain.handle('get-mc-dir', () => getDefaultMcDir());
+
+  // Download libraries into real .minecraft/libraries from version JSON URL
+  ipcMain.handle('download-mc-libraries', async (_, versionJsonUrl) => {
+    const mcDir = getDefaultMcDir();
+    const libDir = path.join(mcDir, 'libraries');
+
+    try {
+      const jsonData = await new Promise((resolve, reject) => {
+        const proto = versionJsonUrl.startsWith('https') ? https : http;
+        proto.get(versionJsonUrl, { headers: { 'User-Agent': 'IceyClient/1.0.0' } }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+          res.on('error', reject);
+        }).on('error', reject);
+      });
+
+      if (!jsonData.libraries) return { error: 'No libraries in version JSON' };
+
+      const total = jsonData.libraries.length;
+      let completed = 0;
+
+      for (const lib of jsonData.libraries) {
+        if (lib.rules) {
+          let allowed = false;
+          for (const rule of lib.rules) {
+            if (rule.action === 'allow') {
+              if (!rule.os) allowed = true;
+              else if (rule.os.name === 'windows' && process.platform === 'win32') allowed = true;
+              else if (rule.os.name === 'osx' && process.platform === 'darwin') allowed = true;
+              else if (rule.os.name === 'linux' && process.platform === 'linux') allowed = true;
+            }
+            if (rule.action === 'disallow') {
+              if (rule.os?.name === 'windows' && process.platform === 'win32') allowed = false;
+              if (rule.os?.name === 'osx' && process.platform === 'darwin') allowed = false;
+              if (rule.os?.name === 'linux' && process.platform === 'linux') allowed = false;
+            }
+          }
+          if (!allowed) { completed++; continue; }
+        }
+
+        const artifact = lib.downloads?.artifact;
+        if (artifact?.url && artifact?.path) {
+          const destPath = path.join(libDir, artifact.path);
+          if (!fs.existsSync(destPath)) {
+            try { await downloadFile(artifact.url, destPath); } catch (e) {
+              log('warn', 'Lib download failed: ' + (lib.name || '') + ' - ' + e.message);
+            }
+          }
+        }
+
+        completed++;
+        if (mainWindow) {
+          mainWindow.webContents.send('mc-event', { type: 'lib-progress', completed, total });
+        }
+      }
+
+      return { success: true, total, completed };
+    } catch (e) {
+      return { error: e.message };
+    }
+  });
 });
 
 app.on('window-all-closed', () => {

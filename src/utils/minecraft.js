@@ -42,20 +42,7 @@ const MinecraftLauncher = {
 
     if (result.error) {
       this._setState('idle');
-      if (result.error === 'LAUNCHER_NOT_FOUND') {
-        showModal(`
-          <div class="modal-header">
-            <h2 class="modal-title">Minecraft Launcher Not Found</h2>
-            <button class="modal-close" onclick="closeModal()">
-              <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
-            </button>
-          </div>
-          <div class="modal-body">The official Minecraft Launcher was not found on your system. Please install it from minecraft.net or set the path in Settings.</div>
-          <div class="modal-footer">
-            <button class="modal-btn modal-btn-primary" onclick="window.icey.openExternal('https://www.minecraft.net/download'); closeModal();">Download Minecraft</button>
-          </div>
-        `);
-      } else if (result.error === 'JAVA_NOT_FOUND') {
+      if (result.error === 'JAVA_NOT_FOUND') {
         showModal(`
           <div class="modal-header">
             <h2 class="modal-title">Java Required</h2>
@@ -76,7 +63,7 @@ const MinecraftLauncher = {
               <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
             </button>
           </div>
-          <div class="modal-body">The version files for this installation are missing. Try recreating the installation.</div>
+          <div class="modal-body">Version ${this._currentVersion || ''} was not found in your .minecraft folder. Launch this version once from the official Minecraft launcher first, then try again.</div>
           <div class="modal-footer">
             <button class="modal-btn modal-btn-primary" onclick="switchPage('installations'); closeModal();">Go to Installations</button>
           </div>

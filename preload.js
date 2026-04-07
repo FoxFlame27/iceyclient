@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('icey', {
 
   // Libraries
   downloadLibraries: (installationId, versionJsonUrl) => ipcRenderer.invoke('download-libraries', installationId, versionJsonUrl),
+  downloadMcLibraries: (versionJsonUrl) => ipcRenderer.invoke('download-mc-libraries', versionJsonUrl),
+  getMcDir: () => ipcRenderer.invoke('get-mc-dir'),
 
   // Fabric
   installFabric: (installationId, mcVersion) => ipcRenderer.invoke('install-fabric', installationId, mcVersion),

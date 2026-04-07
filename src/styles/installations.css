@@ -137,6 +137,18 @@
   width: fit-content;
 }
 
+.install-card-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 500;
+  width: fit-content;
+}
+
 .install-card-platform {
   display: flex;
   align-items: center;

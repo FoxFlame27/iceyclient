@@ -56,6 +56,7 @@ function _renderInstallationCards(installations) {
         <div class="install-card-info">
           <div class="install-card-name" title="${inst.name}">${inst.name}</div>
           <span class="install-card-version">${inst.version}</span>
+          ${inst.fromMcLauncher ? '<span class="install-card-badge">MC Launcher</span>' : ''}
           <div class="install-card-platform">
             ${inst.platform === 'fabric' ? `
               <div class="fabric-toggle ${isFabricActive ? 'active' : ''}" onclick="event.stopPropagation(); _toggleFabric('${inst.id}')" title="Toggle Fabric">
@@ -261,51 +262,54 @@ async function _submitCreateInstallation() {
   progressText.textContent = 'Fetching version info...';
   progressBar.style.width = '5%';
 
-  const id = 'inst-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-  const installationsDir = await PathUtils.getInstallationsDir();
+  // Use the real .minecraft directory
+  const mcDir = await window.icey.getMcDir();
 
   try {
     // Fetch version detail
     const versionDetail = await VersionManager.getVersionDetail(versionUrl);
     progressBar.style.width = '10%';
 
-    // Download version jar
+    // Download version jar into .minecraft/versions/<version>/
     const clientDownload = versionDetail.downloads?.client;
     if (!clientDownload) throw new Error('No client download found for this version');
 
     progressText.textContent = 'Downloading Minecraft ' + version + '...';
 
-    const cleanup = window.icey.onDownloadProgress((data) => {
-      const progress = 10 + (data.percent * 0.3); // 10-40%
-      progressBar.style.width = progress + '%';
-    });
-
-    const versionDir = installationsDir + '/' + id + '/.minecraft/versions/' + version;
+    const versionDir = mcDir + '/versions/' + version;
     const jarPath = versionDir + '/' + version + '.jar';
-    const result = await window.icey.downloadFile(clientDownload.url, jarPath);
-    cleanup();
+    const jsonPath = versionDir + '/' + version + '.json';
 
-    if (result.error) throw new Error(result.error);
-    progressBar.style.width = '40%';
+    // Skip download if already exists (from MC launcher)
+    if (!(await window.icey.downloadFile(clientDownload.url, jarPath)).error) {
+      progressBar.style.width = '35%';
+    }
 
     // Save version JSON
-    const jsonPath = versionDir + '/' + version + '.json';
     await window.icey.downloadFile(versionUrl, jsonPath);
-    progressBar.style.width = '45%';
+    progressBar.style.width = '40%';
 
-    // Download libraries
+    // Download libraries into .minecraft/libraries/
     progressText.textContent = 'Downloading libraries...';
     const libEventCleanup = window.icey.onMcEvent((data) => {
       if (data.type === 'lib-progress' && progressText) {
-        const libProgress = 45 + ((data.completed / data.total) * 25); // 45-70%
+        const libProgress = 40 + ((data.completed / data.total) * 30); // 40-70%
         progressBar.style.width = libProgress + '%';
         progressText.textContent = `Downloading libraries (${data.completed}/${data.total})...`;
       }
     });
 
-    // Save installation first so the handler can find it
+    const libResult = await window.icey.downloadMcLibraries(versionUrl);
+    libEventCleanup();
+
+    if (libResult.error) {
+      console.warn('Library download had issues:', libResult.error);
+    }
+    progressBar.style.width = '70%';
+
+    // Save as Icey installation (using version as ID so it matches .minecraft/versions/)
     const installation = {
-      id: id,
+      id: version,
       name: name,
       version: version,
       platform: _createPlatform,
@@ -315,14 +319,6 @@ async function _submitCreateInstallation() {
       createdAt: Date.now()
     };
     await window.icey.saveInstallation(installation);
-
-    const libResult = await window.icey.downloadLibraries(id, versionUrl);
-    libEventCleanup();
-
-    if (libResult.error) {
-      console.warn('Library download had issues:', libResult.error);
-    }
-    progressBar.style.width = '70%';
 
     // Fabric installation
     if (_createPlatform === 'fabric') {
@@ -335,25 +331,10 @@ async function _submitCreateInstallation() {
         }
       });
 
-      const fabricResult = await window.icey.installFabric(id, version);
+      const fabricResult = await window.icey.installFabric(version, version);
       fabricEventCleanup();
 
       if (fabricResult.error) {
-        if (fabricResult.error.includes('Java')) {
-          showModal(`
-            <div class="modal-header">
-              <h2 class="modal-title">Java Not Found</h2>
-              <button class="modal-close" onclick="closeModal()">
-                <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
-              </button>
-            </div>
-            <div class="modal-body">Java not found. Fabric requires Java to install.</div>
-            <div class="modal-footer">
-              <button class="modal-btn modal-btn-primary" onclick="window.icey.openExternal('https://adoptium.net'); closeModal();">Download Java</button>
-            </div>
-          `);
-          return;
-        }
         Toast.error(fabricResult.error);
         installation.platform = 'vanilla';
         await window.icey.saveInstallation(installation);
