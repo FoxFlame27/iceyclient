@@ -97,7 +97,7 @@ async function HomePageInit() {
               ${modCount > 0 ? `
                 ${modsToShow.map(m => `
                   <div class="home-mod-item">
-                    <svg class="home-mod-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <svg class="home-mod-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
                       <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
                     </svg>
                     <span class="home-mod-name">${m.name}</span>
@@ -113,7 +113,7 @@ async function HomePageInit() {
           </div>
         ` : `
           <div class="home-no-install">
-            <svg class="home-no-install-icon" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5">
+            <svg class="home-no-install-icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5">
               <rect x="3" y="3" width="18" height="5" rx="1.5"/><rect x="3" y="10" width="18" height="5" rx="1.5"/><rect x="3" y="17" width="18" height="5" rx="1.5"/>
             </svg>
             <div class="home-no-install-text">No installation selected</div>

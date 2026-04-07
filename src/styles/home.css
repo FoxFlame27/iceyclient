@@ -440,8 +440,7 @@
 
 /* ─── Right sidebar ─── */
 .home-right-box {
-  width: 45%;
-  min-width: 380px;
+  width: 280px;
   flex-shrink: 0;
   border-radius: 22px;
   border: 1px solid rgba(91,200,245,0.15);
@@ -460,8 +459,8 @@
 }
 
 .home-right-header {
-  padding: 28px 32px 16px;
-  font-size: 14px;
+  padding: 16px 18px 10px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--accent);
   text-transform: uppercase;
@@ -469,31 +468,34 @@
 }
 
 .home-install-details {
-  padding: 0 32px 24px;
+  padding: 0 18px 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .home-install-name {
-  font-size: 28px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .home-install-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 8px 12px;
   background: rgba(255,255,255,0.03);
-  border-radius: 14px;
+  border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.05);
 }
 
 .home-install-label {
-  font-size: 14px;
+  font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -501,7 +503,7 @@
 }
 
 .home-install-value {
-  font-size: 18px;
+  font-size: 13px;
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -510,49 +512,49 @@
   color: var(--accent);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
 }
 
 .home-install-value.fabric img {
-  width: 24px;
-  height: 24px;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
 }
 
 /* Separator line */
 .home-right-separator {
-  margin: 6px 32px;
+  margin: 4px 18px;
   height: 1px;
   background: linear-gradient(to right, transparent, var(--border), transparent);
 }
 
 /* Mods section */
 .home-mods-section {
-  padding: 20px 32px 28px;
+  padding: 12px 18px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
 
 .home-mods-header {
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .home-mod-item {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
+  gap: 10px;
+  padding: 8px 10px;
   background: rgba(255,255,255,0.025);
-  border-radius: 14px;
+  border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.05);
   transition: all 0.2s ease;
 }
@@ -565,12 +567,12 @@
 .home-mod-icon {
   color: var(--accent);
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 16px;
+  height: 16px;
 }
 
 .home-mod-name {
-  font-size: 16px;
+  font-size: 12px;
   color: var(--text-primary);
   flex: 1;
   overflow: hidden;
@@ -580,11 +582,11 @@
 }
 
 .home-mods-more {
-  font-size: 14px;
+  font-size: 11px;
   color: var(--accent);
   cursor: pointer;
-  padding: 12px 18px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
   text-align: center;
   font-weight: 500;
   transition: background 0.2s ease;
@@ -613,22 +615,22 @@
 .home-no-install-icon {
   color: var(--text-muted);
   opacity: 0.3;
-  width: 64px;
-  height: 64px;
+  width: 40px;
+  height: 40px;
 }
 
 .home-no-install-text {
-  font-size: 18px;
+  font-size: 13px;
   color: var(--text-muted);
   font-weight: 500;
 }
 
 .home-no-install-btn {
-  padding: 16px 36px;
-  border-radius: 14px;
+  padding: 10px 22px;
+  border-radius: 10px;
   background: linear-gradient(135deg, rgba(91,200,245,0.15), rgba(56,189,248,0.08));
   color: var(--accent);
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   border: 1px solid rgba(91,200,245,0.25);
   cursor: pointer;
@@ -643,9 +645,9 @@
 }
 
 .home-no-mods {
-  font-size: 16px;
+  font-size: 12px;
   color: var(--text-muted);
   text-align: center;
-  padding: 28px 20px;
+  padding: 16px 12px;
   font-style: italic;
 }

@@ -223,26 +223,47 @@ function autoDetectJava() {
 function findMinecraftLauncher() {
   if (process.platform === 'win32') {
     const candidates = [
+      // Standard installer locations
       path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
       path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
       path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
+      // Old launcher
       path.join(process.env.APPDATA || '', '.minecraft', 'launcher', 'MinecraftLauncher.exe'),
+      // XboxPCApp / MS Store new launcher
+      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'WindowsApps', 'Microsoft.4297127D64EC6_*', 'Minecraft.exe'),
     ];
-    // Also try Microsoft Store version
-    const msStorePath = path.join(process.env.LOCALAPPDATA || '', 'Packages');
-    if (fs.existsSync(msStorePath)) {
-      try {
-        const dirs = fs.readdirSync(msStorePath).filter(d => d.includes('Microsoft.4297127D64EC6'));
-        for (const d of dirs) {
-          const exe = path.join(msStorePath, d, 'LocalCache', 'Local', 'runtime', 'Minecraft.exe');
-          if (fs.existsSync(exe)) return exe;
-        }
-      } catch (_) { /* */ }
-    }
+
     for (const p of candidates) {
-      if (fs.existsSync(p)) return p;
+      // Handle glob-style wildcards for WindowsApps
+      if (p.includes('*')) {
+        const dir = path.dirname(p);
+        const parentDir = path.dirname(dir);
+        const pattern = path.basename(dir);
+        if (fs.existsSync(parentDir)) {
+          try {
+            const matches = fs.readdirSync(parentDir).filter(d => d.startsWith(pattern.replace('*', '')));
+            for (const m of matches) {
+              const exe = path.join(parentDir, m, path.basename(p));
+              if (fs.existsSync(exe)) return exe;
+            }
+          } catch (_) { /* */ }
+        }
+      } else if (fs.existsSync(p)) {
+        return p;
+      }
     }
-    // Try PATH
+
+    // Try Microsoft Store via shell:AppsFolder
+    try {
+      // This launches the MC launcher via its AppUserModelId
+      const result = execSync('powershell -Command "Get-StartApps | Where-Object {$_.Name -like \'*Minecraft*\'} | Select-Object -First 1 -ExpandProperty AppID"', { encoding: 'utf-8', timeout: 8000 }).trim();
+      if (result) {
+        log('info', 'Found MS Store Minecraft AppID: ' + result);
+        return 'shell:AppsFolder\\' + result;
+      }
+    } catch (_) { /* */ }
+
+    // Try where command
     try {
       const result = execSync('where MinecraftLauncher.exe', { encoding: 'utf-8', timeout: 5000 }).trim().split('\n')[0].trim();
       if (result && fs.existsSync(result)) return result;
@@ -251,7 +272,6 @@ function findMinecraftLauncher() {
     const macPath = '/Applications/Minecraft.app/Contents/MacOS/launcher';
     if (fs.existsSync(macPath)) return macPath;
   } else {
-    // Linux
     try {
       const result = execSync('which minecraft-launcher', { encoding: 'utf-8', timeout: 5000 }).trim();
       if (result && fs.existsSync(result)) return result;
@@ -290,11 +310,21 @@ function launchMinecraft(installationId) {
     }
 
     try {
-      mcProcess = spawn(launcherPath, [], {
-        stdio: 'pipe',
-        detached: false,
-        windowsHide: false
-      });
+      // MS Store apps use shell:AppsFolder\ prefix — launch via explorer.exe
+      if (launcherPath.startsWith('shell:')) {
+        mcProcess = spawn('explorer.exe', [launcherPath], {
+          stdio: 'pipe',
+          detached: false,
+          windowsHide: false,
+          shell: true
+        });
+      } else {
+        mcProcess = spawn(launcherPath, [], {
+          stdio: 'pipe',
+          detached: false,
+          windowsHide: false
+        });
+      }
 
       mcProcess.stdout.on('data', (data) => {
         const text = data.toString().trim();
