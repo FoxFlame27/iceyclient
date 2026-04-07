@@ -5,8 +5,6 @@ async function InstallationsPageInit() {
   const installations = await window.icey.getInstallations();
 
   page.innerHTML = `
-    <div class="installations-bg" style="background-image: url('assets/sidebar-bg.png');"></div>
-    <div class="installations-bg-overlay"></div>
     <div class="installations-inner">
       <div class="installations-header">
         <h1 class="installations-title">Installations</h1>

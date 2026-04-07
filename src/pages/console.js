@@ -55,6 +55,7 @@ function _renderConsoleWithOutput(page) {
       <div class="console-header">
         <div class="console-title">Console</div>
         <div class="console-actions">
+          <button class="console-btn" onclick="_copyConsole()">Copy All</button>
           <button class="console-btn" onclick="_clearConsole()">Clear</button>
         </div>
       </div>
@@ -77,6 +78,15 @@ function _appendConsoleLine(text, level) {
   line.textContent = text;
   output.appendChild(line);
   output.scrollTop = output.scrollHeight;
+}
+
+function _copyConsole() {
+  const text = _consoleLines.map(l => l.text).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    Toast.success('Console output copied');
+  }).catch(() => {
+    Toast.error('Failed to copy');
+  });
 }
 
 function _clearConsole() {

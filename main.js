@@ -219,6 +219,51 @@ function autoDetectJava() {
   return '';
 }
 
+// ── Find official Minecraft launcher ──────────────────
+function findMinecraftLauncher() {
+  if (process.platform === 'win32') {
+    const candidates = [
+      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
+      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
+      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
+      path.join(process.env.APPDATA || '', '.minecraft', 'launcher', 'MinecraftLauncher.exe'),
+    ];
+    // Also try Microsoft Store version
+    const msStorePath = path.join(process.env.LOCALAPPDATA || '', 'Packages');
+    if (fs.existsSync(msStorePath)) {
+      try {
+        const dirs = fs.readdirSync(msStorePath).filter(d => d.includes('Microsoft.4297127D64EC6'));
+        for (const d of dirs) {
+          const exe = path.join(msStorePath, d, 'LocalCache', 'Local', 'runtime', 'Minecraft.exe');
+          if (fs.existsSync(exe)) return exe;
+        }
+      } catch (_) { /* */ }
+    }
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return p;
+    }
+    // Try PATH
+    try {
+      const result = execSync('where MinecraftLauncher.exe', { encoding: 'utf-8', timeout: 5000 }).trim().split('\n')[0].trim();
+      if (result && fs.existsSync(result)) return result;
+    } catch (_) { /* */ }
+  } else if (process.platform === 'darwin') {
+    const macPath = '/Applications/Minecraft.app/Contents/MacOS/launcher';
+    if (fs.existsSync(macPath)) return macPath;
+  } else {
+    // Linux
+    try {
+      const result = execSync('which minecraft-launcher', { encoding: 'utf-8', timeout: 5000 }).trim();
+      if (result && fs.existsSync(result)) return result;
+    } catch (_) { /* */ }
+    const linuxPaths = ['/usr/bin/minecraft-launcher', '/opt/minecraft-launcher/minecraft-launcher'];
+    for (const p of linuxPaths) {
+      if (fs.existsSync(p)) return p;
+    }
+  }
+  return null;
+}
+
 // ── Minecraft launch ───────────────────────────────────
 function launchMinecraft(installationId) {
   return new Promise(async (resolve, reject) => {
@@ -229,124 +274,50 @@ function launchMinecraft(installationId) {
     }
 
     const settings = readSettings();
-    let javaPath = settings.javaPath || autoDetectJava();
-    if (!javaPath) {
-      return reject(new Error('JAVA_NOT_FOUND'));
+
+    // Find the official Minecraft launcher
+    const launcherPath = settings.minecraftLauncherPath || findMinecraftLauncher();
+    if (!launcherPath) {
+      return reject(new Error('LAUNCHER_NOT_FOUND'));
     }
 
-    const installDir = path.join(INSTALLATIONS_DIR, installation.id, '.minecraft');
-    const versionDir = path.join(installDir, 'versions', installation.version);
-    const versionJar = path.join(versionDir, `${installation.version}.jar`);
+    log('info', `Using Minecraft launcher: ${launcherPath}`);
 
-    if (!fs.existsSync(versionJar)) {
-      return reject(new Error('VERSION_NOT_FOUND'));
+    if (mainWindow) {
+      mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Starting Minecraft via official launcher...', level: 'info' });
+      mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Launcher: ' + launcherPath, level: 'info' });
+      mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Version: ' + installation.version, level: 'info' });
     }
-
-    // Build classpath
-    let classpath = versionJar;
-    const libDir = path.join(installDir, 'libraries');
-    if (fs.existsSync(libDir)) {
-      const walkJars = (dir) => {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const full = path.join(dir, entry.name);
-          if (entry.isDirectory()) walkJars(full);
-          else if (entry.name.endsWith('.jar')) classpath += (process.platform === 'win32' ? ';' : ':') + full;
-        }
-      };
-      walkJars(libDir);
-    }
-
-    // Check for fabric
-    let mainClass = 'net.minecraft.client.main.Main';
-    if (installation.platform === 'fabric') {
-      const fabricVersionDir = path.join(installDir, 'versions');
-      if (fs.existsSync(fabricVersionDir)) {
-        const fabricDirs = fs.readdirSync(fabricVersionDir).filter(d => d.startsWith('fabric-loader'));
-        if (fabricDirs.length > 0) {
-          const fabricJsonPath = path.join(fabricVersionDir, fabricDirs[0], `${fabricDirs[0]}.json`);
-          if (fs.existsSync(fabricJsonPath)) {
-            try {
-              const fabricJson = JSON.parse(fs.readFileSync(fabricJsonPath, 'utf-8'));
-              if (fabricJson.mainClass) mainClass = fabricJson.mainClass;
-              if (fabricJson.libraries) {
-                for (const lib of fabricJson.libraries) {
-                  if (lib.name) {
-                    const parts = lib.name.split(':');
-                    if (parts.length >= 3) {
-                      const groupPath = parts[0].replace(/\./g, path.sep);
-                      const artifactId = parts[1];
-                      const version = parts[2];
-                      const jarName = `${artifactId}-${version}.jar`;
-                      const jarPath = path.join(libDir, groupPath, artifactId, version, jarName);
-                      if (fs.existsSync(jarPath)) {
-                        classpath += (process.platform === 'win32' ? ';' : ':') + jarPath;
-                      }
-                    }
-                  }
-                }
-              }
-            } catch (e) {
-              log('error', 'Failed to parse fabric json: ' + e.message);
-            }
-          }
-        }
-      }
-    }
-
-    const ram = settings.allocatedRam || 2048;
-    const username = settings.username || 'Player';
-    const uuid = settings.uuid || crypto.randomUUID();
-
-    const args = [];
-    if (settings.jvmArgs) {
-      args.push(...settings.jvmArgs.split(/\s+/).filter(Boolean));
-    }
-    args.push(`-Xmx${ram}M`, '-Xms512M');
-    args.push('-cp', classpath);
-    args.push(mainClass);
-    args.push('--username', username);
-    args.push('--version', installation.version);
-    args.push('--gameDir', installDir);
-    args.push('--assetsDir', path.join(installDir, 'assets'));
-    args.push('--assetIndex', installation.version);
-    args.push('--uuid', uuid);
-    args.push('--accessToken', '0');
-    args.push('--userType', 'legacy');
-
-    log('info', `Launching MC: ${javaPath} ${args.join(' ')}`);
 
     try {
-      mcProcess = spawn(javaPath, args, {
-        cwd: installDir,
+      mcProcess = spawn(launcherPath, [], {
         stdio: 'pipe',
         detached: false,
-        windowsHide: true
+        windowsHide: false
       });
 
       mcProcess.stdout.on('data', (data) => {
-        const text = data.toString();
-        log('info', '[MC] ' + text.trim());
-        if (mainWindow) {
-          mainWindow.webContents.send('mc-event', { type: 'console-log', message: text.trim(), level: 'info' });
-        }
-        if (text.includes('Setting user:') || text.includes('LWJGL') || text.includes('Minecraft')) {
+        const text = data.toString().trim();
+        if (text) {
+          log('info', '[MC] ' + text);
           if (mainWindow) {
-            mainWindow.webContents.send('mc-event', { type: 'mc-started' });
+            mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'info' });
           }
         }
       });
 
       mcProcess.stderr.on('data', (data) => {
         const text = data.toString().trim();
-        log('error', '[MC-ERR] ' + text);
-        if (mainWindow) {
-          mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'error' });
+        if (text) {
+          log('error', '[MC-ERR] ' + text);
+          if (mainWindow) {
+            mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'error' });
+          }
         }
       });
 
       mcProcess.on('error', (err) => {
-        log('error', 'MC process error: ' + err.message);
+        log('error', 'MC launcher error: ' + err.message);
         mcProcess = null;
         if (mainWindow) {
           mainWindow.webContents.send('mc-event', { type: 'mc-error', message: err.message });
@@ -354,29 +325,29 @@ function launchMinecraft(installationId) {
       });
 
       mcProcess.on('close', (code) => {
-        log('info', `MC process exited with code ${code}`);
+        log('info', `MC launcher exited with code ${code}`);
         mcProcess = null;
         if (mainWindow) {
           mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code });
         }
       });
 
-      // Consider it started after a short delay if no stdout signal
+      // Signal started after short delay
       setTimeout(() => {
         if (mcProcess && mainWindow) {
           mainWindow.webContents.send('mc-event', { type: 'mc-started' });
         }
-      }, 3000);
+      }, 2000);
 
       if (settings.closeLauncherOnStart) {
         setTimeout(() => {
           if (mainWindow) mainWindow.hide();
-        }, 2000);
+        }, 3000);
       }
 
       resolve({ success: true });
     } catch (e) {
-      log('error', 'Failed to spawn MC: ' + e.message);
+      log('error', 'Failed to spawn MC launcher: ' + e.message);
       reject(e);
     }
   });
@@ -630,65 +601,166 @@ app.whenReady().then(() => {
   // Get installations directory
   ipcMain.handle('get-installations-dir', () => INSTALLATIONS_DIR);
 
-  // Install Fabric
+  // Install Fabric (via Fabric Meta API — no Java required)
   ipcMain.handle('install-fabric', async (_, installationId, mcVersion) => {
     const installations = readInstallations();
     const installation = installations.find(i => i.id === installationId);
     if (!installation) return { error: 'Installation not found' };
 
-    const javaPath = readSettings().javaPath || autoDetectJava();
-    if (!javaPath) return { error: 'JAVA_NOT_FOUND' };
-
-    const fabricJar = path.join(CACHE_DIR, 'fabric-installer.jar');
-
-    // Download fabric installer if not cached
-    if (!fs.existsSync(fabricJar)) {
-      try {
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'fabric-progress', message: 'Downloading Fabric installer...' });
-        await downloadFile('https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar', fabricJar);
-      } catch (e) {
-        return { error: 'Failed to download Fabric installer: ' + e.message };
-      }
+    // Find the default .minecraft directory (where the official launcher looks)
+    let mcDir;
+    if (process.platform === 'win32') {
+      mcDir = path.join(process.env.APPDATA || '', '.minecraft');
+    } else if (process.platform === 'darwin') {
+      mcDir = path.join(os.homedir(), 'Library', 'Application Support', 'minecraft');
+    } else {
+      mcDir = path.join(os.homedir(), '.minecraft');
     }
 
-    // Run fabric installer
-    const installDir = path.join(INSTALLATIONS_DIR, installationId, '.minecraft');
-    fs.mkdirSync(installDir, { recursive: true });
+    try {
+      // Step 1: Get latest stable Fabric loader version
+      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'fabric-progress', message: 'Fetching Fabric loader versions...' });
 
-    return new Promise((resolve) => {
-      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'fabric-progress', message: 'Installing Fabric...' });
-
-      const proc = spawn(javaPath, [
-        '-jar', fabricJar,
-        'client',
-        '-dir', installDir,
-        '-mcversion', mcVersion,
-        '-noprofile'
-      ], {
-        cwd: installDir,
-        stdio: 'pipe',
-        windowsHide: true
+      const loaderVersions = await new Promise((resolve, reject) => {
+        https.get(`https://meta.fabricmc.net/v2/versions/loader/${mcVersion}`, { headers: { 'User-Agent': 'IceyClient/1.0.0' } }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+          res.on('error', reject);
+        }).on('error', reject);
       });
 
-      let output = '';
-      proc.stdout.on('data', (d) => { output += d.toString(); });
-      proc.stderr.on('data', (d) => { output += d.toString(); });
+      if (!loaderVersions || loaderVersions.length === 0) {
+        return { error: 'No Fabric loader available for ' + mcVersion };
+      }
 
-      proc.on('error', (err) => {
-        log('error', 'Fabric installer error: ' + err.message);
-        resolve({ error: 'Java not found. Fabric requires Java to install.' });
+      // Pick the first (latest) loader version
+      const loaderVersion = loaderVersions[0].loader.version;
+      log('info', `Installing Fabric: MC ${mcVersion} + Loader ${loaderVersion}`);
+
+      // Step 2: Get the profile JSON
+      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'fabric-progress', message: 'Downloading Fabric profile...' });
+
+      const profileJson = await new Promise((resolve, reject) => {
+        https.get(`https://meta.fabricmc.net/v2/versions/loader/${mcVersion}/${loaderVersion}/profile/json`, { headers: { 'User-Agent': 'IceyClient/1.0.0' } }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+          res.on('error', reject);
+        }).on('error', reject);
       });
 
-      proc.on('close', (code) => {
-        if (code === 0) {
-          log('info', 'Fabric installed successfully for ' + mcVersion);
-          resolve({ success: true });
-        } else {
-          log('error', 'Fabric installer failed: ' + output);
-          resolve({ error: 'Fabric installation failed. Exit code: ' + code });
+      const versionId = profileJson.id; // e.g. "fabric-loader-0.16.14-1.21.4"
+
+      // Step 3: Save the version JSON to .minecraft/versions/<id>/<id>.json
+      const versionDir = path.join(mcDir, 'versions', versionId);
+      fs.mkdirSync(versionDir, { recursive: true });
+      const jsonPath = path.join(versionDir, versionId + '.json');
+      fs.writeFileSync(jsonPath, JSON.stringify(profileJson, null, 2), 'utf-8');
+      log('info', 'Saved Fabric profile JSON to ' + jsonPath);
+
+      // Step 4: Download all Fabric libraries
+      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'fabric-progress', message: 'Downloading Fabric libraries...' });
+
+      const libDir = path.join(mcDir, 'libraries');
+      const libs = profileJson.libraries || [];
+      let downloaded = 0;
+
+      for (const lib of libs) {
+        if (lib.name) {
+          // Parse maven coordinate: group:artifact:version
+          const parts = lib.name.split(':');
+          if (parts.length >= 3) {
+            const groupPath = parts[0].replace(/\./g, '/');
+            const artifactId = parts[1];
+            const version = parts[2];
+            const jarName = `${artifactId}-${version}.jar`;
+            const mavenPath = `${groupPath}/${artifactId}/${version}/${jarName}`;
+            const destPath = path.join(libDir, mavenPath.replace(/\//g, path.sep));
+
+            if (!fs.existsSync(destPath)) {
+              // Determine download URL
+              let url;
+              if (lib.url) {
+                url = lib.url + mavenPath;
+              } else {
+                url = 'https://maven.fabricmc.net/' + mavenPath;
+              }
+
+              try {
+                await downloadFile(url, destPath);
+                downloaded++;
+              } catch (e) {
+                // Try alternative maven repos
+                const altUrls = [
+                  'https://maven.fabricmc.net/' + mavenPath,
+                  'https://libraries.minecraft.net/' + mavenPath,
+                  'https://repo.maven.apache.org/maven2/' + mavenPath,
+                ];
+                let success = false;
+                for (const altUrl of altUrls) {
+                  if (altUrl === url) continue;
+                  try {
+                    await downloadFile(altUrl, destPath);
+                    downloaded++;
+                    success = true;
+                    break;
+                  } catch (_) { /* try next */ }
+                }
+                if (!success) {
+                  log('warn', 'Failed to download Fabric lib: ' + lib.name);
+                }
+              }
+            } else {
+              downloaded++;
+            }
+          }
         }
-      });
-    });
+
+        if (mainWindow) {
+          mainWindow.webContents.send('mc-event', {
+            type: 'fabric-progress',
+            message: `Downloading Fabric libraries (${downloaded}/${libs.length})...`
+          });
+        }
+      }
+
+      // Step 5: Add Fabric profile to launcher_profiles.json
+      const profilesPath = path.join(mcDir, 'launcher_profiles.json');
+      try {
+        let profiles = {};
+        if (fs.existsSync(profilesPath)) {
+          profiles = JSON.parse(fs.readFileSync(profilesPath, 'utf-8'));
+        }
+        if (!profiles.profiles) profiles.profiles = {};
+
+        const profileKey = 'icey-fabric-' + mcVersion;
+        profiles.profiles[profileKey] = {
+          name: installation.name || ('Fabric ' + mcVersion),
+          type: 'custom',
+          lastVersionId: versionId,
+          icon: 'Furnace',
+          created: new Date().toISOString(),
+          lastUsed: new Date().toISOString(),
+        };
+
+        fs.writeFileSync(profilesPath, JSON.stringify(profiles, null, 2), 'utf-8');
+        log('info', 'Added Fabric profile to launcher_profiles.json');
+      } catch (e) {
+        log('warn', 'Could not update launcher_profiles.json: ' + e.message);
+      }
+
+      // Also save into our own installation directory for reference
+      const ownInstallDir = path.join(INSTALLATIONS_DIR, installationId, '.minecraft', 'versions', versionId);
+      fs.mkdirSync(ownInstallDir, { recursive: true });
+      fs.writeFileSync(path.join(ownInstallDir, versionId + '.json'), JSON.stringify(profileJson, null, 2), 'utf-8');
+
+      log('info', `Fabric installed: ${versionId} (${downloaded} libraries)`);
+      return { success: true, versionId };
+    } catch (e) {
+      log('error', 'Fabric install error: ' + e.message);
+      return { error: 'Fabric installation failed: ' + e.message };
+    }
   });
 
   // Download vanilla libraries from version JSON

@@ -75,8 +75,6 @@ async function HomePageInit() {
 
       <!-- Right sidebar -->
       <div class="home-right-box">
-        <div class="home-right-bg" style="background-image: url('assets/sidebar-bg.png');"></div>
-        <div class="home-right-bg-overlay"></div>
         ${selected ? `
           <div class="home-right-inner">
             <div class="home-right-header">Selected Installation</div>

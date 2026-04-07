@@ -4,31 +4,7 @@
   overflow: hidden;
 }
 
-/* Background image (same as home sidebar) */
-.installations-bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: 0;
-}
-
-.installations-bg-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(8,12,24,0.88) 0%,
-    rgba(8,12,24,0.92) 50%,
-    rgba(8,12,24,0.95) 100%
-  );
-  z-index: 1;
-}
-
 .installations-inner {
-  position: relative;
-  z-index: 2;
   padding: 24px;
   height: 100%;
   overflow-y: auto;

@@ -85,7 +85,7 @@ html, body {
   right: 0;
   bottom: 0;
   overflow: hidden;
-  background: url('assets/background.png') center/cover no-repeat fixed;
+  background: url('../assets/background.png') center/cover no-repeat fixed;
 }
 
 #page-container::after {
