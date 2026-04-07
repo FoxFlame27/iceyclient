@@ -42,6 +42,24 @@
   transition: color 0.2s ease;
 }
 
+.nav-icon-img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  opacity: 0.5;
+  filter: invert(1);
+  transition: opacity 0.2s ease;
+}
+
+.nav-tab:hover .nav-icon-img {
+  opacity: 0.7;
+}
+
+.nav-tab.active .nav-icon-img {
+  opacity: 1;
+  filter: invert(1) sepia(1) saturate(5) hue-rotate(175deg) brightness(1.2);
+}
+
 .nav-tab:hover .nav-icon {
   color: var(--text-secondary);
 }

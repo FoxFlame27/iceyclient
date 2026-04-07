@@ -82,11 +82,22 @@ html, body {
   right: 0;
   bottom: 0;
   overflow: hidden;
+  background: url('assets/background.png') center/cover no-repeat;
+}
+
+#page-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(8,12,24,0.55);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .page {
   position: absolute;
   inset: 0;
+  z-index: 1;
   overflow-y: auto;
   overflow-x: hidden;
   opacity: 0;
