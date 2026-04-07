@@ -7,16 +7,25 @@
   overflow: hidden;
 }
 
-/* New home layout */
+/* Two-column layout */
 .home-content-new {
   position: relative;
   z-index: 2;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 20px 24px;
+  padding: 16px;
+  gap: 16px;
+}
+
+/* Left column: logo + launch bar + servers */
+.home-left-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   overflow-y: auto;
 }
@@ -24,7 +33,7 @@
 /* ─── Hero logo ─── */
 .home-hero-logo {
   width: 420px;
-  max-width: 50%;
+  max-width: 60%;
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 8px 40px rgba(91,200,245,0.4));
@@ -426,5 +435,240 @@
 .server-loading {
   font-size: 12px;
   color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Right sidebar ─── */
+.home-right-box {
+  width: 510px;
+  flex-shrink: 0;
+  border-radius: 22px;
+  border: 1px solid rgba(91,200,245,0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  position: relative;
+}
+
+/* Background image for sidebar */
+.home-right-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+
+.home-right-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(10,14,26,0.82) 0%,
+    rgba(10,14,26,0.88) 40%,
+    rgba(10,14,26,0.92) 100%
+  );
+  z-index: 1;
+}
+
+.home-right-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.home-right-header {
+  padding: 28px 32px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.home-install-details {
+  padding: 0 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.home-install-name {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.home-install-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.home-install-label {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+
+.home-install-value {
+  font-size: 18px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.home-install-value.fabric {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-install-value.fabric img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* Separator line */
+.home-right-separator {
+  margin: 6px 32px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border), transparent);
+}
+
+/* Mods section */
+.home-mods-section {
+  padding: 20px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.home-mods-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+}
+
+.home-mod-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  background: rgba(255,255,255,0.025);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.2s ease;
+}
+
+.home-mod-item:hover {
+  background: rgba(91,200,245,0.06);
+  border-color: rgba(91,200,245,0.12);
+}
+
+.home-mod-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.home-mod-name {
+  font-size: 16px;
+  color: var(--text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.home-mods-more {
+  font-size: 14px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 12px 18px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 500;
+  transition: background 0.2s ease;
+  border: 1px solid rgba(91,200,245,0.1);
+}
+
+.home-mods-more:hover {
+  background: var(--accent-dim);
+  border-color: rgba(91,200,245,0.25);
+}
+
+/* No installation selected */
+.home-no-install {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.home-no-install-icon {
+  color: var(--text-muted);
+  opacity: 0.3;
+  width: 64px;
+  height: 64px;
+}
+
+.home-no-install-text {
+  font-size: 18px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.home-no-install-btn {
+  padding: 16px 36px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(91,200,245,0.15), rgba(56,189,248,0.08));
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 600;
+  border: 1px solid rgba(91,200,245,0.25);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.home-no-install-btn:hover {
+  background: linear-gradient(135deg, rgba(91,200,245,0.25), rgba(56,189,248,0.15));
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(91,200,245,0.15);
+}
+
+.home-no-mods {
+  font-size: 16px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 28px 20px;
   font-style: italic;
 }

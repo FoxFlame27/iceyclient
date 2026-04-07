@@ -35,6 +35,9 @@ contextBridge.exposeInMainWorld('icey', {
     return () => ipcRenderer.removeListener('download-progress', handler);
   },
 
+  // Libraries
+  downloadLibraries: (installationId, versionJsonUrl) => ipcRenderer.invoke('download-libraries', installationId, versionJsonUrl),
+
   // Fabric
   installFabric: (installationId, mcVersion) => ipcRenderer.invoke('install-fabric', installationId, mcVersion),
 

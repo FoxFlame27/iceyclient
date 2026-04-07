@@ -412,6 +412,7 @@ app.whenReady().then(() => {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
   mainWindow.on('closed', () => {
@@ -688,6 +689,124 @@ app.whenReady().then(() => {
         }
       });
     });
+  });
+
+  // Download vanilla libraries from version JSON
+  ipcMain.handle('download-libraries', async (_, installationId, versionJsonUrl) => {
+    const installations = readInstallations();
+    const installation = installations.find(i => i.id === installationId);
+    if (!installation) return { error: 'Installation not found' };
+
+    const installDir = path.join(INSTALLATIONS_DIR, installationId, '.minecraft');
+    const libDir = path.join(installDir, 'libraries');
+
+    try {
+      // Fetch version JSON
+      const jsonData = await new Promise((resolve, reject) => {
+        const proto = versionJsonUrl.startsWith('https') ? https : http;
+        proto.get(versionJsonUrl, { headers: { 'User-Agent': 'IceyClient/1.0.0' } }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => {
+            try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+          });
+          res.on('error', reject);
+        }).on('error', reject);
+      });
+
+      if (!jsonData.libraries || !Array.isArray(jsonData.libraries)) {
+        return { error: 'No libraries found in version JSON' };
+      }
+
+      // Also download asset index
+      if (jsonData.assetIndex) {
+        const assetsDir = path.join(installDir, 'assets', 'indexes');
+        const assetIndexPath = path.join(assetsDir, jsonData.assetIndex.id + '.json');
+        if (!fs.existsSync(assetIndexPath)) {
+          try {
+            await downloadFile(jsonData.assetIndex.url, assetIndexPath);
+          } catch (e) {
+            log('warn', 'Failed to download asset index: ' + e.message);
+          }
+        }
+      }
+
+      const total = jsonData.libraries.length;
+      let completed = 0;
+      let failed = 0;
+
+      for (const lib of jsonData.libraries) {
+        // Check rules (some libraries are OS-specific)
+        if (lib.rules) {
+          let allowed = false;
+          for (const rule of lib.rules) {
+            if (rule.action === 'allow') {
+              if (!rule.os) allowed = true;
+              else if (rule.os.name === 'windows' && process.platform === 'win32') allowed = true;
+              else if (rule.os.name === 'osx' && process.platform === 'darwin') allowed = true;
+              else if (rule.os.name === 'linux' && process.platform === 'linux') allowed = true;
+            }
+            if (rule.action === 'disallow') {
+              if (rule.os && rule.os.name === 'windows' && process.platform === 'win32') allowed = false;
+              else if (rule.os && rule.os.name === 'osx' && process.platform === 'darwin') allowed = false;
+              else if (rule.os && rule.os.name === 'linux' && process.platform === 'linux') allowed = false;
+            }
+          }
+          if (!allowed) { completed++; continue; }
+        }
+
+        // Get artifact download info
+        const artifact = lib.downloads?.artifact;
+        if (artifact && artifact.url && artifact.path) {
+          const destPath = path.join(libDir, artifact.path);
+          if (!fs.existsSync(destPath)) {
+            try {
+              await downloadFile(artifact.url, destPath);
+            } catch (e) {
+              log('warn', 'Failed to download library: ' + (lib.name || artifact.path) + ' - ' + e.message);
+              failed++;
+            }
+          }
+        } else if (lib.name) {
+          // Construct path from maven-style name (group:artifact:version)
+          const parts = lib.name.split(':');
+          if (parts.length >= 3) {
+            const groupPath = parts[0].replace(/\./g, '/');
+            const artifactId = parts[1];
+            const version = parts[2];
+            const jarName = `${artifactId}-${version}.jar`;
+            const mavenPath = `${groupPath}/${artifactId}/${version}/${jarName}`;
+            const destPath = path.join(libDir, mavenPath);
+            if (!fs.existsSync(destPath)) {
+              // Try Mojang's library repo
+              const url = `https://libraries.minecraft.net/${mavenPath}`;
+              try {
+                await downloadFile(url, destPath);
+              } catch (e) {
+                log('warn', 'Failed to download library from maven: ' + lib.name + ' - ' + e.message);
+                failed++;
+              }
+            }
+          }
+        }
+
+        completed++;
+        if (mainWindow) {
+          mainWindow.webContents.send('mc-event', {
+            type: 'lib-progress',
+            completed,
+            total,
+            name: lib.name || 'unknown'
+          });
+        }
+      }
+
+      log('info', `Libraries downloaded: ${completed - failed}/${total} (${failed} failed)`);
+      return { success: true, total, failed };
+    } catch (e) {
+      log('error', 'Library download error: ' + e.message);
+      return { error: e.message };
+    }
   });
 
   // Get cache dir

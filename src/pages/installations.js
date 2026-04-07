@@ -5,11 +5,18 @@ async function InstallationsPageInit() {
   const installations = await window.icey.getInstallations();
 
   page.innerHTML = `
-    <div class="installations-header">
-      <h1 class="installations-title">Installations</h1>
-      <button class="btn-create-install" onclick="showCreateInstallModal()">+ Create Installation</button>
+    <div class="installations-bg" style="background-image: url('assets/sidebar-bg.png');"></div>
+    <div class="installations-bg-overlay"></div>
+    <div class="installations-inner">
+      <div class="installations-header">
+        <h1 class="installations-title">Installations</h1>
+        <button class="btn-create-install" onclick="showCreateInstallModal()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Installation
+        </button>
+      </div>
+      <div class="installations-grid" id="installations-grid"></div>
     </div>
-    <div class="installations-grid" id="installations-grid"></div>
   `;
 
   _renderInstallationCards(installations);
@@ -26,7 +33,7 @@ function _renderInstallationCards(installations) {
           <rect x="3" y="3" width="18" height="5" rx="1.5"/><rect x="3" y="10" width="18" height="5" rx="1.5"/><rect x="3" y="17" width="18" height="5" rx="1.5"/>
         </svg>
         <div class="installations-empty-title">No Installations</div>
-        <div class="installations-empty-subtitle">Click "+ Create Installation" to get started.</div>
+        <div class="installations-empty-subtitle">Create your first installation to get started.</div>
       </div>
     `;
     return;
@@ -90,7 +97,6 @@ async function _selectInstallation(id) {
 
 async function _toggleFabric(id) {
   const installations = await window.icey.getInstallations();
-  // Deactivate all fabric first
   installations.forEach(i => i.fabricActive = false);
   const target = installations.find(i => i.id === id);
   if (target && target.platform === 'fabric') {
@@ -148,42 +154,63 @@ async function _deleteInstallation(id) {
 
 async function showCreateInstallModal() {
   showModal(`
-    <div class="modal-header">
-      <h2 class="modal-title">Create Installation</h2>
-      <button class="modal-close" onclick="closeModal()">
-        <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <div class="create-modal-body">
-        <div class="form-group">
-          <label class="form-label">Installation Name</label>
-          <input class="form-input" type="text" id="create-name" placeholder="My Installation" maxlength="40">
+    <div class="create-install-modal">
+      <div class="create-modal-header">
+        <div class="create-modal-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
         </div>
+        <h2 class="create-modal-title">New Installation</h2>
+        <p class="create-modal-subtitle">Set up a new Minecraft installation</p>
+        <button class="modal-close" onclick="closeModal()">
+          <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+      </div>
+      <div class="create-modal-form">
         <div class="form-group">
-          <label class="form-label">Minecraft Version</label>
-          <select class="form-input form-select" id="create-version" disabled>
-            <option>Loading versions...</option>
-          </select>
+          <label class="form-label">Name</label>
+          <input class="form-input" type="text" id="create-name" placeholder="e.g. Survival World" maxlength="40" spellcheck="false">
         </div>
-        <div class="form-group">
-          <label class="form-label">Platform</label>
-          <div class="platform-pills">
-            <button class="platform-pill active" id="pill-vanilla" onclick="_setPlatform('vanilla')">Vanilla</button>
-            <button class="platform-pill" id="pill-fabric" onclick="_setPlatform('fabric')">Fabric</button>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Version</label>
+            <select class="form-input form-select" id="create-version" disabled>
+              <option>Loading...</option>
+            </select>
           </div>
-          <div class="platform-info" id="fabric-info" style="display:none;">Fabric loader will be installed automatically. Java is required.</div>
+          <div class="form-group">
+            <label class="form-label">Platform</label>
+            <div class="platform-toggle">
+              <button class="platform-opt active" id="pill-vanilla" onclick="_setPlatform('vanilla')">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                Vanilla
+              </button>
+              <button class="platform-opt" id="pill-fabric" onclick="_setPlatform('fabric')">
+                <img src="assets/fabric.png" alt="" width="14" height="14">
+                Fabric
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="fabric-notice" id="fabric-info" style="display:none;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Fabric loader will be installed automatically. Java is required.
         </div>
         <div id="create-progress" style="display:none;">
-          <div class="progress-bar-container"><div class="progress-bar-fill" id="create-progress-bar" style="width:0%"></div></div>
-          <div class="progress-text" id="create-progress-text">Preparing...</div>
+          <div class="create-progress-track"><div class="create-progress-fill" id="create-progress-bar"></div></div>
+          <div class="create-progress-text" id="create-progress-text">Preparing...</div>
         </div>
-        <button class="btn-create-submit" id="btn-create-submit" onclick="_submitCreateInstallation()">Create</button>
+        <button class="btn-create-submit" id="btn-create-submit" onclick="_submitCreateInstallation()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Create Installation
+        </button>
       </div>
     </div>
   `);
 
-  // Load versions
   _createPlatform = 'vanilla';
   try {
     const versions = await VersionManager.fetchVersions();
@@ -195,7 +222,7 @@ async function showCreateInstallModal() {
   } catch (e) {
     const select = document.getElementById('create-version');
     if (select) {
-      select.innerHTML = '<option>Could not load versions. Check your connection.</option>';
+      select.innerHTML = '<option>Failed to load versions</option>';
     }
   }
 }
@@ -210,7 +237,7 @@ function _setPlatform(platform) {
 
   if (vanilla) vanilla.classList.toggle('active', platform === 'vanilla');
   if (fabric) fabric.classList.toggle('active', platform === 'fabric');
-  if (info) info.style.display = platform === 'fabric' ? 'block' : 'none';
+  if (info) info.style.display = platform === 'fabric' ? 'flex' : 'none';
 }
 
 async function _submitCreateInstallation() {
@@ -234,7 +261,7 @@ async function _submitCreateInstallation() {
   submitBtn.textContent = 'Creating...';
   progressDiv.style.display = 'block';
   progressText.textContent = 'Fetching version info...';
-  progressBar.style.width = '10%';
+  progressBar.style.width = '5%';
 
   const id = 'inst-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
   const installationsDir = await PathUtils.getInstallationsDir();
@@ -242,7 +269,7 @@ async function _submitCreateInstallation() {
   try {
     // Fetch version detail
     const versionDetail = await VersionManager.getVersionDetail(versionUrl);
-    progressBar.style.width = '20%';
+    progressBar.style.width = '10%';
 
     // Download version jar
     const clientDownload = versionDetail.downloads?.client;
@@ -250,9 +277,8 @@ async function _submitCreateInstallation() {
 
     progressText.textContent = 'Downloading Minecraft ' + version + '...';
 
-    // Set up download progress listener
     const cleanup = window.icey.onDownloadProgress((data) => {
-      const progress = 20 + (data.percent * 0.5); // 20-70%
+      const progress = 10 + (data.percent * 0.3); // 10-40%
       progressBar.style.width = progress + '%';
     });
 
@@ -262,37 +288,54 @@ async function _submitCreateInstallation() {
     cleanup();
 
     if (result.error) throw new Error(result.error);
-    progressBar.style.width = '70%';
+    progressBar.style.width = '40%';
 
     // Save version JSON
     const jsonPath = versionDir + '/' + version + '.json';
     await window.icey.downloadFile(versionUrl, jsonPath);
-    progressBar.style.width = '75%';
+    progressBar.style.width = '45%';
+
+    // Download libraries
+    progressText.textContent = 'Downloading libraries...';
+    const libEventCleanup = window.icey.onMcEvent((data) => {
+      if (data.type === 'lib-progress' && progressText) {
+        const libProgress = 45 + ((data.completed / data.total) * 25); // 45-70%
+        progressBar.style.width = libProgress + '%';
+        progressText.textContent = `Downloading libraries (${data.completed}/${data.total})...`;
+      }
+    });
+
+    // Save installation first so the handler can find it
+    const installation = {
+      id: id,
+      name: name,
+      version: version,
+      platform: _createPlatform,
+      fabricActive: false,
+      selected: false,
+      image: null,
+      createdAt: Date.now()
+    };
+    await window.icey.saveInstallation(installation);
+
+    const libResult = await window.icey.downloadLibraries(id, versionUrl);
+    libEventCleanup();
+
+    if (libResult.error) {
+      console.warn('Library download had issues:', libResult.error);
+    }
+    progressBar.style.width = '70%';
 
     // Fabric installation
     if (_createPlatform === 'fabric') {
       progressText.textContent = 'Installing Fabric...';
-      progressBar.style.width = '80%';
+      progressBar.style.width = '75%';
 
-      // Set up event listener for fabric progress
       const fabricEventCleanup = window.icey.onMcEvent((data) => {
         if (data.type === 'fabric-progress' && progressText) {
           progressText.textContent = data.message;
         }
       });
-
-      const installation = {
-        id: id,
-        name: name,
-        version: version,
-        platform: 'fabric',
-        fabricActive: false,
-        selected: false,
-        image: null,
-        createdAt: Date.now()
-      };
-
-      await window.icey.saveInstallation(installation);
 
       const fabricResult = await window.icey.installFabric(id, version);
       fabricEventCleanup();
@@ -314,28 +357,12 @@ async function _submitCreateInstallation() {
           return;
         }
         Toast.error(fabricResult.error);
-        // Still save as vanilla fallback
         installation.platform = 'vanilla';
         await window.icey.saveInstallation(installation);
       }
-
-      progressBar.style.width = '100%';
-    } else {
-      // Vanilla
-      const installation = {
-        id: id,
-        name: name,
-        version: version,
-        platform: 'vanilla',
-        fabricActive: false,
-        selected: false,
-        image: null,
-        createdAt: Date.now()
-      };
-      await window.icey.saveInstallation(installation);
-      progressBar.style.width = '100%';
     }
 
+    progressBar.style.width = '100%';
     progressText.textContent = 'Done!';
     Toast.success(`Installation "${name}" created`);
     setTimeout(() => {
@@ -346,7 +373,10 @@ async function _submitCreateInstallation() {
   } catch (e) {
     Toast.error('Failed: ' + e.message);
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Create';
+    submitBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      Create Installation
+    `;
     progressDiv.style.display = 'none';
   }
 }
