@@ -32,7 +32,7 @@
       "icon": "src/assets/icon.png"
     },
     "win": {
-      "target": ["dir"],
+      "target": ["nsis", "portable"],
       "icon": "src/assets/icon.png"
     },
     "linux": {

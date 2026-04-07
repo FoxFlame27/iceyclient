@@ -327,6 +327,9 @@ function launchMinecraft(installationId) {
       mcProcess.stdout.on('data', (data) => {
         const text = data.toString();
         log('info', '[MC] ' + text.trim());
+        if (mainWindow) {
+          mainWindow.webContents.send('mc-event', { type: 'console-log', message: text.trim(), level: 'info' });
+        }
         if (text.includes('Setting user:') || text.includes('LWJGL') || text.includes('Minecraft')) {
           if (mainWindow) {
             mainWindow.webContents.send('mc-event', { type: 'mc-started' });
@@ -335,7 +338,11 @@ function launchMinecraft(installationId) {
       });
 
       mcProcess.stderr.on('data', (data) => {
-        log('error', '[MC-ERR] ' + data.toString().trim());
+        const text = data.toString().trim();
+        log('error', '[MC-ERR] ' + text);
+        if (mainWindow) {
+          mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'error' });
+        }
       });
 
       mcProcess.on('error', (err) => {

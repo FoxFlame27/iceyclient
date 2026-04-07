@@ -24,6 +24,7 @@
   --border: rgba(91,200,245,0.12);
   --border-hover: rgba(91,200,245,0.3);
   --border-active: rgba(91,200,245,0.6);
+  --sidebar-width: 64px;
 }
 
 :root[data-theme="light"] {
@@ -73,13 +74,13 @@ html, body {
   border-radius: 999px;
 }
 
-/* Page container */
+/* Page container - positioned to the right of sidebar */
 #page-container {
   position: fixed;
   top: 40px;
-  left: 0;
+  left: var(--sidebar-width);
   right: 0;
-  bottom: 76px;
+  bottom: 0;
   overflow: hidden;
 }
 

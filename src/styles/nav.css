@@ -1,56 +1,48 @@
-#nav-gradient {
+/* Left sidebar navigation */
+#sidebar-nav {
   position: fixed;
+  top: 40px;
   left: 0;
-  right: 0;
-  bottom: 76px;
-  height: 40px;
-  background: linear-gradient(to bottom, transparent, var(--bg-primary));
-  pointer-events: none;
-  z-index: 997;
-}
-
-#bottom-nav {
-  position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
-  height: 76px;
+  width: var(--sidebar-width);
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  display: flex;
-  z-index: 998;
-}
-
-.nav-tab {
-  flex: 1;
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  z-index: 998;
+  padding-top: 12px;
+}
+
+.nav-tabs-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 4px;
-  padding: 12px 0;
+  width: 100%;
+  padding: 0 8px;
+}
+
+.nav-tab {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   cursor: pointer;
-  border-radius: 10px;
-  margin: 6px 4px;
+  border-radius: 12px;
   position: relative;
   transition: all 0.2s ease;
 }
 
-.nav-icon, .nav-label {
+.nav-icon {
   color: var(--text-muted);
   transition: color 0.2s ease;
 }
 
-.nav-label {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-.nav-tab:hover .nav-icon,
-.nav-tab:hover .nav-label {
+.nav-tab:hover .nav-icon {
   color: var(--text-secondary);
 }
 
@@ -58,20 +50,28 @@
   background: var(--accent-dim);
 }
 
-.nav-tab.active .nav-icon,
-.nav-tab.active .nav-label {
+.nav-tab.active .nav-icon {
   color: var(--accent);
 }
 
-.nav-tab.active::after {
+.nav-tab.active {
+  background: var(--accent-dim);
+}
+
+.nav-tab.active::before {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 32px;
-  height: 2px;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: 0 999px 999px 0;
   box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Remove old bottom nav gradient */
+#nav-gradient {
+  display: none;
 }
