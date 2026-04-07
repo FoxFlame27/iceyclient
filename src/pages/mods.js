@@ -69,8 +69,9 @@ async function ModsPageInit() {
   // Setup drag and drop
   _setupModsDropzone();
 
-  // Load installed
-  await _refreshInstalledMods();
+  // Load installed + trending in parallel
+  _refreshInstalledMods();
+  _loadTrendingMods();
 }
 
 function _setupModsDropzone() {
@@ -111,14 +112,13 @@ async function _modsBrowseFiles() {
 
 async function _installLocalFile(filePath, filename) {
   if (!_modsActiveInstallation) return;
-  const installationsDir = await PathUtils.getInstallationsDir();
-  const base = installationsDir + '/' + _modsActiveInstallation.id + '/.minecraft';
+  const mcDir = await window.icey.getMcDir();
 
   let destFolder;
   if (filename.endsWith('.jar')) {
-    destFolder = base + '/mods';
+    destFolder = mcDir + '/mods';
   } else if (filename.endsWith('.zip')) {
-    destFolder = base + '/resourcepacks';
+    destFolder = mcDir + '/resourcepacks';
   } else {
     Toast.error('Unsupported file type. Use .jar or .zip');
     return;
@@ -257,10 +257,9 @@ async function _installModFromSearch(btn, source, modId, modName, projectType) {
       return;
     }
 
-    const installationsDir = await PathUtils.getInstallationsDir();
-    const base = installationsDir + '/' + _modsActiveInstallation.id + '/.minecraft';
+    const mcDir = await window.icey.getMcDir();
     const folder = projectType === 'resourcepack' ? 'resourcepacks' : 'mods';
-    const dest = base + '/' + folder + '/' + downloadInfo.filename;
+    const dest = mcDir + '/' + folder + '/' + downloadInfo.filename;
 
     const result = await window.icey.downloadFile(downloadInfo.url, dest);
     if (result.error) {
@@ -301,13 +300,17 @@ async function _refreshInstalledMods() {
     const size = _formatFileSize(item.size);
     const typeClass = item.type === 'mod' ? 'mod' : 'resourcepack';
     const typeLabel = item.type === 'mod' ? 'Mod' : 'Resource Pack';
-    const iconSvg = item.type === 'mod'
+    const fallbackSvg = item.type === 'mod'
       ? '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>'
       : '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>';
 
+    const iconHtml = item.icon
+      ? `<img src="${item.icon}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`
+      : fallbackSvg;
+
     return `
       <div class="mod-installed-card">
-        <div class="mod-installed-icon">${iconSvg}</div>
+        <div class="mod-installed-icon">${iconHtml}</div>
         <div class="mod-installed-info">
           <div class="mod-installed-name">${_escapeHtml(item.name)}</div>
           <div class="mod-installed-meta">
@@ -356,4 +359,20 @@ function _escapeHtml(str) {
 
 function _escapeAttr(str) {
   return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+async function _loadTrendingMods() {
+  const resultsDiv = document.getElementById('mods-browse-results');
+  if (!resultsDiv) return;
+  resultsDiv.innerHTML = '<div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div>';
+  try {
+    const results = await ModrinthAPI.search('', 'mod', 12);
+    if (results.length > 0) {
+      resultsDiv.innerHTML = results.map(mod => _renderModCard(mod)).join('');
+    } else {
+      resultsDiv.innerHTML = '';
+    }
+  } catch (_) {
+    resultsDiv.innerHTML = '';
+  }
 }

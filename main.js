@@ -478,6 +478,36 @@ function launchMinecraft(installationId) {
   });
 }
 
+// ── Simple ZIP file extractor (no dependencies) ──────
+function _extractFileFromZip(zipBuffer, targetPath) {
+  // ZIP local file header signature: PK\x03\x04
+  let offset = 0;
+  while (offset < zipBuffer.length - 4) {
+    if (zipBuffer[offset] !== 0x50 || zipBuffer[offset+1] !== 0x4b ||
+        zipBuffer[offset+2] !== 0x03 || zipBuffer[offset+3] !== 0x04) break;
+
+    const compressionMethod = zipBuffer.readUInt16LE(offset + 8);
+    const compressedSize = zipBuffer.readUInt32LE(offset + 18);
+    const uncompressedSize = zipBuffer.readUInt32LE(offset + 22);
+    const nameLen = zipBuffer.readUInt16LE(offset + 26);
+    const extraLen = zipBuffer.readUInt16LE(offset + 28);
+    const name = zipBuffer.toString('utf-8', offset + 30, offset + 30 + nameLen);
+    const dataStart = offset + 30 + nameLen + extraLen;
+
+    if (name === targetPath && compressedSize > 0) {
+      const rawData = zipBuffer.slice(dataStart, dataStart + compressedSize);
+      if (compressionMethod === 0) return rawData; // stored
+      if (compressionMethod === 8) { // deflate
+        try { return require('zlib').inflateRawSync(rawData); } catch (_) { return null; }
+      }
+      return null;
+    }
+
+    offset = dataStart + compressedSize;
+  }
+  return null;
+}
+
 // ── App ready ──────────────────────────────────────────
 app.whenReady().then(() => {
   ensureDirs();
@@ -632,44 +662,71 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('get-installed-mods', (_, installationId) => {
-    const installations = readInstallations();
-    const installation = installations.find(i => i.id === installationId);
-    if (!installation) return { mods: [], resourcePacks: [] };
-
-    const installDir = path.join(INSTALLATIONS_DIR, installation.id, '.minecraft');
-    const modsDir = path.join(installDir, 'mods');
-    const rpDir = path.join(installDir, 'resourcepacks');
+    const mcDir = getDefaultMcDir();
+    const modsDir = path.join(mcDir, 'mods');
+    const rpDir = path.join(mcDir, 'resourcepacks');
 
     const mods = [];
     const resourcePacks = [];
 
     if (fs.existsSync(modsDir)) {
       for (const file of fs.readdirSync(modsDir)) {
-        if (file.endsWith('.jar')) {
-          const filePath = path.join(modsDir, file);
+        if (!file.endsWith('.jar')) continue;
+        const filePath = path.join(modsDir, file);
+        try {
           const stats = fs.statSync(filePath);
-          mods.push({
-            filename: file,
-            name: file.replace('.jar', '').replace(/-/g, ' '),
-            size: stats.size,
-            type: 'mod'
-          });
-        }
+          let modName = file.replace('.jar', '').replace(/-/g, ' ');
+          let iconBase64 = null;
+
+          // Try to extract mod info from fabric.mod.json inside the jar
+          try {
+            const zlib2 = require('zlib');
+            const jarBuf = fs.readFileSync(filePath);
+            // Simple ZIP parsing: find fabric.mod.json
+            const modJson = _extractFileFromZip(jarBuf, 'fabric.mod.json');
+            if (modJson) {
+              const meta = JSON.parse(modJson.toString('utf-8'));
+              if (meta.name) modName = meta.name;
+              // Extract icon
+              if (meta.icon) {
+                const iconData = _extractFileFromZip(jarBuf, meta.icon);
+                if (iconData) {
+                  iconBase64 = 'data:image/png;base64,' + iconData.toString('base64');
+                }
+              }
+            }
+          } catch (_) { /* not a fabric mod or parse error */ }
+
+          mods.push({ filename: file, name: modName, size: stats.size, type: 'mod', icon: iconBase64 });
+        } catch (_) { /* skip unreadable */ }
       }
     }
 
     if (fs.existsSync(rpDir)) {
       for (const file of fs.readdirSync(rpDir)) {
-        if (file.endsWith('.zip')) {
-          const filePath = path.join(rpDir, file);
+        if (!file.endsWith('.zip')) continue;
+        const filePath = path.join(rpDir, file);
+        try {
           const stats = fs.statSync(filePath);
-          resourcePacks.push({
-            filename: file,
-            name: file.replace('.zip', '').replace(/-/g, ' '),
-            size: stats.size,
-            type: 'resourcepack'
-          });
-        }
+          let rpName = file.replace('.zip', '').replace(/-/g, ' ');
+          let iconBase64 = null;
+
+          // Try to extract pack.png
+          try {
+            const zipBuf = fs.readFileSync(filePath);
+            const iconData = _extractFileFromZip(zipBuf, 'pack.png');
+            if (iconData) {
+              iconBase64 = 'data:image/png;base64,' + iconData.toString('base64');
+            }
+            const packMcmeta = _extractFileFromZip(zipBuf, 'pack.mcmeta');
+            if (packMcmeta) {
+              const meta = JSON.parse(packMcmeta.toString('utf-8'));
+              if (meta.pack?.description) rpName = file.replace('.zip', '');
+            }
+          } catch (_) { /* */ }
+
+          resourcePacks.push({ filename: file, name: rpName, size: stats.size, type: 'resourcepack', icon: iconBase64 });
+        } catch (_) { /* skip */ }
       }
     }
 
@@ -677,14 +734,9 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('delete-mod', (_, installationId, filename) => {
-    const installations = readInstallations();
-    const installation = installations.find(i => i.id === installationId);
-    if (!installation) return { error: 'Installation not found' };
-
-    const installDir = path.join(INSTALLATIONS_DIR, installation.id, '.minecraft');
-    // Check in mods and resourcepacks
-    const modsPath = path.join(installDir, 'mods', filename);
-    const rpPath = path.join(installDir, 'resourcepacks', filename);
+    const mcDir = getDefaultMcDir();
+    const modsPath = path.join(mcDir, 'mods', filename);
+    const rpPath = path.join(mcDir, 'resourcepacks', filename);
 
     try {
       if (fs.existsSync(modsPath)) fs.unlinkSync(modsPath);
