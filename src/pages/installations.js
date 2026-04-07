@@ -2,7 +2,12 @@ let _installationsInitialized = false;
 
 async function InstallationsPageInit() {
   const page = document.getElementById('page-installations');
-  const installations = await window.icey.getInstallations();
+  let installations = [];
+  try {
+    installations = await window.icey.getInstallations();
+  } catch (e) {
+    console.error('[Installations] Failed to load:', e);
+  }
 
   page.innerHTML = `
     <div class="installations-inner">
@@ -124,8 +129,8 @@ async function _changeInstallImage(id) {
 }
 
 async function _openInstallFolder(id) {
-  const installationsDir = await PathUtils.getInstallationsDir();
-  window.icey.openFolder(installationsDir + '/' + id + '/.minecraft');
+  const mcDir = await window.icey.getMcDir();
+  window.icey.openFolder(mcDir);
 }
 
 function _confirmDeleteInstallation(id, name) {

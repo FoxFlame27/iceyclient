@@ -17,13 +17,12 @@ async function HomePageInit() {
   const settings = SettingsManager.getAll();
   const showTimer = settings.showSessionTimer !== false;
 
-  // Render instantly — don't await installations/mods
   page.innerHTML = `
-    <div class="home-content-new">
-      <!-- Center hero area -->
-      <div class="home-center">
-        <img class="home-hero-logo" src="assets/text-above-playbutton.png" alt="Icey Client" onerror="this.style.display='none'">
-        <div class="home-launch-area">
+    <div class="home-layout">
+      <!-- Main area: logo + button + servers -->
+      <div class="home-main">
+        <div class="home-hero">
+          <img class="home-hero-logo" src="assets/text-above-playbutton.png" alt="Icey Client" onerror="this.style.display='none'">
           <div class="home-launch-bar">
             <div class="launch-bar-snow" id="launch-bar-snow"></div>
             <button class="launch-btn launch-btn-idle" id="launch-btn" onclick="HomePlayClick()">
@@ -35,8 +34,19 @@ async function HomePageInit() {
             <span class="home-timer-label">Playtime</span>
             <span class="home-timer-value" id="home-timer-value">00:00:00</span>
           </div>
+          <div class="home-selected-badge" id="home-selected-badge"></div>
         </div>
-        <div class="home-selected-badge" id="home-selected-badge"></div>
+
+        <!-- Servers below -->
+        <div class="home-servers-section">
+          <div class="home-servers-title">Popular Servers</div>
+          <div class="home-featured-server" id="featured-server">
+            <div class="server-loading">Loading...</div>
+          </div>
+          <div class="home-server-list" id="server-list">
+            ${SERVERS.map((s, i) => `<div class="home-server-bar" id="server-bar-${i}"><div class="server-loading">${s.name}</div></div>`).join('')}
+          </div>
+        </div>
       </div>
 
       <!-- Right sidebar -->
@@ -45,27 +55,13 @@ async function HomePageInit() {
           <div class="server-loading" style="padding:20px;text-align:center">Loading...</div>
         </div>
       </div>
-
-      <!-- Bottom server bar -->
-      <div class="home-servers-strip">
-        <div class="home-featured-server" id="featured-server">
-          <div class="server-loading">Loading servers...</div>
-        </div>
-        <div class="home-server-list" id="server-list">
-          ${SERVERS.map((s, i) => `<div class="home-server-bar" id="server-bar-${i}"><div class="server-loading">${s.name}</div></div>`).join('')}
-        </div>
-      </div>
     </div>
   `;
 
-  // Set up MC state listener
   if (_homeStateCleanup) _homeStateCleanup();
-  _homeStateCleanup = MinecraftLauncher.onChange((state) => {
-    _homeUpdateLaunchButton(state, showTimer);
-  });
+  _homeStateCleanup = MinecraftLauncher.onChange((state) => _homeUpdateLaunchButton(state, showTimer));
   _homeUpdateLaunchButton(MinecraftLauncher.getState(), showTimer);
 
-  // Timer loop
   if (_homeTimerInterval) clearInterval(_homeTimerInterval);
   _homeTimerInterval = setInterval(() => {
     if (MinecraftLauncher.getState() === 'running') {
@@ -74,205 +70,89 @@ async function HomePageInit() {
     }
   }, 1000);
 
-  // Snow
   _initLaunchBarSnow();
-
-  // Load sidebar + servers async (don't block render)
   _loadSidebar();
   _loadAllServers();
-
   if (_serverRefreshInterval) clearInterval(_serverRefreshInterval);
   _serverRefreshInterval = setInterval(_loadAllServers, 120000);
 
-  } catch (err) {
-    console.error('[HomePageInit] ERROR:', err);
-  }
+  } catch (err) { console.error('[HomePageInit] ERROR:', err); }
 }
 
 async function _loadSidebar() {
   const container = document.getElementById('home-right-inner');
   const badge = document.getElementById('home-selected-badge');
   if (!container) return;
-
   try {
     const installations = await window.icey.getInstallations();
     const selected = installations.find(i => i.selected);
-
     if (badge && selected) {
       badge.innerHTML = `<span class="badge-dot"></span> ${selected.name} <span class="badge-ver">${selected.version}</span>`;
       badge.style.display = 'flex';
     }
-
     if (!selected) {
-      container.innerHTML = `
-        <div class="home-no-install">
-          <div class="home-no-install-text">No installation selected</div>
-          <button class="home-no-install-btn" onclick="switchPage('installations')">Go to Installations</button>
-        </div>
-      `;
+      container.innerHTML = `<div class="home-no-install"><div class="home-no-install-text">No installation selected</div><button class="home-no-install-btn" onclick="switchPage('installations')">Go to Installations</button></div>`;
       return;
     }
-
     let mods = [];
-    try {
-      const modData = await window.icey.getInstalledMods(selected.id);
-      mods = modData.mods || [];
-    } catch (_) {}
-
-    const maxModsShown = 5;
-    const modsToShow = mods.slice(0, maxModsShown);
-    const modsRemaining = mods.length - maxModsShown;
-
+    try { mods = (await window.icey.getInstalledMods(selected.id)).mods || []; } catch (_) {}
+    const show = mods.slice(0, 5);
+    const rem = mods.length - 5;
     container.innerHTML = `
       <div class="home-right-header">Installation</div>
       <div class="home-install-details">
         <div class="home-install-name">${selected.name}</div>
-        <div class="home-install-row">
-          <span class="home-install-label">Version</span>
-          <span class="home-install-value">${selected.version}</span>
-        </div>
-        <div class="home-install-row">
-          <span class="home-install-label">Platform</span>
-          <span class="home-install-value ${selected.platform === 'fabric' ? 'fabric' : ''}">
-            ${selected.platform === 'fabric' ? '<img src="assets/fabric.png" alt=""> Fabric' : 'Vanilla'}
-          </span>
-        </div>
+        <div class="home-install-row"><span class="home-install-label">Version</span><span class="home-install-value">${selected.version}</span></div>
+        <div class="home-install-row"><span class="home-install-label">Platform</span><span class="home-install-value ${selected.platform === 'fabric' ? 'fabric' : ''}">${selected.platform === 'fabric' ? '<img src="assets/fabric.png" alt=""> Fabric' : 'Vanilla'}</span></div>
       </div>
       <div class="home-right-separator"></div>
       <div class="home-mods-section">
         <div class="home-mods-header">Mods</div>
-        ${mods.length > 0 ? `
-          ${modsToShow.map(m => `
-            <div class="home-mod-item">
-              <svg class="home-mod-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-              </svg>
-              <span class="home-mod-name">${m.name}</span>
-            </div>
-          `).join('')}
-          ${modsRemaining > 0 ? `<div class="home-mods-more" onclick="switchPage('mods')">+${modsRemaining} more</div>` : ''}
-        ` : `
-          <div class="home-no-mods">${selected.platform === 'fabric' ? 'No mods installed' : 'Vanilla'}</div>
-        `}
-      </div>
-    `;
-  } catch (e) {
-    container.innerHTML = '<div class="server-loading" style="padding:20px">Failed to load</div>';
-  }
+        ${mods.length > 0 ? show.map(m => `<div class="home-mod-item">${m.icon ? `<img class="home-mod-icon-img" src="${m.icon}">` : '<svg class="home-mod-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>'}<span class="home-mod-name">${m.name}</span></div>`).join('') + (rem > 0 ? `<div class="home-mods-more" onclick="switchPage('mods')">+${rem} more</div>` : '') : `<div class="home-no-mods">${selected.platform === 'fabric' ? 'No mods installed' : 'Vanilla'}</div>`}
+      </div>`;
+  } catch (e) { container.innerHTML = '<div class="server-loading" style="padding:20px">Failed to load</div>'; }
 }
 
 async function _fetchServerStatus(address) {
-  try {
-    const resp = await fetch(`https://api.mcsrvstat.us/3/${address}`, {
-      headers: { 'User-Agent': 'IceyClient/1.0' }
-    });
-    return await resp.json();
-  } catch (e) {
-    return { online: false };
-  }
+  try { const r = await fetch(`https://api.mcsrvstat.us/3/${address}`, { headers: { 'User-Agent': 'IceyClient/1.0' } }); return await r.json(); }
+  catch (_) { return { online: false }; }
 }
 
 function _renderFeaturedServer(data, server) {
   const el = document.getElementById('featured-server');
   if (!el) return;
-  if (!data.online) {
-    el.innerHTML = `
-      <div class="server-icon-large"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt="${server.name}"></div>
-      <div class="server-info-featured">
-        <div class="server-name-large">${server.name}</div>
-        <div class="server-address">${server.address}</div>
-        <div class="server-offline">Offline</div>
-      </div>
-    `;
-    return;
-  }
-  const online = data.players?.online ?? 0;
-  const max = data.players?.max ?? 0;
-  el.innerHTML = `
-    <div class="server-icon-large"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt="${server.name}"></div>
-    <div class="server-info-featured">
-      <div class="server-name-large">${server.name}</div>
-      <div class="server-motd">${data.motd?.clean?.[0] ?? ''}</div>
-      <div class="server-address">${server.address}</div>
-    </div>
-    <div class="server-players-featured">
-      <div class="server-players-count">${online.toLocaleString()}</div>
-      <div class="server-players-label">/ ${max.toLocaleString()}</div>
-    </div>
-  `;
+  if (!data.online) { el.innerHTML = `<div class="server-icon-large"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt=""></div><div class="server-info-featured"><div class="server-name-large">${server.name}</div><div class="server-address">${server.address}</div><div class="server-offline">Offline</div></div>`; return; }
+  el.innerHTML = `<div class="server-icon-large"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt=""></div><div class="server-info-featured"><div class="server-name-large">${server.name}</div><div class="server-motd">${data.motd?.clean?.[0] ?? ''}</div><div class="server-address">${server.address}</div></div><div class="server-players-featured"><div class="server-players-count">${(data.players?.online ?? 0).toLocaleString()}</div><div class="server-players-label">/ ${(data.players?.max ?? 0).toLocaleString()}</div></div>`;
 }
 
-function _renderServerBar(data, server, index) {
-  const el = document.getElementById(`server-bar-${index}`);
+function _renderServerBar(data, server, i) {
+  const el = document.getElementById(`server-bar-${i}`);
   if (!el) return;
-  if (!data.online) {
-    el.innerHTML = `
-      <div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt="${server.name}"></div>
-      <div class="server-bar-name">${server.name}</div>
-      <div class="server-bar-status offline">Offline</div>
-    `;
-    return;
-  }
-  el.innerHTML = `
-    <div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt="${server.name}"></div>
-    <div class="server-bar-name">${server.name}</div>
-    <div class="server-bar-players">
-      <span class="server-bar-online">${(data.players?.online ?? 0).toLocaleString()}</span>
-      <span class="server-bar-max">/ ${(data.players?.max ?? 0).toLocaleString()}</span>
-    </div>
-  `;
+  if (!data.online) { el.innerHTML = `<div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt=""></div><div class="server-bar-name">${server.name}</div><div class="server-bar-address">${server.address}</div><div class="server-bar-status offline">Offline</div>`; return; }
+  el.innerHTML = `<div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt=""></div><div class="server-bar-name">${server.name}</div><div class="server-bar-address">${server.address}</div><div class="server-bar-players"><span class="server-bar-online">${(data.players?.online ?? 0).toLocaleString()}</span><span class="server-bar-max">/ ${(data.players?.max ?? 0).toLocaleString()}</span></div>`;
 }
 
 async function _loadAllServers() {
-  // All in parallel, don't block each other
-  const [featuredData, ...serverData] = await Promise.all([
-    _fetchServerStatus(FEATURED_SERVER.address),
-    ...SERVERS.map(s => _fetchServerStatus(s.address))
-  ]);
-  _renderFeaturedServer(featuredData, FEATURED_SERVER);
-  serverData.forEach((data, i) => _renderServerBar(data, SERVERS[i], i));
+  const [fd, ...sd] = await Promise.all([_fetchServerStatus(FEATURED_SERVER.address), ...SERVERS.map(s => _fetchServerStatus(s.address))]);
+  _renderFeaturedServer(fd, FEATURED_SERVER);
+  sd.forEach((d, i) => _renderServerBar(d, SERVERS[i], i));
 }
 
 function _initLaunchBarSnow() {
-  const container = document.getElementById('launch-bar-snow');
-  if (!container) return;
-  function createSnowflake() {
-    const flake = document.createElement('div');
-    flake.className = 'snowflake';
-    const size = Math.random() * 3 + 1.5;
-    flake.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${Math.random()*2+2}s;animation-delay:${Math.random()*2}s;opacity:${Math.random()*0.5+0.3}`;
-    container.appendChild(flake);
-    setTimeout(() => flake.remove(), 5000);
-  }
-  for (let i = 0; i < 6; i++) createSnowflake();
-  setInterval(() => { if (document.getElementById('launch-bar-snow')) createSnowflake(); }, 500);
+  const c = document.getElementById('launch-bar-snow');
+  if (!c) return;
+  const mk = () => { const f = document.createElement('div'); f.className = 'snowflake'; const s = Math.random()*3+1.5; f.style.cssText = `width:${s}px;height:${s}px;left:${Math.random()*100}%;animation-duration:${Math.random()*2+2}s;animation-delay:${Math.random()*2}s;opacity:${Math.random()*0.5+0.3}`; c.appendChild(f); setTimeout(() => f.remove(), 5000); };
+  for (let i = 0; i < 6; i++) mk();
+  setInterval(() => { if (document.getElementById('launch-bar-snow')) mk(); }, 500);
 }
 
 function _homeUpdateLaunchButton(state, showTimer) {
-  const btn = document.getElementById('launch-btn');
-  const timer = document.getElementById('home-timer');
+  const btn = document.getElementById('launch-btn'), timer = document.getElementById('home-timer');
   if (!btn) return;
   btn.className = 'launch-btn';
-  switch (state) {
-    case 'idle':
-      btn.classList.add('launch-btn-idle');
-      btn.disabled = false;
-      btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg><span id="launch-btn-text">LAUNCH</span>`;
-      if (timer) timer.classList.remove('visible');
-      break;
-    case 'starting':
-      btn.classList.add('launch-btn-starting');
-      btn.disabled = true;
-      btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div><span id="launch-btn-text">STARTING...</span>`;
-      if (timer) timer.classList.remove('visible');
-      break;
-    case 'running':
-      btn.classList.add('launch-btn-running');
-      btn.disabled = false;
-      btn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span id="launch-btn-text">STOP</span>`;
-      if (timer && showTimer) timer.classList.add('visible');
-      break;
-  }
+  if (state === 'idle') { btn.classList.add('launch-btn-idle'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg><span id="launch-btn-text">LAUNCH</span>`; if (timer) timer.classList.remove('visible'); }
+  else if (state === 'starting') { btn.classList.add('launch-btn-starting'); btn.disabled = true; btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div><span id="launch-btn-text">STARTING...</span>`; if (timer) timer.classList.remove('visible'); }
+  else if (state === 'running') { btn.classList.add('launch-btn-running'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span id="launch-btn-text">STOP</span>`; if (timer && showTimer) timer.classList.add('visible'); }
 }
 
 async function HomePlayClick() {

@@ -350,26 +350,54 @@ function launchMinecraft(installationId) {
       return reject(new Error('Failed to parse version JSON: ' + e.message));
     }
 
-    // Build classpath: walk ALL jars in .minecraft/libraries + client jar
+    // Build classpath from version JSON (exact versions only — no conflicts)
     const sep = process.platform === 'win32' ? ';' : ':';
     const cpParts = [];
 
-    // Recursively collect every .jar from the libraries folder
-    if (fs.existsSync(libDir)) {
-      const walkJars = (dir) => {
-        try {
-          const entries = fs.readdirSync(dir, { withFileTypes: true });
-          for (const entry of entries) {
-            const full = path.join(dir, entry.name);
-            if (entry.isDirectory()) walkJars(full);
-            else if (entry.name.endsWith('.jar')) cpParts.push(full);
+    for (const lib of (versionJson.libraries || [])) {
+      // Check OS rules
+      if (lib.rules) {
+        let allowed = false;
+        for (const rule of lib.rules) {
+          if (rule.action === 'allow') {
+            if (!rule.os) allowed = true;
+            else if (rule.os.name === 'windows' && process.platform === 'win32') allowed = true;
+            else if (rule.os.name === 'osx' && process.platform === 'darwin') allowed = true;
+            else if (rule.os.name === 'linux' && process.platform === 'linux') allowed = true;
           }
-        } catch (_) { /* skip permission errors */ }
-      };
-      walkJars(libDir);
+          if (rule.action === 'disallow') {
+            if (rule.os?.name === 'windows' && process.platform === 'win32') allowed = false;
+            if (rule.os?.name === 'osx' && process.platform === 'darwin') allowed = false;
+            if (rule.os?.name === 'linux' && process.platform === 'linux') allowed = false;
+          }
+        }
+        if (!allowed) continue;
+      }
+
+      // Try downloads.artifact.path first
+      const artifact = lib.downloads?.artifact;
+      if (artifact?.path) {
+        const jarPath = path.join(libDir, artifact.path);
+        if (fs.existsSync(jarPath)) { cpParts.push(jarPath); continue; }
+      }
+
+      // Fallback: resolve from maven-style name (group:artifact:version)
+      if (lib.name) {
+        const parts = lib.name.split(':');
+        if (parts.length >= 3) {
+          const groupPath = parts[0].replace(/\./g, path.sep);
+          const artifactId = parts[1];
+          const ver = parts[2];
+          const jarPath = path.join(libDir, groupPath, artifactId, ver, `${artifactId}-${ver}.jar`);
+          if (fs.existsSync(jarPath)) { cpParts.push(jarPath); continue; }
+        }
+      }
+
+      // Log missing libs for debugging
+      log('warn', 'Library not found: ' + (lib.name || JSON.stringify(lib.downloads?.artifact?.path)));
     }
 
-    // Add fabric libraries that might be outside the standard path
+    // Add fabric libraries
     for (const fp of fabricLibs) {
       if (!cpParts.includes(fp)) cpParts.push(fp);
     }
