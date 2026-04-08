@@ -53,28 +53,74 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeModal();
 });
 
-// Profile avatar
+// Profile avatar in sidebar + titlebar
 async function loadNavProfile() {
   const container = document.getElementById('nav-profile');
-  if (!container) return;
+  const titlebarProfile = document.getElementById('titlebar-profile');
   const auth = await window.icey.getAuth();
-  if (auth && auth.username) {
-    container.innerHTML = `
-      <img class="nav-profile-avatar" src="https://mc-heads.net/avatar/${auth.username}/40" alt="${auth.username}" title="${auth.username} (click to logout)" onclick="_navLogout()">
-      <div class="nav-profile-name">${auth.username}</div>
-    `;
-  } else {
-    container.innerHTML = `
-      <div class="nav-profile-login" onclick="_navLogin()" title="Login with Microsoft">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-      </div>
-      <div class="nav-profile-name" style="color:var(--accent);cursor:pointer" onclick="_navLogin()">Login</div>
-    `;
+
+  if (container) {
+    if (auth && auth.username) {
+      container.innerHTML = `
+        <img class="nav-profile-avatar" src="https://mineskin.eu/helm/${auth.username}/40.png" alt="${auth.username}" title="${auth.username}" onclick="switchPage('skins')">
+        <div class="nav-profile-name">${auth.username}</div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="nav-profile-login" onclick="_navLogin()" title="Login with Microsoft">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="nav-profile-name" style="color:var(--accent);cursor:pointer" onclick="_navLogin()">Login</div>
+      `;
+    }
+  }
+
+  if (titlebarProfile) {
+    if (auth && auth.username) {
+      titlebarProfile.innerHTML = `
+        <img class="titlebar-profile-head" src="https://mineskin.eu/helm/${auth.username}/24.png" alt="${auth.username}" onclick="_toggleProfileDropdown()">
+      `;
+      _updateProfileDropdown(auth);
+    } else {
+      titlebarProfile.innerHTML = `
+        <button class="titlebar-login-btn" onclick="_navLogin()">Login</button>
+      `;
+    }
   }
 }
+
+function _updateProfileDropdown(auth) {
+  const dropdown = document.getElementById('titlebar-profile-dropdown');
+  if (!dropdown || !auth) return;
+  dropdown.innerHTML = `
+    <div class="titlebar-dropdown-user">
+      <img class="titlebar-dropdown-avatar" src="https://mineskin.eu/helm/${auth.username}/36.png" alt="">
+      <div class="titlebar-dropdown-info">
+        <div class="titlebar-dropdown-name">${auth.username}</div>
+        <div class="titlebar-dropdown-label">Microsoft Account</div>
+      </div>
+    </div>
+    <button class="titlebar-dropdown-btn" onclick="switchPage('skins'); _toggleProfileDropdown();">Manage Skin</button>
+    <button class="titlebar-dropdown-btn logout" onclick="_navLogout()">Log Out</button>
+  `;
+}
+
+function _toggleProfileDropdown() {
+  const dropdown = document.getElementById('titlebar-profile-dropdown');
+  if (dropdown) dropdown.classList.toggle('hidden');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('titlebar-profile-dropdown');
+  const head = document.querySelector('.titlebar-profile-head');
+  if (dropdown && !dropdown.contains(e.target) && e.target !== head) {
+    dropdown.classList.add('hidden');
+  }
+});
 
 async function _navLogin() {
   const result = await window.icey.msLogin();

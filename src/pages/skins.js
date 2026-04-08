@@ -20,15 +20,21 @@ async function SkinsPageInit() {
     return;
   }
 
+  const username = auth.username;
+
   page.innerHTML = `
     <div class="skins-layout">
       <div class="skins-preview">
-        <div class="skins-preview-header">Current Skin</div>
+        <div class="skins-preview-header">Your Skin</div>
         <div class="skins-preview-card" id="skins-preview-card">
-          <img class="skins-preview-body" id="skins-body-img" src="https://mc-heads.net/body/${auth.username}/200" alt="Skin">
+          <img class="skins-preview-body" id="skins-body-img" src="https://mineskin.eu/armor/body/${username}/250.png" alt="Skin" onerror="this.src='https://mc-heads.net/body/${username}/250'">
         </div>
-        <div class="skins-preview-name">${auth.username}</div>
-        <div class="skins-preview-uuid" id="skins-uuid">Loading...</div>
+        <div class="skins-preview-name">${username}</div>
+        <div class="skins-preview-views">
+          <button class="skins-view-btn active" onclick="_skinsSwitchView('body', this, '${username}')">Body</button>
+          <button class="skins-view-btn" onclick="_skinsSwitchView('bust', this, '${username}')">Bust</button>
+          <button class="skins-view-btn" onclick="_skinsSwitchView('head', this, '${username}')">Head</button>
+        </div>
       </div>
       <div class="skins-upload">
         <div class="skins-upload-header">Change Skin</div>
@@ -74,7 +80,7 @@ async function SkinsPageInit() {
   _skinsVariant = 'classic';
   _skinsFilePath = null;
 
-  // Load profile info
+  // Load profile to detect variant
   _loadSkinProfile(auth);
 
   // Setup dropzone
@@ -98,23 +104,29 @@ async function SkinsPageInit() {
 let _skinsVariant = 'classic';
 let _skinsFilePath = null;
 
+function _skinsSwitchView(view, btn, username) {
+  document.querySelectorAll('.skins-view-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const img = document.getElementById('skins-body-img');
+  if (!img) return;
+  const urls = {
+    body: `https://mineskin.eu/armor/body/${username}/250.png`,
+    bust: `https://mineskin.eu/armor/bust/${username}/250.png`,
+    head: `https://mineskin.eu/headhelm/${username}/250.png`
+  };
+  img.src = urls[view] || urls.body;
+}
+
 async function _loadSkinProfile(auth) {
-  const uuidEl = document.getElementById('skins-uuid');
   try {
     const profile = await window.icey.getMcProfile();
-    if (profile && profile.id) {
-      if (uuidEl) uuidEl.textContent = profile.id;
-      // Update body preview with current skin variant
+    if (profile) {
       const activeSkin = profile.skins?.find(s => s.state === 'ACTIVE');
       if (activeSkin?.variant === 'SLIM') {
         _setVariant('slim');
       }
-    } else {
-      if (uuidEl) uuidEl.textContent = auth.uuid || '';
     }
-  } catch (_) {
-    if (uuidEl) uuidEl.textContent = auth.uuid || '';
-  }
+  } catch (_) {}
 }
 
 async function _skinsLogin() {
@@ -174,13 +186,14 @@ async function _skinsUpload() {
     Toast.error('Upload failed: ' + result.error);
   } else {
     Toast.success('Skin updated!');
-    // Refresh preview (cache bust)
+    // Refresh preview
     const bodyImg = document.getElementById('skins-body-img');
     if (bodyImg) {
       const auth = await window.icey.getAuth();
-      bodyImg.src = `https://mc-heads.net/body/${auth.username}/200?t=${Date.now()}`;
+      bodyImg.src = `https://mineskin.eu/armor/body/${auth.username}/250.png?t=${Date.now()}`;
     }
     _skinsClearFile();
+    loadNavProfile();
   }
   if (btn) {
     btn.disabled = !_skinsFilePath;

@@ -90,10 +90,31 @@
   font-family: 'Outfit', sans-serif;
 }
 
-.skins-preview-uuid {
-  font-size: 11px;
+.skins-preview-views {
+  display: flex;
+  gap: 4px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 10px;
+  padding: 3px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.skins-view-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
   color: var(--text-muted);
-  font-family: 'Inter', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.skins-view-btn.active {
+  background: rgba(91,200,245,0.15);
+  color: var(--accent);
+}
+.skins-view-btn:hover:not(.active) {
+  color: var(--text-secondary);
 }
 
 /* Upload section */

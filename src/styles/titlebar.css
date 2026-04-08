@@ -44,3 +44,111 @@
   background: var(--red);
   color: #fff;
 }
+
+/* Profile in titlebar */
+.titlebar-right-section {
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+  position: relative;
+  margin-right: 4px;
+}
+
+.titlebar-profile-head {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  image-rendering: pixelated;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1.5px solid rgba(91,200,245,0.2);
+}
+.titlebar-profile-head:hover {
+  border-color: var(--accent);
+  transform: scale(1.1);
+}
+
+.titlebar-profile-dropdown {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  width: 220px;
+  background: rgba(13,18,32,0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(91,200,245,0.15);
+  border-radius: 14px;
+  padding: 12px;
+  z-index: 1001;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.titlebar-profile-dropdown.hidden { display: none; }
+
+.titlebar-dropdown-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+}
+.titlebar-dropdown-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  image-rendering: pixelated;
+}
+.titlebar-dropdown-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.titlebar-dropdown-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.titlebar-dropdown-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.titlebar-dropdown-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.titlebar-dropdown-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.titlebar-dropdown-btn.logout:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.titlebar-login-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: rgba(91,200,245,0.1);
+  border: 1px solid rgba(91,200,245,0.25);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.titlebar-login-btn:hover {
+  background: rgba(91,200,245,0.2);
+  border-color: var(--accent);
+}

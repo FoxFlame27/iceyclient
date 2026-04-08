@@ -1,14 +1,15 @@
 /* Left sidebar navigation */
 #sidebar-nav {
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  top: 8px;
+  left: 8px;
+  bottom: 8px;
   width: var(--sidebar-width);
   background: rgba(10, 14, 26, 0.85);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border-right: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -146,7 +147,7 @@
 .nav-tab.active::before {
   content: '';
   position: absolute;
-  left: -12px;
+  left: -6px;
   top: 50%;
   transform: translateY(-50%);
   width: 4px;

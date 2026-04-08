@@ -81,7 +81,7 @@ html, body {
 #page-container {
   position: fixed;
   top: 0;
-  left: var(--sidebar-width);
+  left: calc(var(--sidebar-width) + 16px);
   right: 0;
   bottom: 0;
   overflow: hidden;
