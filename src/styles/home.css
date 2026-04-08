@@ -16,7 +16,7 @@
 }
 
 .home-hero-logo {
-  width: 75%; max-width: 550px; height: auto; object-fit: contain;
+  width: 90%; max-width: 700px; height: auto; object-fit: contain;
   filter: drop-shadow(0 12px 60px rgba(91,200,245,0.35)) drop-shadow(0 0 80px rgba(91,200,245,0.12));
   animation: heroFloat 6s ease-in-out infinite;
 }

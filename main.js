@@ -873,7 +873,7 @@ app.whenReady().then(() => {
   mainWindow.once('ready-to-show', () => {
     splash.destroy();
     mainWindow.show();
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    // mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
   mainWindow.on('closed', () => {
