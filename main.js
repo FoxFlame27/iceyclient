@@ -88,8 +88,10 @@ function readInstallations() {
   try {
     const mcDir = getDefaultMcDir();
     const versionsDir = path.join(mcDir, 'versions');
+    log('info', 'Scanning for installations in: ' + versionsDir);
     if (fs.existsSync(versionsDir)) {
       const dirNames = fs.readdirSync(versionsDir);
+      log('info', 'Found version dirs: ' + dirNames.join(', '));
       for (const versionId of dirNames) {
         if (versionId.startsWith('fabric-loader')) continue;
         if (knownIds.has(versionId)) continue;
@@ -101,8 +103,7 @@ function readInstallations() {
         } catch (_) { continue; }
 
         const jsonPath = path.join(vDir, versionId + '.json');
-        const jarPath = path.join(vDir, versionId + '.jar');
-        if (!fs.existsSync(jsonPath) || !fs.existsSync(jarPath)) continue;
+        if (!fs.existsSync(jsonPath)) continue;
 
         let hasFabric = false;
         try {
@@ -406,10 +407,23 @@ function launchMinecraft(installationId) {
       if (!cpParts.includes(fp)) cpParts.push(fp);
     }
 
-    // Add the client jar
+    // Add the client jar - download if missing
     const clientJar = path.join(mcDir, 'versions', version, version + '.jar');
-    if (fs.existsSync(clientJar)) cpParts.push(clientJar);
-    else return reject(new Error('VERSION_NOT_FOUND'));
+    if (!fs.existsSync(clientJar)) {
+      // Try to download the client jar from version JSON
+      const clientDl = versionJson.downloads?.client;
+      if (clientDl?.url) {
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading client jar...', level: 'info' });
+        try {
+          await downloadFile(clientDl.url, clientJar);
+        } catch (dlErr) {
+          return reject(new Error('Failed to download client jar: ' + dlErr.message));
+        }
+      } else {
+        return reject(new Error('VERSION_NOT_FOUND'));
+      }
+    }
+    cpParts.push(clientJar);
 
     const classpath = cpParts.join(sep);
 
@@ -510,33 +524,60 @@ function launchMinecraft(installationId) {
   });
 }
 
-// ── Simple ZIP file extractor (no dependencies) ──────
+// ── ZIP file extractor using central directory (handles all JARs) ──────
 function _extractFileFromZip(zipBuffer, targetPath) {
-  // ZIP local file header signature: PK\x03\x04
-  let offset = 0;
-  while (offset < zipBuffer.length - 4) {
-    if (zipBuffer[offset] !== 0x50 || zipBuffer[offset+1] !== 0x4b ||
-        zipBuffer[offset+2] !== 0x03 || zipBuffer[offset+3] !== 0x04) break;
+  try {
+    const buf = zipBuffer;
+    const len = buf.length;
 
-    const compressionMethod = zipBuffer.readUInt16LE(offset + 8);
-    const compressedSize = zipBuffer.readUInt32LE(offset + 18);
-    const uncompressedSize = zipBuffer.readUInt32LE(offset + 22);
-    const nameLen = zipBuffer.readUInt16LE(offset + 26);
-    const extraLen = zipBuffer.readUInt16LE(offset + 28);
-    const name = zipBuffer.toString('utf-8', offset + 30, offset + 30 + nameLen);
-    const dataStart = offset + 30 + nameLen + extraLen;
+    // Find End of Central Directory record (search backwards)
+    let eocdOffset = -1;
+    for (let i = len - 22; i >= Math.max(0, len - 65557); i--) {
+      if (buf[i] === 0x50 && buf[i+1] === 0x4b && buf[i+2] === 0x05 && buf[i+3] === 0x06) {
+        eocdOffset = i;
+        break;
+      }
+    }
+    if (eocdOffset === -1) return null;
 
-    if (name === targetPath && compressedSize > 0) {
-      const rawData = zipBuffer.slice(dataStart, dataStart + compressedSize);
+    const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+    const cdEntries = buf.readUInt16LE(eocdOffset + 10);
+
+    let offset = cdOffset;
+    for (let i = 0; i < cdEntries && offset < len - 46; i++) {
+      // Central directory file header: PK\x01\x02
+      if (buf[offset] !== 0x50 || buf[offset+1] !== 0x4b || buf[offset+2] !== 0x01 || buf[offset+3] !== 0x02) break;
+
+      const compressionMethod = buf.readUInt16LE(offset + 10);
+      const compressedSize = buf.readUInt32LE(offset + 20);
+      const nameLen = buf.readUInt16LE(offset + 28);
+      const extraLen = buf.readUInt16LE(offset + 30);
+      const commentLen = buf.readUInt16LE(offset + 32);
+      const localHeaderOffset = buf.readUInt32LE(offset + 42);
+      const name = buf.toString('utf-8', offset + 46, offset + 46 + nameLen);
+
+      offset += 46 + nameLen + extraLen + commentLen;
+
+      if (name !== targetPath) continue;
+
+      // Read from local file header to get actual data
+      const lh = localHeaderOffset;
+      if (lh + 30 > len) return null;
+      const lhNameLen = buf.readUInt16LE(lh + 26);
+      const lhExtraLen = buf.readUInt16LE(lh + 28);
+      const dataStart = lh + 30 + lhNameLen + lhExtraLen;
+
+      if (compressedSize === 0) return null;
+      if (dataStart + compressedSize > len) return null;
+
+      const rawData = buf.slice(dataStart, dataStart + compressedSize);
       if (compressionMethod === 0) return rawData; // stored
       if (compressionMethod === 8) { // deflate
         try { return require('zlib').inflateRawSync(rawData); } catch (_) { return null; }
       }
       return null;
     }
-
-    offset = dataStart + compressedSize;
-  }
+  } catch (_) { /* */ }
   return null;
 }
 

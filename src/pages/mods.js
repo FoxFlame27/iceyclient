@@ -389,11 +389,19 @@ async function _loadTrendingMods() {
   if (!resultsDiv) return;
   resultsDiv.innerHTML = '<div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div>';
   try {
-    const results = await ModrinthAPI.search('', 'mod', 20);
-    if (results.length > 0) {
-      resultsDiv.innerHTML = results.map(mod => _renderModListItem(mod)).join('');
+    const types = _modsFilter === 'all' ? ['mod', 'resourcepack'] : [_modsFilter];
+    let allResults = [];
+    const promises = [];
+    for (const type of types) {
+      promises.push(ModrinthAPI.search('', type, 12).catch(() => []));
+    }
+    const results = await Promise.all(promises);
+    allResults = results.flat();
+    allResults.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+    if (allResults.length > 0) {
+      resultsDiv.innerHTML = allResults.map(mod => _renderModListItem(mod)).join('');
     } else {
-      resultsDiv.innerHTML = '';
+      resultsDiv.innerHTML = '<div class="mods-empty">No results found.</div>';
     }
   } catch (_) {
     resultsDiv.innerHTML = '';
