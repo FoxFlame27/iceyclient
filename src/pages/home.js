@@ -30,7 +30,7 @@ async function HomePageInit() {
           <div class="home-launch-bar">
             <div class="launch-bar-snow" id="launch-bar-snow"></div>
             <button class="launch-btn launch-btn-idle" id="launch-btn" onclick="HomePlayClick()">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>
+              <img src="assets/splash-logo.png" width="24" height="24" style="image-rendering:pixelated;">
               <span id="launch-btn-text">LAUNCH</span>
             </button>
           </div>
@@ -164,7 +164,7 @@ function _homeUpdateLaunchButton(state, showTimer) {
   const btn = document.getElementById('launch-btn'), timer = document.getElementById('home-timer');
   if (!btn) return;
   btn.className = 'launch-btn';
-  if (state === 'idle') { btn.classList.add('launch-btn-idle'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg><span id="launch-btn-text">LAUNCH</span>`; if (timer) timer.classList.remove('visible'); }
+  if (state === 'idle') { btn.classList.add('launch-btn-idle'); btn.disabled = false; btn.innerHTML = `<img src="assets/splash-logo.png" width="24" height="24" style="image-rendering:pixelated;"><span id="launch-btn-text">LAUNCH</span>`; if (timer) timer.classList.remove('visible'); }
   else if (state === 'starting') { btn.classList.add('launch-btn-starting'); btn.disabled = true; btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div><span id="launch-btn-text">STARTING</span>`; if (timer) timer.classList.remove('visible'); }
   else if (state === 'running') { btn.classList.add('launch-btn-running'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span id="launch-btn-text">STOP</span>`; if (timer && showTimer) timer.classList.add('visible'); }
 }
