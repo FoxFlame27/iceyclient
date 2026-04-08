@@ -120,10 +120,10 @@
 .home-inst-cards::-webkit-scrollbar { height: 4px; }
 .home-inst-cards::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 
-/* Individual installation card - big box with image */
+/* Individual installation card - wide & short */
 .home-inst-card {
-  width: 180px; min-width: 180px; flex-shrink: 0;
-  background: rgba(0,0,0,0.7); border-radius: 16px;
+  width: 220px; min-width: 220px; flex-shrink: 0;
+  background: rgba(0,0,0,0.7); border-radius: 14px;
   border: 1.5px solid rgba(255,255,255,0.08);
   overflow: hidden; cursor: pointer;
   display: flex; flex-direction: column;
@@ -140,14 +140,14 @@
 }
 
 .home-inst-card-img {
-  width: 100%; height: 100px;
+  width: 100%; height: 70px;
   background-size: cover; background-position: center;
   background-color: rgba(255,255,255,0.03);
-  border-radius: 14px 14px 0 0;
+  border-radius: 12px 12px 0 0;
 }
 
 .home-inst-card-body {
-  padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 3px;
 }
 
 .home-inst-card-name {

@@ -6,6 +6,7 @@ async function InstallationsPageInit() {
   let installations = [];
   try {
     installations = await window.icey.getInstallations();
+    console.log('[Installations] Loaded:', installations.length, installations);
   } catch (e) {
     console.error('[Installations] Failed to load:', e);
   }

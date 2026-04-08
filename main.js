@@ -383,6 +383,16 @@ function launchMinecraft(installationId) {
       const artifact = lib.downloads?.artifact;
       if (artifact?.path) {
         const jarPath = path.join(libDir, artifact.path);
+        if (!fs.existsSync(jarPath) && artifact.url) {
+          // Auto-download missing library
+          try {
+            log('info', 'Downloading missing lib: ' + (lib.name || artifact.path));
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading library: ' + (lib.name || artifact.path), level: 'info' });
+            await downloadFile(artifact.url, jarPath);
+          } catch (dlErr) {
+            log('warn', 'Failed to download lib: ' + (lib.name || artifact.path) + ' - ' + dlErr.message);
+          }
+        }
         if (fs.existsSync(jarPath)) { cpParts.push(jarPath); continue; }
       }
 
@@ -393,13 +403,25 @@ function launchMinecraft(installationId) {
           const groupPath = parts[0].replace(/\./g, path.sep);
           const artifactId = parts[1];
           const ver = parts[2];
+          const mavenPath = groupPath.replace(/\\/g, '/') + '/' + artifactId + '/' + ver + '/' + artifactId + '-' + ver + '.jar';
           const jarPath = path.join(libDir, groupPath, artifactId, ver, `${artifactId}-${ver}.jar`);
+          if (!fs.existsSync(jarPath)) {
+            // Try downloading from Mojang's library server
+            const libUrl = 'https://libraries.minecraft.net/' + mavenPath;
+            try {
+              log('info', 'Downloading missing lib (maven): ' + lib.name);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading library: ' + lib.name, level: 'info' });
+              await downloadFile(libUrl, jarPath);
+            } catch (dlErr) {
+              log('warn', 'Failed to download lib from maven: ' + lib.name + ' - ' + dlErr.message);
+            }
+          }
           if (fs.existsSync(jarPath)) { cpParts.push(jarPath); continue; }
         }
       }
 
-      // Log missing libs for debugging
-      log('warn', 'Library not found: ' + (lib.name || JSON.stringify(lib.downloads?.artifact?.path)));
+      // Log still-missing libs
+      log('warn', 'Library not found after download attempt: ' + (lib.name || JSON.stringify(lib.downloads?.artifact?.path)));
     }
 
     // Add fabric libraries
