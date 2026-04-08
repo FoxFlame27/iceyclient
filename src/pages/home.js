@@ -38,13 +38,14 @@ async function HomePageInit() {
             <span class="home-timer-label">Playtime</span>
             <span class="home-timer-value" id="home-timer-value">00:00:00</span>
           </div>
-          <div class="home-selected-badge" id="home-selected-badge"></div>
         </div>
 
-        <!-- Installations switcher at bottom -->
-        <div class="home-installations-bar" id="home-installations-bar">
-          <div class="home-instbar-title">Installations</div>
-          <div class="home-instbar-list" id="home-instbar-list"></div>
+        <!-- Installations cards at bottom -->
+        <div class="home-installations-section">
+          <div class="home-inst-header">
+            <span class="home-inst-title">Your Installations</span>
+          </div>
+          <div class="home-inst-cards" id="home-inst-cards"></div>
         </div>
       </div>
 
@@ -83,35 +84,37 @@ async function HomePageInit() {
 }
 
 async function _loadHomeInstallations() {
-  const list = document.getElementById('home-instbar-list');
-  const badge = document.getElementById('home-selected-badge');
-  if (!list) return;
+  const container = document.getElementById('home-inst-cards');
+  if (!container) return;
   try {
     const installations = await window.icey.getInstallations();
-    const selected = installations.find(i => i.selected);
-    if (badge && selected) {
-      badge.innerHTML = `<span class="badge-dot"></span> ${selected.name} <span class="badge-ver">${selected.version}</span>`;
-      badge.style.display = 'flex';
-    }
     if (installations.length === 0) {
-      list.innerHTML = `<div class="home-instbar-empty" onclick="switchPage('installations')">No installations &mdash; click to create one</div>`;
+      container.innerHTML = `<div class="home-inst-empty" onclick="switchPage('installations')">No installations &mdash; click to create one</div>`;
       return;
     }
-    list.innerHTML = installations.map(inst => {
+    container.innerHTML = installations.map(inst => {
       const isSelected = inst.selected;
-      const platformIcon = inst.platform === 'fabric'
-        ? '<img class="home-instbar-fabric" src="assets/fabric.png" alt="F">'
-        : '';
+      const imageUrl = inst.image
+        ? `file://${inst.image.replace(/\\\\/g, '/')}`
+        : 'assets/installbg-default.png';
+      const platformLabel = inst.platform === 'fabric' ? 'Fabric' : 'Vanilla';
+      const platformClass = inst.platform === 'fabric' ? 'fabric' : 'vanilla';
       return `
-        <div class="home-instbar-item ${isSelected ? 'selected' : ''}" onclick="_homeSelectInstallation('${inst.id}')">
-          ${platformIcon}
-          <span class="home-instbar-name">${inst.name}</span>
-          <span class="home-instbar-ver">${inst.version}</span>
+        <div class="home-inst-card ${isSelected ? 'selected' : ''}" onclick="_homeSelectInstallation('${inst.id}')">
+          <div class="home-inst-card-img" style="background-image: url('${imageUrl}')"></div>
+          <div class="home-inst-card-body">
+            <div class="home-inst-card-name">${inst.name}</div>
+            <div class="home-inst-card-meta">
+              <span class="home-inst-card-platform ${platformClass}">${platformLabel}</span>
+              <span class="home-inst-card-ver">${inst.version}</span>
+            </div>
+          </div>
+          ${isSelected ? '<div class="home-inst-card-check"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.5"/></svg></div>' : ''}
         </div>
       `;
     }).join('');
   } catch (e) {
-    list.innerHTML = '<div class="home-instbar-empty">Failed to load</div>';
+    container.innerHTML = '<div class="home-inst-empty">Failed to load installations</div>';
   }
 }
 

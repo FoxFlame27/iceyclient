@@ -127,13 +127,17 @@ function readInstallations() {
     log('warn', 'Failed to scan .minecraft/versions: ' + e.message);
   }
 
+  // Auto-select first installation if none selected
+  if (iceyInstalls.length > 0 && !iceyInstalls.some(i => i.selected)) {
+    iceyInstalls[0].selected = true;
+  }
+
   return iceyInstalls;
 }
 
 function writeInstallations(data) {
-  // Only persist Icey-created installations (not auto-detected MC launcher ones)
-  const toSave = data.filter(i => !i.fromMcLauncher);
-  writeJsonAtomic(INSTALLATIONS_FILE, toSave);
+  // Save all installations (including auto-detected ones that the user has interacted with)
+  writeJsonAtomic(INSTALLATIONS_FILE, data);
 }
 
 // ── Settings ───────────────────────────────────────────

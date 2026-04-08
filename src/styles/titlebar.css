@@ -1,38 +1,20 @@
+/* Titlebar - minimal, no visible bar */
 #titlebar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
-  background: rgba(13,18,32,0.95);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  height: 32px;
+  background: transparent;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   z-index: 999;
   -webkit-app-region: drag;
 }
 
 .titlebar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-left: 16px;
-}
-
-.titlebar-logo {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-  border-radius: 4px;
-}
-
-.titlebar-title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  color: var(--accent-frost);
+  display: none;
 }
 
 .titlebar-controls {
@@ -41,12 +23,12 @@
 }
 
 .titlebar-btn {
-  width: 46px;
-  height: 40px;
+  width: 40px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
+  color: rgba(255,255,255,0.6);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -54,8 +36,8 @@
 }
 
 .titlebar-btn:hover {
-  background: rgba(255,255,255,0.08);
-  color: var(--text-primary);
+  background: rgba(255,255,255,0.1);
+  color: #fff;
 }
 
 .titlebar-btn-close:hover {
