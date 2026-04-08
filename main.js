@@ -800,23 +800,23 @@ async function exchangeMicrosoftTokens(code) {
   // Step 1: Code -> MS Token
   const msToken = await httpPost('https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
     `client_id=${MS_CLIENT_ID}&code=${code}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20offline_access`);
-  if (!msToken.access_token) throw new Error('MS token failed');
+  if (!msToken.access_token) { log('error', 'MS token failed: ' + JSON.stringify(msToken)); throw new Error('MS token failed'); }
 
   // Step 2: MS Token -> Xbox Live Token
   const xblRes = await httpPost('https://user.auth.xboxlive.com/user/authenticate',
     JSON.stringify({ Properties: { AuthMethod: 'RPS', SiteName: 'user.auth.xboxlive.com', RpsTicket: 'd=' + msToken.access_token }, RelyingParty: 'http://auth.xboxlive.com', TokenType: 'JWT' }), 'application/json');
-  if (!xblRes.Token) throw new Error('Xbox Live auth failed');
+  if (!xblRes.Token) { log('error', 'Xbox Live auth failed: ' + JSON.stringify(xblRes)); throw new Error('Xbox Live auth failed'); }
 
   // Step 3: XBL -> XSTS Token
   const xstsRes = await httpPost('https://xsts.auth.xboxlive.com/xsts/authorize',
     JSON.stringify({ Properties: { SandboxId: 'RETAIL', UserTokens: [xblRes.Token] }, RelyingParty: 'rp://api.minecraftservices.com/', TokenType: 'JWT' }), 'application/json');
-  if (!xstsRes.Token) throw new Error('XSTS auth failed');
+  if (!xstsRes.Token) { log('error', 'XSTS auth failed: ' + JSON.stringify(xstsRes)); throw new Error('XSTS auth failed'); }
   const userHash = xstsRes.DisplayClaims?.xui?.[0]?.uhs;
 
   // Step 4: XSTS -> Minecraft Token
   const mcRes = await httpPost('https://api.minecraftservices.com/authentication/login_with_xbox',
     JSON.stringify({ identityToken: `XBL3.0 x=${userHash};${xstsRes.Token}` }), 'application/json');
-  if (!mcRes.access_token) throw new Error('Minecraft auth failed');
+  if (!mcRes.access_token) { log('error', 'Minecraft auth failed: ' + JSON.stringify(mcRes)); throw new Error('Minecraft auth failed — does this account own Minecraft?'); }
 
   // Step 5: Get profile
   const profile = await httpGet('https://api.minecraftservices.com/minecraft/profile', { Authorization: 'Bearer ' + mcRes.access_token });
@@ -849,7 +849,7 @@ app.whenReady().then(() => {
   splash.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:rgba(8,12,24,0.95);border-radius:20px;overflow:hidden;font-family:system-ui;">
       <div style="text-align:center">
-        <img src="file://${path.join(__dirname, 'src', 'assets', 'icon.png').replace(/\\/g, '/')}" width="80" height="80" style="border-radius:16px;margin-bottom:16px;">
+        <img src="file://${path.join(__dirname, 'src', 'assets', 'splash-logo.png').replace(/\\/g, '/')}" width="100" height="100" style="image-rendering:pixelated;margin-bottom:16px;">
         <div style="color:#bae6fd;font-size:22px;font-weight:700;letter-spacing:0.1em;">ICEY CLIENT</div>
         <div style="color:#475569;font-size:12px;margin-top:8px;">Loading...</div>
       </div>

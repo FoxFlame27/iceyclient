@@ -84,7 +84,7 @@ function _renderInstallationCards(installations) {
                 <img src="assets/fabric.png" alt="Fabric">
               </div>
             ` : `
-              <span class="install-card-platform-text">Vanilla</span>
+              <span class="install-card-platform-text"><img src="assets/vanilla-icon.png" alt="" width="14" height="14" style="filter:invert(1);vertical-align:middle;margin-right:3px;">Vanilla</span>
             `}
           </div>
           <div class="install-card-actions">
@@ -137,7 +137,7 @@ async function _loadInstallDetail(id, installations) {
     <div class="detail-header">Quick Info</div>
     <div class="detail-name">${inst.name}</div>
     <div class="detail-row"><span class="detail-label">Version</span><span class="detail-value">${inst.version}</span></div>
-    <div class="detail-row"><span class="detail-label">Platform</span><span class="detail-value ${inst.platform === 'fabric' ? 'fabric' : ''}">${inst.platform === 'fabric' ? '<img src="assets/fabric.png" alt=""> Fabric' : 'Vanilla'}</span></div>
+    <div class="detail-row"><span class="detail-label">Platform</span><span class="detail-value ${inst.platform === 'fabric' ? 'fabric' : ''}">${inst.platform === 'fabric' ? '<img src="assets/fabric.png" alt=""> Fabric' : '<img src="assets/vanilla-icon.png" alt="" width="14" height="14" style="filter:invert(1);vertical-align:middle;margin-right:3px;">Vanilla'}</span></div>
     ${inst.platform === 'fabric' ? `<div class="detail-row"><span class="detail-label">Fabric</span><span class="detail-value">${isFabricActive ? '<span style="color:#4ade80">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>'}</span></div>` : ''}
     ${inst.fromMcLauncher ? '<div class="detail-row"><span class="detail-label">Source</span><span class="detail-value">MC Launcher</span></div>' : ''}
     <div class="detail-separator"></div>
@@ -276,7 +276,7 @@ async function showCreateInstallModal() {
             <label class="form-label">Platform</label>
             <div class="platform-toggle">
               <button class="platform-opt active" id="pill-vanilla" onclick="_setPlatform('vanilla')">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                <img src="assets/vanilla-icon.png" alt="" width="14" height="14" style="filter:invert(1);">
                 Vanilla
               </button>
               <button class="platform-opt" id="pill-fabric" onclick="_setPlatform('fabric')">
