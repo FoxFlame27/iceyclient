@@ -780,6 +780,12 @@ app.whenReady().then(() => {
   ipcMain.handle('get-installations', () => readInstallations());
 
   ipcMain.handle('save-installation', (_, data) => {
+    // Remove from deleted list if re-creating
+    const deleted = readDeletedIds();
+    if (deleted.has(data.id)) {
+      deleted.delete(data.id);
+      writeJsonAtomic(DELETED_FILE, [...deleted]);
+    }
     const installations = readInstallations();
     const idx = installations.findIndex(i => i.id === data.id);
     if (idx >= 0) {
