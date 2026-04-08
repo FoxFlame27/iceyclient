@@ -144,6 +144,14 @@
   background-size: cover; background-position: center;
   background-color: #1a2340;
   border-radius: 12px 12px 0 0;
+  position: relative; display: flex; align-items: center; justify-content: center;
+}
+
+.home-inst-card-version-overlay {
+  font-size: 22px; font-weight: 800; color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);
+  letter-spacing: 0.02em;
+  z-index: 1;
 }
 
 .home-inst-card-body {

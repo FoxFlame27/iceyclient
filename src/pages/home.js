@@ -101,13 +101,12 @@ async function _loadHomeInstallations() {
       const platformClass = inst.platform === 'fabric' ? 'fabric' : 'vanilla';
       return `
         <div class="home-inst-card ${isSelected ? 'selected' : ''}" onclick="_homeSelectInstallation('${inst.id}')">
-          <div class="home-inst-card-img" style="background-image: url('${imageUrl}')"></div>
+          <div class="home-inst-card-img" style="background-image: url('${imageUrl}')">
+            <div class="home-inst-card-version-overlay">${inst.version}</div>
+          </div>
           <div class="home-inst-card-body">
             <div class="home-inst-card-name">${inst.name}</div>
-            <div class="home-inst-card-meta">
-              <span class="home-inst-card-platform ${platformClass}">${platformLabel}</span>
-              <span class="home-inst-card-ver">${inst.version}</span>
-            </div>
+            <span class="home-inst-card-platform ${platformClass}">${platformLabel}</span>
           </div>
           ${isSelected ? '<div class="home-inst-card-check"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.5"/></svg></div>' : ''}
         </div>

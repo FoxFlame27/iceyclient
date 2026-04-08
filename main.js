@@ -461,6 +461,62 @@ function launchMinecraft(installationId) {
       }
     }
 
+    // Download missing asset objects
+    if (fs.existsSync(assetIndexPath)) {
+      try {
+        const assetData = JSON.parse(fs.readFileSync(assetIndexPath, 'utf-8'));
+        const objects = assetData.objects || {};
+        const objectKeys = Object.keys(objects);
+        let missing = 0;
+        for (const key of objectKeys) {
+          const hash = objects[key].hash;
+          const prefix = hash.substring(0, 2);
+          const objPath = path.join(assetsDir, 'objects', prefix, hash);
+          if (!fs.existsSync(objPath)) missing++;
+        }
+        if (missing > 0) {
+          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Downloading ${missing} asset files...`, level: 'info' });
+          let done = 0;
+          // Download in batches of 10 for speed
+          const missingList = [];
+          for (const key of objectKeys) {
+            const hash = objects[key].hash;
+            const prefix = hash.substring(0, 2);
+            const objPath = path.join(assetsDir, 'objects', prefix, hash);
+            if (!fs.existsSync(objPath)) {
+              missingList.push({ hash, prefix, objPath });
+            }
+          }
+          for (let i = 0; i < missingList.length; i += 10) {
+            const batch = missingList.slice(i, i + 10);
+            await Promise.all(batch.map(async ({ hash, prefix, objPath }) => {
+              try {
+                await downloadFile(`https://resources.download.minecraft.net/${prefix}/${hash}`, objPath);
+              } catch (_) { /* skip failed assets */ }
+            }));
+            done += batch.length;
+            if (mainWindow && done % 50 === 0) {
+              mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Assets: ${done}/${missing}`, level: 'info' });
+            }
+          }
+          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Assets downloaded: ${done}/${missing}`, level: 'info' });
+        }
+      } catch (e) {
+        log('warn', 'Asset download error: ' + e.message);
+      }
+    }
+
+    // Clean corrupted Fabric remapped jars
+    if (installation.platform === 'fabric') {
+      const fabricCacheDir = path.join(mcDir, '.fabric', 'remappedJars');
+      if (fs.existsSync(fabricCacheDir)) {
+        try {
+          fs.rmSync(fabricCacheDir, { recursive: true, force: true });
+          log('info', 'Cleaned Fabric remapped jars cache');
+        } catch (_) { /* */ }
+      }
+    }
+
     // Build arguments
     const ram = settings.allocatedRam || 2048;
     const username = settings.username || 'Player';
