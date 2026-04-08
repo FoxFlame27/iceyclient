@@ -292,6 +292,7 @@
 .mod-list-item:hover {
   border-color: var(--border-hover);
   background: var(--bg-card-hover);
+  transform: translateX(3px);
 }
 
 .mod-list-icon {

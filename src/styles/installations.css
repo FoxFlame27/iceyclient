@@ -79,6 +79,7 @@
 .install-card:hover {
   border-color: var(--border-hover);
   box-shadow: 0 0 20px var(--accent-glow);
+  transform: translateY(-3px) scale(1.02);
 }
 
 .install-card.selected {

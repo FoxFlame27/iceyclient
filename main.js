@@ -572,15 +572,22 @@ function launchMinecraft(installationId) {
     if (settings.jvmArgs) args.push(...settings.jvmArgs.split(/\s+/).filter(Boolean));
     args.push('-cp', classpath);
     args.push(mainClass);
+    // Use Microsoft auth if available
+    const auth = readAuth();
+    const launchUsername = (auth && auth.username) ? auth.username : username;
+    const launchUuid = (auth && auth.uuid) ? auth.uuid : uuid;
+    const launchToken = (auth && auth.accessToken && auth.expiresAt > Date.now()) ? auth.accessToken : '0';
+    const launchUserType = launchToken !== '0' ? 'msa' : 'legacy';
+
     // Game args
-    args.push('--username', username);
+    args.push('--username', launchUsername);
     args.push('--version', versionId);
     args.push('--gameDir', mcDir);
     args.push('--assetsDir', assetsDir);
     args.push('--assetIndex', assetIndex);
-    args.push('--uuid', uuid);
-    args.push('--accessToken', '0');
-    args.push('--userType', 'legacy');
+    args.push('--uuid', launchUuid);
+    args.push('--accessToken', launchToken);
+    args.push('--userType', launchUserType);
 
     log('info', `Launching MC directly: java ${version} (${cpParts.length} libs, main: ${mainClass})`);
 
@@ -705,12 +712,139 @@ function _extractFileFromZip(zipBuffer, targetPath) {
   return null;
 }
 
+// ── Microsoft Auth ─────────────────────────────────────
+const MS_CLIENT_ID = '00000000402b5328'; // Minecraft public client ID
+const MS_REDIRECT = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
+const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
+
+function readAuth() {
+  try {
+    if (fs.existsSync(AUTH_FILE)) return JSON.parse(fs.readFileSync(AUTH_FILE, 'utf-8'));
+  } catch (_) {}
+  return null;
+}
+function writeAuth(data) { writeJsonAtomic(AUTH_FILE, data); }
+
+async function httpPost(url, body, contentType = 'application/x-www-form-urlencoded') {
+  return new Promise((resolve, reject) => {
+    const proto = url.startsWith('https') ? https : http;
+    const parsed = new URL(url);
+    const req = proto.request({ hostname: parsed.hostname, path: parsed.pathname + parsed.search, method: 'POST', headers: { 'Content-Type': contentType, 'Content-Length': Buffer.byteLength(body) } }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => { try { resolve(JSON.parse(data)); } catch (_) { resolve(data); } });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+async function httpGet(url, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const proto = url.startsWith('https') ? https : http;
+    proto.get(url, { headers: { 'User-Agent': 'IceyClient/1.0.0', ...headers } }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => { try { resolve(JSON.parse(data)); } catch (_) { resolve(data); } });
+    }).on('error', reject);
+  });
+}
+
+async function microsoftLogin() {
+  return new Promise((resolve, reject) => {
+    const authUrl = `https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=${MS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20offline_access&prompt=select_account`;
+
+    const authWin = new BrowserWindow({ width: 520, height: 700, title: 'Microsoft Login', icon: path.join(__dirname, 'src', 'assets', 'icon.png'), webPreferences: { nodeIntegration: false, contextIsolation: true } });
+    authWin.setMenuBarVisibility(false);
+    authWin.loadURL(authUrl);
+
+    let handled = false;
+    const handleRedirect = async (url) => {
+      if (handled) return;
+      if (url.startsWith(MS_REDIRECT)) {
+        handled = true;
+        const code = new URL(url).searchParams.get('code');
+        if (!code) { authWin.close(); return reject(new Error('No auth code')); }
+        authWin.close();
+        try {
+          const result = await exchangeMicrosoftTokens(code);
+          resolve(result);
+        } catch (e) { reject(e); }
+      }
+    };
+
+    authWin.webContents.on('will-redirect', (event, url) => {
+      if (url.startsWith(MS_REDIRECT)) { event.preventDefault(); handleRedirect(url); }
+    });
+    authWin.webContents.on('will-navigate', (event, url) => {
+      if (url.startsWith(MS_REDIRECT)) { event.preventDefault(); handleRedirect(url); }
+    });
+    authWin.webContents.on('did-navigate', (event, url) => { handleRedirect(url); });
+
+    authWin.on('closed', () => { if (!handled) reject(new Error('Login cancelled')); });
+  });
+}
+
+async function exchangeMicrosoftTokens(code) {
+  // Step 1: Code -> MS Token
+  const msToken = await httpPost('https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
+    `client_id=${MS_CLIENT_ID}&code=${code}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20offline_access`);
+  if (!msToken.access_token) throw new Error('MS token failed');
+
+  // Step 2: MS Token -> Xbox Live Token
+  const xblRes = await httpPost('https://user.auth.xboxlive.com/user/authenticate',
+    JSON.stringify({ Properties: { AuthMethod: 'RPS', SiteName: 'user.auth.xboxlive.com', RpsTicket: 'd=' + msToken.access_token }, RelyingParty: 'http://auth.xboxlive.com', TokenType: 'JWT' }), 'application/json');
+  if (!xblRes.Token) throw new Error('Xbox Live auth failed');
+
+  // Step 3: XBL -> XSTS Token
+  const xstsRes = await httpPost('https://xsts.auth.xboxlive.com/xsts/authorize',
+    JSON.stringify({ Properties: { SandboxId: 'RETAIL', UserTokens: [xblRes.Token] }, RelyingParty: 'rp://api.minecraftservices.com/', TokenType: 'JWT' }), 'application/json');
+  if (!xstsRes.Token) throw new Error('XSTS auth failed');
+  const userHash = xstsRes.DisplayClaims?.xui?.[0]?.uhs;
+
+  // Step 4: XSTS -> Minecraft Token
+  const mcRes = await httpPost('https://api.minecraftservices.com/authentication/login_with_xbox',
+    JSON.stringify({ identityToken: `XBL3.0 x=${userHash};${xstsRes.Token}` }), 'application/json');
+  if (!mcRes.access_token) throw new Error('Minecraft auth failed');
+
+  // Step 5: Get profile
+  const profile = await httpGet('https://api.minecraftservices.com/minecraft/profile', { Authorization: 'Bearer ' + mcRes.access_token });
+
+  const authData = {
+    accessToken: mcRes.access_token,
+    username: profile.name || 'Player',
+    uuid: profile.id || crypto.randomUUID(),
+    skinUrl: profile.skins?.[0]?.url || null,
+    refreshToken: msToken.refresh_token || null,
+    expiresAt: Date.now() + (mcRes.expires_in || 86400) * 1000
+  };
+  writeAuth(authData);
+  return authData;
+}
+
 // ── App ready ──────────────────────────────────────────
 app.whenReady().then(() => {
   ensureDirs();
 
   // Reset log file on start
   try { fs.writeFileSync(LOG_FILE, `[${new Date().toISOString()}] [INFO] Icey Client started\n`); } catch (_) { /* */ }
+
+  // ── Splash Screen ──
+  const splash = new BrowserWindow({
+    width: 400, height: 300, frame: false, transparent: true, alwaysOnTop: true, center: true,
+    icon: path.join(__dirname, 'src', 'assets', 'icon.png'),
+    webPreferences: { nodeIntegration: false, contextIsolation: true }
+  });
+  splash.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
+    <html><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:rgba(8,12,24,0.95);border-radius:20px;overflow:hidden;font-family:system-ui;">
+      <div style="text-align:center">
+        <img src="file://${path.join(__dirname, 'src', 'assets', 'icon.png').replace(/\\/g, '/')}" width="80" height="80" style="border-radius:16px;margin-bottom:16px;">
+        <div style="color:#bae6fd;font-size:22px;font-weight:700;letter-spacing:0.1em;">ICEY CLIENT</div>
+        <div style="color:#475569;font-size:12px;margin-top:8px;">Loading...</div>
+      </div>
+    </body></html>
+  `));
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -734,6 +868,7 @@ app.whenReady().then(() => {
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
+    splash.destroy();
     mainWindow.show();
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
@@ -1267,6 +1402,70 @@ app.whenReady().then(() => {
 
   // Get real .minecraft directory
   ipcMain.handle('get-mc-dir', () => getDefaultMcDir());
+
+  // Microsoft Auth
+  ipcMain.handle('ms-login', async () => {
+    try {
+      return await microsoftLogin();
+    } catch (e) {
+      return { error: e.message };
+    }
+  });
+
+  ipcMain.handle('ms-logout', () => {
+    try { if (fs.existsSync(AUTH_FILE)) fs.unlinkSync(AUTH_FILE); } catch (_) {}
+    return { success: true };
+  });
+
+  ipcMain.handle('get-auth', () => {
+    const auth = readAuth();
+    if (auth && auth.expiresAt && Date.now() > auth.expiresAt) {
+      return null; // Expired
+    }
+    return auth;
+  });
+
+  ipcMain.handle('upload-skin', async (_, skinPath, variant) => {
+    const auth = readAuth();
+    if (!auth || !auth.accessToken) return { error: 'Not logged in' };
+    try {
+      const skinData = fs.readFileSync(skinPath);
+      const boundary = '----IceyClient' + Date.now();
+      const body = Buffer.concat([
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="variant"\r\n\r\n${variant || 'classic'}\r\n`),
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="skin.png"\r\nContent-Type: image/png\r\n\r\n`),
+        skinData,
+        Buffer.from(`\r\n--${boundary}--\r\n`)
+      ]);
+      const result = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: 'api.minecraftservices.com', path: '/minecraft/profile/skins', method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + auth.accessToken, 'Content-Type': 'multipart/form-data; boundary=' + boundary, 'Content-Length': body.length }
+        }, (res) => {
+          let data = '';
+          res.on('data', c => data += c);
+          res.on('end', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) resolve({ success: true });
+            else resolve({ error: 'Upload failed (HTTP ' + res.statusCode + ')' });
+          });
+        });
+        req.on('error', e => reject(e));
+        req.write(body);
+        req.end();
+      });
+      return result;
+    } catch (e) {
+      return { error: e.message };
+    }
+  });
+
+  ipcMain.handle('get-mc-profile', async () => {
+    const auth = readAuth();
+    if (!auth || !auth.accessToken) return null;
+    try {
+      return await httpGet('https://api.minecraftservices.com/minecraft/profile', { Authorization: 'Bearer ' + auth.accessToken });
+    } catch (_) { return null; }
+  });
 
   // Download libraries into real .minecraft/libraries from version JSON URL
   ipcMain.handle('download-mc-libraries', async (_, versionJsonUrl) => {

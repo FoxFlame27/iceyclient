@@ -104,15 +104,15 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform: translateY(12px) scale(0.98);
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
   visibility: hidden;
 }
 
 .page.active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
   pointer-events: auto;
   visibility: visible;
 }
@@ -169,6 +169,24 @@ input::placeholder, textarea::placeholder {
 ::selection {
   background: var(--accent-dim);
   color: var(--accent-frost);
+}
+
+/* Typography - Outfit for headings */
+h1, h2, h3, .installations-title, .mods-browse-title, .mods-guard-title {
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+}
+
+/* Global hover micro-animations */
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* Glass morphism panels */
+.glass-panel {
+  background: rgba(13, 18, 32, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(91, 200, 245, 0.1);
 }
 
 /* Utility */

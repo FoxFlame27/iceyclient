@@ -51,6 +51,13 @@ contextBridge.exposeInMainWorld('icey', {
   getInstallationsDir: () => ipcRenderer.invoke('get-installations-dir'),
   getCacheDir: () => ipcRenderer.invoke('get-cache-dir'),
 
+  // Auth
+  msLogin: () => ipcRenderer.invoke('ms-login'),
+  msLogout: () => ipcRenderer.invoke('ms-logout'),
+  getAuth: () => ipcRenderer.invoke('get-auth'),
+  uploadSkin: (skinPath, variant) => ipcRenderer.invoke('upload-skin', skinPath, variant),
+  getMcProfile: () => ipcRenderer.invoke('get-mc-profile'),
+
   // Window controls
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   maximizeWindow: () => ipcRenderer.send('window-maximize'),
