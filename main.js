@@ -27,6 +27,23 @@ const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const LOGS_DIR = path.join(DATA_DIR, 'logs');
 const CACHE_DIR = path.join(DATA_DIR, 'cache');
 const INSTALLATIONS_DIR = path.join(DATA_DIR, 'installations');
+const DELETED_FILE = path.join(DATA_DIR, 'deleted-installations.json');
+
+function readDeletedIds() {
+  try {
+    if (fs.existsSync(DELETED_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DELETED_FILE, 'utf-8'));
+      if (Array.isArray(data)) return new Set(data);
+    }
+  } catch (_) {}
+  return new Set();
+}
+
+function addDeletedId(id) {
+  const deleted = readDeletedIds();
+  deleted.add(id);
+  writeJsonAtomic(DELETED_FILE, [...deleted]);
+}
 
 function ensureDirs() {
   [DATA_DIR, LOGS_DIR, CACHE_DIR, INSTALLATIONS_DIR].forEach(d => {
@@ -82,6 +99,8 @@ function readInstallations() {
     log('error', 'readIceyInstallations failed: ' + e.message);
     iceyInstalls = [];
   }
+  const deletedIds = readDeletedIds();
+  iceyInstalls = iceyInstalls.filter(i => !deletedIds.has(i.id));
   const knownIds = new Set(iceyInstalls.map(i => i.id));
 
   // Scan real .minecraft/versions/ for MC launcher installations
@@ -95,6 +114,7 @@ function readInstallations() {
       for (const versionId of dirNames) {
         if (versionId.startsWith('fabric-loader')) continue;
         if (knownIds.has(versionId)) continue;
+        if (deletedIds.has(versionId)) continue;
 
         const vDir = path.join(versionsDir, versionId);
         try {
@@ -424,9 +444,26 @@ function launchMinecraft(installationId) {
       log('warn', 'Library not found after download attempt: ' + (lib.name || JSON.stringify(lib.downloads?.artifact?.path)));
     }
 
-    // Add fabric libraries
+    // Add fabric libraries, replacing vanilla duplicates (e.g. asm-9.6 vs asm-9.9)
     for (const fp of fabricLibs) {
-      if (!cpParts.includes(fp)) cpParts.push(fp);
+      if (cpParts.includes(fp)) continue;
+      // Extract artifact name from path (e.g. "asm" from ".../asm/9.9/asm-9.9.jar")
+      const fpParts = fp.replace(/\\/g, '/').split('/');
+      const fpJarName = fpParts[fpParts.length - 1]; // e.g. "asm-9.9.jar"
+      const fpArtifact = fpJarName.replace(/-[\d].*$/, ''); // e.g. "asm"
+      // Remove any vanilla version of the same artifact
+      const toRemove = [];
+      for (let i = 0; i < cpParts.length; i++) {
+        const cpJar = cpParts[i].replace(/\\/g, '/').split('/').pop();
+        const cpArtifact = cpJar.replace(/-[\d].*$/, '');
+        if (cpArtifact === fpArtifact && cpJar !== fpJarName) {
+          toRemove.push(i);
+        }
+      }
+      for (let i = toRemove.length - 1; i >= 0; i--) {
+        cpParts.splice(toRemove[i], 1);
+      }
+      cpParts.push(fp);
     }
 
     // Add the client jar - download if missing
@@ -755,6 +792,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('delete-installation', (_, id) => {
+    addDeletedId(id);
     let installations = readInstallations();
     installations = installations.filter(i => i.id !== id);
     writeInstallations(installations);

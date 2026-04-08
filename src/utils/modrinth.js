@@ -43,7 +43,6 @@ const ModrinthAPI = {
     if (mcVersion) {
       params.set('game_versions', JSON.stringify([mcVersion]));
     }
-    params.set('loaders', JSON.stringify(['fabric']));
 
     const response = await fetch(`${this.BASE_URL}/project/${projectId}/version?${params}`, {
       headers: { 'User-Agent': 'IceyClient/1.0.0' }
@@ -53,11 +52,18 @@ const ModrinthAPI = {
     return response.json();
   },
 
+  async getAllVersions(projectId) {
+    const response = await fetch(`${this.BASE_URL}/project/${projectId}/version`, {
+      headers: { 'User-Agent': 'IceyClient/1.0.0' }
+    });
+    if (!response.ok) throw new Error(`Modrinth versions failed: ${response.status}`);
+    return response.json();
+  },
+
   async getDownloadUrl(projectId, mcVersion) {
     const versions = await this.getVersions(projectId, mcVersion);
     if (versions.length === 0) {
-      // Try without version filter
-      const allVersions = await this.getVersions(projectId);
+      const allVersions = await this.getAllVersions(projectId);
       if (allVersions.length === 0) throw new Error('No versions found');
       const file = allVersions[0].files.find(f => f.primary) || allVersions[0].files[0];
       return { url: file.url, filename: file.filename };

@@ -491,3 +491,42 @@
   height: 72px;
   border-radius: 14px;
 }
+
+/* Version picker rows */
+.mod-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.mod-version-row:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.mod-version-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mod-version-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.mod-version-mc {
+  font-size: 11px;
+  color: var(--accent);
+  padding: 2px 8px;
+  background: var(--accent-dim);
+  border-radius: 999px;
+}
+.mod-version-loaders {
+  font-size: 10px;
+  color: var(--text-muted);
+}

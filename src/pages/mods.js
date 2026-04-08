@@ -303,45 +303,104 @@ function _renderModListItem(mod) {
 async function _installModFromSearch(btn, source, modId, modName, projectType) {
   if (!_modsActiveInstallation) return;
   btn.disabled = true;
-  btn.textContent = '...';
+  btn.textContent = 'Loading...';
 
   try {
-    let downloadInfo;
     if (source === 'modrinth') {
-      downloadInfo = await ModrinthAPI.getDownloadUrl(modId, _modsActiveInstallation.version);
+      // Fetch all versions and show picker
+      const allVersions = await ModrinthAPI.getAllVersions(modId);
+      if (allVersions.length === 0) {
+        Toast.error('No versions available');
+        btn.disabled = false;
+        btn.textContent = 'Install';
+        return;
+      }
+
+      // Group by game version, show unique MC versions
+      const versionOptions = allVersions.map(v => {
+        const mcVers = v.game_versions?.join(', ') || '?';
+        const loaders = v.loaders?.join(', ') || '?';
+        const file = v.files.find(f => f.primary) || v.files[0];
+        return { id: v.id, name: v.version_number, mcVersions: mcVers, loaders, file, datePublished: v.date_published };
+      });
+
+      // Show modal with version list
+      showModal(`
+        <div class="modal-header">
+          <h2 class="modal-title">Install ${_escapeHtml(modName)}</h2>
+          <button class="modal-close" onclick="closeModal()">
+            <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="max-height:400px;overflow-y:auto;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Select a version to install:</div>
+          ${versionOptions.slice(0, 30).map(v => `
+            <div class="mod-version-row" onclick="_downloadModVersion('${v.file?.url || ''}', '${_escapeAttr(v.file?.filename || '')}', '${_escapeAttr(modName)}', '${projectType}')">
+              <div class="mod-version-info">
+                <span class="mod-version-name">${_escapeHtml(v.name)}</span>
+                <span class="mod-version-mc">${_escapeHtml(v.mcVersions)}</span>
+              </div>
+              <span class="mod-version-loaders">${_escapeHtml(v.loaders)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `);
+      btn.disabled = false;
+      btn.textContent = 'Install';
     } else {
+      // CurseForge - direct download
       const results = await CurseForgeAPI.search(modName, projectType === 'resourcepack' ? 'resourcepack' : 'mod', 5);
       const mod = results.find(r => String(r.id) === String(modId));
-      if (mod) {
-        downloadInfo = CurseForgeAPI.getDownloadUrl(mod);
+      if (!mod) {
+        Toast.error('Could not find mod');
+        btn.disabled = false;
+        btn.textContent = 'Install';
+        return;
       }
-    }
-
-    if (!downloadInfo || !downloadInfo.url) {
-      Toast.error('Could not find download for this mod');
-      btn.disabled = false;
-      btn.textContent = 'Install';
-      return;
-    }
-
-    const mcDir = await window.icey.getMcDir();
-    const folder = projectType === 'resourcepack' ? 'resourcepacks' : 'mods';
-    const dest = mcDir + '/' + folder + '/' + downloadInfo.filename;
-
-    const result = await window.icey.downloadFile(downloadInfo.url, dest);
-    if (result.error) {
-      Toast.error('Download failed: ' + result.error);
-      btn.disabled = false;
-      btn.textContent = 'Install';
-    } else {
-      btn.outerHTML = '<span class="badge-installed">Installed</span>';
-      Toast.success('Installed ' + modName);
-      _modsInstalledFiles.push({ name: modName, filename: downloadInfo.filename });
+      const downloadInfo = CurseForgeAPI.getDownloadUrl(mod);
+      if (!downloadInfo?.url) {
+        Toast.error('No download available');
+        btn.disabled = false;
+        btn.textContent = 'Install';
+        return;
+      }
+      await _doModDownload(downloadInfo.url, downloadInfo.filename, modName, projectType, btn);
     }
   } catch (e) {
     Toast.error('Install failed: ' + e.message);
     btn.disabled = false;
     btn.textContent = 'Install';
+  }
+}
+
+async function _downloadModVersion(url, filename, modName, projectType) {
+  if (!url || !filename) { Toast.error('Invalid download'); return; }
+  closeModal();
+  Toast.info('Downloading ' + modName + '...');
+  const mcDir = await window.icey.getMcDir();
+  const folder = projectType === 'resourcepack' ? 'resourcepacks' : 'mods';
+  const dest = mcDir + '/' + folder + '/' + filename;
+  const result = await window.icey.downloadFile(url, dest);
+  if (result.error) {
+    Toast.error('Download failed: ' + result.error);
+  } else {
+    Toast.success('Installed ' + modName);
+    _modsInstalledFiles.push({ name: modName, filename });
+  }
+}
+
+async function _doModDownload(url, filename, modName, projectType, btn) {
+  const mcDir = await window.icey.getMcDir();
+  const folder = projectType === 'resourcepack' ? 'resourcepacks' : 'mods';
+  const dest = mcDir + '/' + folder + '/' + filename;
+  const result = await window.icey.downloadFile(url, dest);
+  if (result.error) {
+    Toast.error('Download failed: ' + result.error);
+    if (btn) { btn.disabled = false; btn.textContent = 'Install'; }
+  } else {
+    if (btn) btn.outerHTML = '<span class="badge-installed">Installed</span>';
+    Toast.success('Installed ' + modName);
+    _modsInstalledFiles.push({ name: modName, filename });
   }
 }
 

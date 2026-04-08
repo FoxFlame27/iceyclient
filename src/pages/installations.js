@@ -168,8 +168,8 @@ async function _selectAndLaunch(id) {
   for (const inst of installations) {
     await window.icey.saveInstallation(inst);
   }
-  _renderInstallationCards(installations);
-  // Launch
+  // Switch to home page and launch
+  switchPage('home');
   await MinecraftLauncher.launch(id);
 }
 
