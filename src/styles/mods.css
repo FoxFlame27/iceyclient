@@ -48,6 +48,28 @@
   background: var(--accent-dim);
 }
 
+/* Installation selector */
+.mods-install-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mods-selector-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.mods-selector-select {
+  flex: 1;
+  max-width: 300px;
+}
+
 /* ─── Main view: plus icon + dropzone + browse ─── */
 .mods-main-view {
   display: flex;
@@ -150,6 +172,14 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow-y: auto;
+}
+
+.mods-load-more {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .mods-browse-header {

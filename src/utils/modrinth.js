@@ -1,7 +1,7 @@
 const ModrinthAPI = {
   BASE_URL: 'https://api.modrinth.com/v2',
 
-  async search(query, type = 'mod', limit = 20) {
+  async search(query, type = 'mod', limit = 20, offset = 0) {
     let facets;
     if (type === 'mod') {
       facets = JSON.stringify([['project_type:mod'], ['categories:fabric']]);
@@ -14,7 +14,8 @@ const ModrinthAPI = {
     const params = new URLSearchParams({
       query: query,
       facets: facets,
-      limit: String(limit)
+      limit: String(limit),
+      offset: String(offset)
     });
 
     const response = await fetch(`${this.BASE_URL}/search?${params}`, {

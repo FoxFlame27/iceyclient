@@ -3,37 +3,56 @@ let _modsActiveInstallation = null;
 let _modsFilter = 'all';
 let _modsInstalledFiles = [];
 let _modsBrowseMode = false;
+let _modsOffset = 0;
+let _modsLoading = false;
+let _modsHasMore = true;
+let _modsCurrentQuery = '';
 
 async function ModsPageInit() {
   const page = document.getElementById('page-mods');
   const installations = await window.icey.getInstallations();
-  const fabricInstallation = installations.find(i => i.platform === 'fabric' && i.fabricActive);
 
-  if (!fabricInstallation) {
+  if (installations.length === 0) {
     page.innerHTML = `
       <div class="mods-guard">
         <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
           <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
         </svg>
-        <div class="mods-guard-title">No Fabric Installation Selected</div>
-        <div class="mods-guard-subtitle">Mods require a Fabric installation. Go to Installations and activate one.</div>
+        <div class="mods-guard-title">No Installations</div>
+        <div class="mods-guard-subtitle">Create an installation first to manage mods.</div>
         <button class="btn-goto-installations" onclick="switchPage('installations')">Go to Installations</button>
       </div>
     `;
     return;
   }
 
-  _modsActiveInstallation = fabricInstallation;
+  // Use selected installation, or first fabric, or just first
+  const selected = installations.find(i => i.selected);
+  const fabricInst = installations.find(i => i.platform === 'fabric' && i.fabricActive);
+  _modsActiveInstallation = selected || fabricInst || installations[0];
   _modsBrowseMode = false;
-  _renderModsMainView(page);
+  _renderModsMainView(page, installations);
 }
 
-function _renderModsMainView(page) {
+async function _renderModsMainView(page, installations) {
   if (!page) page = document.getElementById('page-mods');
+  if (!installations) installations = await window.icey.getInstallations();
+
+  const instOptions = installations.map(inst => {
+    const sel = inst.id === _modsActiveInstallation?.id ? 'selected' : '';
+    const label = inst.name + ' (' + inst.version + ')';
+    return `<option value="${inst.id}" ${sel}>${label}</option>`;
+  }).join('');
 
   page.innerHTML = `
     <div class="mods-main-view">
+      <div class="mods-install-selector">
+        <label class="mods-selector-label">Installing to:</label>
+        <select class="mods-selector-select" id="mods-install-select" onchange="_modsChangeInstallation(this.value)">
+          ${instOptions}
+        </select>
+      </div>
       <div class="mods-dropzone-full" id="mods-dropzone" onclick="_modsBrowseFiles()">
         <div class="mods-plus-icon">
           <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -67,9 +86,12 @@ function _renderModsMainView(page) {
 
 function _enterModsBrowse() {
   _modsBrowseMode = true;
+  _modsOffset = 0;
+  _modsHasMore = true;
+  _modsCurrentQuery = '';
   const page = document.getElementById('page-mods');
   page.innerHTML = `
-    <div class="mods-browse-view">
+    <div class="mods-browse-view" id="mods-browse-view">
       <div class="mods-browse-header">
         <div class="mods-browse-title">Browse Mods & Resource Packs</div>
         <button class="btn-mods-back" onclick="_exitModsBrowse()">
@@ -91,8 +113,19 @@ function _enterModsBrowse() {
         <button class="mods-filter-pill" data-filter="resourcepack" onclick="_setModsFilter('resourcepack', this)">Resource Packs</button>
       </div>
       <div id="mods-browse-results" class="mods-browse-list"></div>
+      <div id="mods-load-more" class="mods-load-more" style="display:none;">Loading more...</div>
     </div>
   `;
+
+  // Infinite scroll
+  const scrollContainer = document.getElementById('mods-browse-view');
+  scrollContainer.addEventListener('scroll', () => {
+    if (_modsLoading || !_modsHasMore) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+    if (scrollTop + clientHeight >= scrollHeight - 200) {
+      _loadMoreMods();
+    }
+  });
 
   _loadTrendingMods();
 }
@@ -100,6 +133,12 @@ function _enterModsBrowse() {
 function _exitModsBrowse() {
   _modsBrowseMode = false;
   _renderModsMainView();
+}
+
+async function _modsChangeInstallation(id) {
+  const installations = await window.icey.getInstallations();
+  _modsActiveInstallation = installations.find(i => i.id === id) || installations[0];
+  _refreshInstalledMods();
 }
 
 function _setupModsDropzone() {
@@ -187,6 +226,9 @@ function _modsSearchDebounced() {
 }
 
 async function _modsSearch(query) {
+  _modsOffset = 0;
+  _modsHasMore = true;
+  _modsCurrentQuery = query;
   const resultsDiv = document.getElementById('mods-browse-results');
   if (!resultsDiv) return;
 
@@ -203,7 +245,7 @@ async function _modsSearch(query) {
     const promises = [];
     for (const type of types) {
       promises.push(
-        ModrinthAPI.search(query, type, 10).catch(() => []),
+        ModrinthAPI.search(query, type, 30, 0).catch(() => []),
         CurseForgeAPI.search(query, type, 10).catch(() => [])
       );
     }
@@ -211,6 +253,8 @@ async function _modsSearch(query) {
     const results = await Promise.all(promises);
     allResults = results.flat();
     allResults.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+    _modsOffset = 30;
+    _modsHasMore = allResults.length >= 20;
 
     if (allResults.length === 0) {
       resultsDiv.innerHTML = `<div class="mods-empty">No results found for '${query}'</div>`;
@@ -385,6 +429,9 @@ function _escapeAttr(str) {
 }
 
 async function _loadTrendingMods() {
+  _modsOffset = 0;
+  _modsHasMore = true;
+  _modsCurrentQuery = '';
   const resultsDiv = document.getElementById('mods-browse-results');
   if (!resultsDiv) return;
   resultsDiv.innerHTML = '<div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div>';
@@ -393,11 +440,13 @@ async function _loadTrendingMods() {
     let allResults = [];
     const promises = [];
     for (const type of types) {
-      promises.push(ModrinthAPI.search('', type, 12).catch(() => []));
+      promises.push(ModrinthAPI.search('', type, 30, 0).catch(() => []));
     }
     const results = await Promise.all(promises);
     allResults = results.flat();
     allResults.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+    _modsOffset = 30;
+    _modsHasMore = allResults.length >= 20;
     if (allResults.length > 0) {
       resultsDiv.innerHTML = allResults.map(mod => _renderModListItem(mod)).join('');
     } else {
@@ -406,4 +455,37 @@ async function _loadTrendingMods() {
   } catch (_) {
     resultsDiv.innerHTML = '';
   }
+}
+
+async function _loadMoreMods() {
+  if (_modsLoading || !_modsHasMore) return;
+  _modsLoading = true;
+  const loadMore = document.getElementById('mods-load-more');
+  if (loadMore) loadMore.style.display = 'block';
+
+  try {
+    const query = _modsCurrentQuery;
+    const types = _modsFilter === 'all' ? ['mod'] : [_modsFilter];
+    let allResults = [];
+    const promises = [];
+    for (const type of types) {
+      promises.push(ModrinthAPI.search(query, type, 30, _modsOffset).catch(() => []));
+    }
+    const results = await Promise.all(promises);
+    allResults = results.flat();
+
+    if (allResults.length === 0) {
+      _modsHasMore = false;
+    } else {
+      _modsOffset += 30;
+      const resultsDiv = document.getElementById('mods-browse-results');
+      if (resultsDiv) {
+        resultsDiv.insertAdjacentHTML('beforeend', allResults.map(mod => _renderModListItem(mod)).join(''));
+      }
+    }
+  } catch (_) {
+    _modsHasMore = false;
+  }
+  _modsLoading = false;
+  if (loadMore) loadMore.style.display = 'none';
 }

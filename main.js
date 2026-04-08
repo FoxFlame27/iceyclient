@@ -449,8 +449,17 @@ function launchMinecraft(installationId) {
 
     const classpath = cpParts.join(sep);
 
-    // Determine asset index
+    // Determine asset index and download if missing
     const assetIndex = versionJson.assetIndex?.id || version;
+    const assetIndexPath = path.join(assetsDir, 'indexes', assetIndex + '.json');
+    if (!fs.existsSync(assetIndexPath) && versionJson.assetIndex?.url) {
+      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading asset index...', level: 'info' });
+      try {
+        await downloadFile(versionJson.assetIndex.url, assetIndexPath);
+      } catch (e) {
+        log('warn', 'Failed to download asset index: ' + e.message);
+      }
+    }
 
     // Build arguments
     const ram = settings.allocatedRam || 2048;

@@ -62,7 +62,7 @@ function _renderInstallationCards(installations) {
     const isDetailSelected = inst.id === _installSelectedId;
     const imageStyle = inst.image
       ? `background-image: url('file://${inst.image.replace(/\\/g, '/')}')`
-      : `background-image: url('assets/installbg.png')`;
+      : `background-image: url('assets/installbg-default.png')`;
     const isFabricActive = inst.platform === 'fabric' && inst.fabricActive;
 
     return `
