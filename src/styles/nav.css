@@ -11,28 +11,28 @@
   flex-direction: column;
   align-items: center;
   z-index: 998;
-  padding-top: 16px;
+  padding-top: 20px;
 }
 
 .nav-tabs-group {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 0 8px;
+  padding: 0 12px;
 }
 
 .nav-tab {
-  width: 48px;
-  height: 48px;
+  width: 68px;
+  height: 68px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   cursor: pointer;
-  border-radius: 14px;
+  border-radius: 16px;
   position: relative;
   transition: all 0.25s ease;
 }
@@ -40,11 +40,13 @@
 .nav-icon {
   color: var(--text-muted);
   transition: all 0.25s ease;
+  width: 28px;
+  height: 28px;
 }
 
 .nav-icon-img {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
   opacity: 0.45;
   filter: invert(1);
@@ -83,11 +85,11 @@
 .nav-tab.active::before {
   content: '';
   position: absolute;
-  left: -8px;
+  left: -12px;
   top: 50%;
   transform: translateY(-50%);
-  width: 3px;
-  height: 24px;
+  width: 4px;
+  height: 28px;
   background: var(--accent);
   border-radius: 0 999px 999px 0;
   box-shadow: 0 0 12px var(--accent-glow);
@@ -103,7 +105,7 @@
   padding: 6px 12px;
   background: var(--bg-card);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -117,9 +119,4 @@
 
 .nav-tab:hover::after {
   opacity: 1;
-}
-
-/* Remove old bottom nav */
-#nav-gradient {
-  display: none;
 }

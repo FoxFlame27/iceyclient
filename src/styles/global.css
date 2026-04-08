@@ -24,7 +24,7 @@
   --border: rgba(91,200,245,0.12);
   --border-hover: rgba(91,200,245,0.3);
   --border-active: rgba(91,200,245,0.6);
-  --sidebar-width: 64px;
+  --sidebar-width: 96px;
 }
 
 :root[data-theme="light"] {
