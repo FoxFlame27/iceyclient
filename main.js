@@ -723,7 +723,7 @@ function _extractFileFromZip(zipBuffer, targetPath) {
 }
 
 // ── Microsoft Auth ─────────────────────────────────────
-const MS_CLIENT_ID = '00000000402b5328'; // Minecraft public client ID
+const MS_CLIENT_ID = '96f76b51-c7a9-4d29-91bd-bf2148bb4a30';
 const MS_REDIRECT = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
 const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
 
