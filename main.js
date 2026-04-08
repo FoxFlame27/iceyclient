@@ -723,7 +723,7 @@ function _extractFileFromZip(zipBuffer, targetPath) {
 }
 
 // ── Microsoft Auth ─────────────────────────────────────
-const MS_CLIENT_ID = '389b1b32-b5d5-43b2-bddc-84ce938d6737'; // Minecraft launcher client ID
+const MS_CLIENT_ID = '96f76b51-c7a9-4d29-91bd-bf2148bb4a30';
 const MS_REDIRECT = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
 const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
 
@@ -816,7 +816,8 @@ async function exchangeMicrosoftTokens(code) {
   // Step 4: XSTS -> Minecraft Token
   const mcRes = await httpPost('https://api.minecraftservices.com/authentication/login_with_xbox',
     JSON.stringify({ identityToken: `XBL3.0 x=${userHash};${xstsRes.Token}` }), 'application/json');
-  if (!mcRes.access_token) { log('error', 'Minecraft auth failed: ' + JSON.stringify(mcRes)); throw new Error('Minecraft auth failed — does this account own Minecraft?'); }
+  log('info', 'MC auth response: ' + JSON.stringify(mcRes));
+  if (!mcRes.access_token) { log('error', 'Minecraft auth failed: ' + JSON.stringify(mcRes)); throw new Error('MC auth failed: ' + (mcRes.error || mcRes.errorMessage || JSON.stringify(mcRes))); }
 
   // Step 5: Get profile
   const profile = await httpGet('https://api.minecraftservices.com/minecraft/profile', { Authorization: 'Bearer ' + mcRes.access_token });
