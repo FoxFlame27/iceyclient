@@ -847,15 +847,7 @@ app.whenReady().then(() => {
     icon: path.join(__dirname, 'src', 'assets', 'icon.png'),
     webPreferences: { nodeIntegration: false, contextIsolation: true }
   });
-  splash.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
-    <html><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:rgba(8,12,24,0.95);border-radius:20px;overflow:hidden;font-family:system-ui;">
-      <div style="text-align:center">
-        <img src="file://${path.join(__dirname, 'src', 'assets', 'splash-logo.png').replace(/\\/g, '/')}" width="100" height="100" style="image-rendering:pixelated;margin-bottom:16px;">
-        <div style="color:#bae6fd;font-size:22px;font-weight:700;letter-spacing:0.1em;">ICEY CLIENT</div>
-        <div style="color:#475569;font-size:12px;margin-top:8px;">Loading...</div>
-      </div>
-    </body></html>
-  `));
+  splash.loadFile(path.join(__dirname, 'src', 'splash.html'));
 
   mainWindow = new BrowserWindow({
     width: 1280,
