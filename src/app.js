@@ -68,10 +68,7 @@ async function loadNavProfile() {
     } else {
       container.innerHTML = `
         <div class="nav-profile-login" onclick="_navLogin()" title="Login with Microsoft">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
+          <img src="assets/skins-icon.png" alt="Login" style="width:22px;height:22px;filter:invert(1);opacity:0.6;">
         </div>
         <div class="nav-profile-name" style="color:var(--accent);cursor:pointer" onclick="_navLogin()">Login</div>
       `;
@@ -85,9 +82,7 @@ async function loadNavProfile() {
       `;
       _updateProfileDropdown(auth);
     } else {
-      titlebarProfile.innerHTML = `
-        <button class="titlebar-login-btn" onclick="_navLogin()">Login</button>
-      `;
+      titlebarProfile.innerHTML = '';
     }
   }
 }

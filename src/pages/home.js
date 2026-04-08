@@ -164,9 +164,9 @@ function _homeUpdateLaunchButton(state, showTimer) {
   const btn = document.getElementById('launch-btn'), timer = document.getElementById('home-timer');
   if (!btn) return;
   btn.className = 'launch-btn';
-  if (state === 'idle') { btn.classList.add('launch-btn-idle'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg><span id="launch-btn-text">LAUNCH</span>`; if (timer) timer.classList.remove('visible'); }
-  else if (state === 'starting') { btn.classList.add('launch-btn-starting'); btn.disabled = true; btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div><span id="launch-btn-text">STARTING...</span>`; if (timer) timer.classList.remove('visible'); }
-  else if (state === 'running') { btn.classList.add('launch-btn-running'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span id="launch-btn-text">STOP</span>`; if (timer && showTimer) timer.classList.add('visible'); }
+  if (state === 'idle') { btn.classList.add('launch-btn-idle'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg><span id="launch-btn-text">LAUNCH</span>`; if (timer) timer.classList.remove('visible'); }
+  else if (state === 'starting') { btn.classList.add('launch-btn-starting'); btn.disabled = true; btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div><span id="launch-btn-text">STARTING</span>`; if (timer) timer.classList.remove('visible'); }
+  else if (state === 'running') { btn.classList.add('launch-btn-running'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span id="launch-btn-text">STOP</span>`; if (timer && showTimer) timer.classList.add('visible'); }
 }
 
 async function HomePlayClick() {

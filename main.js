@@ -543,6 +543,16 @@ function launchMinecraft(installationId) {
       }
     }
 
+    // Clear build cache for this version on every launch
+    const versionCacheDir = path.join(CACHE_DIR, 'builds', installation.id);
+    try {
+      if (fs.existsSync(versionCacheDir)) {
+        fs.rmSync(versionCacheDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(versionCacheDir, { recursive: true });
+      log('info', `Cleared build cache for installation ${installation.id}`);
+    } catch (_) { /* */ }
+
     // Clean corrupted Fabric remapped jars
     if (installation.platform === 'fabric') {
       const fabricCacheDir = path.join(mcDir, '.fabric', 'remappedJars');
