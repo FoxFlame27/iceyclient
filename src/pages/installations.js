@@ -1,4 +1,5 @@
 let _installationsInitialized = false;
+let _installSelectedId = null;
 
 async function InstallationsPageInit() {
   const page = document.getElementById('page-installations');
@@ -9,20 +10,33 @@ async function InstallationsPageInit() {
     console.error('[Installations] Failed to load:', e);
   }
 
+  // Keep selection if still valid
+  if (_installSelectedId && !installations.find(i => i.id === _installSelectedId)) {
+    _installSelectedId = null;
+  }
+
   page.innerHTML = `
-    <div class="installations-inner">
-      <div class="installations-header">
-        <h1 class="installations-title">Installations</h1>
-        <button class="btn-create-install" onclick="showCreateInstallModal()">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          New Installation
-        </button>
+    <div class="installations-layout">
+      <div class="installations-inner">
+        <div class="installations-header">
+          <h1 class="installations-title">Installations</h1>
+          <button class="btn-create-install" onclick="showCreateInstallModal()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Installation
+          </button>
+        </div>
+        <div class="installations-grid" id="installations-grid"></div>
       </div>
-      <div class="installations-grid" id="installations-grid"></div>
+      <div class="installations-detail-panel ${_installSelectedId ? 'visible' : ''}" id="install-detail-panel">
+        <div id="install-detail-inner"></div>
+      </div>
     </div>
   `;
 
   _renderInstallationCards(installations);
+  if (_installSelectedId) {
+    _loadInstallDetail(_installSelectedId, installations);
+  }
 }
 
 function _renderInstallationCards(installations) {
@@ -44,13 +58,14 @@ function _renderInstallationCards(installations) {
 
   grid.innerHTML = installations.map(inst => {
     const isSelected = inst.selected;
+    const isDetailSelected = inst.id === _installSelectedId;
     const imageStyle = inst.image
       ? `background-image: url('file://${inst.image.replace(/\\/g, '/')}')`
       : `background-image: url('assets/installbg.png')`;
     const isFabricActive = inst.platform === 'fabric' && inst.fabricActive;
 
     return `
-      <div class="install-card ${isSelected ? 'selected' : ''}" data-id="${inst.id}" onclick="_selectInstallation('${inst.id}')">
+      <div class="install-card ${isSelected ? 'selected' : ''} ${isDetailSelected ? 'detail-active' : ''}" data-id="${inst.id}" onclick="_clickInstallation('${inst.id}')">
         <div class="install-card-image" style="${imageStyle}">
           <button class="install-card-image-btn" onclick="event.stopPropagation(); _changeInstallImage('${inst.id}')" title="Change image">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -89,6 +104,74 @@ function _renderInstallationCards(installations) {
   }).join('');
 }
 
+async function _clickInstallation(id) {
+  _installSelectedId = id;
+  const installations = await window.icey.getInstallations();
+  _renderInstallationCards(installations);
+
+  const panel = document.getElementById('install-detail-panel');
+  if (panel) panel.classList.add('visible');
+
+  _loadInstallDetail(id, installations);
+}
+
+async function _loadInstallDetail(id, installations) {
+  if (!installations) installations = await window.icey.getInstallations();
+  const inst = installations.find(i => i.id === id);
+  const container = document.getElementById('install-detail-inner');
+  if (!container || !inst) return;
+
+  let mods = [];
+  let rps = [];
+  try {
+    const data = await window.icey.getInstalledMods(inst.id);
+    mods = data.mods || [];
+    rps = data.resourcePacks || [];
+  } catch (_) {}
+
+  const allItems = [...mods, ...rps];
+  const isFabricActive = inst.platform === 'fabric' && inst.fabricActive;
+
+  container.innerHTML = `
+    <div class="detail-header">Quick Info</div>
+    <div class="detail-name">${inst.name}</div>
+    <div class="detail-row"><span class="detail-label">Version</span><span class="detail-value">${inst.version}</span></div>
+    <div class="detail-row"><span class="detail-label">Platform</span><span class="detail-value ${inst.platform === 'fabric' ? 'fabric' : ''}">${inst.platform === 'fabric' ? '<img src="assets/fabric.png" alt=""> Fabric' : 'Vanilla'}</span></div>
+    ${inst.platform === 'fabric' ? `<div class="detail-row"><span class="detail-label">Fabric</span><span class="detail-value">${isFabricActive ? '<span style="color:#4ade80">Active</span>' : '<span style="color:var(--text-muted)">Inactive</span>'}</span></div>` : ''}
+    ${inst.fromMcLauncher ? '<div class="detail-row"><span class="detail-label">Source</span><span class="detail-value">MC Launcher</span></div>' : ''}
+    <div class="detail-separator"></div>
+    <div class="detail-mods-header">Mods & Resource Packs <span class="detail-mods-count">${allItems.length}</span></div>
+    <div class="detail-mods-list">
+      ${allItems.length > 0 ? allItems.slice(0, 8).map(m => `
+        <div class="detail-mod-item">
+          ${m.icon ? `<img class="detail-mod-icon" src="${m.icon}">` : `<div class="detail-mod-icon-fallback"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>`}
+          <span class="detail-mod-name">${m.name}</span>
+        </div>
+      `).join('') + (allItems.length > 8 ? `<div class="detail-mods-more">+${allItems.length - 8} more</div>` : '') : `<div class="detail-no-mods">${inst.platform === 'fabric' ? 'No mods installed' : 'Vanilla'}</div>`}
+    </div>
+    <div class="detail-separator"></div>
+    <button class="detail-select-btn" onclick="_selectAndLaunch('${inst.id}')">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>
+      Launch
+    </button>
+    <button class="detail-select-secondary" onclick="_selectInstallation('${inst.id}')">
+      ${inst.selected ? '<span style="color:#4ade80">Selected</span>' : 'Select as Active'}
+    </button>
+  `;
+}
+
+async function _selectAndLaunch(id) {
+  // Select it first
+  const installations = await window.icey.getInstallations();
+  installations.forEach(i => i.selected = (i.id === id));
+  for (const inst of installations) {
+    await window.icey.saveInstallation(inst);
+  }
+  _renderInstallationCards(installations);
+  // Launch
+  await MinecraftLauncher.launch(id);
+}
+
 async function _selectInstallation(id) {
   const installations = await window.icey.getInstallations();
   installations.forEach(i => i.selected = (i.id === id));
@@ -96,6 +179,7 @@ async function _selectInstallation(id) {
     await window.icey.saveInstallation(inst);
   }
   _renderInstallationCards(installations);
+  _loadInstallDetail(id, installations);
   Toast.success('Installation selected');
 }
 
@@ -110,6 +194,7 @@ async function _toggleFabric(id) {
     await window.icey.saveInstallation(inst);
   }
   _renderInstallationCards(installations);
+  if (_installSelectedId) _loadInstallDetail(_installSelectedId, installations);
   Toast.success('Fabric activated');
 }
 
@@ -152,6 +237,7 @@ function _confirmDeleteInstallation(id, name) {
 async function _deleteInstallation(id) {
   await window.icey.deleteInstallation(id);
   closeModal();
+  if (_installSelectedId === id) _installSelectedId = null;
   Toast.success('Installation deleted');
   InstallationsPageInit();
 }
@@ -267,15 +353,12 @@ async function _submitCreateInstallation() {
   progressText.textContent = 'Fetching version info...';
   progressBar.style.width = '5%';
 
-  // Use the real .minecraft directory
   const mcDir = await window.icey.getMcDir();
 
   try {
-    // Fetch version detail
     const versionDetail = await VersionManager.getVersionDetail(versionUrl);
     progressBar.style.width = '10%';
 
-    // Download version jar into .minecraft/versions/<version>/
     const clientDownload = versionDetail.downloads?.client;
     if (!clientDownload) throw new Error('No client download found for this version');
 
@@ -285,20 +368,17 @@ async function _submitCreateInstallation() {
     const jarPath = versionDir + '/' + version + '.jar';
     const jsonPath = versionDir + '/' + version + '.json';
 
-    // Skip download if already exists (from MC launcher)
     if (!(await window.icey.downloadFile(clientDownload.url, jarPath)).error) {
       progressBar.style.width = '35%';
     }
 
-    // Save version JSON
     await window.icey.downloadFile(versionUrl, jsonPath);
     progressBar.style.width = '40%';
 
-    // Download libraries into .minecraft/libraries/
     progressText.textContent = 'Downloading libraries...';
     const libEventCleanup = window.icey.onMcEvent((data) => {
       if (data.type === 'lib-progress' && progressText) {
-        const libProgress = 40 + ((data.completed / data.total) * 30); // 40-70%
+        const libProgress = 40 + ((data.completed / data.total) * 30);
         progressBar.style.width = libProgress + '%';
         progressText.textContent = `Downloading libraries (${data.completed}/${data.total})...`;
       }
@@ -312,7 +392,6 @@ async function _submitCreateInstallation() {
     }
     progressBar.style.width = '70%';
 
-    // Save as Icey installation (using version as ID so it matches .minecraft/versions/)
     const installation = {
       id: version,
       name: name,
@@ -325,7 +404,6 @@ async function _submitCreateInstallation() {
     };
     await window.icey.saveInstallation(installation);
 
-    // Fabric installation
     if (_createPlatform === 'fabric') {
       progressText.textContent = 'Installing Fabric...';
       progressBar.style.width = '75%';
@@ -342,6 +420,10 @@ async function _submitCreateInstallation() {
       if (fabricResult.error) {
         Toast.error(fabricResult.error);
         installation.platform = 'vanilla';
+        await window.icey.saveInstallation(installation);
+      } else {
+        // Fabric installed successfully - activate it
+        installation.fabricActive = true;
         await window.icey.saveInstallation(installation);
       }
     }

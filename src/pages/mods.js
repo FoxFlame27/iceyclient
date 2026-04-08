@@ -2,6 +2,7 @@ let _modsSearchTimeout = null;
 let _modsActiveInstallation = null;
 let _modsFilter = 'all';
 let _modsInstalledFiles = [];
+let _modsBrowseMode = false;
 
 async function ModsPageInit() {
   const page = document.getElementById('page-mods');
@@ -24,54 +25,81 @@ async function ModsPageInit() {
   }
 
   _modsActiveInstallation = fabricInstallation;
+  _modsBrowseMode = false;
+  _renderModsMainView(page);
+}
+
+function _renderModsMainView(page) {
+  if (!page) page = document.getElementById('page-mods');
 
   page.innerHTML = `
-    <div class="mods-header">
-      <div class="mods-active-pill">
-        <img src="assets/fabric.png" alt="Fabric">
-        <span class="mods-active-pill-name">${fabricInstallation.name}</span>
-        <span class="mods-active-pill-version">${fabricInstallation.version}</span>
+    <div class="mods-main-view">
+      <div class="mods-dropzone-full" id="mods-dropzone" onclick="_modsBrowseFiles()">
+        <div class="mods-plus-icon">
+          <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </div>
+        <div class="mods-dropzone-text">Click to add mods or resource packs</div>
+        <div class="mods-dropzone-subtext">or drag and drop .jar / .zip files here</div>
       </div>
-      <div class="mods-search">
+      <div class="mods-main-actions">
+        <button class="btn-mods-browse" onclick="_enterModsBrowse()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Browse Mods & Resource Packs
+        </button>
+      </div>
+      <div class="mods-installed-section" id="mods-installed-section">
+        <div class="mods-section-header">
+          <div class="mods-section-title">Installed</div>
+          <span class="mods-section-count" id="mods-installed-count">0</span>
+        </div>
+        <div id="mods-installed-list" class="mods-installed-list"></div>
+      </div>
+    </div>
+  `;
+
+  _setupModsDropzone();
+  _refreshInstalledMods();
+}
+
+function _enterModsBrowse() {
+  _modsBrowseMode = true;
+  const page = document.getElementById('page-mods');
+  page.innerHTML = `
+    <div class="mods-browse-view">
+      <div class="mods-browse-header">
+        <div class="mods-browse-title">Browse Mods & Resource Packs</div>
+        <button class="btn-mods-back" onclick="_exitModsBrowse()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Back
+        </button>
+      </div>
+      <div class="mods-browse-search">
         <svg class="mods-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <input type="text" id="mods-search-input" placeholder="Search Modrinth & CurseForge..." oninput="_modsSearchDebounced()">
       </div>
+      <div class="mods-filter-pills">
+        <button class="mods-filter-pill active" data-filter="all" onclick="_setModsFilter('all', this)">All</button>
+        <button class="mods-filter-pill" data-filter="mod" onclick="_setModsFilter('mod', this)">Mods</button>
+        <button class="mods-filter-pill" data-filter="resourcepack" onclick="_setModsFilter('resourcepack', this)">Resource Packs</button>
+      </div>
+      <div id="mods-browse-results" class="mods-browse-list"></div>
     </div>
-
-    <div class="mods-dropzone" id="mods-dropzone" onclick="_modsBrowseFiles()">
-      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
-        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-      <div class="mods-dropzone-text">Drop mods or resource packs here</div>
-      <div class="mods-dropzone-subtext">.jar → mods folder &middot; .zip → resourcepacks folder</div>
-      <button class="btn-browse-files" onclick="event.stopPropagation(); _modsBrowseFiles()">Browse Files</button>
-    </div>
-
-    <div class="mods-section-header">
-      <div class="mods-section-title">Browse Mods & Resource Packs</div>
-    </div>
-    <div class="mods-filter-pills">
-      <button class="mods-filter-pill active" data-filter="all" onclick="_setModsFilter('all', this)">All</button>
-      <button class="mods-filter-pill" data-filter="mod" onclick="_setModsFilter('mod', this)">Mods</button>
-      <button class="mods-filter-pill" data-filter="resourcepack" onclick="_setModsFilter('resourcepack', this)">Resource Packs</button>
-    </div>
-    <div id="mods-browse-results" class="mods-results-grid"></div>
-
-    <div class="mods-section-header" style="margin-top:28px;">
-      <div class="mods-section-title">Installed</div>
-      <span class="mods-section-count" id="mods-installed-count">0</span>
-    </div>
-    <div id="mods-installed-list" class="mods-results-grid"></div>
   `;
 
-  // Setup drag and drop
-  _setupModsDropzone();
-
-  // Load installed + trending in parallel
-  _refreshInstalledMods();
   _loadTrendingMods();
+}
+
+function _exitModsBrowse() {
+  _modsBrowseMode = false;
+  _renderModsMainView();
 }
 
 function _setupModsDropzone() {
@@ -138,10 +166,11 @@ function _setModsFilter(filter, btn) {
   document.querySelectorAll('.mods-filter-pill').forEach(p => p.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
-  // Re-run search if there's a query
   const input = document.getElementById('mods-search-input');
   if (input && input.value.trim()) {
     _modsSearch(input.value.trim());
+  } else {
+    _loadTrendingMods();
   }
 }
 
@@ -151,7 +180,7 @@ function _modsSearchDebounced() {
   if (!input) return;
   const query = input.value.trim();
   if (!query) {
-    document.getElementById('mods-browse-results').innerHTML = '';
+    _loadTrendingMods();
     return;
   }
   _modsSearchTimeout = setTimeout(() => _modsSearch(query), 400);
@@ -161,7 +190,6 @@ async function _modsSearch(query) {
   const resultsDiv = document.getElementById('mods-browse-results');
   if (!resultsDiv) return;
 
-  // Show skeletons
   resultsDiv.innerHTML = `
     <div class="mod-skeleton skeleton"></div>
     <div class="mod-skeleton skeleton"></div>
@@ -182,22 +210,20 @@ async function _modsSearch(query) {
 
     const results = await Promise.all(promises);
     allResults = results.flat();
-
-    // Sort by downloads
     allResults.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
 
     if (allResults.length === 0) {
-      resultsDiv.innerHTML = `<div class="mods-empty" style="grid-column:1/-1;">No results found for '${query}'</div>`;
+      resultsDiv.innerHTML = `<div class="mods-empty">No results found for '${query}'</div>`;
       return;
     }
 
-    resultsDiv.innerHTML = allResults.map(mod => _renderModCard(mod)).join('');
+    resultsDiv.innerHTML = allResults.map(mod => _renderModListItem(mod)).join('');
   } catch (e) {
-    resultsDiv.innerHTML = `<div class="mods-empty" style="grid-column:1/-1;">Could not reach API. Check your connection.</div>`;
+    resultsDiv.innerHTML = `<div class="mods-empty">Could not reach API. Check your connection.</div>`;
   }
 }
 
-function _renderModCard(mod) {
+function _renderModListItem(mod) {
   const downloads = mod.downloads ? _formatNumber(mod.downloads) : '0';
   const installed = _modsInstalledFiles.some(f =>
     f.name.toLowerCase().includes(mod.name.toLowerCase().split(' ')[0])
@@ -205,22 +231,22 @@ function _renderModCard(mod) {
   const sourceBadge = mod.source === 'modrinth' ? 'MR' : 'CF';
 
   const iconHtml = mod.icon_url
-    ? `<img class="mod-result-thumb" src="${mod.icon_url}" alt="" onerror="this.outerHTML='<div class=\\'mod-result-thumb-fallback\\'><svg viewBox=\\'0 0 24 24\\' width=\\'24\\' height=\\'24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.5\\'><path d=\\'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z\\'/></svg></div>'">`
-    : `<div class="mod-result-thumb-fallback"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>`;
+    ? `<img class="mod-list-icon" src="${mod.icon_url}" alt="" onerror="this.outerHTML='<div class=\\'mod-list-icon-fallback\\'><svg viewBox=\\'0 0 24 24\\' width=\\'24\\' height=\\'24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.5\\'><path d=\\'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z\\'/></svg></div>'">`
+    : `<div class="mod-list-icon-fallback"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>`;
 
   return `
-    <div class="mod-result-card">
-      <span class="mod-source-badge">${sourceBadge}</span>
+    <div class="mod-list-item">
       ${iconHtml}
-      <div class="mod-result-info">
-        <div class="mod-result-name">${_escapeHtml(mod.name)}</div>
-        <div class="mod-result-desc">${_escapeHtml(mod.description || '')}</div>
-        <div class="mod-result-meta">
-          <span class="mod-result-author">${_escapeHtml(mod.author || 'Unknown')}</span>
-          <span class="mod-result-downloads">${downloads} downloads</span>
+      <div class="mod-list-info">
+        <div class="mod-list-name">${_escapeHtml(mod.name)}</div>
+        <div class="mod-list-desc">${_escapeHtml(mod.description || '')}</div>
+        <div class="mod-list-meta">
+          <span class="mod-list-author">${_escapeHtml(mod.author || 'Unknown')}</span>
+          <span class="mod-list-downloads">${downloads} downloads</span>
+          <span class="mod-source-badge">${sourceBadge}</span>
         </div>
       </div>
-      <div class="mod-result-right">
+      <div class="mod-list-actions">
         ${installed
           ? '<span class="badge-installed">Installed</span>'
           : `<button class="btn-install-mod" onclick="_installModFromSearch(this, '${mod.source}', '${mod.id}', '${_escapeAttr(mod.name)}', '${mod.project_type || 'mod'}')">Install</button>`
@@ -240,9 +266,6 @@ async function _installModFromSearch(btn, source, modId, modName, projectType) {
     if (source === 'modrinth') {
       downloadInfo = await ModrinthAPI.getDownloadUrl(modId, _modsActiveInstallation.version);
     } else {
-      // CurseForge - need to get the mod info again
-      const installations = await window.icey.getInstallations();
-      // For CurseForge, we stored latestFiles in the search result; use ID to re-search
       const results = await CurseForgeAPI.search(modName, projectType === 'resourcepack' ? 'resourcepack' : 'mod', 5);
       const mod = results.find(r => String(r.id) === String(modId));
       if (mod) {
@@ -269,7 +292,7 @@ async function _installModFromSearch(btn, source, modId, modName, projectType) {
     } else {
       btn.outerHTML = '<span class="badge-installed">Installed</span>';
       Toast.success('Installed ' + modName);
-      await _refreshInstalledMods();
+      _modsInstalledFiles.push({ name: modName, filename: downloadInfo.filename });
     }
   } catch (e) {
     Toast.error('Install failed: ' + e.message);
@@ -292,7 +315,7 @@ async function _refreshInstalledMods() {
   if (!list) return;
 
   if (allItems.length === 0) {
-    list.innerHTML = '<div class="mods-empty" style="grid-column:1/-1;">No mods or resource packs installed yet.</div>';
+    list.innerHTML = '<div class="mods-empty">No mods or resource packs installed yet.</div>';
     return;
   }
 
@@ -309,13 +332,13 @@ async function _refreshInstalledMods() {
       : fallbackSvg;
 
     return `
-      <div class="mod-installed-card">
+      <div class="mod-list-item installed">
         <div class="mod-installed-icon">${iconHtml}</div>
-        <div class="mod-installed-info">
-          <div class="mod-installed-name">${_escapeHtml(item.name)}</div>
-          <div class="mod-installed-meta">
+        <div class="mod-list-info">
+          <div class="mod-list-name">${_escapeHtml(item.name)}</div>
+          <div class="mod-list-meta">
             <span class="mod-type-badge ${typeClass}">${typeLabel}</span>
-            <span class="mod-installed-size">${size}</span>
+            <span class="mod-list-downloads">${size}</span>
           </div>
         </div>
         <button class="btn-delete-mod" onclick="_deleteInstalledMod('${_escapeAttr(item.filename)}')" title="Delete">
@@ -366,9 +389,9 @@ async function _loadTrendingMods() {
   if (!resultsDiv) return;
   resultsDiv.innerHTML = '<div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div>';
   try {
-    const results = await ModrinthAPI.search('', 'mod', 12);
+    const results = await ModrinthAPI.search('', 'mod', 20);
     if (results.length > 0) {
-      resultsDiv.innerHTML = results.map(mod => _renderModCard(mod)).join('');
+      resultsDiv.innerHTML = results.map(mod => _renderModListItem(mod)).join('');
     } else {
       resultsDiv.innerHTML = '';
     }

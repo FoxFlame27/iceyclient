@@ -4,9 +4,16 @@
   overflow: hidden;
 }
 
+/* ─── Layout: grid + detail panel ─── */
+.installations-layout {
+  display: flex;
+  height: 100%;
+}
+
 .installations-inner {
   padding: 24px;
-  height: 100%;
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
 }
 
@@ -76,6 +83,11 @@
 .install-card.selected {
   border-color: var(--border-active);
   box-shadow: 0 0 28px var(--accent-glow);
+}
+
+.install-card.detail-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
 }
 
 .install-card-image {
@@ -230,7 +242,226 @@
   background: var(--red-glow);
 }
 
-/* ─── Create installation modal (redesigned) ─── */
+/* ─── Detail panel (right side) ─── */
+.installations-detail-panel {
+  width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.3s ease;
+  background: rgba(0,0,0,0.8);
+  border-left: 1px solid rgba(91,200,245,0.12);
+}
+
+.installations-detail-panel.visible {
+  width: 280px;
+}
+
+#install-detail-inner {
+  width: 280px;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.detail-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 12px;
+}
+
+.detail-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.04);
+  margin-bottom: 4px;
+}
+
+.detail-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.detail-value.fabric {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-value.fabric img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.detail-separator {
+  margin: 10px 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border), transparent);
+}
+
+.detail-mods-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-mods-count {
+  padding: 1px 6px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.detail-mods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.detail-mod-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.04);
+  transition: all 0.2s;
+}
+
+.detail-mod-item:hover {
+  background: rgba(91,200,245,0.05);
+  border-color: rgba(91,200,245,0.1);
+}
+
+.detail-mod-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.detail-mod-icon-fallback {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.detail-mod-name {
+  font-size: 11px;
+  color: var(--text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.detail-mods-more {
+  font-size: 10px;
+  color: var(--accent);
+  padding: 4px 8px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.detail-no-mods {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 12px 8px;
+  font-style: italic;
+}
+
+.detail-select-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--accent), #38bdf8);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.detail-select-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 24px var(--accent-glow);
+}
+
+.detail-select-secondary {
+  width: 100%;
+  padding: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 6px;
+  text-align: center;
+}
+.detail-select-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── Create installation modal ─── */
 .create-install-modal {
   padding: 0;
 }

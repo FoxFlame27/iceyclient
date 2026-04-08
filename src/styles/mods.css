@@ -1,5 +1,7 @@
 #page-mods {
   padding: 24px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* Guard state */
@@ -46,51 +48,148 @@
   background: var(--accent-dim);
 }
 
-/* Active state header */
-.mods-header {
+/* ─── Main view: plus icon + dropzone + browse ─── */
+.mods-main-view {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  gap: 16px;
+  flex-direction: column;
+  height: 100%;
 }
 
-.mods-active-pill {
+.mods-dropzone-full {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px dashed rgba(91,200,245,0.15);
+  border-radius: 20px;
+  background: rgba(15,21,38,0.3);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  min-height: 200px;
+}
+
+.mods-dropzone-full:hover {
+  border-color: rgba(91,200,245,0.35);
+  background: rgba(91,200,245,0.03);
+}
+
+.mods-dropzone-full.dragover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  transform: scale(1.01);
+}
+
+.mods-plus-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(91,200,245,0.08);
+  border: 1.5px solid rgba(91,200,245,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  transition: all 0.3s ease;
+}
+
+.mods-dropzone-full:hover .mods-plus-icon {
+  background: rgba(91,200,245,0.15);
+  border-color: rgba(91,200,245,0.4);
+  transform: scale(1.05);
+}
+
+.mods-dropzone-text {
+  font-size: 16px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.mods-dropzone-subtext {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mods-main-actions {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.btn-mods-browse {
+  padding: 12px 28px;
+  border: 1.5px solid rgba(91,200,245,0.3);
+  color: var(--accent);
+  background: rgba(91,200,245,0.08);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px;
-  background: var(--bg-glass);
-  backdrop-filter: blur(14px);
-  border-radius: 999px;
-  border: 1px solid var(--border);
+}
+.btn-mods-browse:hover {
+  background: rgba(91,200,245,0.18);
+  border-color: var(--accent);
+  box-shadow: 0 0 24px var(--accent-glow);
+}
+
+/* Installed section on main view */
+.mods-installed-section {
   flex-shrink: 0;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.mods-active-pill img {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
+/* ─── Browse view ─── */
+.mods-browse-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-.mods-active-pill-name {
-  font-size: 13px;
-  font-weight: 500;
+.mods-browse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.mods-browse-title {
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
-.mods-active-pill-version {
-  font-size: 11px;
+.btn-mods-back {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: transparent;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-mods-back:hover {
+  border-color: var(--accent);
   color: var(--accent);
 }
 
-.mods-search {
-  flex: 1;
-  max-width: 400px;
+.mods-browse-search {
   position: relative;
+  margin-bottom: 12px;
 }
 
-.mods-search input {
+.mods-browse-search input {
   width: 100%;
   padding-left: 36px;
 }
@@ -102,85 +201,6 @@
   transform: translateY(-50%);
   color: var(--text-muted);
   pointer-events: none;
-}
-
-/* Drop zone */
-.mods-dropzone {
-  width: 100%;
-  height: 180px;
-  border: 2px dashed rgba(91,200,245,0.2);
-  border-radius: 16px;
-  background: rgba(15,21,38,0.5);
-  backdrop-filter: blur(8px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 28px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.mods-dropzone.dragover {
-  border-color: var(--accent);
-  background: var(--accent-dim);
-  transform: scale(1.01);
-}
-
-.mods-dropzone svg {
-  color: var(--accent);
-}
-
-.mods-dropzone-text {
-  font-size: 14px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.mods-dropzone-subtext {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.btn-browse-files {
-  margin-top: 8px;
-  padding: 8px 20px;
-  border: 1.5px solid var(--accent);
-  color: var(--accent);
-  background: transparent;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.btn-browse-files:hover {
-  background: var(--accent-dim);
-}
-
-/* Section headers */
-.mods-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  margin-top: 8px;
-}
-
-.mods-section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.mods-section-count {
-  padding: 2px 10px;
-  background: var(--accent-dim);
-  color: var(--accent);
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
 }
 
 /* Filter pills */
@@ -212,46 +232,50 @@
   border-color: var(--border-hover);
 }
 
-/* Results grid */
-.mods-results-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 12px;
-  margin-bottom: 32px;
+/* ─── List view (like Modrinth) ─── */
+.mods-browse-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
 }
 
-/* Result card */
-.mod-result-card {
+.mods-installed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mod-list-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 14px;
+  padding: 12px 16px;
   background: rgba(15,21,38,0.8);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 14px;
-  height: 120px;
   transition: all 0.2s ease;
-  position: relative;
 }
 
-.mod-result-card:hover {
+.mod-list-item:hover {
   border-color: var(--border-hover);
   background: var(--bg-card-hover);
 }
 
-.mod-result-thumb {
-  width: 56px;
-  height: 56px;
+.mod-list-icon {
+  width: 48px;
+  height: 48px;
   border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
   background: var(--bg-secondary);
 }
 
-.mod-result-thumb-fallback {
-  width: 56px;
-  height: 56px;
+.mod-list-icon-fallback {
+  width: 48px;
+  height: 48px;
   border-radius: 10px;
   background: var(--bg-secondary);
   display: flex;
@@ -261,7 +285,19 @@
   color: var(--accent-dim);
 }
 
-.mod-result-info {
+.mod-installed-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.mod-list-info {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -269,8 +305,8 @@
   gap: 4px;
 }
 
-.mod-result-name {
-  font-size: 13px;
+.mod-list-name {
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
@@ -278,29 +314,29 @@
   white-space: nowrap;
 }
 
-.mod-result-desc {
+.mod-list-desc {
   font-size: 12px;
   color: var(--text-secondary);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
 }
 
-.mod-result-meta {
+.mod-list-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 2px;
 }
 
-.mod-result-author {
+.mod-list-author {
   font-size: 11px;
   color: var(--text-muted);
 }
 
-.mod-result-downloads {
+.mod-list-downloads {
   padding: 1px 8px;
   background: var(--bg-secondary);
   border-radius: 999px;
@@ -308,10 +344,9 @@
   color: var(--text-muted);
 }
 
-.mod-result-right {
+.mod-list-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
@@ -344,9 +379,6 @@
 }
 
 .mod-source-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
   padding: 2px 6px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -355,56 +387,6 @@
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.05em;
-}
-
-/* Installed items */
-.mod-installed-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(15,21,38,0.8);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  transition: all 0.2s ease;
-}
-
-.mod-installed-card:hover {
-  border-color: var(--border-hover);
-}
-
-.mod-installed-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--accent);
-}
-
-.mod-installed-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.mod-installed-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mod-installed-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 2px;
 }
 
 .mod-type-badge {
@@ -422,11 +404,6 @@
 .mod-type-badge.resourcepack {
   background: rgba(168,85,247,0.15);
   color: #a78bfa;
-}
-
-.mod-installed-size {
-  font-size: 11px;
-  color: var(--text-muted);
 }
 
 .btn-delete-mod {
@@ -448,6 +425,30 @@
   background: var(--red-glow);
 }
 
+/* Section headers */
+.mods-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  margin-top: 8px;
+}
+
+.mods-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mods-section-count {
+  padding: 2px 10px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* Empty / loading states */
 .mods-empty {
   text-align: center;
@@ -456,13 +457,7 @@
   font-size: 14px;
 }
 
-.mods-loading {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 12px;
-}
-
 .mod-skeleton {
-  height: 120px;
+  height: 72px;
   border-radius: 14px;
 }

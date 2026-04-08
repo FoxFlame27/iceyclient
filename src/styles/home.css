@@ -71,26 +71,12 @@
 .home-timer-label { font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 0.15em; text-transform: uppercase; font-weight: 500; }
 .home-timer-value { font-size: 16px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; font-family: 'Inter', monospace; text-shadow: 0 0 12px rgba(91,200,245,0.3); }
 
-/* ─── Servers section (vertical, below hero) ─── */
-.home-servers-section { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; }
-.home-servers-title { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2px; }
-
-.home-featured-server {
-  display: flex; align-items: center; gap: 14px;
-  background: rgba(0,0,0,0.7); border-radius: 14px; border: 1px solid rgba(91,200,245,0.12);
-  padding: 14px 18px; transition: border-color 0.2s;
+/* ─── Servers column (right side) ─── */
+.home-servers-col {
+  width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto;
 }
-.home-featured-server:hover { border-color: rgba(91,200,245,0.25); }
-.server-icon-large { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,0.05); }
-.server-icon-large img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
-.server-info-featured { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.server-name-large { font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.server-motd { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.server-address { font-size: 10px; color: rgba(255,255,255,0.3); font-family: 'Inter', monospace; }
-.server-offline { font-size: 10px; color: #ef4444; font-weight: 600; }
-.server-players-featured { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
-.server-players-count { font-size: 20px; font-weight: 700; color: #4ade80; text-shadow: 0 0 12px rgba(74,222,128,0.3); }
-.server-players-label { font-size: 9px; color: var(--text-muted); }
+.home-servers-title { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 2px; }
 
 .home-server-list { display: flex; flex-direction: column; gap: 4px; }
 .home-server-bar {
@@ -99,9 +85,14 @@
   padding: 8px 14px; height: 42px; transition: border-color 0.2s;
 }
 .home-server-bar:hover { border-color: rgba(91,200,245,0.15); }
+.home-server-bar.featured {
+  background: rgba(0,0,0,0.7); border: 1px solid rgba(91,200,245,0.12);
+  height: 48px; border-radius: 12px;
+}
+.home-server-bar.featured:hover { border-color: rgba(91,200,245,0.25); }
 .server-bar-icon { width: 26px; height: 26px; border-radius: 5px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,0.05); }
 .server-bar-icon img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
-.server-bar-name { font-size: 13px; font-weight: 600; color: var(--text-primary); min-width: 80px; }
+.server-bar-name { font-size: 13px; font-weight: 600; color: var(--text-primary); min-width: 60px; }
 .server-bar-address { font-size: 10px; color: rgba(255,255,255,0.3); font-family: 'Inter', monospace; flex: 1; }
 .server-bar-players { flex-shrink: 0; display: flex; align-items: baseline; gap: 3px; }
 .server-bar-online { font-size: 14px; font-weight: 700; color: #4ade80; }
@@ -109,32 +100,34 @@
 .server-bar-status.offline { font-size: 10px; color: #ef4444; font-weight: 600; margin-left: auto; }
 .server-loading { font-size: 11px; color: var(--text-muted); font-style: italic; }
 
-/* ─── Right sidebar ─── */
-.home-right-box {
-  width: 260px; flex-shrink: 0; border-radius: 18px; border: 1px solid rgba(91,200,245,0.12);
-  background: rgba(0,0,0,0.8); overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+/* ─── Installations bar (bottom of main area) ─── */
+.home-installations-bar {
+  padding: 8px 0 0; border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
 }
-.home-right-inner { display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
-.home-right-header { padding: 16px 16px 8px; font-size: 10px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.15em; }
-.home-install-details { padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; }
-.home-install-name { font-size: 16px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-install-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.04); }
-.home-install-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
-.home-install-value { font-size: 12px; color: var(--text-primary); font-weight: 600; }
-.home-install-value.fabric { color: var(--accent); display: flex; align-items: center; gap: 4px; }
-.home-install-value.fabric img { width: 14px; height: 14px; object-fit: contain; }
-.home-right-separator { margin: 2px 16px; height: 1px; background: linear-gradient(to right, transparent, var(--border), transparent); }
-.home-mods-section { padding: 10px 16px 16px; display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 0; overflow-y: auto; }
-.home-mods-header { font-size: 10px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 4px; }
-.home-mod-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
-.home-mod-item:hover { background: rgba(91,200,245,0.05); border-color: rgba(91,200,245,0.1); }
-.home-mod-icon { color: var(--accent); flex-shrink: 0; }
-.home-mod-icon-img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex-shrink: 0; image-rendering: pixelated; }
-.home-mod-name { font-size: 11px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-.home-mods-more { font-size: 10px; color: var(--accent); cursor: pointer; padding: 6px 10px; border-radius: 6px; text-align: center; font-weight: 500; border: 1px solid rgba(91,200,245,0.08); transition: background 0.2s; }
-.home-mods-more:hover { background: var(--accent-dim); }
-.home-no-install { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; padding: 24px 16px; text-align: center; }
-.home-no-install-text { font-size: 12px; color: var(--text-muted); font-weight: 500; }
-.home-no-install-btn { padding: 8px 18px; border-radius: 8px; background: rgba(91,200,245,0.1); color: var(--accent); font-size: 12px; font-weight: 600; border: 1px solid rgba(91,200,245,0.2); cursor: pointer; transition: all 0.2s; }
-.home-no-install-btn:hover { background: rgba(91,200,245,0.2); border-color: var(--accent); }
-.home-no-mods { font-size: 11px; color: var(--text-muted); text-align: center; padding: 12px 8px; font-style: italic; }
+.home-instbar-title {
+  font-size: 10px; font-weight: 600; color: var(--accent); text-transform: uppercase;
+  letter-spacing: 0.15em; margin-bottom: 6px; padding-left: 4px;
+}
+.home-instbar-list {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;
+}
+.home-instbar-list::-webkit-scrollbar { height: 3px; }
+.home-instbar-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.home-instbar-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 10px;
+  background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+.home-instbar-item:hover { border-color: rgba(91,200,245,0.15); background: rgba(0,0,0,0.7); }
+.home-instbar-item.selected { border-color: var(--accent); background: rgba(91,200,245,0.08); box-shadow: 0 0 12px rgba(91,200,245,0.1); }
+.home-instbar-fabric { width: 14px; height: 14px; object-fit: contain; }
+.home-instbar-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.home-instbar-ver { font-size: 10px; color: var(--accent); font-weight: 500; }
+.home-instbar-empty {
+  font-size: 12px; color: var(--text-muted); padding: 8px 16px;
+  cursor: pointer; border-radius: 8px; transition: color 0.2s;
+}
+.home-instbar-empty:hover { color: var(--accent); }
