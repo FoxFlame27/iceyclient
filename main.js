@@ -763,7 +763,7 @@ async function httpGet(url, headers = {}) {
 
 async function microsoftLogin() {
   return new Promise((resolve, reject) => {
-    const authUrl = `https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=${MS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20offline_access&prompt=select_account`;
+    const authUrl = `https://login.live.com/oauth20_authorize.srf?client_id=${MS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20XboxLive.offline_access&prompt=select_account`;
 
     const authWin = new BrowserWindow({ width: 520, height: 700, title: 'Microsoft Login', icon: path.join(__dirname, 'src', 'assets', 'icon.png'), webPreferences: { nodeIntegration: false, contextIsolation: true } });
     authWin.setMenuBarVisibility(false);
@@ -798,8 +798,8 @@ async function microsoftLogin() {
 
 async function exchangeMicrosoftTokens(code) {
   // Step 1: Code -> MS Token
-  const msToken = await httpPost('https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
-    `client_id=${MS_CLIENT_ID}&code=${code}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20offline_access`);
+  const msToken = await httpPost('https://login.live.com/oauth20_token.srf',
+    `client_id=${MS_CLIENT_ID}&code=${code}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20XboxLive.offline_access`);
   if (!msToken.access_token) { log('error', 'MS token failed: ' + JSON.stringify(msToken)); throw new Error('MS token failed'); }
 
   // Step 2: MS Token -> Xbox Live Token
