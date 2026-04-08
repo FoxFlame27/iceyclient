@@ -393,8 +393,9 @@ async function _submitCreateInstallation() {
     }
     progressBar.style.width = '70%';
 
+    const instId = name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
     const installation = {
-      id: version,
+      id: instId,
       name: name,
       version: version,
       platform: _createPlatform,
@@ -415,7 +416,7 @@ async function _submitCreateInstallation() {
         }
       });
 
-      const fabricResult = await window.icey.installFabric(version, version);
+      const fabricResult = await window.icey.installFabric(instId, version);
       fabricEventCleanup();
 
       if (fabricResult.error) {
