@@ -571,6 +571,7 @@ function launchMinecraft(installationId) {
 
     const args = [];
     // JVM args
+    if (process.platform === 'darwin') args.push('-XstartOnFirstThread');
     args.push(`-Xmx${ram}M`, '-Xms512M');
     args.push('-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled');
     // Natives: try version-specific folder, then shared natives folder
