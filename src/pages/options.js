@@ -138,17 +138,7 @@ async function OptionsPageInit() {
       <!-- ACCOUNT -->
       <div class="options-section">
         <div class="options-section-title">Account</div>
-        <div class="options-card">
-          <div class="options-row">
-            <div class="options-row-label">
-              <span class="options-row-name">Username</span>
-              <span class="options-row-desc">Icey Client uses offline mode. Online servers may not be accessible.</span>
-            </div>
-            <div class="options-row-control">
-              <input class="options-input" type="text" value="${_optEscape(settings.username || 'Player')}" placeholder="Player" onchange="_optSet('username', this.value)" maxlength="16">
-            </div>
-          </div>
-        </div>
+        <div class="options-card" id="opt-account-card"></div>
       </div>
 
       <!-- LANGUAGE -->
@@ -235,6 +225,57 @@ async function OptionsPageInit() {
 
     </div>
   `;
+  _optLoadAccount();
+}
+
+async function _optLoadAccount() {
+  const card = document.getElementById('opt-account-card');
+  if (!card) return;
+  const auth = await window.icey.getAuth();
+  if (auth && auth.username) {
+    card.innerHTML = `
+      <div class="options-row">
+        <div class="options-row-label">
+          <span class="options-row-name">Microsoft Account</span>
+          <span class="options-row-desc">Logged in as <strong>${auth.username}</strong></span>
+        </div>
+        <div class="options-row-control">
+          <button class="options-btn" onclick="_optLogout()">Log Out</button>
+        </div>
+      </div>
+    `;
+  } else {
+    card.innerHTML = `
+      <div class="options-row">
+        <div class="options-row-label">
+          <span class="options-row-name">Microsoft Account</span>
+          <span class="options-row-desc">Sign in to play on online servers and access your skins.</span>
+        </div>
+        <div class="options-row-control">
+          <button class="options-btn" onclick="_optLogin()">Log In</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+async function _optLogin() {
+  const result = await window.icey.msLogin();
+  if (result.error) {
+    Toast.error(result.error);
+  } else {
+    Toast.success('Logged in as ' + result.username);
+    await SettingsManager.set('username', result.username);
+    loadNavProfile();
+    _optLoadAccount();
+  }
+}
+
+async function _optLogout() {
+  await window.icey.msLogout();
+  Toast.info('Logged out');
+  loadNavProfile();
+  _optLoadAccount();
 }
 
 async function _optSet(key, value) {
