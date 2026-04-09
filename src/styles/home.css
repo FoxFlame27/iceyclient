@@ -109,11 +109,12 @@
 
 .home-server-list { display: flex; flex-direction: column; gap: 4px; }
 .home-server-bar {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 8px;
   background: rgba(0,0,0,0.6); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);
-  padding: 8px 14px; height: 42px; transition: border-color 0.2s;
+  padding: 8px 10px; min-height: 42px; transition: border-color 0.2s;
+  overflow: hidden; flex-shrink: 0;
 }
-.home-server-bar:hover { border-color: rgba(91,200,245,0.15); transform: translateX(2px); }
+.home-server-bar:hover { border-color: rgba(91,200,245,0.15); }
 .home-server-bar.featured {
   background: rgba(0,0,0,0.7); border: 1px solid rgba(91,200,245,0.12);
   height: 48px; border-radius: 12px;
@@ -121,8 +122,8 @@
 .home-server-bar.featured:hover { border-color: rgba(91,200,245,0.25); }
 .server-bar-icon { width: 26px; height: 26px; border-radius: 5px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,0.05); }
 .server-bar-icon img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
-.server-bar-name { font-size: 13px; font-weight: 600; color: var(--text-primary); min-width: 60px; }
-.server-bar-address { font-size: 10px; color: rgba(255,255,255,0.3); font-family: 'Inter', monospace; flex: 1; }
+.server-bar-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.server-bar-address { font-size: 10px; color: rgba(255,255,255,0.3); font-family: 'Inter', monospace; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .server-bar-players { flex-shrink: 0; display: flex; align-items: baseline; gap: 3px; }
 .server-bar-online { font-size: 14px; font-weight: 700; color: #4ade80; }
 .server-bar-max { font-size: 10px; color: var(--text-muted); }
@@ -139,7 +140,7 @@
 
 .server-remove-btn {
   background: none; border: none; color: rgba(255,255,255,0.2); font-size: 16px;
-  cursor: pointer; padding: 0 4px; margin-left: auto; flex-shrink: 0; transition: color 0.2s;
+  cursor: pointer; padding: 0 2px; flex-shrink: 0; transition: color 0.2s; line-height: 1;
 }
 .server-remove-btn:hover { color: #ef4444; }
 
