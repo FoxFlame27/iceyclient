@@ -13,14 +13,6 @@ async function OptionsPageInit() {
     { name: 'Pink', value: '#f472b6' }
   ];
 
-  const languages = [
-    { code: 'en', name: 'English' },
-    { code: 'nl', name: 'Dutch' },
-    { code: 'de', name: 'German' },
-    { code: 'fr', name: 'French' },
-    { code: 'es', name: 'Spanish' }
-  ];
-
   const currentAccent = settings.accentColor || '#5bc8f5';
   const currentTheme = settings.theme || 'dark';
   const ram = settings.allocatedRam || 2048;
@@ -139,23 +131,6 @@ async function OptionsPageInit() {
       <div class="options-section">
         <div class="options-section-title">Account</div>
         <div class="options-card" id="opt-account-card"></div>
-      </div>
-
-      <!-- LANGUAGE -->
-      <div class="options-section">
-        <div class="options-section-title">Language</div>
-        <div class="options-card">
-          <div class="options-row">
-            <div class="options-row-label">
-              <span class="options-row-name">Language</span>
-            </div>
-            <div class="options-row-control">
-              <select class="options-select" onchange="_optSet('language', this.value)">
-                ${languages.map(l => `<option value="${l.code}" ${settings.language === l.code ? 'selected' : ''}>${l.name}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- SOUND -->
