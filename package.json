@@ -29,7 +29,8 @@
     "mac": {
       "category": "public.app-category.games",
       "target": ["dmg"],
-      "icon": "src/assets/icon.png"
+      "icon": "src/assets/icon.png",
+      "artifactName": "Icey Client.${ext}"
     },
     "win": {
       "target": ["portable"],

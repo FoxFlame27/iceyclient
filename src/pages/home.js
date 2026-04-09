@@ -30,8 +30,8 @@ async function HomePageInit() {
           <div class="home-launch-bar">
             <div class="launch-bar-snow" id="launch-bar-snow"></div>
             <button class="launch-btn launch-btn-idle" id="launch-btn" onclick="HomePlayClick()">
-              <img src="assets/splash-logo.png" width="24" height="24" style="image-rendering:pixelated;">
-              <span id="launch-btn-text">LAUNCH</span>
+              <span class="launch-btn-title" id="launch-btn-title">LAUNCH</span>
+              <span class="launch-btn-subtitle" id="launch-btn-subtitle"><span class="launch-btn-dot"></span> READY TO LAUNCH</span>
             </button>
           </div>
           <div class="home-timer ${showTimer ? '' : 'hidden'}" id="home-timer">
@@ -229,13 +229,33 @@ function _initLaunchBarSnow() {
   setInterval(() => { if (document.getElementById('launch-bar-snow')) mk(); }, 500);
 }
 
-function _homeUpdateLaunchButton(state, showTimer) {
+async function _homeGetSelectedVersion() {
+  try {
+    const installations = await window.icey.getInstallations();
+    const selected = installations.find(i => i.selected);
+    return selected ? selected.version : '';
+  } catch (_) { return ''; }
+}
+
+async function _homeUpdateLaunchButton(state, showTimer) {
   const btn = document.getElementById('launch-btn'), timer = document.getElementById('home-timer');
   if (!btn) return;
   btn.className = 'launch-btn';
-  if (state === 'idle') { btn.classList.add('launch-btn-idle'); btn.disabled = false; btn.innerHTML = `<img src="assets/splash-logo.png" width="24" height="24" style="image-rendering:pixelated;"><span id="launch-btn-text">LAUNCH</span>`; if (timer) timer.classList.remove('visible'); }
-  else if (state === 'starting') { btn.classList.add('launch-btn-starting'); btn.disabled = true; btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div><span id="launch-btn-text">STARTING</span>`; if (timer) timer.classList.remove('visible'); }
-  else if (state === 'running') { btn.classList.add('launch-btn-running'); btn.disabled = false; btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span id="launch-btn-text">STOP</span>`; if (timer && showTimer) timer.classList.add('visible'); }
+  const version = await _homeGetSelectedVersion();
+  const versionStr = version ? ` ${version}` : '';
+  if (state === 'idle') {
+    btn.classList.add('launch-btn-idle'); btn.disabled = false;
+    btn.innerHTML = `<span class="launch-btn-title">LAUNCH${versionStr}</span><span class="launch-btn-subtitle"><span class="launch-btn-dot"></span> READY TO LAUNCH</span>`;
+    if (timer) timer.classList.remove('visible');
+  } else if (state === 'starting') {
+    btn.classList.add('launch-btn-starting'); btn.disabled = true;
+    btn.innerHTML = `<span class="launch-btn-title starting-dots">Starting</span><span class="launch-btn-subtitle">PLEASE WAIT</span>`;
+    if (timer) timer.classList.remove('visible');
+  } else if (state === 'running') {
+    btn.classList.add('launch-btn-running'); btn.disabled = false;
+    btn.innerHTML = `<span class="launch-btn-title">STOP</span><span class="launch-btn-subtitle">GAME IS RUNNING</span>`;
+    if (timer && showTimer) timer.classList.add('visible');
+  }
 }
 
 async function HomePlayClick() {
