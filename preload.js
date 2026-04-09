@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('icey', {
   msLogout: () => ipcRenderer.invoke('ms-logout'),
   getAuth: () => ipcRenderer.invoke('get-auth'),
   uploadSkin: (skinPath, variant) => ipcRenderer.invoke('upload-skin', skinPath, variant),
+  uploadSkinFromUrl: (url, variant) => ipcRenderer.invoke('upload-skin-from-url', url, variant),
   getMcProfile: () => ipcRenderer.invoke('get-mc-profile'),
 
   // Window controls

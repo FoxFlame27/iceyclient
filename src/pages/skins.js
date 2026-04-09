@@ -1,43 +1,41 @@
+let _skinsVariant = 'classic';
+let _skinsFilePath = null;
+let _skinsLookupName = '';
+
 async function SkinsPageInit() {
   const page = document.getElementById('page-skins');
   const auth = await window.icey.getAuth();
-
-  if (!auth || !auth.username) {
-    page.innerHTML = `
-      <div class="skins-guard">
-        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-        <div class="skins-guard-title">Login Required</div>
-        <div class="skins-guard-subtitle">Log in with Microsoft to manage your Minecraft skin.</div>
-        <button class="btn-skins-login" onclick="_skinsLogin()">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
-          Login with Microsoft
-        </button>
-      </div>
-    `;
-    return;
-  }
-
-  const username = auth.username;
+  const loggedIn = auth && auth.username;
+  const displayName = loggedIn ? auth.username : '';
 
   page.innerHTML = `
     <div class="skins-layout">
+      <!-- Left: Search & Preview -->
       <div class="skins-preview">
-        <div class="skins-preview-header">Your Skin</div>
+        <div class="skins-preview-header">Skin Lookup</div>
+        <div class="skins-search-bar">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="skins-search-input" type="text" id="skins-search" placeholder="Enter username..." value="${displayName}" spellcheck="false" maxlength="16" onkeydown="if(event.key==='Enter') _skinsLookup()">
+          <button class="skins-search-btn" onclick="_skinsLookup()">Search</button>
+        </div>
         <div class="skins-preview-card" id="skins-preview-card">
-          <img class="skins-preview-body" id="skins-body-img" src="https://mineskin.eu/armor/body/${username}/250.png" alt="Skin" onerror="this.src='https://mc-heads.net/body/${username}/250'">
+          ${displayName
+            ? `<img class="skins-preview-body" id="skins-body-img" src="https://mineskin.eu/armor/body/${displayName}/250.png" alt="Skin">`
+            : '<div class="skins-preview-empty">Search for a player to see their skin</div>'}
         </div>
-        <div class="skins-preview-name">${username}</div>
-        <div class="skins-preview-views">
-          <button class="skins-view-btn active" onclick="_skinsSwitchView('body', this, '${username}')">Body</button>
-          <button class="skins-view-btn" onclick="_skinsSwitchView('bust', this, '${username}')">Bust</button>
-          <button class="skins-view-btn" onclick="_skinsSwitchView('head', this, '${username}')">Head</button>
+        <div class="skins-preview-name" id="skins-preview-name">${displayName}</div>
+        <div class="skins-preview-views" id="skins-preview-views" ${displayName ? '' : 'style="display:none"'}>
+          <button class="skins-view-btn active" onclick="_skinsSwitchView('body', this)">Body</button>
+          <button class="skins-view-btn" onclick="_skinsSwitchView('bust', this)">Bust</button>
+          <button class="skins-view-btn" onclick="_skinsSwitchView('head', this)">Head</button>
         </div>
+        ${loggedIn ? `<button class="btn-skins-use" id="btn-skins-use" onclick="_skinsUseSkin()" style="display:none">Use This Skin</button>` : ''}
       </div>
+
+      <!-- Right: Upload your own -->
       <div class="skins-upload">
-        <div class="skins-upload-header">Change Skin</div>
+        <div class="skins-upload-header">Upload Skin</div>
+        ${loggedIn ? `
         <div class="skins-upload-dropzone" id="skins-dropzone" onclick="_skinsBrowse()">
           <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -50,12 +48,8 @@ async function SkinsPageInit() {
         <div class="skins-variant-section">
           <div class="skins-variant-label">Arm Model</div>
           <div class="skins-variant-toggle">
-            <button class="skins-variant-opt active" id="variant-classic" onclick="_setVariant('classic')">
-              Classic (Steve)
-            </button>
-            <button class="skins-variant-opt" id="variant-slim" onclick="_setVariant('slim')">
-              Slim (Alex)
-            </button>
+            <button class="skins-variant-opt active" id="variant-classic" onclick="_setVariant('classic')">Classic</button>
+            <button class="skins-variant-opt" id="variant-slim" onclick="_setVariant('slim')">Slim</button>
           </div>
         </div>
         <div class="skins-selected-file" id="skins-selected-file" style="display:none;">
@@ -73,48 +67,129 @@ async function SkinsPageInit() {
           </svg>
           Upload Skin
         </button>
+        ` : `
+        <div class="skins-guard-mini">
+          <div class="skins-guard-subtitle">Log in with Microsoft to upload and change your skin.</div>
+          <button class="btn-skins-login" onclick="_skinsLogin()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
+            Login with Microsoft
+          </button>
+        </div>
+        `}
       </div>
     </div>
   `;
 
   _skinsVariant = 'classic';
   _skinsFilePath = null;
+  _skinsLookupName = displayName;
 
-  // Load profile to detect variant
-  _loadSkinProfile(auth);
-
-  // Setup dropzone
-  const dropzone = document.getElementById('skins-dropzone');
-  if (dropzone) {
-    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
-    dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('dragover'); });
-    dropzone.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      if (file && file.name.endsWith('.png')) {
-        _skinsSelectFile(file.path, file.name);
-      } else {
-        Toast.error('Please use a PNG file');
-      }
-    });
+  if (loggedIn) {
+    _loadSkinProfile(auth);
+    const dropzone = document.getElementById('skins-dropzone');
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+      dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('dragover'); });
+      dropzone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.png')) {
+          _skinsSelectFile(file.path, file.name);
+        } else {
+          Toast.error('Please use a PNG file');
+        }
+      });
+    }
   }
 }
 
-let _skinsVariant = 'classic';
-let _skinsFilePath = null;
+function _skinsLookup() {
+  const input = document.getElementById('skins-search');
+  const name = input?.value.trim();
+  if (!name) { Toast.error('Enter a username'); return; }
 
-function _skinsSwitchView(view, btn, username) {
+  _skinsLookupName = name;
+  const card = document.getElementById('skins-preview-card');
+  const nameEl = document.getElementById('skins-preview-name');
+  const views = document.getElementById('skins-preview-views');
+  const useBtn = document.getElementById('btn-skins-use');
+
+  if (card) card.innerHTML = `<img class="skins-preview-body" id="skins-body-img" src="https://mineskin.eu/armor/body/${name}/250.png" alt="Skin" onerror="_skinsLookupError()">`;
+  if (nameEl) nameEl.textContent = name;
+  if (views) views.style.display = 'flex';
+
+  // Show "Use This Skin" button if looking up someone else's skin and logged in
+  if (useBtn) {
+    window.icey.getAuth().then(auth => {
+      if (auth && auth.username && auth.username.toLowerCase() !== name.toLowerCase()) {
+        useBtn.style.display = 'block';
+      } else {
+        useBtn.style.display = 'none';
+      }
+    });
+  }
+
+  // Reset view buttons
+  document.querySelectorAll('.skins-view-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+}
+
+function _skinsLookupError() {
+  Toast.error('Could not find skin for that player');
+}
+
+function _skinsSwitchView(view, btn) {
   document.querySelectorAll('.skins-view-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const img = document.getElementById('skins-body-img');
-  if (!img) return;
+  if (!img || !_skinsLookupName) return;
+  const name = _skinsLookupName;
   const urls = {
-    body: `https://mineskin.eu/armor/body/${username}/250.png`,
-    bust: `https://mineskin.eu/armor/bust/${username}/250.png`,
-    head: `https://mineskin.eu/headhelm/${username}/250.png`
+    body: `https://mineskin.eu/armor/body/${name}/250.png`,
+    bust: `https://mineskin.eu/armor/bust/${name}/250.png`,
+    head: `https://mineskin.eu/headhelm/${name}/250.png`
   };
   img.src = urls[view] || urls.body;
+}
+
+async function _skinsUseSkin() {
+  const name = _skinsLookupName;
+  if (!name) return;
+
+  showModal(`
+    <div class="modal-header">
+      <h2 class="modal-title">Change Skin</h2>
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p>This will change your Minecraft skin to <strong>${name}</strong>'s skin.</p>
+      <p style="color:var(--text-muted);font-size:12px;margin-top:8px;">Warning: This will overwrite your current skin. Make sure you want to use this skin before continuing.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn modal-btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn-primary" onclick="_skinsConfirmUse('${name}')">Use Skin</button>
+    </div>
+  `);
+}
+
+async function _skinsConfirmUse(name) {
+  closeModal();
+  Toast.info('Downloading skin...');
+
+  try {
+    const skinUrl = `https://mineskin.eu/skin/${name}`;
+    const result = await window.icey.uploadSkinFromUrl(skinUrl, _skinsVariant);
+    if (result && result.error) {
+      Toast.error('Failed to apply skin: ' + result.error);
+    } else {
+      Toast.success('Skin changed to ' + name + "'s skin!");
+      loadNavProfile();
+    }
+  } catch (e) {
+    Toast.error('Failed to apply skin');
+  }
 }
 
 async function _loadSkinProfile(auth) {
@@ -186,7 +261,6 @@ async function _skinsUpload() {
     Toast.error('Upload failed: ' + result.error);
   } else {
     Toast.success('Skin updated!');
-    // Refresh preview
     const bodyImg = document.getElementById('skins-body-img');
     if (bodyImg) {
       const auth = await window.icey.getAuth();

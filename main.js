@@ -1463,6 +1463,56 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle('upload-skin-from-url', async (_, skinUrl, variant) => {
+    const auth = readAuth();
+    if (!auth || !auth.accessToken) return { error: 'Not logged in' };
+    try {
+      // Download the skin image first
+      const skinData = await new Promise((resolve, reject) => {
+        https.get(skinUrl, (res) => {
+          if (res.statusCode === 301 || res.statusCode === 302) {
+            https.get(res.headers.location, (res2) => {
+              const chunks = [];
+              res2.on('data', c => chunks.push(c));
+              res2.on('end', () => resolve(Buffer.concat(chunks)));
+            }).on('error', reject);
+            return;
+          }
+          const chunks = [];
+          res.on('data', c => chunks.push(c));
+          res.on('end', () => resolve(Buffer.concat(chunks)));
+        }).on('error', reject);
+      });
+      // Upload to Mojang
+      const boundary = '----IceyClient' + Date.now();
+      const body = Buffer.concat([
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="variant"\r\n\r\n${variant || 'classic'}\r\n`),
+        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="skin.png"\r\nContent-Type: image/png\r\n\r\n`),
+        skinData,
+        Buffer.from(`\r\n--${boundary}--\r\n`)
+      ]);
+      const result = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: 'api.minecraftservices.com', path: '/minecraft/profile/skins', method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + auth.accessToken, 'Content-Type': 'multipart/form-data; boundary=' + boundary, 'Content-Length': body.length }
+        }, (res) => {
+          let data = '';
+          res.on('data', c => data += c);
+          res.on('end', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) resolve({ success: true });
+            else resolve({ error: 'Upload failed (HTTP ' + res.statusCode + ')' });
+          });
+        });
+        req.on('error', e => reject(e));
+        req.write(body);
+        req.end();
+      });
+      return result;
+    } catch (e) {
+      return { error: e.message };
+    }
+  });
+
   ipcMain.handle('get-mc-profile', async () => {
     const auth = readAuth();
     if (!auth || !auth.accessToken) return null;
