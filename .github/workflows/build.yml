@@ -53,4 +53,5 @@ jobs:
         with:
           files: |
             dist/*.dmg
+            dist/*.zip
           generate_release_notes: true

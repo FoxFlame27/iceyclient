@@ -28,10 +28,15 @@
     ],
     "mac": {
       "category": "public.app-category.games",
-      "target": ["dmg"],
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
       "icon": "src/assets/icon.png",
-      "artifactName": "Icey Client.${ext}",
-      "identity": null
+      "artifactName": "Icey Client-${arch}.${ext}",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "win": {
       "target": ["portable"],
