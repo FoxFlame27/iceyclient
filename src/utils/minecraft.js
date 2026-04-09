@@ -82,10 +82,16 @@ const MinecraftLauncher = {
   },
 
   _setState(state) {
+    const wasRunning = this._state === 'running' && this._sessionStart;
     this._state = state;
     if (state === 'running') {
       this._sessionStart = Date.now();
     } else {
+      if (wasRunning) {
+        const elapsed = Math.floor((Date.now() - this._sessionStart) / 1000);
+        const prev = SettingsManager.get('totalPlaytime') || 0;
+        SettingsManager.set('totalPlaytime', prev + elapsed);
+      }
       this._sessionStart = null;
     }
     this._notifyListeners();

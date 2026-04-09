@@ -606,6 +606,49 @@
   color: var(--accent);
 }
 
+/* Shaders checkbox */
+.create-shaders-option {
+  margin-top: 8px;
+}
+
+.shaders-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(251,146,60,0.06);
+  border: 1px solid rgba(251,146,60,0.15);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.shaders-checkbox-label:hover {
+  border-color: rgba(251,146,60,0.3);
+  background: rgba(251,146,60,0.1);
+}
+
+.shaders-checkbox-label input[type="checkbox"] {
+  margin-top: 2px;
+  accent-color: #fb923c;
+}
+
+.shaders-checkbox-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fb923c;
+}
+
+.shaders-checkbox-desc {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 /* Progress */
 .create-progress-track {
   width: 100%;

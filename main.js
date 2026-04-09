@@ -1090,6 +1090,104 @@ app.whenReady().then(() => {
     }
   });
 
+  // Iris Shaders install via Modrinth API
+  ipcMain.handle('install-iris', async (_, mcVersion) => {
+    const mcDir = getDefaultMcDir();
+    try {
+      // Find Iris versions compatible with this MC version
+      const versionsData = await new Promise((resolve, reject) => {
+        https.get(`https://api.modrinth.com/v2/project/YL57xq9U/version?game_versions=["${mcVersion}"]&loaders=["fabric"]`, {
+          headers: { 'User-Agent': 'IceyClient/1.0.0' }
+        }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+          res.on('error', reject);
+        }).on('error', reject);
+      });
+
+      if (!versionsData || versionsData.length === 0) {
+        return { error: 'Iris is not available for ' + mcVersion };
+      }
+
+      const version = versionsData[0];
+      const file = version.files.find(f => f.primary) || version.files[0];
+      if (!file) return { error: 'No download file found for Iris' };
+
+      const modsDir = path.join(mcDir, 'mods');
+      fs.mkdirSync(modsDir, { recursive: true });
+      const destPath = path.join(modsDir, file.filename);
+      await downloadFile(file.url, destPath);
+      log('info', 'Iris Shaders installed: ' + file.filename);
+
+      // Also install Sodium (required dependency for Iris)
+      try {
+        const sodiumVersions = await new Promise((resolve, reject) => {
+          https.get(`https://api.modrinth.com/v2/project/AANobbMI/version?game_versions=["${mcVersion}"]&loaders=["fabric"]`, {
+            headers: { 'User-Agent': 'IceyClient/1.0.0' }
+          }, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+            res.on('error', reject);
+          }).on('error', reject);
+        });
+
+        if (sodiumVersions && sodiumVersions.length > 0) {
+          const sodiumFile = sodiumVersions[0].files.find(f => f.primary) || sodiumVersions[0].files[0];
+          if (sodiumFile) {
+            const sodiumDest = path.join(modsDir, sodiumFile.filename);
+            await downloadFile(sodiumFile.url, sodiumDest);
+            log('info', 'Sodium installed (Iris dependency): ' + sodiumFile.filename);
+          }
+        }
+      } catch (e) {
+        log('warn', 'Could not install Sodium (Iris dependency): ' + e.message);
+      }
+
+      // Create shaderpacks directory
+      const shaderpacksDir = path.join(mcDir, 'shaderpacks');
+      fs.mkdirSync(shaderpacksDir, { recursive: true });
+
+      return { success: true };
+    } catch (e) {
+      log('error', 'Iris install error: ' + e.message);
+      return { error: e.message };
+    }
+  });
+
+  // Shaderpacks management
+  ipcMain.handle('get-installed-shaderpacks', () => {
+    const mcDir = getDefaultMcDir();
+    const shaderpacksDir = path.join(mcDir, 'shaderpacks');
+    const packs = [];
+
+    if (fs.existsSync(shaderpacksDir)) {
+      for (const file of fs.readdirSync(shaderpacksDir)) {
+        if (file.startsWith('.')) continue;
+        const filePath = path.join(shaderpacksDir, file);
+        try {
+          const stats = fs.statSync(filePath);
+          if (stats.isFile() && (file.endsWith('.zip') || file.endsWith('.jar'))) {
+            packs.push({ filename: file, name: file.replace(/\.(zip|jar)$/, '').replace(/-/g, ' '), size: stats.size });
+          }
+        } catch (_) {}
+      }
+    }
+    return packs;
+  });
+
+  ipcMain.handle('delete-shaderpack', (_, filename) => {
+    const mcDir = getDefaultMcDir();
+    const filePath = path.join(mcDir, 'shaderpacks', filename);
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      return { success: true };
+    } catch (e) {
+      return { error: e.message };
+    }
+  });
+
   // Downloads
   ipcMain.handle('download-file', async (_, url, dest) => {
     try {

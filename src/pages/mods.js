@@ -7,6 +7,7 @@ let _modsOffset = 0;
 let _modsLoading = false;
 let _modsHasMore = true;
 let _modsCurrentQuery = '';
+let _modsActiveTab = 'mods'; // 'mods' or 'shaders'
 
 async function ModsPageInit() {
   const page = document.getElementById('page-mods');
@@ -32,7 +33,11 @@ async function ModsPageInit() {
   const fabricInst = installations.find(i => i.platform === 'fabric' && i.fabricActive);
   _modsActiveInstallation = selected || fabricInst || installations[0];
   _modsBrowseMode = false;
-  _renderModsMainView(page, installations);
+  if (_modsActiveTab === 'shaders') {
+    _renderShadersView(page);
+  } else {
+    _renderModsMainView(page, installations);
+  }
 }
 
 async function _renderModsMainView(page, installations) {
@@ -47,6 +52,16 @@ async function _renderModsMainView(page, installations) {
 
   page.innerHTML = `
     <div class="mods-main-view">
+      <div class="mods-tab-bar">
+        <button class="mods-tab active" data-tab="mods" onclick="_switchModsTab('mods', this)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Mods
+        </button>
+        <button class="mods-tab" data-tab="shaders" onclick="_switchModsTab('shaders', this)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Shaders
+        </button>
+      </div>
       <div class="mods-install-selector">
         <label class="mods-selector-label">Installing to:</label>
         <select class="mods-selector-select" id="mods-install-select" onchange="_modsChangeInstallation(this.value)">
@@ -518,4 +533,150 @@ async function _loadMoreMods() {
   }
   _modsLoading = false;
   if (loadMore) loadMore.style.display = 'none';
+}
+
+function _switchModsTab(tab, btn) {
+  _modsActiveTab = tab;
+  document.querySelectorAll('.mods-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const page = document.getElementById('page-mods');
+  if (tab === 'shaders') {
+    _renderShadersView(page);
+  } else {
+    _modsBrowseMode = false;
+    _renderModsMainView(page);
+  }
+}
+
+async function _renderShadersView(page) {
+  if (!page) page = document.getElementById('page-mods');
+  page.innerHTML = `
+    <div class="mods-main-view">
+      <div class="mods-tab-bar">
+        <button class="mods-tab" data-tab="mods" onclick="_switchModsTab('mods', this)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Mods
+        </button>
+        <button class="mods-tab active" data-tab="shaders" onclick="_switchModsTab('shaders', this)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Shaders
+        </button>
+      </div>
+      <div class="mods-dropzone-full" id="shaders-dropzone" onclick="_shadersBrowseFiles()">
+        <div class="mods-plus-icon">
+          <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </div>
+        <div class="mods-dropzone-text">Click to add shader packs</div>
+        <div class="mods-dropzone-subtext">or drag and drop .zip files here</div>
+      </div>
+      <div class="mods-installed-section" id="shaders-installed-section">
+        <div class="mods-section-header">
+          <div class="mods-section-title">Installed Shader Packs</div>
+          <span class="mods-section-count" id="shaders-installed-count">0</span>
+        </div>
+        <div id="shaders-installed-list" class="mods-installed-list"></div>
+      </div>
+    </div>
+  `;
+
+  _setupShadersDropzone();
+  _refreshInstalledShaderpacks();
+}
+
+function _setupShadersDropzone() {
+  const dropzone = document.getElementById('shaders-dropzone');
+  if (!dropzone) return;
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+  });
+
+  dropzone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    const files = Array.from(e.dataTransfer.files);
+    for (const file of files) {
+      await _installShaderFile(file.path, file.name);
+    }
+    await _refreshInstalledShaderpacks();
+  });
+}
+
+async function _shadersBrowseFiles() {
+  const filePath = await window.icey.selectFile([
+    { name: 'Shader Packs', extensions: ['zip'] }
+  ]);
+  if (!filePath) return;
+  const filename = filePath.split(/[/\\]/).pop();
+  await _installShaderFile(filePath, filename);
+  await _refreshInstalledShaderpacks();
+}
+
+async function _installShaderFile(filePath, filename) {
+  if (!filename.endsWith('.zip')) {
+    Toast.error('Shader packs must be .zip files');
+    return;
+  }
+  const mcDir = await window.icey.getMcDir();
+  const dest = mcDir + '/shaderpacks/' + filename;
+  const result = await window.icey.copyFile(filePath, dest);
+  if (result.error) {
+    Toast.error('Failed to install: ' + result.error);
+  } else {
+    Toast.success('Installed ' + filename);
+  }
+}
+
+async function _refreshInstalledShaderpacks() {
+  const packs = await window.icey.getInstalledShaderpacks();
+  const countEl = document.getElementById('shaders-installed-count');
+  if (countEl) countEl.textContent = packs.length;
+
+  const list = document.getElementById('shaders-installed-list');
+  if (!list) return;
+
+  if (packs.length === 0) {
+    list.innerHTML = '<div class="mods-empty">No shader packs installed yet. Add Iris Shaders via Fabric, then drop shader packs here.</div>';
+    return;
+  }
+
+  list.innerHTML = packs.map(pack => {
+    const size = _formatFileSize(pack.size);
+    return `
+      <div class="mod-list-item installed">
+        <div class="mod-installed-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div class="mod-list-info">
+          <div class="mod-list-name">${_escapeHtml(pack.name)}</div>
+          <div class="mod-list-meta">
+            <span class="mod-type-badge shader">Shader</span>
+            <span class="mod-list-downloads">${size}</span>
+          </div>
+        </div>
+        <button class="btn-delete-mod" onclick="_deleteShaderpack('${_escapeAttr(pack.filename)}')" title="Delete">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function _deleteShaderpack(filename) {
+  const result = await window.icey.deleteShaderpack(filename);
+  if (result.error) {
+    Toast.error(result.error);
+  } else {
+    Toast.success('Removed ' + filename);
+    await _refreshInstalledShaderpacks();
+  }
 }

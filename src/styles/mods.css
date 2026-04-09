@@ -48,6 +48,43 @@
   background: var(--accent-dim);
 }
 
+/* Tab bar */
+.mods-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  background: rgba(15,21,38,0.5);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+
+.mods-tab {
+  padding: 8px 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 9px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mods-tab:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.04);
+}
+
+.mods-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+
 /* Installation selector */
 .mods-install-selector {
   display: flex;
@@ -435,6 +472,11 @@
 .mod-type-badge.resourcepack {
   background: rgba(168,85,247,0.15);
   color: #a78bfa;
+}
+
+.mod-type-badge.shader {
+  background: rgba(251,146,60,0.15);
+  color: #fb923c;
 }
 
 .btn-delete-mod {

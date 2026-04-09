@@ -17,6 +17,10 @@ async function OptionsPageInit() {
   const currentTheme = settings.theme || 'dark';
   const ram = settings.allocatedRam || 2048;
   const ramGB = (ram / 1024).toFixed(1);
+  const totalSecs = settings.totalPlaytime || 0;
+  const ptHours = Math.floor(totalSecs / 3600);
+  const ptMins = Math.floor((totalSecs % 3600) / 60);
+  const playtimeStr = ptHours > 0 ? `${ptHours}h ${ptMins}m` : `${ptMins}m`;
 
   page.innerHTML = `
     <div class="options-wrapper">
@@ -188,6 +192,14 @@ async function OptionsPageInit() {
             </div>
             <div class="options-row-control">
               <button class="options-btn" onclick="window.icey.openExternal('https://github.com/FoxFlame27/iceyclient')">Open</button>
+            </div>
+          </div>
+          <div class="options-row">
+            <div class="options-row-label">
+              <span class="options-row-name">Total Playtime</span>
+            </div>
+            <div class="options-row-control">
+              <span style="font-size:13px;color:var(--text-secondary);">${playtimeStr}</span>
             </div>
           </div>
           <div class="options-row">

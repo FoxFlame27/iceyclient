@@ -43,6 +43,11 @@ contextBridge.exposeInMainWorld('icey', {
   // Fabric
   installFabric: (installationId, mcVersion) => ipcRenderer.invoke('install-fabric', installationId, mcVersion),
 
+  // Shaders
+  installIris: (mcVersion) => ipcRenderer.invoke('install-iris', mcVersion),
+  getInstalledShaderpacks: () => ipcRenderer.invoke('get-installed-shaderpacks'),
+  deleteShaderpack: (filename) => ipcRenderer.invoke('delete-shaderpack', filename),
+
   // Misc
   autoDetectJava: () => ipcRenderer.invoke('auto-detect-java'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
