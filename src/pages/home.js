@@ -129,6 +129,7 @@ async function _homeSelectInstallation(id) {
     await window.icey.saveInstallation(inst);
   }
   _loadHomeInstallations();
+  _homeUpdateLaunchButton(MinecraftLauncher.getState(), SettingsManager.getAll().showSessionTimer !== false);
   Toast.success('Installation selected');
 }
 
