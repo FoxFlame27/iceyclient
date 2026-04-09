@@ -30,7 +30,8 @@
       "category": "public.app-category.games",
       "target": ["dmg"],
       "icon": "src/assets/icon.png",
-      "artifactName": "Icey Client.${ext}"
+      "artifactName": "Icey Client.${ext}",
+      "identity": null
     },
     "win": {
       "target": ["portable"],
