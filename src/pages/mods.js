@@ -54,11 +54,11 @@ async function _renderModsMainView(page, installations) {
     <div class="mods-main-view">
       <div class="mods-tab-bar">
         <button class="mods-tab active" data-tab="mods" onclick="_switchModsTab('mods', this)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <img src="src/assets/fabric-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
           Mods
         </button>
         <button class="mods-tab" data-tab="shaders" onclick="_switchModsTab('shaders', this)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <img src="src/assets/shaders-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
           Shaders
         </button>
       </div>
@@ -554,19 +554,17 @@ async function _renderShadersView(page) {
     <div class="mods-main-view">
       <div class="mods-tab-bar">
         <button class="mods-tab" data-tab="mods" onclick="_switchModsTab('mods', this)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <img src="src/assets/fabric-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
           Mods
         </button>
         <button class="mods-tab active" data-tab="shaders" onclick="_switchModsTab('shaders', this)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <img src="src/assets/shaders-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
           Shaders
         </button>
       </div>
       <div class="mods-dropzone-full" id="shaders-dropzone" onclick="_shadersBrowseFiles()">
         <div class="mods-plus-icon">
-          <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-          </svg>
+          <img src="src/assets/shaders-icon.png" width="56" height="56" style="image-rendering:pixelated;object-fit:contain;">
         </div>
         <div class="mods-dropzone-text">Click to add shader packs</div>
         <div class="mods-dropzone-subtext">or drag and drop .zip files here</div>
@@ -652,7 +650,7 @@ async function _refreshInstalledShaderpacks() {
     return `
       <div class="mod-list-item installed">
         <div class="mod-installed-icon">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <img src="src/assets/shaders-icon.png" width="20" height="20" style="image-rendering:pixelated;object-fit:contain;">
         </div>
         <div class="mod-list-info">
           <div class="mod-list-name">${_escapeHtml(pack.name)}</div>

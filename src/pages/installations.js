@@ -290,16 +290,10 @@ async function showCreateInstallModal() {
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           Fabric loader will be installed automatically. Java is required.
         </div>
-        <div class="create-shaders-option" id="create-shaders-option" style="display:none;">
-          <label class="shaders-checkbox-label">
-            <input type="checkbox" id="create-install-shaders">
-            <span class="shaders-checkbox-text">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              Install Iris Shaders
-            </span>
-            <span class="shaders-checkbox-desc">Automatically install Iris so you can use shader packs</span>
-          </label>
-        </div>
+        <label class="shaders-tick" id="create-shaders-option" style="display:none;">
+          <input type="checkbox" id="create-install-shaders">
+          <span>Shaders</span>
+        </label>
         <div id="create-progress" style="display:none;">
           <div class="create-progress-track"><div class="create-progress-fill" id="create-progress-bar"></div></div>
           <div class="create-progress-text" id="create-progress-text">Preparing...</div>
@@ -340,7 +334,7 @@ function _setPlatform(platform) {
   if (vanilla) vanilla.classList.toggle('active', platform === 'vanilla');
   if (fabric) fabric.classList.toggle('active', platform === 'fabric');
   if (info) info.style.display = platform === 'fabric' ? 'flex' : 'none';
-  if (shadersOpt) shadersOpt.style.display = platform === 'fabric' ? 'block' : 'none';
+  if (shadersOpt) shadersOpt.style.display = platform === 'fabric' ? 'flex' : 'none';
 }
 
 async function _submitCreateInstallation() {

@@ -176,11 +176,10 @@ async function _skinsUseSkin() {
 
 async function _skinsConfirmUse(name) {
   closeModal();
-  Toast.info('Downloading skin...');
+  Toast.info('Changing skin...');
 
   try {
-    const skinUrl = `https://mineskin.eu/skin/${name}`;
-    const result = await window.icey.uploadSkinFromUrl(skinUrl, _skinsVariant);
+    const result = await window.icey.uploadSkinFromUrl(name, _skinsVariant);
     if (result && result.error) {
       Toast.error('Failed to apply skin: ' + result.error);
     } else {

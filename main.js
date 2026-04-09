@@ -1561,52 +1561,67 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('upload-skin-from-url', async (_, skinUrl, variant) => {
+  ipcMain.handle('upload-skin-from-url', async (_, skinUsername, variant) => {
     const auth = readAuth();
     if (!auth || !auth.accessToken) return { error: 'Not logged in' };
     try {
-      // Download the skin image first
-      const skinData = await new Promise((resolve, reject) => {
-        https.get(skinUrl, (res) => {
-          if (res.statusCode === 301 || res.statusCode === 302) {
-            https.get(res.headers.location, (res2) => {
-              const chunks = [];
-              res2.on('data', c => chunks.push(c));
-              res2.on('end', () => resolve(Buffer.concat(chunks)));
-            }).on('error', reject);
-            return;
-          }
-          const chunks = [];
-          res.on('data', c => chunks.push(c));
-          res.on('end', () => resolve(Buffer.concat(chunks)));
+      // Step 1: Get UUID from Mojang
+      const profileData = await new Promise((resolve, reject) => {
+        https.get(`https://api.mojang.com/users/profiles/minecraft/${skinUsername}`, (res) => {
+          let data = '';
+          res.on('data', c => data += c);
+          res.on('end', () => {
+            if (res.statusCode !== 200) { reject(new Error('Player not found')); return; }
+            try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+          });
         }).on('error', reject);
       });
-      // Upload to Mojang
-      const boundary = '----IceyClient' + Date.now();
-      const body = Buffer.concat([
-        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="variant"\r\n\r\n${variant || 'classic'}\r\n`),
-        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="skin.png"\r\nContent-Type: image/png\r\n\r\n`),
-        skinData,
-        Buffer.from(`\r\n--${boundary}--\r\n`)
-      ]);
+
+      // Step 2: Get session profile with skin texture URL
+      const sessionData = await new Promise((resolve, reject) => {
+        https.get(`https://sessionserver.mojang.com/session/minecraft/profile/${profileData.id}`, (res) => {
+          let data = '';
+          res.on('data', c => data += c);
+          res.on('end', () => {
+            if (res.statusCode !== 200) { reject(new Error('Could not fetch profile')); return; }
+            try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+          });
+        }).on('error', reject);
+      });
+
+      // Step 3: Decode texture URL from base64 property
+      const texProp = sessionData.properties?.find(p => p.name === 'textures');
+      if (!texProp) return { error: 'No skin found for this player' };
+      const textures = JSON.parse(Buffer.from(texProp.value, 'base64').toString());
+      const skinUrl = textures.textures?.SKIN?.url;
+      if (!skinUrl) return { error: 'No skin found for this player' };
+
+      // Step 4: Use Mojang API to set skin by URL (simpler, no file upload needed)
+      const payload = JSON.stringify({ variant: variant || 'classic', url: skinUrl });
       const result = await new Promise((resolve, reject) => {
         const req = https.request({
           hostname: 'api.minecraftservices.com', path: '/minecraft/profile/skins', method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + auth.accessToken, 'Content-Type': 'multipart/form-data; boundary=' + boundary, 'Content-Length': body.length }
+          headers: {
+            'Authorization': 'Bearer ' + auth.accessToken,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload)
+          }
         }, (res) => {
           let data = '';
           res.on('data', c => data += c);
           res.on('end', () => {
+            log('info', 'Skin change response: HTTP ' + res.statusCode + ' ' + data);
             if (res.statusCode >= 200 && res.statusCode < 300) resolve({ success: true });
-            else resolve({ error: 'Upload failed (HTTP ' + res.statusCode + ')' });
+            else resolve({ error: 'Skin change failed (HTTP ' + res.statusCode + '): ' + data });
           });
         });
         req.on('error', e => reject(e));
-        req.write(body);
+        req.write(payload);
         req.end();
       });
       return result;
     } catch (e) {
+      log('error', 'Skin change error: ' + e.message);
       return { error: e.message };
     }
   });
