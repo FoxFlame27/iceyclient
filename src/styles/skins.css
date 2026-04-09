@@ -69,12 +69,13 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(0,0,0,0.5);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
-  padding: 8px 12px;
+  padding: 6px 6px 6px 12px;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 .skins-search-bar:focus-within {
   border-color: rgba(91,200,245,0.3);
@@ -82,17 +83,18 @@
 .skins-search-bar svg { color: var(--text-muted); flex-shrink: 0; }
 .skins-search-input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   font-family: inherit;
 }
 .skins-search-input::placeholder { color: var(--text-muted); }
 .skins-search-btn {
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-radius: 8px;
   border: none;
   background: rgba(91,200,245,0.15);
@@ -102,6 +104,7 @@
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .skins-search-btn:hover {
   background: rgba(91,200,245,0.25);
