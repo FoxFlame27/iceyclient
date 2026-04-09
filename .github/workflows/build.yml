@@ -17,9 +17,7 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npm run build:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npx electron-builder --win --publish never
       - name: List dist
         run: dir dist
         shell: cmd
@@ -41,9 +39,8 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npm run build:mac
+      - run: npx electron-builder --mac --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
       - name: List dist
         run: ls -la dist
@@ -53,5 +50,4 @@ jobs:
         with:
           files: |
             dist/*.dmg
-            dist/*.zip
           generate_release_notes: true

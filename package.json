@@ -1,7 +1,7 @@
 {
   "name": "icey-client",
   "productName": "Icey Client",
-  "version": "1.0.0",
+  "version": "1.11.1",
   "description": "A premium Minecraft launcher with an icy theme",
   "main": "main.js",
   "scripts": {
@@ -29,8 +29,7 @@
     "mac": {
       "category": "public.app-category.games",
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] },
-        { "target": "zip", "arch": ["x64", "arm64"] }
+        { "target": "dmg", "arch": ["arm64"] }
       ],
       "icon": "src/assets/icon.png",
       "artifactName": "Icey Client-${arch}.${ext}",
