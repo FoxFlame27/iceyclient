@@ -138,9 +138,16 @@ async function _fetchServerStatus(address) {
   catch (_) { return { online: false }; }
 }
 
+function _copyServerIp(address) {
+  navigator.clipboard.writeText(address);
+  Toast.success('Copied ' + address);
+}
+
 function _renderFeaturedServer(data, server) {
   const el = document.getElementById('featured-server');
   if (!el) return;
+  el.style.cursor = 'pointer';
+  el.onclick = () => _copyServerIp(server.address);
   if (!data.online) { el.innerHTML = `<div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt=""></div><div class="server-bar-name">${server.name}</div><div class="server-bar-address">${server.address}</div><div class="server-bar-status offline">Offline</div>`; return; }
   el.innerHTML = `<div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt=""></div><div class="server-bar-name">${server.name}</div><div class="server-bar-address">${server.address}</div><div class="server-bar-players"><span class="server-bar-online">${(data.players?.online ?? 0).toLocaleString()}</span><span class="server-bar-max">/ ${(data.players?.max ?? 0).toLocaleString()}</span></div>`;
 }
@@ -148,6 +155,8 @@ function _renderFeaturedServer(data, server) {
 function _renderServerBar(data, server, i) {
   const el = document.getElementById(`server-bar-${i}`);
   if (!el) return;
+  el.style.cursor = 'pointer';
+  el.onclick = () => _copyServerIp(server.address);
   if (!data.online) { el.innerHTML = `<div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt=""></div><div class="server-bar-name">${server.name}</div><div class="server-bar-address">${server.address}</div><div class="server-bar-status offline">Offline</div>`; return; }
   el.innerHTML = `<div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${server.address}" alt=""></div><div class="server-bar-name">${server.name}</div><div class="server-bar-address">${server.address}</div><div class="server-bar-players"><span class="server-bar-online">${(data.players?.online ?? 0).toLocaleString()}</span><span class="server-bar-max">/ ${(data.players?.max ?? 0).toLocaleString()}</span></div>`;
 }
@@ -171,6 +180,8 @@ async function _loadCustomServers() {
     if (!el) return;
     const s = customServers[i];
     const name = s.name || s.address;
+    el.style.cursor = 'pointer';
+    el.onclick = () => _copyServerIp(s.address);
     if (!data.online) { el.innerHTML = `<div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${s.address}" alt=""></div><div class="server-bar-name">${name}</div><div class="server-bar-address">${s.address}</div><div class="server-bar-status offline">Offline</div><button class="server-remove-btn" onclick="event.stopPropagation(); _removeCustomServer(${i})" title="Remove">&times;</button>`; return; }
     el.innerHTML = `<div class="server-bar-icon"><img src="https://api.mcsrvstat.us/icon/${s.address}" alt=""></div><div class="server-bar-name">${name}</div><div class="server-bar-address">${s.address}</div><div class="server-bar-players"><span class="server-bar-online">${(data.players?.online ?? 0).toLocaleString()}</span><span class="server-bar-max">/ ${(data.players?.max ?? 0).toLocaleString()}</span></div><button class="server-remove-btn" onclick="event.stopPropagation(); _removeCustomServer(${i})" title="Remove">&times;</button>`;
   });
