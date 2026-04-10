@@ -71,8 +71,8 @@ public class IceyModScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Dark semi-transparent background
-        this.renderBackground(context, mouseX, mouseY, delta);
+        // Let super handle background (blur) + widget rendering
+        super.render(context, mouseX, mouseY, delta);
 
         // Title
         context.drawCenteredTextWithShadow(this.textRenderer,
@@ -81,8 +81,6 @@ public class IceyModScreen extends Screen {
         // Subtitle
         context.drawCenteredTextWithShadow(this.textRenderer,
                 "\u00A77Toggle modules and customize your HUD", this.width / 2, 22, 0xFFFFFFFF);
-
-        super.render(context, mouseX, mouseY, delta);
     }
 
     @Override

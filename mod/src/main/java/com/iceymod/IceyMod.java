@@ -59,9 +59,6 @@ public class IceyMod implements ClientModInitializer {
                     int x = (sw - logoW) / 2;
                     int y = 6;
                     ctx.drawTexturedQuad(LOGO_TEXTURE, x, x + logoW, y, y + logoH, 0, 0, 1, 1);
-                    String text = "\u00A7b\u00A7lIcey Client \u00A77v1.0";
-                    int textW = client.textRenderer.getWidth(text);
-                    ctx.drawTextWithShadow(client.textRenderer, text, (sw - textW) / 2, y + logoH + 2, 0xFFFFFFFF);
                 });
             }
             if (screen instanceof HandledScreen) {

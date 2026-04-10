@@ -69,6 +69,11 @@ function writeJsonAtomic(filePath, data) {
   fs.renameSync(tmp, filePath);
 }
 
+// ── Per-installation game directory (isolated mods/config/saves) ───
+function getInstallGameDir(installationId) {
+  return path.join(INSTALLATIONS_DIR, installationId, 'game');
+}
+
 // ── Installations ──────────────────────────────────────
 function getDefaultMcDir() {
   if (process.platform === 'win32') {
@@ -1064,9 +1069,10 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('get-installed-mods', (_, installationId) => {
-    const mcDir = getDefaultMcDir();
-    const modsDir = path.join(mcDir, 'mods');
-    const rpDir = path.join(mcDir, 'resourcepacks');
+    const gameDir = getInstallGameDir(installationId);
+    fs.mkdirSync(gameDir, { recursive: true });
+    const modsDir = path.join(gameDir, 'mods');
+    const rpDir = path.join(gameDir, 'resourcepacks');
 
     const mods = [];
     const resourcePacks = [];
@@ -1136,22 +1142,42 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('delete-mod', (_, installationId, filename) => {
+    const gameDir = getInstallGameDir(installationId);
     const mcDir = getDefaultMcDir();
-    const modsPath = path.join(mcDir, 'mods', filename);
-    const rpPath = path.join(mcDir, 'resourcepacks', filename);
+    let deleted = false;
 
-    try {
-      if (fs.existsSync(modsPath)) fs.unlinkSync(modsPath);
-      else if (fs.existsSync(rpPath)) fs.unlinkSync(rpPath);
-      return { success: true };
-    } catch (e) {
-      return { error: e.message };
+    // Try per-installation dir first, then shared .minecraft as fallback
+    const candidates = [
+      path.join(gameDir, 'mods', filename),
+      path.join(gameDir, 'resourcepacks', filename),
+      path.join(mcDir, 'mods', filename),
+      path.join(mcDir, 'resourcepacks', filename),
+    ];
+
+    for (const filePath of candidates) {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          log('info', 'Deleted mod file: ' + filePath);
+          deleted = true;
+          // Verify it's actually gone
+          if (fs.existsSync(filePath)) {
+            log('warn', 'File still exists after delete: ' + filePath);
+            return { error: 'File could not be deleted (may be in use)' };
+          }
+        }
+      } catch (e) {
+        log('error', 'Failed to delete ' + filePath + ': ' + e.message);
+        return { error: 'Failed to delete: ' + e.message };
+      }
     }
+
+    return deleted ? { success: true } : { error: 'File not found' };
   });
 
   // Iris Shaders install via Modrinth API
-  ipcMain.handle('install-iris', async (_, mcVersion) => {
-    const mcDir = getDefaultMcDir();
+  ipcMain.handle('install-iris', async (_, mcVersion, installationId) => {
+    const gameDir = installationId ? getInstallGameDir(installationId) : getDefaultMcDir();
     try {
       // Find Iris versions compatible with this MC version
       const versionsData = await new Promise((resolve, reject) => {
@@ -1173,7 +1199,7 @@ app.whenReady().then(() => {
       const file = version.files.find(f => f.primary) || version.files[0];
       if (!file) return { error: 'No download file found for Iris' };
 
-      const modsDir = path.join(mcDir, 'mods');
+      const modsDir = path.join(gameDir, 'mods');
       fs.mkdirSync(modsDir, { recursive: true });
       const destPath = path.join(modsDir, file.filename);
       await downloadFile(file.url, destPath);
@@ -1205,7 +1231,7 @@ app.whenReady().then(() => {
       }
 
       // Create shaderpacks directory
-      const shaderpacksDir = path.join(mcDir, 'shaderpacks');
+      const shaderpacksDir = path.join(gameDir, 'shaderpacks');
       fs.mkdirSync(shaderpacksDir, { recursive: true });
 
       return { success: true };
@@ -1216,9 +1242,9 @@ app.whenReady().then(() => {
   });
 
   // Shaderpacks management
-  ipcMain.handle('get-installed-shaderpacks', () => {
-    const mcDir = getDefaultMcDir();
-    const shaderpacksDir = path.join(mcDir, 'shaderpacks');
+  ipcMain.handle('get-installed-shaderpacks', (_, installationId) => {
+    const gameDir = installationId ? getInstallGameDir(installationId) : getDefaultMcDir();
+    const shaderpacksDir = path.join(gameDir, 'shaderpacks');
     const packs = [];
 
     if (fs.existsSync(shaderpacksDir)) {
@@ -1236,9 +1262,9 @@ app.whenReady().then(() => {
     return packs;
   });
 
-  ipcMain.handle('delete-shaderpack', (_, filename) => {
-    const mcDir = getDefaultMcDir();
-    const filePath = path.join(mcDir, 'shaderpacks', filename);
+  ipcMain.handle('delete-shaderpack', (_, installationId, filename) => {
+    const gameDir = installationId ? getInstallGameDir(installationId) : getDefaultMcDir();
+    const filePath = path.join(gameDir, 'shaderpacks', filename);
     try {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       return { success: true };
@@ -1561,8 +1587,15 @@ app.whenReady().then(() => {
   // Get cache dir
   ipcMain.handle('get-cache-dir', () => CACHE_DIR);
 
-  // Get real .minecraft directory
+  // Get real .minecraft directory (shared libraries/assets)
   ipcMain.handle('get-mc-dir', () => getDefaultMcDir());
+
+  // Get per-installation game dir (isolated mods/config/saves)
+  ipcMain.handle('get-install-game-dir', (_, installationId) => {
+    const dir = getInstallGameDir(installationId);
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  });
 
   // Microsoft Auth
   ipcMain.handle('ms-login', async () => {

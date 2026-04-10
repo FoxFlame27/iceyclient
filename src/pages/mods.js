@@ -363,9 +363,9 @@ async function _downloadModVersion(url, filename, modName, projectType) {
   if (!url || !filename) { Toast.error('Invalid download'); return; }
   closeModal();
   Toast.info('Downloading ' + modName + '...');
-  const mcDir = await window.icey.getMcDir();
+  const gameDir = _modsActiveInstallation ? await window.icey.getInstallGameDir(_modsActiveInstallation.id) : await window.icey.getMcDir();
   const folder = projectType === 'resourcepack' ? 'resourcepacks' : 'mods';
-  const dest = mcDir + '/' + folder + '/' + filename;
+  const dest = gameDir + '/' + folder + '/' + filename;
   const result = await window.icey.downloadFile(url, dest);
   if (result.error) {
     Toast.error('Download failed: ' + result.error);
@@ -376,9 +376,9 @@ async function _downloadModVersion(url, filename, modName, projectType) {
 }
 
 async function _doModDownload(url, filename, modName, projectType, btn) {
-  const mcDir = await window.icey.getMcDir();
+  const gameDir = _modsActiveInstallation ? await window.icey.getInstallGameDir(_modsActiveInstallation.id) : await window.icey.getMcDir();
   const folder = projectType === 'resourcepack' ? 'resourcepacks' : 'mods';
-  const dest = mcDir + '/' + folder + '/' + filename;
+  const dest = gameDir + '/' + folder + '/' + filename;
   const result = await window.icey.downloadFile(url, dest);
   if (result.error) {
     Toast.error('Download failed: ' + result.error);
