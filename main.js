@@ -315,11 +315,15 @@ function launchMinecraft(installationId) {
     const javaPath = settings.javaPath || autoDetectJava();
     if (!javaPath) return reject(new Error('JAVA_NOT_FOUND'));
 
-    // Use the real .minecraft folder (already has libraries from official launcher)
+    // Shared .minecraft for libraries/assets/versions
     const mcDir = getDefaultMcDir();
     const version = installation.version;
     const libDir = path.join(mcDir, 'libraries');
     const assetsDir = path.join(mcDir, 'assets');
+
+    // Per-installation game directory for isolated mods/config/saves
+    const installGameDir = path.join(INSTALLATIONS_DIR, installation.id, 'game');
+    fs.mkdirSync(installGameDir, { recursive: true });
 
     // Determine which version JSON to read (fabric or vanilla)
     let versionId = version;
@@ -566,7 +570,7 @@ function launchMinecraft(installationId) {
 
     // Auto-install Icey mod + Fabric API for Fabric installations
     if (installation.platform === 'fabric') {
-      const modsDir = path.join(mcDir, 'mods');
+      const modsDir = path.join(installGameDir, 'mods');
       fs.mkdirSync(modsDir, { recursive: true });
 
       // 1) Install Icey mod jar
@@ -640,7 +644,7 @@ function launchMinecraft(installationId) {
     // Game args
     args.push('--username', launchUsername);
     args.push('--version', versionId);
-    args.push('--gameDir', mcDir);
+    args.push('--gameDir', installGameDir);
     args.push('--assetsDir', assetsDir);
     args.push('--assetIndex', assetIndex);
     args.push('--uuid', launchUuid);
@@ -655,7 +659,7 @@ function launchMinecraft(installationId) {
 
     try {
       mcProcess = spawn(javaPath, args, {
-        cwd: mcDir,
+        cwd: installGameDir,
         stdio: 'pipe',
         detached: false,
         windowsHide: false
