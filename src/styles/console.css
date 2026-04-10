@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 24px;
+  padding: 0 24px 24px;
   gap: 16px;
 }
 
@@ -52,15 +52,15 @@
 
 .console-output {
   flex: 1;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(12px);
   border-radius: 16px;
-  border: 1px solid rgba(91,200,245,0.1);
+  border: 1px solid rgba(91,200,245,0.08);
   padding: 20px;
   overflow-y: auto;
-  font-family: 'Courier New', 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.7;
+  font-family: 'JetBrains Mono', 'Courier New', 'Consolas', monospace;
+  font-size: 12.5px;
+  line-height: 1.8;
   color: #c8d6e5;
   min-height: 0;
 }

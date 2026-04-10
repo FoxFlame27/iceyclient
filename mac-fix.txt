@@ -3,3 +3,9 @@ If macOS says "Icey Client is damaged and can't be opened", run this in Terminal
 xattr -cr /Applications/Icey\ Client.app
 
 Then open the app normally.
+
+or 
+
+  xattr -cr /Applications/Icey\ Client\ 2.app
+
+  or   xattr -cr /Applications/Icey\ Client\ 3.app

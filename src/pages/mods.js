@@ -510,7 +510,7 @@ async function _loadMoreMods() {
 
   try {
     const query = _modsCurrentQuery;
-    const types = _modsFilter === 'all' ? ['mod'] : [_modsFilter];
+    const types = _modsFilter === 'all' ? ['mod', 'resourcepack'] : [_modsFilter];
     let allResults = [];
     const promises = [];
     for (const type of types) {

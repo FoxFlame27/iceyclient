@@ -1,5 +1,5 @@
 #page-mods {
-  padding: 24px;
+  padding: 0 24px 24px;
   height: 100%;
   overflow-y: auto;
 }
@@ -319,17 +319,18 @@
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
-  background: rgba(15,21,38,0.8);
+  background: rgba(15,21,38,0.7);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 14px;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mod-list-item:hover {
   border-color: var(--border-hover);
-  background: var(--bg-card-hover);
-  transform: translateX(3px);
+  background: rgba(19, 26, 46, 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 
 .mod-list-icon {

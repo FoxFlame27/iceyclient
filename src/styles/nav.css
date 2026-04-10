@@ -5,9 +5,9 @@
   left: 8px;
   bottom: 8px;
   width: var(--sidebar-width);
-  background: rgba(10, 14, 26, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(10, 14, 26, 0.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border: 1px solid var(--border);
   border-radius: 20px;
   display: flex;
@@ -15,6 +15,7 @@
   align-items: center;
   z-index: 998;
   padding-top: 20px;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.15);
 }
 
 /* Profile avatar at bottom of sidebar */
@@ -150,35 +151,37 @@
   left: -6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 4px;
-  height: 28px;
+  width: 3px;
+  height: 24px;
   background: var(--accent);
   border-radius: 0 999px 999px 0;
-  box-shadow: 0 0 12px var(--accent-glow);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
-/* Tooltip on hover */
+/* Tooltip on hover — uses data-tooltip to avoid native title double-tooltip */
 .nav-tab::after {
-  content: attr(title);
+  content: attr(data-tooltip);
   position: absolute;
   left: calc(100% + 12px);
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%) translateX(-4px);
   padding: 6px 12px;
-  background: var(--bg-card);
+  background: rgba(13, 20, 36, 0.95);
+  backdrop-filter: blur(12px);
   color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   border-radius: 8px;
   border: 1px solid var(--border);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 
 .nav-tab:hover::after {
   opacity: 1;
+  transform: translateY(-50%) translateX(0);
 }

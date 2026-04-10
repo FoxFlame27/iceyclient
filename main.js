@@ -877,6 +877,14 @@ app.whenReady().then(() => {
     // mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
+  // On macOS, hide instead of close so dock re-activation works
+  mainWindow.on('close', (e) => {
+    if (process.platform === 'darwin' && !app.isQuitting) {
+      e.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     if (mcProcess) {
@@ -1697,12 +1705,16 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  app.isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    // Re-create window on macOS dock click
+  if (mainWindow) {
+    mainWindow.show();
   }
 });
