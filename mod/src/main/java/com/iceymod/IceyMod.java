@@ -50,20 +50,24 @@ public class IceyMod implements ClientModInitializer {
         });
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            // Title screen: logo in bottom-left corner, no text
             if (screen instanceof TitleScreen) {
                 ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
-                    int sw = client.getWindow().getScaledWidth();
-                    // Use drawTexturedQuad for simple full-texture rendering
-                    int logoW = 160;
-                    int logoH = 32;
-                    int x = (sw - logoW) / 2;
-                    int y = 6;
+                    int sh = client.getWindow().getScaledHeight();
+                    int logoW = 200;
+                    int logoH = 40;
+                    int x = 8;
+                    int y = sh - logoH - 8;
                     ctx.drawTexturedQuad(LOGO_TEXTURE, x, x + logoW, y, y + logoH, 0, 0, 1, 1);
                 });
             }
+
+            // Inventory, crafting table, and all container screens: logo in top-left
             if (screen instanceof HandledScreen) {
                 ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
-                    ctx.drawTextWithShadow(client.textRenderer, "\u00A7b\u00A7lIcey Client", 4, 4, 0xFFFFFFFF);
+                    int logoW = 140;
+                    int logoH = 28;
+                    ctx.drawTexturedQuad(LOGO_TEXTURE, 4, 4 + logoW, 4, 4 + logoH, 0, 0, 1, 1);
                 });
             }
         });
