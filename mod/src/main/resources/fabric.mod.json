@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "iceymod",
+  "version": "${version}",
+  "name": "Icey Client",
+  "description": "Lunar-style HUD modules for Icey Client. Press Y to open the menu.",
+  "authors": ["Icey Client"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/iceymod/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.iceymod.IceyMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

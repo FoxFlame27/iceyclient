@@ -564,6 +564,53 @@ function launchMinecraft(installationId) {
       }
     }
 
+    // Auto-install Icey mod + Fabric API for Fabric installations
+    if (installation.platform === 'fabric') {
+      const modsDir = path.join(mcDir, 'mods');
+      fs.mkdirSync(modsDir, { recursive: true });
+
+      // 1) Install Icey mod jar
+      const modJarName = 'iceymod-1.0.0.jar';
+      const destJar = path.join(modsDir, modJarName);
+      const searchPaths = [
+        path.join(__dirname, 'mod', 'build', 'libs', modJarName),
+        path.join(DATA_DIR, modJarName),
+        path.join(__dirname, 'resources', modJarName),
+      ];
+      if (!fs.existsSync(destJar)) {
+        for (const src of searchPaths) {
+          if (fs.existsSync(src)) {
+            try {
+              fs.copyFileSync(src, destJar);
+              log('info', 'Auto-installed Icey mod to ' + destJar);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod installed', level: 'info' });
+            } catch (e) {
+              log('warn', 'Failed to auto-install Icey mod: ' + e.message);
+            }
+            break;
+          }
+        }
+      }
+
+      // 2) Auto-download Fabric API if not present (required dependency)
+      const fabricApiPattern = /^fabric-api.*\.jar$/i;
+      const hasFabricApi = fs.readdirSync(modsDir).some(f => fabricApiPattern.test(f));
+      if (!hasFabricApi) {
+        const fabricApiJar = 'fabric-api-0.139.4+1.21.11.jar';
+        const fabricApiDest = path.join(modsDir, fabricApiJar);
+        const fabricApiUrl = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.139.4+1.21.11/' + fabricApiJar;
+        log('info', 'Downloading Fabric API...');
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading Fabric API...', level: 'info' });
+        try {
+          await downloadFile(fabricApiUrl, fabricApiDest);
+          log('info', 'Fabric API installed to ' + fabricApiDest);
+          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Fabric API installed', level: 'info' });
+        } catch (e) {
+          log('warn', 'Failed to download Fabric API: ' + e.message);
+        }
+      }
+    }
+
     // Build arguments
     const ram = settings.allocatedRam || 2048;
     const username = settings.username || 'Player';
