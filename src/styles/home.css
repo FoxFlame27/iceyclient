@@ -146,8 +146,9 @@
 
 /* ─── Installations section (big cards at bottom) ─── */
 .home-installations-section {
-  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  flex-shrink: 0; display: flex; flex-direction: column;
   padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);
+  max-height: 200px;
 }
 
 .home-inst-header {
@@ -162,14 +163,14 @@
 
 .home-inst-cards {
   display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
-  padding-bottom: 8px; flex: 1; align-items: stretch;
+  padding-bottom: 8px; flex: 1; align-items: flex-start;
 }
 .home-inst-cards::-webkit-scrollbar { height: 4px; }
 .home-inst-cards::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 
-/* Individual installation card - wide & short */
+/* Individual installation card - fixed height, never stretches */
 .home-inst-card {
-  width: 220px; min-width: 220px; flex-shrink: 0;
+  width: 180px; min-width: 180px; height: 160px; max-height: 160px; flex-shrink: 0;
   background: rgba(0,0,0,0.7); border-radius: 14px;
   border: 1.5px solid rgba(255,255,255,0.08);
   overflow: hidden; cursor: pointer;
@@ -187,22 +188,24 @@
 }
 
 .home-inst-card-img {
-  width: 100%; flex: 7;
+  width: 100%; height: 100px;
   background-size: cover; background-position: center;
   background-color: #1a2340;
   border-radius: 12px 12px 0 0;
   position: relative; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 
 .home-inst-card-version-overlay {
-  font-size: 22px; font-weight: 800; color: #fff;
+  font-size: 18px; font-weight: 800; color: #fff;
   text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);
   letter-spacing: 0.02em;
   z-index: 1;
 }
 
 .home-inst-card-body {
-  flex: 3; padding: 6px 10px; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  flex: 1; padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  min-height: 0;
 }
 
 .home-inst-card-name {

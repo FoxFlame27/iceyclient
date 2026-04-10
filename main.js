@@ -902,6 +902,8 @@ app.whenReady().then(() => {
     height: 800,
     minWidth: 1024,
     minHeight: 700,
+    maxWidth: 1600,
+    maxHeight: 1000,
     frame: false,
     transparent: false,
     titleBarStyle: 'hidden',
