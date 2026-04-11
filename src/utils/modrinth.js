@@ -60,15 +60,56 @@ const ModrinthAPI = {
     return response.json();
   },
 
-  async getDownloadUrl(projectId, mcVersion) {
-    const versions = await this.getVersions(projectId, mcVersion);
+  async getDownloadUrl(projectId, mcVersion, loader = 'fabric') {
+    // Strict: only return a version that matches the MC version AND loader
+    const params = new URLSearchParams();
+    params.set('game_versions', JSON.stringify([mcVersion]));
+    params.set('loaders', JSON.stringify([loader]));
+
+    const response = await fetch(`${this.BASE_URL}/project/${projectId}/version?${params}`, {
+      headers: { 'User-Agent': 'IceyClient/1.0.0' }
+    });
+    if (!response.ok) throw new Error(`Modrinth versions failed: ${response.status}`);
+    const versions = await response.json();
+
     if (versions.length === 0) {
-      const allVersions = await this.getAllVersions(projectId);
-      if (allVersions.length === 0) throw new Error('No versions found');
-      const file = allVersions[0].files.find(f => f.primary) || allVersions[0].files[0];
-      return { url: file.url, filename: file.filename };
+      throw new Error(`No ${loader} version found for MC ${mcVersion}`);
     }
     const file = versions[0].files.find(f => f.primary) || versions[0].files[0];
     return { url: file.url, filename: file.filename };
+  },
+
+  // Get list of MC versions this project supports (deduped)
+  async getSupportedMcVersions(projectId) {
+    const all = await this.getAllVersions(projectId);
+    const versions = new Set();
+    for (const v of all) {
+      for (const gv of (v.game_versions || [])) {
+        versions.add(gv);
+      }
+    }
+    // Sort newest first using natural version sort
+    return [...versions].sort((a, b) => {
+      const pa = a.split('.').map(n => parseInt(n) || 0);
+      const pb = b.split('.').map(n => parseInt(n) || 0);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const da = pa[i] || 0;
+        const db = pb[i] || 0;
+        if (da !== db) return db - da;
+      }
+      return 0;
+    });
+  },
+
+  // Get supported loaders for this project
+  async getSupportedLoaders(projectId) {
+    const all = await this.getAllVersions(projectId);
+    const loaders = new Set();
+    for (const v of all) {
+      for (const l of (v.loaders || [])) {
+        loaders.add(l);
+      }
+    }
+    return [...loaders];
   }
 };

@@ -70,8 +70,15 @@ public class IceyModScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        // Skip vanilla blur: 1.21.11 calls renderBackground twice per frame
+        // (once from the framework, once from Screen.render), which crashes
+        // with "Can only blur once per frame". Draw a flat dark overlay instead.
+        context.fill(0, 0, this.width, this.height, 0xA0000000);
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Let super handle background (blur) + widget rendering
         super.render(context, mouseX, mouseY, delta);
 
         // Title

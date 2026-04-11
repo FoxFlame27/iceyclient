@@ -26,6 +26,11 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        // Skip vanilla blur (1.21.11 double-blur crash) — we draw our own overlay in render().
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, 0x80000000);
 

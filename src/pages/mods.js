@@ -316,46 +316,161 @@ function _renderModListItem(mod) {
 }
 
 async function _installModFromSearch(btn, source, modId, modName, projectType) {
-  if (!_modsActiveInstallation) return;
+  if (!_modsActiveInstallation) {
+    Toast.error('Select an installation first');
+    return;
+  }
+
+  // For Modrinth: show the version + platform picker modal
+  if (source === 'modrinth') {
+    await _showModDownloadModal(modId, modName, projectType, btn);
+    return;
+  }
+
+  // CurseForge: just download directly (no picker for now)
   btn.disabled = true;
   btn.textContent = '...';
-  const mcVersion = _modsActiveInstallation.version;
-
   try {
-    let downloadInfo = null;
-
-    if (source === 'modrinth') {
-      // Try to find a version matching the installation's MC version
-      try {
-        downloadInfo = await ModrinthAPI.getDownloadUrl(modId, mcVersion);
-      } catch (_) {
-        // No version for this MC version
-        Toast.error(`${modName} doesn't support ${mcVersion}`);
-        btn.disabled = false;
-        btn.textContent = 'Install';
-        return;
-      }
-    } else {
-      // CurseForge
-      const results = await CurseForgeAPI.search(modName, projectType === 'resourcepack' ? 'resourcepack' : 'mod', 5);
-      const mod = results.find(r => String(r.id) === String(modId));
-      if (mod) {
-        downloadInfo = CurseForgeAPI.getDownloadUrl(mod);
-      }
-    }
-
+    const results = await CurseForgeAPI.search(modName, projectType === 'resourcepack' ? 'resourcepack' : 'mod', 5);
+    const mod = results.find(r => String(r.id) === String(modId));
+    const downloadInfo = mod ? CurseForgeAPI.getDownloadUrl(mod) : null;
     if (!downloadInfo || !downloadInfo.url) {
-      Toast.error(`${modName} doesn't support ${mcVersion}`);
+      Toast.error('No download available');
       btn.disabled = false;
       btn.textContent = 'Install';
       return;
     }
-
     await _doModDownload(downloadInfo.url, downloadInfo.filename, modName, projectType, btn);
   } catch (e) {
     Toast.error('Install failed: ' + e.message);
     btn.disabled = false;
     btn.textContent = 'Install';
+  }
+}
+
+// Modrinth-style download modal with version + platform pickers
+async function _showModDownloadModal(modId, modName, projectType, btn) {
+  const installVersion = _modsActiveInstallation?.version || '';
+
+  // Show modal with loading state
+  showModal(`
+    <div class="mod-dl-modal">
+      <div class="mod-dl-header">
+        <div class="mod-dl-title-row">
+          <div class="mod-dl-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <h2 class="mod-dl-title">Download ${_escapeHtml(modName)}</h2>
+        </div>
+        <button class="modal-close" onclick="closeModal()">
+          <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+      </div>
+      <div class="mod-dl-body">
+        <div class="mod-dl-loading">Loading versions...</div>
+      </div>
+    </div>
+  `);
+
+  try {
+    const [mcVersions, loaders] = await Promise.all([
+      ModrinthAPI.getSupportedMcVersions(modId),
+      ModrinthAPI.getSupportedLoaders(modId)
+    ]);
+
+    // Filter to release-style MC versions only (no snapshots like "23w14a")
+    const releaseVersions = mcVersions.filter(v => /^\d+\.\d+(\.\d+)?$/.test(v));
+    if (releaseVersions.length === 0) {
+      releaseVersions.push(...mcVersions);
+    }
+
+    // Default selections
+    const defaultMc = releaseVersions.includes(installVersion) ? installVersion : releaseVersions[0];
+    const defaultLoader = loaders.includes('fabric') ? 'fabric' : (loaders[0] || 'fabric');
+
+    // Render the modal body
+    const body = document.querySelector('.mod-dl-body');
+    if (!body) return;
+    body.innerHTML = `
+      <div class="mod-dl-section">
+        <div class="mod-dl-label">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/></svg>
+          Select Game Version
+        </div>
+        <div class="mod-dl-version-list" id="mod-dl-versions">
+          ${releaseVersions.map(v => `
+            <button class="mod-dl-version-btn ${v === defaultMc ? 'selected' : ''}" data-version="${v}" onclick="_selectModDlVersion('${v}')">${v}</button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="mod-dl-section">
+        <div class="mod-dl-label">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Platform
+        </div>
+        <div class="mod-dl-loader-row" id="mod-dl-loaders">
+          ${loaders.map(l => `
+            <button class="mod-dl-loader-btn ${l === defaultLoader ? 'selected' : ''}" data-loader="${l}" onclick="_selectModDlLoader('${l}')">${_loaderLabel(l)}</button>
+          `).join('')}
+        </div>
+      </div>
+
+      <button class="mod-dl-install-btn" id="mod-dl-install-btn" onclick="_confirmModDownload('${modId}', '${_escapeAttr(modName)}', '${projectType}')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+    `;
+
+    _modDlSelected = { mcVersion: defaultMc, loader: defaultLoader };
+  } catch (e) {
+    const body = document.querySelector('.mod-dl-body');
+    if (body) body.innerHTML = `<div class="mod-dl-error">Failed to load versions: ${_escapeHtml(e.message)}</div>`;
+  }
+}
+
+let _modDlSelected = { mcVersion: null, loader: null };
+
+function _loaderLabel(loader) {
+  const map = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt', vanilla: 'Vanilla' };
+  return map[loader] || loader.charAt(0).toUpperCase() + loader.slice(1);
+}
+
+function _selectModDlVersion(v) {
+  _modDlSelected.mcVersion = v;
+  document.querySelectorAll('.mod-dl-version-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.version === v);
+  });
+}
+
+function _selectModDlLoader(l) {
+  _modDlSelected.loader = l;
+  document.querySelectorAll('.mod-dl-loader-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.loader === l);
+  });
+}
+
+async function _confirmModDownload(modId, modName, projectType) {
+  const { mcVersion, loader } = _modDlSelected;
+  if (!mcVersion || !loader) {
+    Toast.error('Select version and platform');
+    return;
+  }
+  const installBtn = document.getElementById('mod-dl-install-btn');
+  if (installBtn) { installBtn.disabled = true; installBtn.textContent = 'Downloading...'; }
+
+  try {
+    const downloadInfo = await ModrinthAPI.getDownloadUrl(modId, mcVersion, loader);
+    if (!downloadInfo || !downloadInfo.url) {
+      Toast.error('No download for ' + mcVersion + ' / ' + loader);
+      if (installBtn) { installBtn.disabled = false; installBtn.textContent = 'Download'; }
+      return;
+    }
+    closeModal();
+    await _downloadModVersion(downloadInfo.url, downloadInfo.filename, modName, projectType);
+  } catch (e) {
+    Toast.error(e.message);
+    if (installBtn) { installBtn.disabled = false; installBtn.textContent = 'Download'; }
   }
 }
 
