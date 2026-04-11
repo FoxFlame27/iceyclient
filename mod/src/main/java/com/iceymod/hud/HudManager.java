@@ -33,6 +33,13 @@ public class HudManager {
         modules.add(new ServerModule());
         modules.add(new ReachModule());
         modules.add(new PotionModule());
+        // New Lunar-style modules
+        modules.add(new MemoryModule());
+        modules.add(new ToggleSneakModule());
+        modules.add(new ToggleSprintModule());
+        modules.add(new ArrowCountModule());
+        modules.add(new SaturationModule());
+        modules.add(new ComboCounterModule());
 
         load();
     }

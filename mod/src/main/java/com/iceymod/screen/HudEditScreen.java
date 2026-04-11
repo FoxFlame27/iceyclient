@@ -2,7 +2,6 @@ package com.iceymod.screen;
 
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -61,49 +60,48 @@ public class HudEditScreen extends Screen {
         super.render(context, mouseX, mouseY, delta);
     }
 
-    // 1.21.11: mouseClicked uses Click object
     @Override
-    public boolean mouseClicked(Click click, boolean forward) {
-        int mx = (int) click.x();
-        int my = (int) click.y();
-        var modules = HudManager.getModules();
-        for (int i = modules.size() - 1; i >= 0; i--) {
-            HudModule module = modules.get(i);
-            if (!module.isEnabled()) continue;
-            if (mx >= module.getX() - 2 && mx <= module.getX() + module.getWidth() + 2
-                    && my >= module.getY() - 2 && my <= module.getY() + module.getHeight() + 2) {
-                dragging = module;
-                dragOffsetX = mx - module.getX();
-                dragOffsetY = my - module.getY();
-                return true;
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            var modules = HudManager.getModules();
+            for (int i = modules.size() - 1; i >= 0; i--) {
+                HudModule module = modules.get(i);
+                if (!module.isEnabled()) continue;
+                int mx = (int) mouseX;
+                int my = (int) mouseY;
+                if (mx >= module.getX() - 2 && mx <= module.getX() + module.getWidth() + 2
+                        && my >= module.getY() - 2 && my <= module.getY() + module.getHeight() + 2) {
+                    dragging = module;
+                    dragOffsetX = mx - module.getX();
+                    dragOffsetY = my - module.getY();
+                    return true;
+                }
             }
         }
-        return super.mouseClicked(click, forward);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    // 1.21.11: mouseDragged uses Click object
     @Override
-    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
-        if (dragging != null) {
-            int newX = (int) click.x() - dragOffsetX;
-            int newY = (int) click.y() - dragOffsetY;
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (dragging != null && button == 0) {
+            int newX = (int) mouseX - dragOffsetX;
+            int newY = (int) mouseY - dragOffsetY;
             newX = Math.max(0, Math.min(newX, this.width - dragging.getWidth()));
             newY = Math.max(0, Math.min(newY, this.height - dragging.getHeight()));
             dragging.setX(newX);
             dragging.setY(newY);
             return true;
         }
-        return super.mouseDragged(click, deltaX, deltaY);
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
-    // 1.21.11: mouseReleased uses Click object
     @Override
-    public boolean mouseReleased(Click click) {
-        if (dragging != null) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && dragging != null) {
             dragging = null;
             return true;
         }
-        return super.mouseReleased(click);
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override

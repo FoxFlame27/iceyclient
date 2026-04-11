@@ -29,7 +29,7 @@ public class IceyMod implements ClientModInitializer {
                 "key.iceymod.menu",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_Y,
-                KeyBinding.Category.MISC
+                KeyBinding.MISC_CATEGORY
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

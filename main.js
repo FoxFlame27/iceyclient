@@ -605,9 +605,17 @@ function launchMinecraft(installationId) {
       const fabricApiPattern = /^fabric-api.*\.jar$/i;
       const hasFabricApi = fs.readdirSync(modsDir).some(f => fabricApiPattern.test(f));
       if (!hasFabricApi) {
-        const fabricApiJar = 'fabric-api-0.139.4+1.21.11.jar';
+        // Pick the right Fabric API version for this MC version
+        const fabricApiByVersion = {
+          '1.21.8': '0.136.1+1.21.8',
+          '1.21.9': '0.138.1+1.21.9',
+          '1.21.10': '0.138.4+1.21.10',
+          '1.21.11': '0.139.4+1.21.11',
+        };
+        const fabricApiVer = fabricApiByVersion[installation.version] || '0.139.4+1.21.11';
+        const fabricApiJar = 'fabric-api-' + fabricApiVer + '.jar';
         const fabricApiDest = path.join(modsDir, fabricApiJar);
-        const fabricApiUrl = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.139.4+1.21.11/' + fabricApiJar;
+        const fabricApiUrl = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/' + fabricApiVer + '/' + fabricApiJar;
         log('info', 'Downloading Fabric API...');
         if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading Fabric API...', level: 'info' });
         try {
