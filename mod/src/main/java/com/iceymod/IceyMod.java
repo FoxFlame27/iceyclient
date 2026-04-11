@@ -50,24 +50,32 @@ public class IceyMod implements ClientModInitializer {
         });
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            // Title screen: logo in bottom-left corner, no text
+            // Title screen: logo in BOTTOM-RIGHT corner
             if (screen instanceof TitleScreen) {
                 ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
+                    int sw = client.getWindow().getScaledWidth();
                     int sh = client.getWindow().getScaledHeight();
                     int logoW = 200;
                     int logoH = 40;
-                    int x = 8;
+                    int x = sw - logoW - 8;
                     int y = sh - logoH - 8;
                     ctx.drawTexturedQuad(LOGO_TEXTURE, x, x + logoW, y, y + logoH, 0, 0, 1, 1);
                 });
             }
 
-            // Inventory, crafting table, and all container screens: logo in top-left
+            // All container screens (inventory, crafting, chest, etc.): logo ABOVE the window
             if (screen instanceof HandledScreen) {
                 ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
-                    int logoW = 140;
-                    int logoH = 28;
-                    ctx.drawTexturedQuad(LOGO_TEXTURE, 4, 4 + logoW, 4, 4 + logoH, 0, 0, 1, 1);
+                    HandledScreen<?> hs = (HandledScreen<?>) scr;
+                    int sw = client.getWindow().getScaledWidth();
+                    int logoW = 160;
+                    int logoH = 32;
+                    // Center horizontally
+                    int x = (sw - logoW) / 2;
+                    // Position just above the inventory window (HandledScreen has a y field for window top)
+                    int windowTop = (scr.height - 166) / 2; // typical inventory height ~166
+                    int y = Math.max(2, windowTop - logoH - 4);
+                    ctx.drawTexturedQuad(LOGO_TEXTURE, x, x + logoW, y, y + logoH, 0, 0, 1, 1);
                 });
             }
         });
