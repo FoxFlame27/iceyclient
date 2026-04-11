@@ -13,6 +13,9 @@ public class SaturationModule extends HudModule {
     }
 
     @Override
+    public Category getCategory() { return Category.PLAYER; }
+
+    @Override
     public String getText(MinecraftClient client) {
         if (client.player == null) return null;
         float sat = client.player.getHungerManager().getSaturationLevel();

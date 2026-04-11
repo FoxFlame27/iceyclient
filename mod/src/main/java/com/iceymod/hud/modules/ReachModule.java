@@ -1,43 +1,47 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.ActionResult;
 
 /**
- * Shows the distance to the entity or block you're looking at (reach display).
+ * Tracks the distance to the last entity hit.
  */
 public class ReachModule extends HudModule {
-    private double lastReach = 0;
-    private long lastHitTime = 0;
+    private static double lastReach = 0;
+    private static long lastHitTime = 0;
+    private static boolean registered = false;
 
     public ReachModule() {
         super("reach", "Reach", 5, 107);
         setEnabled(false);
+        registerCallback();
     }
 
     @Override
-    public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.crosshairTarget != null && client.player != null) {
-            if (client.crosshairTarget.getType() == HitResult.Type.ENTITY) {
-                EntityHitResult ehr = (EntityHitResult) client.crosshairTarget;
-                Entity target = ehr.getEntity();
-                lastReach = client.player.distanceTo(target);
+    public Category getCategory() { return Category.COMBAT; }
+
+    private static void registerCallback() {
+        if (registered) return;
+        registered = true;
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            try {
+                lastReach = player.distanceTo(entity);
                 lastHitTime = System.currentTimeMillis();
-            } else if (client.crosshairTarget.getType() == HitResult.Type.BLOCK) {
-                lastReach = client.crosshairTarget.getPos().distanceTo(client.player.getEyePos());
-                lastHitTime = System.currentTimeMillis();
+            } catch (Exception e) {
+                // ignore
             }
-        }
+            return ActionResult.PASS;
+        });
     }
 
     @Override
     public String getText(MinecraftClient client) {
-        // Fade out after 3 seconds of not looking at anything
-        if (System.currentTimeMillis() - lastHitTime > 3000) return null;
+        // Show last hit reach for 5 seconds, then idle "0.0 blocks"
+        if (System.currentTimeMillis() - lastHitTime > 5000) {
+            return "0.00 blocks";
+        }
         return String.format("%.2f blocks", lastReach);
     }
 }

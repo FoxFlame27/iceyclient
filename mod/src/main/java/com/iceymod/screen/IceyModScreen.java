@@ -11,9 +11,11 @@ import java.util.List;
 
 /**
  * The main Icey Client menu, opened with Y.
- * Styled like a vanilla Minecraft options screen — native buttons, dark overlay.
+ * Three-column grid of module buttons with category filters.
  */
 public class IceyModScreen extends Screen {
+
+    private static HudModule.Category currentFilter = null; // null = ALL
 
     public IceyModScreen() {
         super(Text.literal("Icey Client"));
@@ -21,19 +23,52 @@ public class IceyModScreen extends Screen {
 
     @Override
     protected void init() {
-        List<HudModule> modules = HudManager.getModules();
         int centerX = this.width / 2;
+        int filterY = 36;
+        int filterBtnW = 60;
+        int filterBtnH = 16;
+        int filterGap = 3;
+
+        // Filter buttons row
+        HudModule.Category[] cats = HudModule.Category.values();
+        int filterCount = cats.length + 1; // +1 for ALL
+        int filterRowW = filterCount * filterBtnW + (filterCount - 1) * filterGap;
+        int filterStartX = centerX - filterRowW / 2;
+
+        addDrawableChild(ButtonWidget.builder(
+                Text.literal(currentFilter == null ? "\u00A7b\u00A7lALL" : "ALL"),
+                btn -> { currentFilter = null; rebuild(); }
+        ).dimensions(filterStartX, filterY, filterBtnW, filterBtnH).build());
+
+        for (int i = 0; i < cats.length; i++) {
+            HudModule.Category cat = cats[i];
+            int x = filterStartX + (i + 1) * (filterBtnW + filterGap);
+            String label = currentFilter == cat ? "\u00A7b\u00A7l" + cat.name() : cat.name();
+            addDrawableChild(ButtonWidget.builder(
+                    Text.literal(label),
+                    btn -> { currentFilter = cat; rebuild(); }
+            ).dimensions(x, filterY, filterBtnW, filterBtnH).build());
+        }
+
+        // Filtered modules
+        List<HudModule> all = HudManager.getModules();
+        java.util.List<HudModule> filtered = new java.util.ArrayList<>();
+        for (HudModule m : all) {
+            if (currentFilter == null || m.getCategory() == currentFilter) {
+                filtered.add(m);
+            }
+        }
+
         int cols = 3;
-        int btnW = 100;
-        int btnH = 20;
+        int btnW = 110;
+        int btnH = 18;
         int gap = 3;
         int gridW = cols * btnW + (cols - 1) * gap;
         int startX = centerX - gridW / 2;
-        int startY = 36;
+        int startY = filterY + filterBtnH + 8;
 
-        // Three-column grid of module toggle buttons (vanilla ButtonWidget style)
-        for (int i = 0; i < modules.size(); i++) {
-            HudModule module = modules.get(i);
+        for (int i = 0; i < filtered.size(); i++) {
+            HudModule module = filtered.get(i);
             int col = i % cols;
             int row = i / cols;
             int x = startX + col * (btnW + gap);
@@ -48,20 +83,25 @@ public class IceyModScreen extends Screen {
             ).dimensions(x, y, btnW, btnH).build());
         }
 
-        // "Edit HUD" button — opens the drag editor
-        int rows = (modules.size() + cols - 1) / cols;
-        int bottomY = startY + rows * (btnH + gap) + 12;
+        int rows = (filtered.size() + cols - 1) / cols;
+        int bottomY = startY + rows * (btnH + gap) + 10;
 
+        // Edit HUD button
         addDrawableChild(ButtonWidget.builder(
                 Text.literal("\u2699 Edit HUD Layout"),
                 btn -> client.setScreen(new HudEditScreen(this))
         ).dimensions(centerX - 100, bottomY, 200, 20).build());
 
-        // "Done" button
+        // Done
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("gui.done"),
                 btn -> close()
-        ).dimensions(centerX - 100, bottomY + 24, 200, 20).build());
+        ).dimensions(centerX - 100, bottomY + 22, 200, 20).build());
+    }
+
+    private void rebuild() {
+        this.clearChildren();
+        this.init();
     }
 
     private Text getModuleText(HudModule module) {
@@ -71,23 +111,18 @@ public class IceyModScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Skip vanilla blur: 1.21.11 calls renderBackground twice per frame
-        // (once from the framework, once from Screen.render), which crashes
-        // with "Can only blur once per frame". Draw a flat dark overlay instead.
-        context.fill(0, 0, this.width, this.height, 0xA0000000);
+        // Skip vanilla blur (1.21.11 double-blur crash)
+        context.fill(0, 0, this.width, this.height, 0xC0101010);
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
-        // Title
         context.drawCenteredTextWithShadow(this.textRenderer,
-                "\u00A7b\u00A7lIcey Client", this.width / 2, 10, 0xFFFFFFFF);
-
-        // Subtitle
+                "\u00A7b\u00A7lIcey Client", this.width / 2, 8, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(this.textRenderer,
-                "\u00A77Toggle modules and customize your HUD", this.width / 2, 22, 0xFFFFFFFF);
+                "\u00A77" + HudManager.getModules().size() + " modules", this.width / 2, 20, 0xFFFFFFFF);
     }
 
     @Override
@@ -98,6 +133,6 @@ public class IceyModScreen extends Screen {
 
     @Override
     public boolean shouldPause() {
-        return false; // don't pause the game
+        return false;
     }
 }

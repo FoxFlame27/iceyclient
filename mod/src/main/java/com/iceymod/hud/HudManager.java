@@ -40,6 +40,19 @@ public class HudManager {
         modules.add(new ArrowCountModule());
         modules.add(new SaturationModule());
         modules.add(new ComboCounterModule());
+        // 12 more modules to reach 30 total
+        modules.add(new NoFallModule());
+        modules.add(new TimeModule());
+        modules.add(new BiomeModule());
+        modules.add(new LightLevelModule());
+        modules.add(new SpeedModule());
+        modules.add(new HealthModule());
+        modules.add(new XpModule());
+        modules.add(new BlockAboveModule());
+        modules.add(new FullBrightModule());
+        modules.add(new AutoSprintModule());
+        modules.add(new CrosshairModule());
+        modules.add(new HotbarTextModule());
 
         load();
     }

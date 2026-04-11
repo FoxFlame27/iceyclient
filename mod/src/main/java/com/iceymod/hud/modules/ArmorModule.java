@@ -17,6 +17,9 @@ public class ArmorModule extends HudModule {
     }
 
     @Override
+    public Category getCategory() { return Category.COMBAT; }
+
+    @Override
     public String getText(MinecraftClient client) {
         return null;
     }
@@ -26,35 +29,60 @@ public class ArmorModule extends HudModule {
         if (!isEnabled() || client.player == null) return;
         int bx = getX();
         int by = getY();
-        this.width = 18;
+        this.width = 60;
 
         int drawn = 0;
         for (EquipmentSlot slot : ARMOR_SLOTS) {
             ItemStack stack = client.player.getEquippedStack(slot);
             if (!stack.isEmpty()) {
                 int itemY = by + drawn * 18;
-                context.fill(bx - 1, itemY - 1, bx + 17, itemY + 17, 0x60000000);
+                // Background row
+                context.fill(bx - 1, itemY - 1, bx + width, itemY + 17, 0x90000000);
+                // Item icon
                 context.drawItem(stack, bx, itemY);
+                // Durability text next to item
+                String dura;
+                int color;
                 if (stack.isDamageable()) {
-                    int maxDmg = stack.getMaxDamage();
+                    int max = stack.getMaxDamage();
                     int dmg = stack.getDamage();
-                    float ratio = 1.0f - (float) dmg / maxDmg;
-                    int barColor;
-                    if (ratio > 0.6f) barColor = 0xFF4ADE80;
-                    else if (ratio > 0.3f) barColor = 0xFFFBBF24;
-                    else barColor = 0xFFF87171;
-                    int barW = (int) (16 * ratio);
-                    context.fill(bx, itemY + 15, bx + barW, itemY + 17, barColor);
+                    int remaining = max - dmg;
+                    float ratio = (float) remaining / max;
+                    if (ratio > 0.6f) color = 0xFF4ADE80;
+                    else if (ratio > 0.3f) color = 0xFFFBBF24;
+                    else color = 0xFFF87171;
+                    dura = remaining + "/" + max;
+                } else {
+                    color = 0xFFAAAAAA;
+                    dura = "—";
                 }
+                context.drawTextWithShadow(client.textRenderer, dura, bx + 20, itemY + 5, color);
                 drawn++;
             }
         }
 
+        // Held item
         ItemStack held = client.player.getMainHandStack();
         if (!held.isEmpty()) {
             int itemY = by + drawn * 18;
-            context.fill(bx - 1, itemY - 1, bx + 17, itemY + 17, 0x60000000);
+            context.fill(bx - 1, itemY - 1, bx + width, itemY + 17, 0x90000000);
             context.drawItem(held, bx, itemY);
+            String dura;
+            int color;
+            if (held.isDamageable()) {
+                int max = held.getMaxDamage();
+                int dmg = held.getDamage();
+                int remaining = max - dmg;
+                float ratio = (float) remaining / max;
+                if (ratio > 0.6f) color = 0xFF4ADE80;
+                else if (ratio > 0.3f) color = 0xFFFBBF24;
+                else color = 0xFFF87171;
+                dura = remaining + "/" + max;
+            } else {
+                color = 0xFFAAAAAA;
+                dura = "x" + held.getCount();
+            }
+            context.drawTextWithShadow(client.textRenderer, dura, bx + 20, itemY + 5, color);
             drawn++;
         }
 

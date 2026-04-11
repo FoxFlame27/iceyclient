@@ -4,6 +4,10 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
 public abstract class HudModule {
+    public enum Category {
+        INFO, COMBAT, MOVEMENT, PLAYER, VISUAL, UTILITY
+    }
+
     private final String id;
     private final String name;
     private boolean enabled;
@@ -18,6 +22,10 @@ public abstract class HudModule {
         this.x = defaultX;
         this.y = defaultY;
         this.enabled = true;
+    }
+
+    public Category getCategory() {
+        return Category.INFO;
     }
 
     /**

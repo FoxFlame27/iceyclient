@@ -18,6 +18,9 @@ public class ComboCounterModule extends HudModule {
     }
 
     @Override
+    public Category getCategory() { return Category.COMBAT; }
+
+    @Override
     public void tick() {
         MinecraftClient client = MinecraftClient.getInstance();
         boolean pressed = client.options.attackKey.isPressed();

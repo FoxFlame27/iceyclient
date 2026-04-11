@@ -17,6 +17,9 @@ public class CpsModule extends HudModule {
     }
 
     @Override
+    public Category getCategory() { return Category.COMBAT; }
+
+    @Override
     public void tick() {
         MinecraftClient client = MinecraftClient.getInstance();
         long now = System.currentTimeMillis();

@@ -14,6 +14,9 @@ public class HitboxModule extends HudModule {
     }
 
     @Override
+    public Category getCategory() { return Category.VISUAL; }
+
+    @Override
     public void tick() {
         // Hitboxes are rendered when the debug key is toggled.
         // We simulate this by toggling the option each tick.

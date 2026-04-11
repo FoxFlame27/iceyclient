@@ -19,6 +19,9 @@ public class PotionModule extends HudModule {
     }
 
     @Override
+    public Category getCategory() { return Category.PLAYER; }
+
+    @Override
     public String getText(MinecraftClient client) {
         return null; // custom rendering
     }
