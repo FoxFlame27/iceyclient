@@ -1,7 +1,7 @@
 {
   "name": "icey-client",
   "productName": "Icey Client",
-  "version": "1.25.0",
+  "version": "1.26.0",
   "description": "A premium Minecraft launcher with an icy theme",
   "main": "main.js",
   "scripts": {

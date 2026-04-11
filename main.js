@@ -614,26 +614,37 @@ function launchMinecraft(installationId) {
         }
       }
 
-      // 2) Auto-download Fabric API if not present (required dependency)
+      // 2) Install correct Fabric API for THIS MC version (validate, replace if wrong)
+      const fabricApiByVersion = {
+        '1.21.8': '0.136.1+1.21.8',
+        '1.21.9': '0.138.1+1.21.9',
+        '1.21.10': '0.138.4+1.21.10',
+        '1.21.11': '0.139.4+1.21.11',
+      };
+      const fabricApiVer = fabricApiByVersion[installation.version] || '0.139.4+1.21.11';
+      const correctApiJar = 'fabric-api-' + fabricApiVer + '.jar';
+      const correctApiDest = path.join(modsDir, correctApiJar);
+
+      // Delete any wrong-version fabric-api jars
       const fabricApiPattern = /^fabric-api.*\.jar$/i;
-      const hasFabricApi = fs.readdirSync(modsDir).some(f => fabricApiPattern.test(f));
-      if (!hasFabricApi) {
-        // Pick the right Fabric API version for this MC version
-        const fabricApiByVersion = {
-          '1.21.8': '0.136.1+1.21.8',
-          '1.21.9': '0.138.1+1.21.9',
-          '1.21.10': '0.138.4+1.21.10',
-          '1.21.11': '0.139.4+1.21.11',
-        };
-        const fabricApiVer = fabricApiByVersion[installation.version] || '0.139.4+1.21.11';
-        const fabricApiJar = 'fabric-api-' + fabricApiVer + '.jar';
-        const fabricApiDest = path.join(modsDir, fabricApiJar);
-        const fabricApiUrl = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/' + fabricApiVer + '/' + fabricApiJar;
-        log('info', 'Downloading Fabric API...');
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading Fabric API...', level: 'info' });
+      try {
+        for (const f of fs.readdirSync(modsDir)) {
+          if (fabricApiPattern.test(f) && f !== correctApiJar) {
+            fs.unlinkSync(path.join(modsDir, f));
+            log('info', 'Removed wrong-version Fabric API: ' + f);
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Removed wrong Fabric API: ' + f, level: 'info' });
+          }
+        }
+      } catch (_) {}
+
+      // Download correct Fabric API if not already present
+      if (!fs.existsSync(correctApiDest)) {
+        const fabricApiUrl = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/' + fabricApiVer + '/' + correctApiJar;
+        log('info', 'Downloading Fabric API ' + fabricApiVer + '...');
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading Fabric API ' + fabricApiVer + '...', level: 'info' });
         try {
-          await downloadFile(fabricApiUrl, fabricApiDest);
-          log('info', 'Fabric API installed to ' + fabricApiDest);
+          await downloadFile(fabricApiUrl, correctApiDest);
+          log('info', 'Fabric API installed to ' + correctApiDest);
           if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Fabric API installed', level: 'info' });
         } catch (e) {
           log('warn', 'Failed to download Fabric API: ' + e.message);
