@@ -578,7 +578,7 @@ function launchMinecraft(installationId) {
       const modsDir = path.join(installGameDir, 'mods');
       fs.mkdirSync(modsDir, { recursive: true });
 
-      // 1) Install Icey mod jar
+      // 1) Install/UPDATE Icey mod jar — always replace with bundled version
       const modJarName = 'iceymod-1.0.0.jar';
       const destJar = path.join(modsDir, modJarName);
       const searchPaths = [
@@ -586,18 +586,31 @@ function launchMinecraft(installationId) {
         path.join(DATA_DIR, modJarName),
         path.join(__dirname, 'resources', modJarName),
       ];
-      if (!fs.existsSync(destJar)) {
-        for (const src of searchPaths) {
-          if (fs.existsSync(src)) {
-            try {
-              fs.copyFileSync(src, destJar);
-              log('info', 'Auto-installed Icey mod to ' + destJar);
-              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod installed', level: 'info' });
-            } catch (e) {
-              log('warn', 'Failed to auto-install Icey mod: ' + e.message);
-            }
-            break;
+      // Also clean up any older iceymod jars that might be lurking
+      try {
+        for (const f of fs.readdirSync(modsDir)) {
+          if (/^iceymod.*\.jar$/i.test(f) && f !== modJarName) {
+            fs.unlinkSync(path.join(modsDir, f));
+            log('info', 'Removed stale Icey mod jar: ' + f);
           }
+        }
+      } catch (_) {}
+      // Always copy latest bundled jar (replaces old version if present)
+      for (const src of searchPaths) {
+        if (fs.existsSync(src)) {
+          try {
+            const srcStat = fs.statSync(src);
+            const destStat = fs.existsSync(destJar) ? fs.statSync(destJar) : null;
+            // Only copy if source is newer or sizes differ
+            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+              fs.copyFileSync(src, destJar);
+              log('info', 'Updated Icey mod to ' + destJar);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod updated', level: 'info' });
+            }
+          } catch (e) {
+            log('warn', 'Failed to install Icey mod: ' + e.message);
+          }
+          break;
         }
       }
 
