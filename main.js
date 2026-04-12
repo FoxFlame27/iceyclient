@@ -699,7 +699,7 @@ function launchMinecraft(installationId) {
             }
           }
           if (!downloaded) {
-            log('warn', 'Could not download arm64 native for ' + baseArtifact);
+            log('warn', 'Could not download arm64 native for ' + artifact);
             continue;
           }
         }
