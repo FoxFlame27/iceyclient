@@ -487,6 +487,10 @@ function launchMinecraft(installationId) {
     const sep = process.platform === 'win32' ? ';' : ':';
     const cpParts = [];
 
+    const isArm64 = process.arch === 'arm64';
+    const wrongNativesRe = isArm64 ? /natives-linux(?!-arm64|-aarch64)/ : /natives-linux-(arm64|aarch64)/;
+    const arm64NativesToDownload = []; // collect LWJGL libs that need arm64 replacement
+
     for (const lib of (versionJson.libraries || [])) {
       // Check OS rules
       if (lib.rules) {
@@ -505,6 +509,23 @@ function launchMinecraft(installationId) {
           }
         }
         if (!allowed) continue;
+      }
+
+      // On arm64 Linux: skip x64 native JARs and collect them for arm64 replacement
+      if (lib.name && wrongNativesRe.test(lib.name)) {
+        if (isArm64) {
+          // Remember this lib so we can download the arm64 variant later
+          const nameParts = lib.name.split(':');
+          if (nameParts.length >= 3) {
+            arm64NativesToDownload.push({
+              group: nameParts[0],
+              artifact: nameParts[1],
+              version: nameParts[2].replace(/:.*/, '')
+            });
+          }
+        }
+        log('info', 'Skipping wrong-arch native: ' + lib.name);
+        continue;
       }
 
       // Try downloads.artifact.path first
@@ -550,6 +571,50 @@ function launchMinecraft(installationId) {
 
       // Log still-missing libs
       log('warn', 'Library not found after download attempt: ' + (lib.name || JSON.stringify(lib.downloads?.artifact?.path)));
+    }
+
+    // On arm64: download and add arm64 LWJGL native JARs to replace skipped x64 ones
+    if (isArm64 && arm64NativesToDownload.length > 0) {
+      for (const { group, artifact, version: libVer } of arm64NativesToDownload) {
+        // artifact is e.g. "lwjgl" or "lwjgl-opengl" — the module name
+        // Build the arm64 native jar name: e.g. lwjgl-3.3.3-natives-linux-arm64.jar
+        const groupPath = group.replace(/\./g, '/');
+        const arm64JarName = `${artifact}-${libVer}-natives-linux-arm64.jar`;
+        const arm64MavenPath = `${groupPath}/${artifact}/${libVer}/${arm64JarName}`;
+        const arm64JarPath = path.join(libDir, groupPath, artifact, libVer, arm64JarName);
+
+        if (!fs.existsSync(arm64JarPath)) {
+          // Try Maven Central first (LWJGL publishes arm64 natives there)
+          const urls = [
+            `https://repo1.maven.org/maven2/${arm64MavenPath}`,
+            `https://libraries.minecraft.net/${arm64MavenPath}`
+          ];
+          let downloaded = false;
+          for (const url of urls) {
+            try {
+              log('info', 'Downloading arm64 native: ' + arm64JarName + ' from ' + url);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading arm64 native: ' + arm64JarName, level: 'info' });
+              await downloadFile(url, arm64JarPath);
+              downloaded = true;
+              break;
+            } catch (e) {
+              log('warn', 'Failed from ' + url + ': ' + e.message);
+            }
+          }
+          if (!downloaded) {
+            log('warn', 'Could not download arm64 native for ' + baseArtifact);
+            continue;
+          }
+        }
+        cpParts.push(arm64JarPath);
+        // Also extract native .so files
+        try {
+          const nDir = path.join(mcDir, 'versions', version, 'natives');
+          extractNatives(arm64JarPath, nDir);
+        } catch (e) {
+          log('warn', 'Failed to extract arm64 native: ' + e.message);
+        }
+      }
     }
 
     // Add fabric libraries, replacing vanilla duplicates (e.g. asm-9.6 vs asm-9.9)
@@ -791,6 +856,17 @@ function launchMinecraft(installationId) {
     // Natives: extract platform-specific native libraries
     const nativesDir = path.join(mcDir, 'versions', version, 'natives');
     fs.mkdirSync(nativesDir, { recursive: true });
+    // On arm64: wipe existing natives (may be x64 from Prism Launcher)
+    if (isArm64) {
+      try {
+        for (const f of fs.readdirSync(nativesDir)) {
+          if (f.endsWith('.so') || f.endsWith('.dll') || f.endsWith('.dylib')) {
+            fs.unlinkSync(path.join(nativesDir, f));
+          }
+        }
+        log('info', 'Cleared old natives for arm64 re-extraction');
+      } catch (_) {}
+    }
     // Download and extract natives for all libraries that have them
     for (const lib of (versionJson.libraries || [])) {
       if (lib.downloads?.classifiers || lib.natives) {
