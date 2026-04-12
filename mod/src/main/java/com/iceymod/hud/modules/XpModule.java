@@ -9,8 +9,6 @@ public class XpModule extends HudModule {
         setEnabled(false);
     }
 
-    @Override
-    public Category getCategory() { return Category.PLAYER; }
 
     @Override
     public String getText(MinecraftClient client) {

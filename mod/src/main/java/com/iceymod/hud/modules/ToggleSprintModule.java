@@ -12,8 +12,6 @@ public class ToggleSprintModule extends HudModule {
         setEnabled(false);
     }
 
-    @Override
-    public Category getCategory() { return Category.MOVEMENT; }
 
     @Override
     public String getText(MinecraftClient client) {

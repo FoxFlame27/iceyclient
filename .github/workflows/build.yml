@@ -86,7 +86,7 @@ jobs:
           name: mac-build
           path: dist/*.dmg
 
-  build-linux:
+  build-linux-x64:
     needs: build-mod
     runs-on: ubuntu-latest
     permissions:
@@ -96,7 +96,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          # no cache — package-lock.json not in repo
       - name: Download mod jar
         uses: actions/download-artifact@v4
         with:
@@ -104,17 +103,52 @@ jobs:
           path: mod/build/libs
         continue-on-error: true
       - run: npm install
-      - run: npx electron-builder --linux --publish never
+      - run: npx electron-builder --linux --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build
-          path: dist/*.AppImage
+          name: linux-x64-build
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+
+  build-linux-arm64:
+    needs: build-mod
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download mod jar
+        uses: actions/download-artifact@v4
+        with:
+          name: mod-build
+          path: mod/build/libs
+        continue-on-error: true
+      - run: npm install
+      - name: Install arm64 cross-compilation tools
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y libc6-dev-arm64-cross
+      - run: npx electron-builder --linux --arm64 --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-build
+          path: |
+            dist/*.AppImage
+            dist/*.deb
 
   release:
-    needs: [build-mod, build-windows, build-mac, build-linux]
+    needs: [build-mod, build-windows, build-mac, build-linux-x64, build-linux-arm64]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:

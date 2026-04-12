@@ -24,12 +24,14 @@ public class IceyModScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int filterY = 36;
-        int filterBtnW = 60;
-        int filterBtnH = 16;
-        int filterGap = 3;
+        int sh = this.height;
 
         // Filter buttons row
+        int filterY = 26;
+        int filterBtnW = 52;
+        int filterBtnH = 14;
+        int filterGap = 2;
+
         HudModule.Category[] cats = HudModule.Category.values();
         int filterCount = cats.length + 1; // +1 for ALL
         int filterRowW = filterCount * filterBtnW + (filterCount - 1) * filterGap;
@@ -43,14 +45,15 @@ public class IceyModScreen extends Screen {
         for (int i = 0; i < cats.length; i++) {
             HudModule.Category cat = cats[i];
             int x = filterStartX + (i + 1) * (filterBtnW + filterGap);
-            String label = currentFilter == cat ? "\u00A7b\u00A7l" + cat.name() : cat.name();
+            String name = cat.name().substring(0, Math.min(cat.name().length(), 6));
+            String label = currentFilter == cat ? "\u00A7b\u00A7l" + name : name;
             addDrawableChild(ButtonWidget.builder(
                     Text.literal(label),
                     btn -> { currentFilter = cat; rebuild(); }
             ).dimensions(x, filterY, filterBtnW, filterBtnH).build());
         }
 
-        // Filtered modules
+        // Filter modules
         List<HudModule> all = HudManager.getModules();
         java.util.List<HudModule> filtered = new java.util.ArrayList<>();
         for (HudModule m : all) {
@@ -59,20 +62,34 @@ public class IceyModScreen extends Screen {
             }
         }
 
-        int cols = 3;
-        int btnW = 110;
-        int btnH = 18;
-        int gap = 3;
+        // Calculate space for grid (between filter row and bottom buttons)
+        int bottomReserved = 50; // Edit HUD + Done buttons + padding
+        int gridTop = filterY + filterBtnH + 8;
+        int availableHeight = sh - gridTop - bottomReserved;
+
+        // Use 5 columns with small buttons to fit 30 modules
+        int cols = 5;
+        int btnW = 84;
+        int btnH = 14;
+        int gap = 2;
+        int rowsNeeded = (filtered.size() + cols - 1) / cols;
+        int rowsThatFit = Math.max(1, availableHeight / (btnH + gap));
+
+        // If rows don't fit, scale down further (this should rarely happen)
+        if (rowsNeeded > rowsThatFit) {
+            btnH = 12;
+            gap = 1;
+        }
+
         int gridW = cols * btnW + (cols - 1) * gap;
         int startX = centerX - gridW / 2;
-        int startY = filterY + filterBtnH + 8;
 
         for (int i = 0; i < filtered.size(); i++) {
             HudModule module = filtered.get(i);
             int col = i % cols;
             int row = i / cols;
             int x = startX + col * (btnW + gap);
-            int y = startY + row * (btnH + gap);
+            int y = gridTop + row * (btnH + gap);
 
             addDrawableChild(ButtonWidget.builder(
                     getModuleText(module),
@@ -83,20 +100,18 @@ public class IceyModScreen extends Screen {
             ).dimensions(x, y, btnW, btnH).build());
         }
 
-        int rows = (filtered.size() + cols - 1) / cols;
-        int bottomY = startY + rows * (btnH + gap) + 10;
+        // Bottom buttons - anchored to bottom of screen
+        int bottomBtnY = sh - bottomReserved + 4;
 
-        // Edit HUD button
         addDrawableChild(ButtonWidget.builder(
                 Text.literal("\u2699 Edit HUD Layout"),
                 btn -> client.setScreen(new HudEditScreen(this))
-        ).dimensions(centerX - 100, bottomY, 200, 20).build());
+        ).dimensions(centerX - 100, bottomBtnY, 200, 18).build());
 
-        // Done
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("gui.done"),
                 btn -> close()
-        ).dimensions(centerX - 100, bottomY + 22, 200, 20).build());
+        ).dimensions(centerX - 100, bottomBtnY + 22, 200, 18).build());
     }
 
     private void rebuild() {
@@ -120,9 +135,8 @@ public class IceyModScreen extends Screen {
         super.render(context, mouseX, mouseY, delta);
 
         context.drawCenteredTextWithShadow(this.textRenderer,
-                "\u00A7b\u00A7lIcey Client", this.width / 2, 8, 0xFFFFFFFF);
-        context.drawCenteredTextWithShadow(this.textRenderer,
-                "\u00A77" + HudManager.getModules().size() + " modules", this.width / 2, 20, 0xFFFFFFFF);
+                "\u00A7b\u00A7lIcey Client \u00A77" + HudManager.getModules().size() + " modules",
+                this.width / 2, 8, 0xFFFFFFFF);
     }
 
     @Override

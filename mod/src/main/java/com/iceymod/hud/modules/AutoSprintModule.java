@@ -12,8 +12,6 @@ public class AutoSprintModule extends HudModule {
         setEnabled(false);
     }
 
-    @Override
-    public Category getCategory() { return Category.MOVEMENT; }
 
     @Override
     public void tick() {

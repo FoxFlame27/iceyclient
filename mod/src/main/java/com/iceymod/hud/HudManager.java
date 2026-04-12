@@ -40,8 +40,7 @@ public class HudManager {
         modules.add(new ArrowCountModule());
         modules.add(new SaturationModule());
         modules.add(new ComboCounterModule());
-        // 12 more modules to reach 30 total
-        modules.add(new NoFallModule());
+        // 11 more modules
         modules.add(new TimeModule());
         modules.add(new BiomeModule());
         modules.add(new LightLevelModule());
@@ -53,6 +52,17 @@ public class HudManager {
         modules.add(new AutoSprintModule());
         modules.add(new CrosshairModule());
         modules.add(new HotbarTextModule());
+        // 10 more simple modules
+        modules.add(new YLevelModule());
+        modules.add(new GameModeModule());
+        modules.add(new FoodModule());
+        modules.add(new PitchYawModule());
+        modules.add(new VelocityModule());
+        modules.add(new PlayerNameModule());
+        modules.add(new SessionTimeModule());
+        modules.add(new AirModule());
+        modules.add(new WorldTimeModule());
+        modules.add(new EntityCountModule());
 
         load();
     }

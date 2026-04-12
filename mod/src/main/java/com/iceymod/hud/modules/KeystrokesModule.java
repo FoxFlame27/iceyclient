@@ -12,8 +12,6 @@ public class KeystrokesModule extends HudModule {
         super("keystrokes", "Keystrokes", 5, 78);
     }
 
-    @Override
-    public Category getCategory() { return Category.MOVEMENT; }
 
     @Override
     public String getText(MinecraftClient client) {

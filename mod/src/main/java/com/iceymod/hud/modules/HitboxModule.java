@@ -13,8 +13,6 @@ public class HitboxModule extends HudModule {
         setEnabled(false);
     }
 
-    @Override
-    public Category getCategory() { return Category.VISUAL; }
 
     @Override
     public void tick() {

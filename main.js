@@ -650,6 +650,33 @@ function launchMinecraft(installationId) {
           log('warn', 'Failed to download Fabric API: ' + e.message);
         }
       }
+
+      // 3) Install/UPDATE Icey resource pack
+      const resourcepacksDir = path.join(installGameDir, 'resourcepacks');
+      fs.mkdirSync(resourcepacksDir, { recursive: true });
+      const rpName = 'IceyModResourcePack.zip';
+      const destRp = path.join(resourcepacksDir, rpName);
+      const rpSearchPaths = [
+        path.join(__dirname, 'resources', rpName),
+        path.join(__dirname, rpName),
+        path.join(DATA_DIR, rpName),
+      ];
+      for (const src of rpSearchPaths) {
+        if (fs.existsSync(src)) {
+          try {
+            const srcStat = fs.statSync(src);
+            const destStat = fs.existsSync(destRp) ? fs.statSync(destRp) : null;
+            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+              fs.copyFileSync(src, destRp);
+              log('info', 'Installed Icey resource pack to ' + destRp);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey resource pack installed', level: 'info' });
+            }
+          } catch (e) {
+            log('warn', 'Failed to install Icey resource pack: ' + e.message);
+          }
+          break;
+        }
+      }
     }
 
     // Build arguments

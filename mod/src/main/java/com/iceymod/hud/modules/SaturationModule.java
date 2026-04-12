@@ -12,8 +12,6 @@ public class SaturationModule extends HudModule {
         setEnabled(false);
     }
 
-    @Override
-    public Category getCategory() { return Category.PLAYER; }
 
     @Override
     public String getText(MinecraftClient client) {

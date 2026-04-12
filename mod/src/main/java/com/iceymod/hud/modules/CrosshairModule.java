@@ -13,8 +13,6 @@ public class CrosshairModule extends HudModule {
         setEnabled(false);
     }
 
-    @Override
-    public Category getCategory() { return Category.VISUAL; }
 
     @Override
     public String getText(MinecraftClient client) {

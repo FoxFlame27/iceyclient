@@ -1,6 +1,6 @@
 If macOS says "Icey Client is damaged and can't be opened", run this in Terminal after installing:
 
-xattr -cr /Applications/Icey\ Client.app
+xacttr -cr /Applications/Icey\ Client.app 
 
 Then open the app normally.
 

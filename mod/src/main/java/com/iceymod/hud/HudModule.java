@@ -5,7 +5,7 @@ import net.minecraft.client.gui.DrawContext;
 
 public abstract class HudModule {
     public enum Category {
-        INFO, COMBAT, MOVEMENT, PLAYER, VISUAL, UTILITY
+        INFO, COMBAT
     }
 
     private final String id;
