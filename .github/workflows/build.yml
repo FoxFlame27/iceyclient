@@ -58,8 +58,26 @@ jobs:
       - run: npm install
       - name: Install fpm dependencies
         run: sudo apt-get update && sudo apt-get install -y libcrypt1 rpm
+      - name: Pre-download Electron arm64 with retries
+        run: |
+          ELECTRON_URL="https://github.com/electron/electron/releases/download/v28.3.3/electron-v28.3.3-linux-arm64.zip"
+          CACHE_DIR="$HOME/.cache/electron"
+          mkdir -p "$CACHE_DIR"
+          DEST="$CACHE_DIR/electron-v28.3.3-linux-arm64.zip"
+          for i in 1 2 3 4 5; do
+            echo "Attempt $i: downloading Electron arm64..."
+            if curl -L --retry 3 --retry-delay 5 -o "$DEST" "$ELECTRON_URL"; then
+              echo "Download succeeded ($(stat --printf='%s' "$DEST") bytes)"
+              break
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx electron-builder --linux rpm --arm64 --publish never
         env:
+          ELECTRON_CACHE: ${{ env.HOME }}/.cache/electron
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
