@@ -7,5 +7,6 @@ Thumbs.db
 Screenshot*.png
 image copy*.png
 image-removebg-preview*.png
-mod/build/
+mod/build/*/
+!mod/build/libs/
 mod/.gradle/

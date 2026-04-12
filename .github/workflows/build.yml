@@ -7,30 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-mod:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-      - name: Build Fabric mod
-        working-directory: mod
-        run: chmod +x gradlew && ./gradlew build --no-daemon
-      - name: Upload mod jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: mod-build
-          path: mod/build/libs/iceymod-*.jar
-          if-no-files-found: warn
-
   build-windows:
-    needs: build-mod
     runs-on: windows-latest
     permissions:
       contents: write
@@ -39,13 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          # no cache — package-lock.json not in repo
-      - name: Download mod jar
-        uses: actions/download-artifact@v4
-        with:
-          name: mod-build
-          path: mod/build/libs
-        continue-on-error: true
       - run: npm install
       - run: npx electron-builder --win --publish never
         env:
@@ -57,7 +27,6 @@ jobs:
           path: dist/*.exe
 
   build-mac:
-    needs: build-mod
     runs-on: macos-latest
     permissions:
       contents: write
@@ -66,13 +35,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          # no cache — package-lock.json not in repo
-      - name: Download mod jar
-        uses: actions/download-artifact@v4
-        with:
-          name: mod-build
-          path: mod/build/libs
-        continue-on-error: true
       - run: npm install
       - run: npx electron-builder --mac --publish never
         env:
@@ -85,7 +47,6 @@ jobs:
           path: dist/*.dmg
 
   build-linux-x64:
-    needs: build-mod
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -94,12 +55,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Download mod jar
-        uses: actions/download-artifact@v4
-        with:
-          name: mod-build
-          path: mod/build/libs
-        continue-on-error: true
       - run: npm install
       - run: npx electron-builder --linux --x64 --publish never
         env:
@@ -113,7 +68,6 @@ jobs:
             dist/*.deb
 
   build-linux-arm64:
-    needs: build-mod
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -122,18 +76,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Download mod jar
-        uses: actions/download-artifact@v4
-        with:
-          name: mod-build
-          path: mod/build/libs
-        continue-on-error: true
       - run: npm install
-      - name: Install arm64 cross-compilation tools
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y libc6-dev-arm64-cross
       - run: npx electron-builder --linux --arm64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -146,7 +89,7 @@ jobs:
             dist/*.deb
 
   release:
-    needs: [build-mod, build-windows, build-mac, build-linux-x64, build-linux-arm64]
+    needs: [build-windows, build-mac, build-linux-x64, build-linux-arm64]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
