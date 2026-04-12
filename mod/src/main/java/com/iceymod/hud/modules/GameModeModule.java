@@ -22,6 +22,6 @@ public class GameModeModule extends HudModule {
             case ADVENTURE: color = "\u00A7e"; break;
             default: color = "\u00A7a"; break; // survival
         }
-        return color + mode.getName().toUpperCase();
+        return color + mode.name();
     }
 }
