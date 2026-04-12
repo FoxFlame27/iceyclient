@@ -1,8 +1,12 @@
 {
   "name": "icey-client",
   "productName": "Icey Client",
-  "version": "1.28.6",
+  "version": "1.28.7",
   "description": "A premium Minecraft launcher with an icy theme",
+  "author": {
+    "name": "Icey Client",
+    "email": "iceyclient@users.noreply.github.com"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
