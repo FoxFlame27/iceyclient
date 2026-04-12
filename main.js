@@ -548,13 +548,37 @@ function launchMinecraft(installationId) {
                 extraJvmArgs = fabricJson.arguments.jvm.filter(a => typeof a === 'string');
               }
               if (fabricJson.libraries) {
+                const defaultLibDir = path.join(mcDir, 'libraries');
                 for (const lib of fabricJson.libraries) {
                   if (lib.name) {
                     const parts = lib.name.split(':');
                     if (parts.length >= 3) {
                       const gp = parts[0].replace(/\./g, path.sep);
-                      const jarPath = path.join(libDir, gp, parts[1], parts[2], `${parts[1]}-${parts[2]}.jar`);
-                      if (fs.existsSync(jarPath)) fabricLibs.push(jarPath);
+                      const jarName = `${parts[1]}-${parts[2]}.jar`;
+                      // Check both Prism libs and default .minecraft libs
+                      const candidates = [
+                        path.join(libDir, gp, parts[1], parts[2], jarName),
+                        path.join(defaultLibDir, gp, parts[1], parts[2], jarName)
+                      ];
+                      // Also try downloading if missing
+                      let found = false;
+                      for (const jarPath of candidates) {
+                        if (fs.existsSync(jarPath)) { fabricLibs.push(jarPath); found = true; break; }
+                      }
+                      if (!found && lib.url) {
+                        // Download from Fabric maven
+                        const mavenPath = gp.replace(/\\/g, '/') + '/' + parts[1] + '/' + parts[2] + '/' + jarName;
+                        const dlUrl = lib.url + mavenPath;
+                        const destPath = path.join(defaultLibDir, gp, parts[1], parts[2], jarName);
+                        try {
+                          await downloadFile(dlUrl, destPath);
+                          fabricLibs.push(destPath);
+                          found = true;
+                        } catch (e) {
+                          log('warn', 'Failed to download fabric lib: ' + lib.name);
+                        }
+                      }
+                      if (!found) log('warn', 'Fabric lib not found: ' + lib.name);
                     }
                   }
                 }
