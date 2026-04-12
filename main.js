@@ -409,6 +409,100 @@ function autoDetectJava() {
 }
 
 // ── Minecraft launch (direct Java, uses existing .minecraft) ─────
+// ── Prism Launcher integration for Linux arm64 ──
+function findPrismLauncher() {
+  // Check flatpak first (most common on Asahi/Fedora)
+  try {
+    execSync('flatpak info org.prismlauncher.PrismLauncher', { stdio: 'ignore' });
+    return { type: 'flatpak', command: 'flatpak', args: ['run', 'org.prismlauncher.PrismLauncher'] };
+  } catch (_) {}
+  // Check system binary
+  const paths = ['/usr/bin/prismlauncher', '/usr/local/bin/prismlauncher', path.join(os.homedir(), '.local/bin/prismlauncher')];
+  for (const p of paths) {
+    if (fs.existsSync(p)) return { type: 'binary', command: p, args: [] };
+  }
+  return null;
+}
+
+function getPrismDataDir() {
+  // Flatpak path
+  const flatpakDir = path.join(os.homedir(), '.var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher');
+  if (fs.existsSync(flatpakDir)) return flatpakDir;
+  // Standard paths
+  const xdgData = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local/share');
+  const standardDir = path.join(xdgData, 'PrismLauncher');
+  if (fs.existsSync(standardDir)) return standardDir;
+  return flatpakDir; // default
+}
+
+function ensurePrismInstance(installation) {
+  const prismDir = getPrismDataDir();
+  const instancesDir = path.join(prismDir, 'instances');
+  const instanceName = 'Icey_' + installation.id.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const instanceDir = path.join(instancesDir, instanceName);
+  const mcDir = path.join(instanceDir, 'minecraft');
+
+  if (!fs.existsSync(instanceDir)) {
+    fs.mkdirSync(instanceDir, { recursive: true });
+    fs.mkdirSync(mcDir, { recursive: true });
+
+    // Write Prism instance config
+    const isFabric = installation.platform === 'fabric';
+    const cfg = [
+      '[General]',
+      `name=Icey ${installation.name || installation.version}`,
+      'iconKey=default',
+      `InstanceType=${isFabric ? 'OneSix' : 'OneSix'}`,
+      ''
+    ].join('\n');
+    fs.writeFileSync(path.join(instanceDir, 'instance.cfg'), cfg);
+
+    // Write mmc-pack.json (instance component config)
+    const components = [
+      { cachedName: 'LWJGL 3', cachedVersion: '3.3.3', dependencyOnly: true, uid: 'org.lwjgl3' },
+      { cachedName: 'Minecraft', cachedVersion: installation.version, important: true, uid: 'net.minecraft' }
+    ];
+    if (isFabric) {
+      components.push({ cachedName: 'Intermediary Mappings', dependencyOnly: true, uid: 'net.fabricmc.intermediary' });
+      components.push({ cachedName: 'Fabric Loader', uid: 'net.fabricmc.fabric-loader' });
+    }
+    const mmcPack = { components, formatVersion: 1 };
+    fs.writeFileSync(path.join(instanceDir, 'mmc-pack.json'), JSON.stringify(mmcPack, null, 2));
+    log('info', 'Created Prism instance: ' + instanceName);
+  }
+
+  // Sync mods from Icey installation to Prism instance
+  const iceyGameDir = path.join(INSTALLATIONS_DIR, installation.id, 'game');
+  const iceyModsDir = path.join(iceyGameDir, 'mods');
+  const prismModsDir = path.join(mcDir, 'mods');
+  if (fs.existsSync(iceyModsDir)) {
+    fs.mkdirSync(prismModsDir, { recursive: true });
+    for (const f of fs.readdirSync(iceyModsDir)) {
+      const src = path.join(iceyModsDir, f);
+      const dest = path.join(prismModsDir, f);
+      if (!fs.existsSync(dest)) {
+        try { fs.copyFileSync(src, dest); } catch (_) {}
+      }
+    }
+  }
+
+  // Sync resourcepacks
+  const iceyRpDir = path.join(iceyGameDir, 'resourcepacks');
+  const prismRpDir = path.join(mcDir, 'resourcepacks');
+  if (fs.existsSync(iceyRpDir)) {
+    fs.mkdirSync(prismRpDir, { recursive: true });
+    for (const f of fs.readdirSync(iceyRpDir)) {
+      const src = path.join(iceyRpDir, f);
+      const dest = path.join(prismRpDir, f);
+      if (!fs.existsSync(dest)) {
+        try { fs.copyFileSync(src, dest); } catch (_) {}
+      }
+    }
+  }
+
+  return instanceName;
+}
+
 function launchMinecraft(installationId) {
   return new Promise(async (resolve, reject) => {
     const installations = readInstallations();
@@ -416,6 +510,71 @@ function launchMinecraft(installationId) {
     if (!installation) return reject(new Error('Installation not found'));
 
     const settings = readSettings();
+
+    // On Linux arm64: launch through Prism Launcher if available
+    if (process.platform === 'linux' && process.arch === 'arm64') {
+      const prism = findPrismLauncher();
+      if (prism) {
+        try {
+          const instanceName = ensurePrismInstance(installation);
+          log('info', 'Launching via Prism Launcher: ' + instanceName);
+          if (mainWindow) {
+            mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Launching via Prism Launcher...', level: 'info' });
+          }
+
+          const launchArgs = [...prism.args, '--launch', instanceName];
+          mcProcess = spawn(prism.command, launchArgs, {
+            stdio: 'pipe',
+            detached: false
+          });
+
+          mcProcess.stdout.on('data', (data) => {
+            const text = data.toString().trim();
+            if (text) {
+              log('info', '[Prism] ' + text);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'info' });
+              if (text.includes('Setting user:') || text.includes('Minecraft process') || text.includes('minecraft')) {
+                if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started' });
+              }
+            }
+          });
+
+          mcProcess.stderr.on('data', (data) => {
+            const text = data.toString().trim();
+            if (text) {
+              log('info', '[Prism] ' + text);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'info' });
+            }
+          });
+
+          mcProcess.on('error', (err) => {
+            log('error', 'Prism process error: ' + err.message);
+            mcProcess = null;
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-error', message: err.message });
+          });
+
+          mcProcess.on('close', (code) => {
+            log('info', `Prism exited with code ${code}`);
+            mcProcess = null;
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code });
+          });
+
+          setTimeout(() => {
+            if (mcProcess && mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started' });
+          }, 3000);
+
+          if (settings.closeLauncherOnStart) {
+            setTimeout(() => { if (mainWindow) mainWindow.hide(); }, 2000);
+          }
+
+          return resolve({ success: true });
+        } catch (e) {
+          log('warn', 'Prism launch failed, falling back to direct Java: ' + e.message);
+          // Fall through to direct launch
+        }
+      }
+    }
+
     const javaPath = settings.javaPath || autoDetectJava();
     if (!javaPath) return reject(new Error('JAVA_NOT_FOUND'));
 
