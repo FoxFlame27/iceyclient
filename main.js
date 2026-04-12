@@ -474,31 +474,51 @@ function findPrismNatives(version) {
 
 function launchMinecraft(installationId) {
   return new Promise(async (resolve, reject) => {
+    log('info', '[LAUNCH] Starting launch for: ' + installationId);
+    log('info', '[LAUNCH] Platform: ' + process.platform + ' Arch: ' + process.arch);
+
     const installations = readInstallations();
     const installation = installations.find(i => i.id === installationId);
     if (!installation) return reject(new Error('Installation not found'));
+    log('info', '[LAUNCH] Installation found: ' + installation.version + ' (' + installation.platform + ')');
 
     const settings = readSettings();
 
     // On Linux arm64: use Prism Launcher's Java and libraries if available
     let javaPath = settings.javaPath;
+    log('info', '[LAUNCH] Settings javaPath: ' + (javaPath || 'not set'));
+
     if (!javaPath && process.platform === 'linux' && process.arch === 'arm64') {
+      log('info', '[LAUNCH] Checking for Prism Java...');
+      const prismDir = getPrismDataDir();
+      log('info', '[LAUNCH] Prism data dir: ' + (prismDir || 'NOT FOUND'));
       const prismJava = findPrismJava();
       if (prismJava) {
         javaPath = prismJava;
-        log('info', 'Using Prism Launcher Java (arm64): ' + javaPath);
+        log('info', '[LAUNCH] Using Prism Java: ' + javaPath);
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Using Prism Java: ' + javaPath, level: 'info' });
+      } else {
+        log('warn', '[LAUNCH] Prism Java NOT found');
       }
     }
     if (!javaPath) javaPath = autoDetectJava();
-    if (!javaPath) return reject(new Error('JAVA_NOT_FOUND'));
+    if (!javaPath) {
+      log('error', '[LAUNCH] No Java found anywhere!');
+      return reject(new Error('JAVA_NOT_FOUND'));
+    }
+    log('info', '[LAUNCH] Final Java path: ' + javaPath);
+    if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Java: ' + javaPath, level: 'info' });
 
     // Shared .minecraft for libraries/assets/versions
     const mcDir = getDefaultMcDir();
     const version = installation.version;
+    log('info', '[LAUNCH] MC dir: ' + mcDir + ', version: ' + version);
+
     // On arm64 Linux: prefer Prism's library dir (has arm64 LWJGL natives)
     const prismLibDir = (process.platform === 'linux' && process.arch === 'arm64') ? findPrismLibraries(version) : null;
     const libDir = prismLibDir || path.join(mcDir, 'libraries');
-    if (prismLibDir) log('info', 'Using Prism libraries: ' + prismLibDir);
+    log('info', '[LAUNCH] Library dir: ' + libDir + (prismLibDir ? ' (from Prism)' : ' (default)'));
+    if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Libraries: ' + libDir, level: 'info' });
     const assetsDir = path.join(mcDir, 'assets');
 
     // Per-installation game directory for isolated mods/config/saves
@@ -1245,7 +1265,7 @@ app.whenReady().then(() => {
   mainWindow.once('ready-to-show', () => {
     splash.destroy();
     mainWindow.show();
-    // mainWindow.webContents.openDevTools({ mode: 'detach' });
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
   // On macOS, hide instead of close so dock re-activation works
