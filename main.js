@@ -474,6 +474,7 @@ function findPrismNatives(version) {
 
 function launchMinecraft(installationId) {
   return new Promise(async (resolve, reject) => {
+    try {
     log('info', '[LAUNCH] Starting launch for: ' + installationId);
     log('info', '[LAUNCH] Platform: ' + process.platform + ' Arch: ' + process.arch);
 
@@ -1053,6 +1054,12 @@ function launchMinecraft(installationId) {
     } catch (e) {
       log('error', 'Failed to spawn MC: ' + e.message);
       reject(e);
+    }
+    } catch (fatalErr) {
+      log('error', '[LAUNCH] FATAL: ' + fatalErr.message + '\n' + fatalErr.stack);
+      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'FATAL ERROR: ' + fatalErr.message, level: 'error' });
+      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code: 1 });
+      reject(fatalErr);
     }
   });
 }

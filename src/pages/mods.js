@@ -54,11 +54,11 @@ async function _renderModsMainView(page, installations) {
     <div class="mods-main-view">
       <div class="mods-tab-bar">
         <button class="mods-tab active" data-tab="mods" onclick="_switchModsTab('mods', this)">
-          <img src="src/assets/fabric-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
+          <img src="assets/fabric-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
           Mods
         </button>
         <button class="mods-tab" data-tab="shaders" onclick="_switchModsTab('shaders', this)">
-          <img src="src/assets/shaders-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
+          <img src="assets/shaders-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
           Shaders
         </button>
       </div>
@@ -669,17 +669,17 @@ async function _renderShadersView(page) {
     <div class="mods-main-view">
       <div class="mods-tab-bar">
         <button class="mods-tab" data-tab="mods" onclick="_switchModsTab('mods', this)">
-          <img src="src/assets/fabric-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
+          <img src="assets/fabric-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
           Mods
         </button>
         <button class="mods-tab active" data-tab="shaders" onclick="_switchModsTab('shaders', this)">
-          <img src="src/assets/shaders-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
+          <img src="assets/shaders-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
           Shaders
         </button>
       </div>
       <div class="mods-dropzone-full" id="shaders-dropzone" onclick="_shadersBrowseFiles()">
         <div class="mods-plus-icon">
-          <img src="src/assets/shaders-icon.png" width="56" height="56" style="image-rendering:pixelated;object-fit:contain;">
+          <img src="assets/shaders-icon.png" width="56" height="56" style="image-rendering:pixelated;object-fit:contain;">
         </div>
         <div class="mods-dropzone-text">Click to add shader packs</div>
         <div class="mods-dropzone-subtext">or drag and drop .zip files here</div>
@@ -765,7 +765,7 @@ async function _refreshInstalledShaderpacks() {
     return `
       <div class="mod-list-item installed">
         <div class="mod-installed-icon">
-          <img src="src/assets/shaders-icon.png" width="20" height="20" style="image-rendering:pixelated;object-fit:contain;">
+          <img src="assets/shaders-icon.png" width="20" height="20" style="image-rendering:pixelated;object-fit:contain;">
         </div>
         <div class="mod-list-info">
           <div class="mod-list-name">${_escapeHtml(pack.name)}</div>
