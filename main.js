@@ -267,6 +267,105 @@ function downloadFile(url, dest) {
   });
 }
 
+// ── Natives helper: pick the correct classifier for this platform+arch ──
+function getNativesClassifier() {
+  const arch = process.arch; // 'x64', 'arm64', etc.
+  if (process.platform === 'win32') return 'natives-windows';
+  if (process.platform === 'darwin') return arch === 'arm64' ? 'natives-macos-arm64' : 'natives-macos';
+  if (process.platform === 'linux') return arch === 'arm64' ? 'natives-linux-arm64' : 'natives-linux';
+  return 'natives-linux';
+}
+
+// Extract native .so/.dll/.dylib files from a JAR (zip) into nativesDir
+function extractNatives(jarPath, nativesDir) {
+  const zlib = require('zlib');
+  const buf = fs.readFileSync(jarPath);
+  fs.mkdirSync(nativesDir, { recursive: true });
+  // Simple ZIP reader — JARs are ZIP files
+  let offset = 0;
+  while (offset < buf.length - 4) {
+    // Local file header signature = 0x04034b50
+    if (buf.readUInt32LE(offset) !== 0x04034b50) break;
+    const compMethod = buf.readUInt16LE(offset + 8);
+    const compSize = buf.readUInt32LE(offset + 18);
+    const uncompSize = buf.readUInt32LE(offset + 22);
+    const nameLen = buf.readUInt16LE(offset + 26);
+    const extraLen = buf.readUInt16LE(offset + 28);
+    const fileName = buf.toString('utf8', offset + 30, offset + 30 + nameLen);
+    const dataStart = offset + 30 + nameLen + extraLen;
+    const dataEnd = dataStart + compSize;
+
+    // Only extract native libraries, skip META-INF and directories
+    if (!fileName.endsWith('/') && !fileName.startsWith('META-INF') &&
+        (fileName.endsWith('.so') || fileName.endsWith('.dll') || fileName.endsWith('.dylib') || fileName.endsWith('.jnilib'))) {
+      const baseName = path.basename(fileName);
+      const destFile = path.join(nativesDir, baseName);
+      if (!fs.existsSync(destFile)) {
+        let data;
+        if (compMethod === 0) {
+          data = buf.slice(dataStart, dataEnd);
+        } else if (compMethod === 8) {
+          data = zlib.inflateRawSync(buf.slice(dataStart, dataEnd));
+        }
+        if (data) {
+          fs.writeFileSync(destFile, data);
+          log('info', 'Extracted native: ' + baseName);
+        }
+      }
+    }
+    offset = dataEnd;
+  }
+}
+
+// Download and extract natives for a library into nativesDir
+async function downloadAndExtractNatives(lib, libDir, nativesDir) {
+  const classifier = getNativesClassifier();
+  // Try classifiers object first
+  const classifiers = lib.downloads?.classifiers;
+  if (classifiers) {
+    // Try exact classifier, then fallback variants
+    const variants = [classifier];
+    if (classifier === 'natives-linux-arm64') variants.push('natives-linux-aarch64');
+    if (classifier === 'natives-macos-arm64') variants.push('natives-osx-arm64', 'natives-macos');
+    if (classifier === 'natives-macos') variants.push('natives-osx');
+    if (classifier === 'natives-linux') variants.push('natives-linux');
+
+    for (const variant of variants) {
+      const native = classifiers[variant];
+      if (native?.url && native?.path) {
+        const destPath = path.join(libDir, native.path);
+        if (!fs.existsSync(destPath)) {
+          try {
+            await downloadFile(native.url, destPath);
+          } catch (e) {
+            log('warn', 'Failed to download native: ' + native.path + ' - ' + e.message);
+            continue;
+          }
+        }
+        extractNatives(destPath, nativesDir);
+        return;
+      }
+    }
+  }
+  // Try natives map (older format): e.g. lib.natives = { linux: "natives-linux" }
+  if (lib.natives) {
+    const osKey = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'osx' : 'linux';
+    const nativeClassifier = lib.natives[osKey];
+    if (nativeClassifier && classifiers?.[nativeClassifier]) {
+      const native = classifiers[nativeClassifier];
+      if (native?.url && native?.path) {
+        const destPath = path.join(libDir, native.path);
+        if (!fs.existsSync(destPath)) {
+          try { await downloadFile(native.url, destPath); } catch (e) {
+            log('warn', 'Failed to download native (legacy): ' + native.path);
+          }
+        }
+        extractNatives(destPath, nativesDir);
+      }
+    }
+  }
+}
+
 // ── Java detection ─────────────────────────────────────
 function autoDetectJava() {
   try {
@@ -689,11 +788,20 @@ function launchMinecraft(installationId) {
     if (process.platform === 'darwin') args.push('-XstartOnFirstThread');
     args.push(`-Xmx${ram}M`, '-Xms512M');
     args.push('-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled');
-    // Natives: try version-specific folder, then shared natives folder
+    // Natives: extract platform-specific native libraries
     const nativesDir = path.join(mcDir, 'versions', version, 'natives');
-    const nativesDir2 = path.join(mcDir, 'versions', version, version + '-natives');
-    const actualNatives = fs.existsSync(nativesDir) ? nativesDir : fs.existsSync(nativesDir2) ? nativesDir2 : nativesDir;
-    args.push('-Djava.library.path=' + actualNatives);
+    fs.mkdirSync(nativesDir, { recursive: true });
+    // Download and extract natives for all libraries that have them
+    for (const lib of (versionJson.libraries || [])) {
+      if (lib.downloads?.classifiers || lib.natives) {
+        try {
+          await downloadAndExtractNatives(lib, libDir, nativesDir);
+        } catch (e) {
+          log('warn', 'Native extraction failed for ' + (lib.name || 'unknown') + ': ' + e.message);
+        }
+      }
+    }
+    args.push('-Djava.library.path=' + nativesDir);
     if (extraJvmArgs.length > 0) args.push(...extraJvmArgs);
     if (settings.jvmArgs) args.push(...settings.jvmArgs.split(/\s+/).filter(Boolean));
     args.push('-cp', classpath);
@@ -1621,6 +1729,16 @@ app.whenReady().then(() => {
                 failed++;
               }
             }
+          }
+        }
+
+        // Download natives if this library has them
+        if (lib.downloads?.classifiers || lib.natives) {
+          const nativesDir = path.join(installDir, 'versions', jsonData.id || 'unknown', 'natives');
+          try {
+            await downloadAndExtractNatives(lib, libDir, nativesDir);
+          } catch (e) {
+            log('warn', 'Native extraction failed: ' + (lib.name || '') + ' - ' + e.message);
           }
         }
 
