@@ -57,17 +57,17 @@
 
 .installations-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
-  gap: 40px;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 20vw, 320px), 1fr));
+  gap: 20px;
 }
 
 /* Installation card */
 .install-card {
   width: 100%;
-  height: 560px;
+  height: clamp(240px, 25vw, 380px);
   background: rgba(15, 21, 38, 0.85);
-  border: 3px solid rgba(91,200,245,0.12);
-  border-radius: 36px;
+  border: 1.5px solid rgba(91,200,245,0.12);
+  border-radius: 18px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -98,7 +98,7 @@
   background-position: center;
   background-color: #1a2340;
   position: relative;
-  border-radius: 32px 32px 0 0;
+  border-radius: 14px 14px 0 0;
 }
 
 .install-card-image-btn {
@@ -124,14 +124,14 @@
 
 .install-card-info {
   flex: 1;
-  padding: 24px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
 .install-card-name {
-  font-size: 28px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
@@ -142,11 +142,11 @@
 .install-card-version {
   display: inline-flex;
   align-items: center;
-  padding: 4px 20px;
+  padding: 2px 10px;
   background: var(--accent-dim);
   color: var(--accent);
   border-radius: 999px;
-  font-size: 22px;
+  font-size: 11px;
   font-weight: 500;
   width: fit-content;
 }
@@ -154,11 +154,11 @@
 .install-card-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 16px;
+  padding: 2px 8px;
   background: rgba(255,255,255,0.06);
   color: var(--text-muted);
   border-radius: 999px;
-  font-size: 20px;
+  font-size: 10px;
   font-weight: 500;
   width: fit-content;
 }
@@ -171,7 +171,7 @@
 }
 
 .install-card-platform-text {
-  font-size: 24px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -221,9 +221,9 @@
 }
 
 .install-card-action-btn {
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
