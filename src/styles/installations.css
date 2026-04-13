@@ -57,14 +57,40 @@
 
 .installations-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 20vw, 320px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .installations-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .installations-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .install-card {
+    height: 220px;
+  }
+
+  .installations-inner {
+    padding: 0 16px 16px;
+  }
+
+  .installations-header {
+    margin-bottom: 16px;
+  }
 }
 
 /* Installation card */
 .install-card {
   width: 100%;
-  height: clamp(240px, 25vw, 380px);
+  height: 280px;
   background: rgba(15, 21, 38, 0.85);
   border: 1.5px solid rgba(91,200,245,0.12);
   border-radius: 18px;
