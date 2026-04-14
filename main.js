@@ -962,6 +962,39 @@ function launchMinecraft(installationId) {
           break;
         }
       }
+
+      // 4) Auto-disable mods incompatible with this MC version
+      const disabledMods = [];
+      try {
+        for (const f of fs.readdirSync(modsDir)) {
+          if (!f.endsWith('.jar')) continue;
+          // Skip our own managed jars
+          if (/^iceymod/i.test(f) || /^fabric-api/i.test(f)) continue;
+          const jarPath = path.join(modsDir, f);
+          try {
+            const jarBuf = fs.readFileSync(jarPath);
+            const modJson = _extractFileFromZip(jarBuf, 'fabric.mod.json');
+            if (!modJson) continue;
+            const meta = JSON.parse(modJson.toString('utf-8'));
+            const mcConstraint = meta.depends?.minecraft || meta.depends?.['minecraft'];
+            if (!mcConstraint) continue;
+            if (!_satisfiesVersionRange(installation.version, mcConstraint)) {
+              const disabledPath = jarPath + '.disabled';
+              fs.renameSync(jarPath, disabledPath);
+              const modName = meta.name || f;
+              disabledMods.push({ file: f, name: modName, requires: mcConstraint });
+              log('warn', `Auto-disabled incompatible mod: ${f} (requires MC ${mcConstraint}, have ${installation.version})`);
+            }
+          } catch (_) { /* skip unparseable mods */ }
+        }
+      } catch (_) {}
+
+      if (disabledMods.length > 0) {
+        const names = disabledMods.map(m => m.name + ' (needs MC ' + m.requires + ')').join(', ');
+        const msg = 'Auto-disabled ' + disabledMods.length + ' incompatible mod(s): ' + names;
+        log('warn', msg);
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: msg, level: 'warn' });
+      }
     }
 
     // Build arguments
@@ -1086,6 +1119,77 @@ function launchMinecraft(installationId) {
       reject(fatalErr);
     }
   });
+}
+
+// ── Mod version compatibility checking ──────────────────────────────────
+function _parseVersion(str) {
+  const parts = str.trim().replace(/^[vV]/, '').split('.').map(Number);
+  while (parts.length < 3) parts.push(0);
+  return parts;
+}
+
+function _compareVersions(a, b) {
+  for (let i = 0; i < 3; i++) {
+    if ((a[i] || 0) > (b[i] || 0)) return 1;
+    if ((a[i] || 0) < (b[i] || 0)) return -1;
+  }
+  return 0;
+}
+
+function _satisfiesVersionRange(version, range) {
+  if (!range || range === '*') return true;
+  // Handle OR conditions (||)
+  const orParts = range.split('||').map(s => s.trim());
+  for (const orPart of orParts) {
+    const conditions = orPart.split(/\s+/).filter(Boolean);
+    let allMet = true;
+    for (const cond of conditions) {
+      if (cond === '*') continue;
+      // Tilde range ~1.21.1 -> >=1.21.1 <1.22.0
+      if (cond.startsWith('~')) {
+        const ver = _parseVersion(cond.slice(1));
+        const v = _parseVersion(version);
+        if (_compareVersions(v, ver) < 0 || v[0] !== ver[0] || v[1] !== ver[1]) { allMet = false; break; }
+        continue;
+      }
+      // Caret range ^1.21.1 -> >=1.21.1 <2.0.0
+      if (cond.startsWith('^')) {
+        const ver = _parseVersion(cond.slice(1));
+        const v = _parseVersion(version);
+        if (_compareVersions(v, ver) < 0 || v[0] !== ver[0]) { allMet = false; break; }
+        continue;
+      }
+      // Wildcard versions like 1.21.x
+      if (cond.includes('x') || (cond.includes('*') && cond !== '*')) {
+        const parts = cond.split('.');
+        const v = _parseVersion(version);
+        let match = true;
+        for (let i = 0; i < parts.length; i++) {
+          if (parts[i] === 'x' || parts[i] === '*') continue;
+          if (v[i] !== Number(parts[i])) { match = false; break; }
+        }
+        if (!match) { allMet = false; break; }
+        continue;
+      }
+      // Operators: >=, <=, >, <, =
+      let op = '=', verStr = cond;
+      if (cond.startsWith('>=')) { op = '>='; verStr = cond.slice(2); }
+      else if (cond.startsWith('<=')) { op = '<='; verStr = cond.slice(2); }
+      else if (cond.startsWith('>')) { op = '>'; verStr = cond.slice(1); }
+      else if (cond.startsWith('<')) { op = '<'; verStr = cond.slice(1); }
+      else if (cond.startsWith('=')) { op = '='; verStr = cond.slice(1); }
+      const ver = _parseVersion(verStr);
+      const v = _parseVersion(version);
+      const cmp = _compareVersions(v, ver);
+      if (op === '>=' && cmp < 0) { allMet = false; break; }
+      if (op === '<=' && cmp > 0) { allMet = false; break; }
+      if (op === '>' && cmp <= 0) { allMet = false; break; }
+      if (op === '<' && cmp >= 0) { allMet = false; break; }
+      if (op === '=' && cmp !== 0) { allMet = false; break; }
+    }
+    if (allMet) return true;
+  }
+  return false;
 }
 
 // ── ZIP file extractor using central directory (handles all JARs) ──────
@@ -1440,38 +1544,56 @@ app.whenReady().then(() => {
     const modsDir = path.join(gameDir, 'mods');
     const rpDir = path.join(gameDir, 'resourcepacks');
 
+    // Look up MC version for this installation
+    const installations = readInstallations();
+    const inst = installations.find(i => i.id === installationId);
+    const mcVersion = inst?.version || null;
+
     const mods = [];
     const resourcePacks = [];
 
     if (fs.existsSync(modsDir)) {
       for (const file of fs.readdirSync(modsDir)) {
-        if (!file.endsWith('.jar')) continue;
+        const isDisabled = file.endsWith('.jar.disabled');
+        if (!file.endsWith('.jar') && !isDisabled) continue;
         const filePath = path.join(modsDir, file);
         try {
           const stats = fs.statSync(filePath);
-          let modName = file.replace('.jar', '').replace(/-/g, ' ');
+          let modName = file.replace('.jar.disabled', '').replace('.jar', '').replace(/-/g, ' ');
           let iconBase64 = null;
+          let mcConstraint = null;
+          let compatible = true;
 
           // Try to extract mod info from fabric.mod.json inside the jar
           try {
-            const zlib2 = require('zlib');
             const jarBuf = fs.readFileSync(filePath);
-            // Simple ZIP parsing: find fabric.mod.json
             const modJson = _extractFileFromZip(jarBuf, 'fabric.mod.json');
             if (modJson) {
               const meta = JSON.parse(modJson.toString('utf-8'));
               if (meta.name) modName = meta.name;
-              // Extract icon
               if (meta.icon) {
                 const iconData = _extractFileFromZip(jarBuf, meta.icon);
                 if (iconData) {
                   iconBase64 = 'data:image/png;base64,' + iconData.toString('base64');
                 }
               }
+              mcConstraint = meta.depends?.minecraft || null;
+              if (mcConstraint && mcVersion) {
+                compatible = _satisfiesVersionRange(mcVersion, mcConstraint);
+              }
             }
           } catch (_) { /* not a fabric mod or parse error */ }
 
-          mods.push({ filename: file, name: modName, size: stats.size, type: 'mod', icon: iconBase64 });
+          mods.push({
+            filename: file,
+            name: modName,
+            size: stats.size,
+            type: 'mod',
+            icon: iconBase64,
+            disabled: isDisabled,
+            compatible,
+            mcConstraint,
+          });
         } catch (_) { /* skip unreadable */ }
       }
     }
@@ -1539,6 +1661,33 @@ app.whenReady().then(() => {
     }
 
     return deleted ? { success: true } : { error: 'File not found' };
+  });
+
+  ipcMain.handle('toggle-mod', (_, installationId, filename) => {
+    const gameDir = getInstallGameDir(installationId);
+    const modsDir = path.join(gameDir, 'mods');
+    const filePath = path.join(modsDir, filename);
+
+    try {
+      if (!fs.existsSync(filePath)) return { error: 'File not found' };
+
+      let newPath;
+      if (filename.endsWith('.jar.disabled')) {
+        newPath = path.join(modsDir, filename.replace('.jar.disabled', '.jar'));
+      } else if (filename.endsWith('.jar')) {
+        newPath = filePath + '.disabled';
+      } else {
+        return { error: 'Not a mod file' };
+      }
+
+      fs.renameSync(filePath, newPath);
+      const newFilename = path.basename(newPath);
+      log('info', 'Toggled mod: ' + filename + ' -> ' + newFilename);
+      return { success: true, filename: newFilename };
+    } catch (e) {
+      log('error', 'Failed to toggle mod ' + filename + ': ' + e.message);
+      return { error: 'Failed to toggle: ' + e.message };
+    }
   });
 
   // Iris Shaders install via Modrinth API
@@ -1645,6 +1794,47 @@ app.whenReady().then(() => {
       await downloadFile(url, dest);
       return { success: true, path: dest };
     } catch (e) {
+      return { error: e.message };
+    }
+  });
+
+  ipcMain.handle('register-resourcepack', (_, installationId, filename) => {
+    try {
+      const gameDir = getInstallGameDir(installationId);
+      const optionsPath = path.join(gameDir, 'options.txt');
+
+      let lines = [];
+      if (fs.existsSync(optionsPath)) {
+        lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
+      }
+
+      const packEntry = 'file/' + filename;
+      let found = false;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('resourcePacks:')) {
+          found = true;
+          try {
+            const packs = JSON.parse(lines[i].slice('resourcePacks:'.length));
+            if (!packs.includes(packEntry)) {
+              packs.push(packEntry);
+              lines[i] = 'resourcePacks:' + JSON.stringify(packs);
+            }
+          } catch (_) {
+            lines[i] = 'resourcePacks:' + JSON.stringify(['vanilla', packEntry]);
+          }
+          break;
+        }
+      }
+      if (!found) {
+        lines.push('resourcePacks:' + JSON.stringify(['vanilla', packEntry]));
+      }
+
+      fs.mkdirSync(gameDir, { recursive: true });
+      fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8');
+      log('info', 'Registered resource pack in options.txt: ' + packEntry);
+      return { success: true };
+    } catch (e) {
+      log('warn', 'Failed to register resource pack: ' + e.message);
       return { error: e.message };
     }
   });

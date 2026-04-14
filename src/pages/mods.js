@@ -485,6 +485,9 @@ async function _downloadModVersion(url, filename, modName, projectType) {
   if (result.error) {
     Toast.error('Download failed: ' + result.error);
   } else {
+    if (projectType === 'resourcepack' && _modsActiveInstallation) {
+      await window.icey.registerResourcepack(_modsActiveInstallation.id, filename);
+    }
     Toast.success('Installed ' + modName);
     _modsInstalledFiles.push({ name: modName, filename });
   }
@@ -499,6 +502,9 @@ async function _doModDownload(url, filename, modName, projectType, btn) {
     Toast.error('Download failed: ' + result.error);
     if (btn) { btn.disabled = false; btn.textContent = 'Install'; }
   } else {
+    if (projectType === 'resourcepack' && _modsActiveInstallation) {
+      await window.icey.registerResourcepack(_modsActiveInstallation.id, filename);
+    }
     if (btn) btn.outerHTML = '<span class="badge-installed">Installed</span>';
     Toast.success('Installed ' + modName);
     _modsInstalledFiles.push({ name: modName, filename });
@@ -527,6 +533,8 @@ async function _refreshInstalledMods() {
     const size = _formatFileSize(item.size);
     const typeClass = item.type === 'mod' ? 'mod' : 'resourcepack';
     const typeLabel = item.type === 'mod' ? 'Mod' : 'Resource Pack';
+    const isDisabled = !!item.disabled;
+    const isIncompat = item.type === 'mod' && item.compatible === false;
     const fallbackSvg = item.type === 'mod'
       ? '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>'
       : '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>';
@@ -535,16 +543,35 @@ async function _refreshInstalledMods() {
       ? `<img src="${item.icon}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`
       : fallbackSvg;
 
+    const warningHtml = isIncompat
+      ? `<span class="mod-type-badge incompatible" title="Requires MC ${_escapeAttr(item.mcConstraint || '?')}">Incompatible</span>`
+      : '';
+    const disabledBadge = isDisabled && !isIncompat
+      ? '<span class="mod-type-badge disabled-badge">Disabled</span>'
+      : '';
+
+    const toggleTitle = isDisabled ? 'Enable mod' : 'Disable mod';
+    const toggleBtn = item.type === 'mod' ? `
+        <button class="btn-toggle-mod${isDisabled ? ' is-disabled' : ''}" onclick="_toggleInstalledMod('${_escapeAttr(item.filename)}')" title="${toggleTitle}">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+            ${isDisabled
+              ? '<rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="8" cy="12" r="4" fill="currentColor"/>'
+              : '<rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="4" fill="currentColor"/>'}
+          </svg>
+        </button>` : '';
+
     return `
-      <div class="mod-list-item installed">
+      <div class="mod-list-item installed${isDisabled ? ' mod-disabled' : ''}">
         <div class="mod-installed-icon">${iconHtml}</div>
         <div class="mod-list-info">
           <div class="mod-list-name">${_escapeHtml(item.name)}</div>
           <div class="mod-list-meta">
             <span class="mod-type-badge ${typeClass}">${typeLabel}</span>
+            ${warningHtml}${disabledBadge}
             <span class="mod-list-downloads">${size}</span>
           </div>
         </div>
+        ${toggleBtn}
         <button class="btn-delete-mod" onclick="_deleteInstalledMod('${_escapeAttr(item.filename)}')" title="Delete">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -562,6 +589,18 @@ async function _deleteInstalledMod(filename) {
     Toast.error(result.error);
   } else {
     Toast.success('Removed ' + filename);
+    await _refreshInstalledMods();
+  }
+}
+
+async function _toggleInstalledMod(filename) {
+  if (!_modsActiveInstallation) return;
+  const result = await window.icey.toggleMod(_modsActiveInstallation.id, filename);
+  if (result.error) {
+    Toast.error(result.error);
+  } else {
+    const action = filename.endsWith('.disabled') ? 'Enabled' : 'Disabled';
+    Toast.success(action + ' mod');
     await _refreshInstalledMods();
   }
 }

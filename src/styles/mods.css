@@ -499,6 +499,48 @@
   background: var(--red-glow);
 }
 
+/* Disabled / incompatible mod states */
+.mod-list-item.mod-disabled {
+  opacity: 0.55;
+}
+.mod-list-item.mod-disabled .mod-installed-icon {
+  filter: grayscale(0.8);
+}
+
+.mod-type-badge.incompatible {
+  background: rgba(239,68,68,0.15);
+  color: #f87171;
+}
+.mod-type-badge.disabled-badge {
+  background: rgba(148,163,184,0.15);
+  color: #94a3b8;
+}
+
+.btn-toggle-mod {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+.btn-toggle-mod:hover {
+  background: var(--accent-dim);
+}
+.btn-toggle-mod.is-disabled {
+  color: var(--text-muted);
+}
+.btn-toggle-mod.is-disabled:hover {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
 /* Section headers */
 .mods-section-header {
   display: flex;

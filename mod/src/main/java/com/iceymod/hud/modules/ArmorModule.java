@@ -14,7 +14,7 @@ public class ArmorModule extends HudModule {
     // Per-slot sizing
     private static final int SLOT_SIZE = 20;     // height of each slot row
     private static final int ITEM_SIZE = 16;
-    private static final int BAR_HEIGHT = 3;
+    private static final int BAR_HEIGHT = 2;
     private static final int BAR_WIDTH = 16;
     private static final int SLOT_GAP = 2;       // gap between slots
 
