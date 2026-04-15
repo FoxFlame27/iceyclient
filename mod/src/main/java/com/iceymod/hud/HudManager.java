@@ -15,44 +15,34 @@ import java.util.List;
 public class HudManager {
     private static final List<HudModule> modules = new ArrayList<>();
     private static Path configPath;
+    private static boolean positionsClamped = false;
 
     public static void init() {
         configPath = FabricLoader.getInstance().getConfigDir().resolve("iceymod.json");
 
-        // Core modules (enabled by default)
+        // Core modules
         modules.add(new FpsModule());
         modules.add(new PingModule());
         modules.add(new CoordsModule());
         modules.add(new CpsModule());
         modules.add(new KeystrokesModule());
         modules.add(new ArmorModule());
-        // Extra modules (disabled by default, user toggles on)
+        // Info
         modules.add(new HitboxModule());
         modules.add(new DirectionModule());
         modules.add(new DayCounterModule());
         modules.add(new ServerModule());
-        modules.add(new ReachModule());
         modules.add(new PotionModule());
-        // New Lunar-style modules
         modules.add(new MemoryModule());
-        modules.add(new ToggleSneakModule());
-        modules.add(new ToggleSprintModule());
-        modules.add(new ArrowCountModule());
         modules.add(new SaturationModule());
         modules.add(new ComboCounterModule());
-        // 11 more modules
         modules.add(new TimeModule());
         modules.add(new BiomeModule());
-        modules.add(new LightLevelModule());
-        modules.add(new SpeedModule());
         modules.add(new HealthModule());
         modules.add(new XpModule());
         modules.add(new BlockAboveModule());
-        modules.add(new FullBrightModule());
-        modules.add(new AutoSprintModule());
         modules.add(new CrosshairModule());
         modules.add(new HotbarTextModule());
-        // 10 more simple modules
         modules.add(new YLevelModule());
         modules.add(new GameModeModule());
         modules.add(new FoodModule());
@@ -63,8 +53,76 @@ public class HudManager {
         modules.add(new AirModule());
         modules.add(new WorldTimeModule());
         modules.add(new EntityCountModule());
+        modules.add(new ArrowCountModule());
+        // New HUD info modules
+        modules.add(new WeatherModule());
+        modules.add(new TpsModule());
+        modules.add(new BlocksMinedModule());
+        modules.add(new DistanceWalkedModule());
+        modules.add(new InventorySlotsModule());
+        // New combat modules (mace PvP / crystal PvP / general PvP)
+        modules.add(new CrystalTrackerModule());
+        modules.add(new TotemPopsModule());
+        modules.add(new TargetHealthModule());
+        modules.add(new MaceDamageModule());
+        modules.add(new GappleCountModule());
+        modules.add(new EnderPearlCountModule());
+        modules.add(new CrystalCpsModule());
+        modules.add(new AttackCooldownModule());
+        modules.add(new ElytraDurabilityModule());
+        modules.add(new TotemCountModule());
+        modules.add(new ObsidianCountModule());
+        modules.add(new KillStreakModule());
+        modules.add(new DeathCounterModule());
+        modules.add(new HurtDirectionModule());
+        modules.add(new LastDamageModule());
+        modules.add(new AirborneTimeModule());
+        modules.add(new CritIndicatorModule());
+        modules.add(new BowChargeModule());
+        modules.add(new ArrowsInMeModule());
+        modules.add(new ShieldStatusModule());
+        modules.add(new NearestPlayerModule());
+        modules.add(new ArmorPointsModule());
+        modules.add(new HealthPercentModule());
 
         load();
+        applyCenterDefaults();
+    }
+
+    /**
+     * Place modules in a clean stack near screen center on first launch (no saved config).
+     * Also fixes any saved positions that are off-screen.
+     */
+    private static void applyCenterDefaults() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.getWindow() == null) return;
+        int sw = client.getWindow().getScaledWidth();
+        int sh = client.getWindow().getScaledHeight();
+        if (sw <= 0 || sh <= 0) return;
+
+        boolean configExists = Files.exists(configPath);
+        int colWidth = 120;
+        int rowHeight = 16;
+        int perColumn = Math.max(1, (sh - 40) / rowHeight);
+        int startX = sw / 2 - colWidth;
+        int startY = sh / 2 - (perColumn * rowHeight) / 2;
+
+        for (int i = 0; i < modules.size(); i++) {
+            HudModule m = modules.get(i);
+            int col = i / perColumn;
+            int row = i % perColumn;
+            int defaultX = startX + col * colWidth;
+            int defaultY = startY + row * rowHeight;
+
+            if (!configExists) {
+                m.setX(defaultX);
+                m.setY(defaultY);
+            } else {
+                if (m.getX() < 0 || m.getX() > sw - 20) m.setX(defaultX);
+                if (m.getY() < 0 || m.getY() > sh - 10) m.setY(defaultY);
+            }
+        }
+        positionsClamped = true;
     }
 
     public static List<HudModule> getModules() {
@@ -73,6 +131,7 @@ public class HudManager {
 
     public static void render(DrawContext context) {
         MinecraftClient client = MinecraftClient.getInstance();
+        if (!positionsClamped) applyCenterDefaults();
         for (HudModule module : modules) {
             if (module.isEnabled()) {
                 module.render(context, client);

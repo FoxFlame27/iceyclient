@@ -6,16 +6,26 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * The main Icey Client menu, opened with Y.
- * Three-column grid of module buttons with category filters.
+ * Paginated grid of module toggles with arrow-key navigation.
  */
 public class IceyModScreen extends Screen {
 
     private static HudModule.Category currentFilter = null; // null = ALL
+    private static int page = 0;
+    private static int selectedIndex = 0;
+
+    private int gridCols = 4;
+    private int gridRows = 5;
+    private int perPage = 20;
+    private List<HudModule> filtered = new ArrayList<>();
+    private final List<ButtonWidget> moduleButtons = new ArrayList<>();
 
     public IceyModScreen() {
         super(Text.literal("Icey Client"));
@@ -25,12 +35,13 @@ public class IceyModScreen extends Screen {
     protected void init() {
         int centerX = this.width / 2;
         int sh = this.height;
+        moduleButtons.clear();
 
-        // Filter buttons row
-        int filterY = 26;
-        int filterBtnW = 52;
-        int filterBtnH = 14;
-        int filterGap = 2;
+        // Filter buttons row (slightly bigger)
+        int filterY = 30;
+        int filterBtnW = 64;
+        int filterBtnH = 18;
+        int filterGap = 4;
 
         HudModule.Category[] cats = HudModule.Category.values();
         int filterCount = cats.length + 1; // +1 for ALL
@@ -39,79 +50,113 @@ public class IceyModScreen extends Screen {
 
         addDrawableChild(ButtonWidget.builder(
                 Text.literal(currentFilter == null ? "\u00A7b\u00A7lALL" : "ALL"),
-                btn -> { currentFilter = null; rebuild(); }
+                btn -> { currentFilter = null; page = 0; selectedIndex = 0; rebuild(); }
         ).dimensions(filterStartX, filterY, filterBtnW, filterBtnH).build());
 
         for (int i = 0; i < cats.length; i++) {
             HudModule.Category cat = cats[i];
             int x = filterStartX + (i + 1) * (filterBtnW + filterGap);
-            String name = cat.name().substring(0, Math.min(cat.name().length(), 6));
+            String name = cat.name();
             String label = currentFilter == cat ? "\u00A7b\u00A7l" + name : name;
             addDrawableChild(ButtonWidget.builder(
                     Text.literal(label),
-                    btn -> { currentFilter = cat; rebuild(); }
+                    btn -> { currentFilter = cat; page = 0; selectedIndex = 0; rebuild(); }
             ).dimensions(x, filterY, filterBtnW, filterBtnH).build());
         }
 
         // Filter modules
         List<HudModule> all = HudManager.getModules();
-        java.util.List<HudModule> filtered = new java.util.ArrayList<>();
+        filtered = new ArrayList<>();
         for (HudModule m : all) {
             if (currentFilter == null || m.getCategory() == currentFilter) {
                 filtered.add(m);
             }
         }
 
-        // Calculate space for grid (between filter row and bottom buttons)
-        int bottomReserved = 50; // Edit HUD + Done buttons + padding
-        int gridTop = filterY + filterBtnH + 8;
-        int availableHeight = sh - gridTop - bottomReserved;
+        // Grid sizing — bigger buttons, paginated so they always fit
+        int bottomReserved = 80; // pagination + edit + done
+        int gridTop = filterY + filterBtnH + 12;
+        int availableH = sh - gridTop - bottomReserved;
 
-        // Use 5 columns with small buttons to fit 30 modules
-        int cols = 5;
-        int btnW = 84;
-        int btnH = 14;
-        int gap = 2;
-        int rowsNeeded = (filtered.size() + cols - 1) / cols;
-        int rowsThatFit = Math.max(1, availableHeight / (btnH + gap));
+        int btnW = 128;
+        int btnH = 20;
+        int gap = 4;
 
-        // If rows don't fit, scale down further (this should rarely happen)
-        if (rowsNeeded > rowsThatFit) {
-            btnH = 12;
-            gap = 1;
-        }
+        gridCols = Math.max(2, Math.min(5, (this.width - 40) / (btnW + gap)));
+        gridRows = Math.max(3, availableH / (btnH + gap));
+        perPage = gridCols * gridRows;
 
-        int gridW = cols * btnW + (cols - 1) * gap;
+        int totalPages = Math.max(1, (filtered.size() + perPage - 1) / perPage);
+        if (page >= totalPages) page = totalPages - 1;
+        if (page < 0) page = 0;
+        if (selectedIndex >= filtered.size()) selectedIndex = Math.max(0, filtered.size() - 1);
+
+        int startIdx = page * perPage;
+        int endIdx = Math.min(filtered.size(), startIdx + perPage);
+
+        int gridW = gridCols * btnW + (gridCols - 1) * gap;
         int startX = centerX - gridW / 2;
 
-        for (int i = 0; i < filtered.size(); i++) {
-            HudModule module = filtered.get(i);
-            int col = i % cols;
-            int row = i / cols;
+        for (int i = startIdx; i < endIdx; i++) {
+            final HudModule module = filtered.get(i);
+            int rel = i - startIdx;
+            int col = rel % gridCols;
+            int row = rel / gridCols;
             int x = startX + col * (btnW + gap);
             int y = gridTop + row * (btnH + gap);
 
-            addDrawableChild(ButtonWidget.builder(
-                    getModuleText(module),
-                    btn -> {
+            final int thisIdx = i;
+            ButtonWidget btn = ButtonWidget.builder(
+                    getModuleText(module, thisIdx == selectedIndex),
+                    b -> {
                         module.toggle();
-                        btn.setMessage(getModuleText(module));
+                        selectedIndex = thisIdx;
+                        b.setMessage(getModuleText(module, true));
                     }
-            ).dimensions(x, y, btnW, btnH).build());
+            ).dimensions(x, y, btnW, btnH).build();
+            addDrawableChild(btn);
+            moduleButtons.add(btn);
         }
 
-        // Bottom buttons - anchored to bottom of screen
-        int bottomBtnY = sh - bottomReserved + 4;
+        // Pagination row
+        int paginationY = sh - bottomReserved + 4;
+        int pagBtnW = 80;
+        int pagBtnH = 20;
+        int pagGap = 6;
 
+        boolean canPrev = page > 0;
+        boolean canNext = page < totalPages - 1;
+
+        ButtonWidget lessBtn = ButtonWidget.builder(
+                Text.literal(canPrev ? "\u00A7b\u25C0 Less" : "\u00A78\u25C0 Less"),
+                btn -> { if (page > 0) { page--; selectedIndex = page * perPage; rebuild(); } }
+        ).dimensions(centerX - pagBtnW - pagGap - 50, paginationY, pagBtnW, pagBtnH).build();
+        lessBtn.active = canPrev;
+        addDrawableChild(lessBtn);
+
+        addDrawableChild(ButtonWidget.builder(
+                Text.literal("\u00A77" + (page + 1) + "/" + totalPages),
+                btn -> {}
+        ).dimensions(centerX - 40, paginationY, 80, pagBtnH).build());
+
+        ButtonWidget moreBtn = ButtonWidget.builder(
+                Text.literal(canNext ? "\u00A7bMore \u25B6" : "\u00A78More \u25B6"),
+                btn -> { if (page < totalPages - 1) { page++; selectedIndex = page * perPage; rebuild(); } }
+        ).dimensions(centerX + 50 + pagGap, paginationY, pagBtnW, pagBtnH).build();
+        moreBtn.active = canNext;
+        addDrawableChild(moreBtn);
+
+        // Bottom buttons
+        int bottomBtnY = sh - 54;
         addDrawableChild(ButtonWidget.builder(
                 Text.literal("\u2699 Edit HUD Layout"),
                 btn -> client.setScreen(new HudEditScreen(this))
-        ).dimensions(centerX - 100, bottomBtnY, 200, 18).build());
+        ).dimensions(centerX - 110, bottomBtnY, 220, 22).build());
 
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("gui.done"),
                 btn -> close()
-        ).dimensions(centerX - 100, bottomBtnY + 22, 200, 18).build());
+        ).dimensions(centerX - 110, bottomBtnY + 26, 220, 22).build());
     }
 
     private void rebuild() {
@@ -119,14 +164,99 @@ public class IceyModScreen extends Screen {
         this.init();
     }
 
-    private Text getModuleText(HudModule module) {
+    private Text getModuleText(HudModule module, boolean selected) {
         String state = module.isEnabled() ? "\u00A7aON" : "\u00A7cOFF";
-        return Text.literal(module.getName() + ": " + state);
+        String prefix = selected ? "\u00A7b\u00BB \u00A7r" : "";
+        return Text.literal(prefix + module.getName() + ": " + state);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (filtered.isEmpty()) return super.keyPressed(keyCode, scanCode, modifiers);
+
+        int startIdx = page * perPage;
+        int localIdx = selectedIndex - startIdx;
+
+        if (keyCode == GLFW.GLFW_KEY_UP) {
+            int next = selectedIndex - gridCols;
+            if (next < 0) next = selectedIndex;
+            moveSelection(next);
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_DOWN) {
+            int next = selectedIndex + gridCols;
+            if (next >= filtered.size()) next = selectedIndex;
+            moveSelection(next);
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            if (localIdx > 0 && selectedIndex > 0) {
+                moveSelection(selectedIndex - 1);
+            } else if (page > 0) {
+                page--;
+                selectedIndex = Math.min(page * perPage + perPage - 1, filtered.size() - 1);
+                rebuild();
+            }
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+            if (selectedIndex < filtered.size() - 1) {
+                moveSelection(selectedIndex + 1);
+            }
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_SPACE) {
+            if (selectedIndex >= 0 && selectedIndex < filtered.size()) {
+                filtered.get(selectedIndex).toggle();
+                rebuild();
+            }
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
+            int totalPages = Math.max(1, (filtered.size() + perPage - 1) / perPage);
+            if (page < totalPages - 1) { page++; selectedIndex = page * perPage; rebuild(); }
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
+            if (page > 0) { page--; selectedIndex = page * perPage; rebuild(); }
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        int totalPages = Math.max(1, (filtered.size() + perPage - 1) / perPage);
+        if (verticalAmount < 0 && page < totalPages - 1) {
+            page++; selectedIndex = page * perPage; rebuild();
+            return true;
+        }
+        if (verticalAmount > 0 && page > 0) {
+            page--; selectedIndex = page * perPage; rebuild();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    private void moveSelection(int newIdx) {
+        if (newIdx < 0 || newIdx >= filtered.size()) return;
+        int newPage = newIdx / perPage;
+        selectedIndex = newIdx;
+        if (newPage != page) {
+            page = newPage;
+            rebuild();
+        } else {
+            // just refresh labels
+            int startIdx = page * perPage;
+            for (int i = 0; i < moduleButtons.size(); i++) {
+                HudModule m = filtered.get(startIdx + i);
+                moduleButtons.get(i).setMessage(getModuleText(m, startIdx + i == selectedIndex));
+            }
+        }
     }
 
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Skip vanilla blur (1.21.11 double-blur crash)
         context.fill(0, 0, this.width, this.height, 0xC0101010);
     }
 
@@ -136,7 +266,12 @@ public class IceyModScreen extends Screen {
 
         context.drawCenteredTextWithShadow(this.textRenderer,
                 "\u00A7b\u00A7lIcey Client \u00A77" + HudManager.getModules().size() + " modules",
-                this.width / 2, 8, 0xFFFFFFFF);
+                this.width / 2, 10, 0xFFFFFFFF);
+
+        // Subtle hint text at bottom
+        context.drawCenteredTextWithShadow(this.textRenderer,
+                "\u00A78Arrow keys / scroll to navigate \u00A77\u2022 \u00A78Enter to toggle",
+                this.width / 2, this.height - 14, 0xFFAAAAAA);
     }
 
     @Override
