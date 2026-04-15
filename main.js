@@ -174,7 +174,7 @@ function getDefaultSettings() {
     homeBackgroundOpacity: 80,
     showSessionTimer: true,
     javaPath: '',
-    allocatedRam: 2048,
+    allocatedRam: 4096,
     jvmArgs: '',
     closeLauncherOnStart: false,
     username: 'Player',
@@ -998,15 +998,39 @@ function launchMinecraft(installationId) {
     }
 
     // Build arguments
-    const ram = settings.allocatedRam || 2048;
+    const ram = settings.allocatedRam || 4096;
     const username = settings.username || 'Player';
     const uuid = settings.uuid || crypto.randomUUID();
 
     const args = [];
     // JVM args
     if (process.platform === 'darwin') args.push('-XstartOnFirstThread');
-    args.push(`-Xmx${ram}M`, '-Xms512M');
-    args.push('-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled');
+    args.push(`-Xmx${ram}M`, `-Xms${Math.min(ram, 2048)}M`);
+    // High-performance G1GC tuning (Aikar-style) + network/FPS boosters
+    args.push(
+      '-XX:+UseG1GC',
+      '-XX:+ParallelRefProcEnabled',
+      '-XX:+UnlockExperimentalVMOptions',
+      '-XX:MaxGCPauseMillis=50',
+      '-XX:G1HeapRegionSize=32M',
+      '-XX:G1NewSizePercent=30',
+      '-XX:G1MaxNewSizePercent=40',
+      '-XX:G1ReservePercent=20',
+      '-XX:InitiatingHeapOccupancyPercent=15',
+      '-XX:G1MixedGCLiveThresholdPercent=90',
+      '-XX:G1RSetUpdatingPauseTimePercent=5',
+      '-XX:SurvivorRatio=32',
+      '-XX:+PerfDisableSharedMem',
+      '-XX:MaxTenuringThreshold=1',
+      '-XX:+AlwaysPreTouch',
+      '-XX:+DisableExplicitGC',
+      '-XX:+UseStringDeduplication',
+      '-Djava.net.preferIPv4Stack=true',
+      '-Dsun.net.inetaddr.ttl=60',
+      '-Dio.netty.tcp.nodelay=true',
+      '-Dio.netty.allocator.maxOrder=9',
+      '-Dfml.ignoreInvalidMinecraftCertificates=true'
+    );
     // Natives: use Prism's natives on arm64 Linux, otherwise extract ourselves
     const prismNatives = (process.platform === 'linux' && process.arch === 'arm64') ? findPrismNatives(version) : null;
     let nativesDir;

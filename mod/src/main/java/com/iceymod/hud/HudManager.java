@@ -84,6 +84,15 @@ public class HudManager {
         modules.add(new NearestPlayerModule());
         modules.add(new ArmorPointsModule());
         modules.add(new HealthPercentModule());
+        // Optimization modules (invisible, enabled by default)
+        modules.add(new FpsBoostParticlesModule());
+        modules.add(new FpsBoostCloudsModule());
+        modules.add(new FpsBoostShadowsModule());
+        modules.add(new FpsBoostGraphicsModule());
+        modules.add(new NetDnsCacheModule());
+        modules.add(new NetIpv4Module());
+        modules.add(new NetNoDelayModule());
+        modules.add(new NetBufferModule());
 
         load();
         applyCenterDefaults();
@@ -107,10 +116,11 @@ public class HudManager {
         int startX = sw / 2 - colWidth;
         int startY = sh / 2 - (perColumn * rowHeight) / 2;
 
-        for (int i = 0; i < modules.size(); i++) {
-            HudModule m = modules.get(i);
-            int col = i / perColumn;
-            int row = i % perColumn;
+        int visibleIdx = 0;
+        for (HudModule m : modules) {
+            if (m.getCategory() == HudModule.Category.OPTIMIZATION) continue;
+            int col = visibleIdx / perColumn;
+            int row = visibleIdx % perColumn;
             int defaultX = startX + col * colWidth;
             int defaultY = startY + row * rowHeight;
 
@@ -121,6 +131,7 @@ public class HudManager {
                 if (m.getX() < 0 || m.getX() > sw - 20) m.setX(defaultX);
                 if (m.getY() < 0 || m.getY() > sh - 10) m.setY(defaultY);
             }
+            visibleIdx++;
         }
         positionsClamped = true;
     }

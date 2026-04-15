@@ -64,11 +64,13 @@ public class IceyModScreen extends Screen {
             ).dimensions(x, filterY, filterBtnW, filterBtnH).build());
         }
 
-        // Filter modules
+        // Filter modules (ALL excludes OPTIMIZATION so it only appears in its own tab)
         List<HudModule> all = HudManager.getModules();
         filtered = new ArrayList<>();
         for (HudModule m : all) {
-            if (currentFilter == null || m.getCategory() == currentFilter) {
+            if (currentFilter == null) {
+                if (m.getCategory() != HudModule.Category.OPTIMIZATION) filtered.add(m);
+            } else if (m.getCategory() == currentFilter) {
                 filtered.add(m);
             }
         }
