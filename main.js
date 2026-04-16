@@ -1392,11 +1392,18 @@ app.whenReady().then(() => {
   // ── Linux GNOME: auto-create .desktop file + install icon ──
   if (process.platform === 'linux') {
     try {
-      const iconSrc = path.join(__dirname, 'src', 'assets', 'iconlinux.png');
-      const iconDir = path.join(os.homedir(), '.local', 'share', 'icons');
-      const iconDest = path.join(iconDir, 'iceyclient.png');
+      // Try dev path first, then packaged resources path
+      let iconSrc = path.join(__dirname, 'src', 'assets', 'iconlinux.png');
+      if (!fs.existsSync(iconSrc)) iconSrc = path.join(process.resourcesPath, 'iconlinux.png');
+      if (!fs.existsSync(iconSrc)) iconSrc = path.join(__dirname, 'src', 'assets', 'icon.png');
+      const iconDir = path.join(os.homedir(), '.local', 'share', 'icons', 'hicolor', '512x512', 'apps');
+      const iconDest = path.join(iconDir, 'icey-client.png');
       fs.mkdirSync(iconDir, { recursive: true });
       if (fs.existsSync(iconSrc)) fs.copyFileSync(iconSrc, iconDest);
+      // Also place in flat icons dir for simple lookups
+      const flatDir = path.join(os.homedir(), '.local', 'share', 'icons');
+      const flatDest = path.join(flatDir, 'iceyclient.png');
+      if (fs.existsSync(iconSrc)) fs.copyFileSync(iconSrc, flatDest);
 
       const desktopDir = path.join(os.homedir(), '.local', 'share', 'applications');
       fs.mkdirSync(desktopDir, { recursive: true });
@@ -1407,7 +1414,7 @@ app.whenReady().then(() => {
         'Name=Icey Client',
         'Comment=A premium Minecraft launcher',
         'Exec="' + exePath + '" %U',
-        'Icon=' + iconDest,
+        'Icon=icey-client',
         'Type=Application',
         'Categories=Game;',
         'StartupWMClass=icey-client',

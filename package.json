@@ -52,11 +52,14 @@
       "target": [
         { "target": "rpm", "arch": ["arm64"] }
       ],
-      "icon": "src/assets/iconlinux.png",
+      "icon": "src/assets/icon.png",
       "category": "Game",
       "desktop": {
         "StartupWMClass": "icey-client"
       },
+      "extraResources": [
+        { "from": "src/assets/iconlinux.png", "to": "iconlinux.png" }
+      ],
       "artifactName": "Icey Client-${arch}.${ext}"
     },
     "nsis": {
