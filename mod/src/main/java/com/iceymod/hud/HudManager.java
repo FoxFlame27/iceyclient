@@ -38,17 +38,12 @@ public class HudManager {
         modules.add(new ComboCounterModule());
         modules.add(new TimeModule());
         modules.add(new BiomeModule());
-        modules.add(new HealthModule());
-        modules.add(new XpModule());
         modules.add(new BlockAboveModule());
         modules.add(new CrosshairModule());
         modules.add(new HotbarTextModule());
         modules.add(new YLevelModule());
-        modules.add(new GameModeModule());
-        modules.add(new FoodModule());
         modules.add(new PitchYawModule());
         modules.add(new VelocityModule());
-        modules.add(new PlayerNameModule());
         modules.add(new SessionTimeModule());
         modules.add(new AirModule());
         modules.add(new WorldTimeModule());
@@ -74,16 +69,21 @@ public class HudManager {
         modules.add(new ObsidianCountModule());
         modules.add(new KillStreakModule());
         modules.add(new DeathCounterModule());
-        modules.add(new HurtDirectionModule());
         modules.add(new LastDamageModule());
-        modules.add(new AirborneTimeModule());
-        modules.add(new CritIndicatorModule());
-        modules.add(new BowChargeModule());
-        modules.add(new ArrowsInMeModule());
-        modules.add(new ShieldStatusModule());
         modules.add(new NearestPlayerModule());
-        modules.add(new ArmorPointsModule());
-        modules.add(new HealthPercentModule());
+        modules.add(new ItemCooldownModule());
+        modules.add(new FallDistanceModule());
+        // New useful replacements
+        modules.add(new OffhandItemModule());
+        modules.add(new ToolBreakWarnModule());
+        modules.add(new HostileMobsModule());
+        modules.add(new NearestHostileModule());
+        modules.add(new LastDeathModule());
+        modules.add(new BedCoordsModule());
+        modules.add(new ChunkModule());
+        modules.add(new LookingAtModule());
+        modules.add(new MobKillsModule());
+        modules.add(new NetherCoordsModule());
         // Optimization modules (invisible, enabled by default)
         modules.add(new FpsBoostParticlesModule());
         modules.add(new FpsBoostCloudsModule());
