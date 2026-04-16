@@ -1389,13 +1389,48 @@ async function exchangeMicrosoftTokens(code) {
 app.whenReady().then(() => {
   ensureDirs();
 
+  // ── Linux GNOME: auto-create .desktop file + install icon ──
+  if (process.platform === 'linux') {
+    try {
+      const iconSrc = path.join(__dirname, 'src', 'assets', 'iconlinux.png');
+      const iconDir = path.join(os.homedir(), '.local', 'share', 'icons');
+      const iconDest = path.join(iconDir, 'iceyclient.png');
+      fs.mkdirSync(iconDir, { recursive: true });
+      if (fs.existsSync(iconSrc)) fs.copyFileSync(iconSrc, iconDest);
+
+      const desktopDir = path.join(os.homedir(), '.local', 'share', 'applications');
+      fs.mkdirSync(desktopDir, { recursive: true });
+      const desktopPath = path.join(desktopDir, 'iceyclient.desktop');
+      const exePath = process.execPath;
+      const desktopContent = [
+        '[Desktop Entry]',
+        'Name=Icey Client',
+        'Comment=A premium Minecraft launcher',
+        'Exec="' + exePath + '" %U',
+        'Icon=' + iconDest,
+        'Type=Application',
+        'Categories=Game;',
+        'StartupWMClass=icey-client',
+        'Terminal=false',
+      ].join('\n') + '\n';
+      fs.writeFileSync(desktopPath, desktopContent);
+      fs.chmodSync(desktopPath, 0o755);
+      log('info', 'Installed .desktop file: ' + desktopPath);
+    } catch (e) {
+      log('warn', 'Failed to create .desktop file: ' + e.message);
+    }
+  }
+
   // Reset log file on start
   try { fs.writeFileSync(LOG_FILE, `[${new Date().toISOString()}] [INFO] Icey Client started\n`); } catch (_) { /* */ }
 
   // ── Splash Screen ──
+  const appIcon = process.platform === 'linux'
+    ? path.join(__dirname, 'src', 'assets', 'iconlinux.png')
+    : path.join(__dirname, 'src', 'assets', 'icon.png');
   const splash = new BrowserWindow({
     width: 400, height: 300, frame: false, transparent: true, alwaysOnTop: true, center: true,
-    icon: path.join(__dirname, 'src', 'assets', 'icon.png'),
+    icon: appIcon,
     webPreferences: { nodeIntegration: false, contextIsolation: true }
   });
   splash.loadFile(path.join(__dirname, 'src', 'splash.html'));
@@ -1415,7 +1450,7 @@ app.whenReady().then(() => {
       nodeIntegration: false,
       sandbox: false
     },
-    icon: path.join(__dirname, 'src', 'assets', 'icon.png'),
+    icon: appIcon,
     show: false
   });
 
