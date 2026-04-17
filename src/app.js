@@ -19,7 +19,6 @@ function switchPage(pageName) {
   if (pageName === 'installations' && typeof InstallationsPageInit === 'function') InstallationsPageInit();
   if (pageName === 'mods' && typeof ModsPageInit === 'function') ModsPageInit();
   if (pageName === 'skins' && typeof SkinsPageInit === 'function') SkinsPageInit();
-  if (pageName === 'servers' && typeof ServersPageInit === 'function') ServersPageInit();
   if (pageName === 'console' && typeof ConsolePageInit === 'function') ConsolePageInit();
   if (pageName === 'options' && typeof OptionsPageInit === 'function') OptionsPageInit();
 }

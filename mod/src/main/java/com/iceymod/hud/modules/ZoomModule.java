@@ -2,18 +2,18 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.SimpleOption;
 
 /**
- * OptiFine-style zoom. Hold the zoom keybind (C) to zoom in.
- * Smoothly interpolates FOV and restores on release.
+ * OptiFine-style zoom. Hold the zoom keybind (default M) to zoom in.
+ * FOV is modified in GameRendererMixin via getZoomFactor() — we DON'T
+ * touch the game's actual FOV option so there's no lag and no option
+ * persistence side effects.
  */
 public class ZoomModule extends HudModule {
-    private static final int ZOOM_FOV = 20;
+    private static final float ZOOM_TARGET = 0.28f;   // 1.0 = normal, lower = more zoom
+    private static final float SMOOTH = 0.25f;
     private boolean zooming = false;
-    private int savedFov = 70;
-    private boolean fovSaved = false;
-    private float currentZoomFov = 70f;
+    private float currentFactor = 1.0f;
 
     public ZoomModule() {
         super("zoom", "Zoom", 0, 0);
@@ -25,31 +25,14 @@ public class ZoomModule extends HudModule {
     public void setZooming(boolean z) { this.zooming = z; }
     public boolean isZooming() { return zooming; }
 
+    /** 1.0 = no zoom, <1.0 = zoomed in. Multiply FOV by this value. */
+    public float getZoomFactor() { return currentFactor; }
+
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.options == null) return;
-        SimpleOption<Integer> fovOpt = client.options.getFov();
-
-        if (zooming) {
-            if (!fovSaved) {
-                savedFov = fovOpt.getValue();
-                fovSaved = true;
-                currentZoomFov = savedFov;
-            }
-            // Smooth zoom in
-            currentZoomFov += (ZOOM_FOV - currentZoomFov) * 0.3f;
-            fovOpt.setValue(Math.round(currentZoomFov));
-        } else if (fovSaved) {
-            // Smooth zoom out
-            currentZoomFov += (savedFov - currentZoomFov) * 0.4f;
-            int target = Math.round(currentZoomFov);
-            fovOpt.setValue(target);
-            if (Math.abs(target - savedFov) <= 1) {
-                fovOpt.setValue(savedFov);
-                fovSaved = false;
-            }
-        }
+        float target = zooming ? ZOOM_TARGET : 1.0f;
+        currentFactor += (target - currentFactor) * SMOOTH;
+        if (Math.abs(currentFactor - target) < 0.001f) currentFactor = target;
     }
 
     @Override

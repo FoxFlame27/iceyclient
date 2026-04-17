@@ -3,7 +3,8 @@
   "package": "com.iceymod.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "TitleScreenMixin"
+    "TitleScreenMixin",
+    "GameRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

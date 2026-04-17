@@ -6,7 +6,6 @@ const https = require('https');
 const http = require('http');
 const { spawn, execSync } = require('child_process');
 const crypto = require('crypto');
-const net = require('net');
 
 let mainWindow = null;
 let mcProcess = null;
@@ -1942,125 +1941,6 @@ app.whenReady().then(() => {
       };
     } catch (e) {
       return { error: e.message };
-    }
-  });
-
-  // Server list: stored as JSON in DATA_DIR/servers.json, synced per-launch into each installation's servers.dat would be ideal but we keep it simple
-  ipcMain.handle('get-servers', () => {
-    try {
-      const f = path.join(DATA_DIR, 'servers.json');
-      if (!fs.existsSync(f)) return [];
-      return JSON.parse(fs.readFileSync(f, 'utf-8')) || [];
-    } catch (_) {
-      return [];
-    }
-  });
-
-  ipcMain.handle('save-server', (_, server) => {
-    try {
-      const f = path.join(DATA_DIR, 'servers.json');
-      let list = [];
-      if (fs.existsSync(f)) list = JSON.parse(fs.readFileSync(f, 'utf-8')) || [];
-      const idx = list.findIndex(s => s.id === server.id);
-      if (idx >= 0) list[idx] = server;
-      else list.push({ ...server, id: server.id || crypto.randomUUID() });
-      fs.writeFileSync(f, JSON.stringify(list, null, 2));
-      return { success: true, servers: list };
-    } catch (e) {
-      return { error: e.message };
-    }
-  });
-
-  ipcMain.handle('delete-server', (_, id) => {
-    try {
-      const f = path.join(DATA_DIR, 'servers.json');
-      if (!fs.existsSync(f)) return { success: true };
-      let list = JSON.parse(fs.readFileSync(f, 'utf-8')) || [];
-      list = list.filter(s => s.id !== id);
-      fs.writeFileSync(f, JSON.stringify(list, null, 2));
-      return { success: true, servers: list };
-    } catch (e) {
-      return { error: e.message };
-    }
-  });
-
-  // Ping a Minecraft server (SLP) to get MOTD + player count
-  ipcMain.handle('ping-server', async (_, address) => {
-    try {
-      if (!address || typeof address !== 'string') return { online: false, error: 'Invalid address' };
-      const parts = address.split(':');
-      const host = parts[0].trim();
-      if (!host) return { online: false, error: 'Empty hostname' };
-      const port = parseInt(parts[1] || '25565', 10);
-      if (isNaN(port) || port < 1 || port > 65535) return { online: false, error: 'Invalid port' };
-
-      const result = await new Promise((resolve, reject) => {
-        const socket = net.connect({ host, port, timeout: 5000 });
-        let settled = false;
-        const done = (fn, val) => { if (settled) return; settled = true; try { socket.destroy(); } catch (_) {} fn(val); };
-        const hardTimeout = setTimeout(() => done(reject, new Error('response timeout')), 8000);
-
-        socket.on('connect', () => {
-          try {
-            const hostBuf = Buffer.from(host, 'utf-8');
-            const hs = Buffer.concat([
-              Buffer.from([0x00, 0xFC, 0x05]),
-              Buffer.from([hostBuf.length]),
-              hostBuf,
-              Buffer.from([(port >> 8) & 0xFF, port & 0xFF, 0x01])
-            ]);
-            const hsPacket = Buffer.concat([Buffer.from([hs.length]), hs]);
-            socket.write(hsPacket);
-            socket.write(Buffer.from([0x01, 0x00]));
-          } catch (e) { done(reject, e); }
-        });
-
-        let buf = Buffer.alloc(0);
-        socket.on('data', (d) => {
-          buf = Buffer.concat([buf, d]);
-          let i = 0, len = 0, shift = 0, done1 = false;
-          while (i < buf.length) {
-            const b = buf[i++];
-            len |= (b & 0x7F) << shift;
-            shift += 7;
-            if ((b & 0x80) === 0) { done1 = true; break; }
-            if (shift > 35) { clearTimeout(hardTimeout); return done(reject, new Error('bad packet varint')); }
-          }
-          if (!done1 || buf.length < i + len) return;
-
-          let p = i, safety = 0;
-          while (p < buf.length && (buf[p++] & 0x80) !== 0) { if (++safety > 5) { clearTimeout(hardTimeout); return done(reject, new Error('bad packet id')); } }
-
-          let jlen = 0, jshift = 0, done2 = false;
-          while (p < buf.length) {
-            const b = buf[p++];
-            jlen |= (b & 0x7F) << jshift;
-            jshift += 7;
-            if ((b & 0x80) === 0) { done2 = true; break; }
-            if (jshift > 35) { clearTimeout(hardTimeout); return done(reject, new Error('bad string varint')); }
-          }
-          if (!done2 || jlen <= 0 || p + jlen > buf.length) return;
-
-          clearTimeout(hardTimeout);
-          try {
-            const json = JSON.parse(buf.slice(p, p + jlen).toString('utf-8'));
-            done(resolve, json);
-          } catch (e) { done(reject, e); }
-        });
-
-        socket.on('error', (e) => { clearTimeout(hardTimeout); done(reject, e); });
-        socket.on('timeout', () => { clearTimeout(hardTimeout); done(reject, new Error('connect timeout')); });
-        socket.on('close', () => { if (!settled) { clearTimeout(hardTimeout); done(reject, new Error('closed')); } });
-      });
-
-      return {
-        online: true,
-        version: result.version?.name || '?',
-        players: { online: result.players?.online || 0, max: result.players?.max || 0 },
-        motd: typeof result.description === 'string' ? result.description : (result.description?.text || ''),
-      };
-    } catch (e) {
-      return { online: false, error: e.message };
     }
   });
 

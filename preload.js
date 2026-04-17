@@ -51,12 +51,6 @@ contextBridge.exposeInMainWorld('icey', {
   getInstalledShaderpacks: () => ipcRenderer.invoke('get-installed-shaderpacks'),
   deleteShaderpack: (filename) => ipcRenderer.invoke('delete-shaderpack', filename),
 
-  // Servers
-  getServers: () => ipcRenderer.invoke('get-servers'),
-  saveServer: (server) => ipcRenderer.invoke('save-server', server),
-  deleteServer: (id) => ipcRenderer.invoke('delete-server', id),
-  pingServer: (address) => ipcRenderer.invoke('ping-server', address),
-
   // Updates
   checkUpdate: () => ipcRenderer.invoke('check-update'),
 

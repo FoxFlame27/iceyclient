@@ -52,20 +52,22 @@ public class IceyMod implements ClientModInitializer {
             }
             while (perspectiveKey.wasPressed()) {
                 HudModule pm = findModule("perspective");
-                if (pm instanceof PerspectiveModule && pm.isEnabled()) {
+                if (pm instanceof PerspectiveModule) {
                     ((PerspectiveModule) pm).cyclePerspective();
                 }
             }
             while (waypointKey.wasPressed()) {
                 HudModule wp = findModule("waypoints");
-                if (wp instanceof WaypointsModule && wp.isEnabled()) {
+                if (wp instanceof WaypointsModule) {
+                    // Auto-enable the module so the user can see what they just added
+                    wp.setEnabled(true);
                     ((WaypointsModule) wp).addCurrentPosition();
                 }
             }
 
             // Zoom: hold key
             HudModule zm = findModule("zoom");
-            if (zm instanceof ZoomModule && zm.isEnabled()) {
+            if (zm instanceof ZoomModule) {
                 ((ZoomModule) zm).setZooming(zoomKey.isPressed());
             }
 
