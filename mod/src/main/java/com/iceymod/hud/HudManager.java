@@ -16,6 +16,10 @@ public class HudManager {
     private static final List<HudModule> modules = new ArrayList<>();
     private static Path configPath;
     private static boolean positionsClamped = false;
+    private static boolean hudVisible = true;
+
+    public static boolean isHudVisible() { return hudVisible; }
+    public static void toggleHudVisibility() { hudVisible = !hudVisible; }
 
     public static void init() {
         configPath = FabricLoader.getInstance().getConfigDir().resolve("iceymod.json");
@@ -88,17 +92,17 @@ public class HudManager {
         modules.add(new ZoomModule());
         modules.add(new PerspectiveModule());
         modules.add(new WaypointsModule());
-        // Mace-focused combat modules + small cheats
-        modules.add(new WindBurstCooldownModule());
-        modules.add(new MaceEnchantsModule());
-        modules.add(new SmashKillsModule());
-        modules.add(new PredictedFallModule());
-        modules.add(new FallImmunityWarnModule());
-        modules.add(new WindChargeCountModule());
-        modules.add(new HeavyCoreCountModule());
+        // Small cheats / QoL
         modules.add(new AutoMaceSwapModule());
         modules.add(new AutoRespawnModule());
         modules.add(new NoHurtCamModule());
+        modules.add(new FullBrightModule());
+        modules.add(new AutoSprintModule());
+        modules.add(new NoCameraBobModule());
+        modules.add(new NoFovChangeModule());
+        modules.add(new AntiAFKModule());
+        modules.add(new AutoTotemModule());
+        modules.add(new SafeWalkModule());
         // Optimization modules (invisible, enabled by default)
         modules.add(new FpsBoostParticlesModule());
         modules.add(new FpsBoostCloudsModule());
@@ -156,6 +160,7 @@ public class HudManager {
     }
 
     public static void render(DrawContext context) {
+        if (!hudVisible) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (!positionsClamped) applyCenterDefaults();
         for (HudModule module : modules) {

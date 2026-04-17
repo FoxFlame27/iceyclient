@@ -31,6 +31,9 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding zoomKey;
     private static KeyBinding perspectiveKey;
     private static KeyBinding waypointKey;
+    private static KeyBinding hideHudKey;
+    private static KeyBinding toggleSprintKey;
+    private static KeyBinding toggleBrightKey;
 
     @Override
     public void onInitializeClient() {
@@ -46,6 +49,12 @@ public class IceyMod implements ClientModInitializer {
                 "key.iceymod.perspective", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY));
         waypointKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.iceymod.waypoint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, KEY_CATEGORY));
+        hideHudKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.iceymod.hidehud", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_H, KEY_CATEGORY));
+        toggleSprintKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.iceymod.togglesprint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, KEY_CATEGORY));
+        toggleBrightKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.iceymod.togglebright", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (menuKey.wasPressed()) {
@@ -63,6 +72,17 @@ public class IceyMod implements ClientModInitializer {
                 if (client.currentScreen == null) {
                     client.setScreen(new WaypointMenuScreen());
                 }
+            }
+            while (hideHudKey.wasPressed()) {
+                HudManager.toggleHudVisibility();
+            }
+            while (toggleSprintKey.wasPressed()) {
+                HudModule m = findModule("autosprint");
+                if (m != null) m.toggle();
+            }
+            while (toggleBrightKey.wasPressed()) {
+                HudModule m = findModule("fullbright");
+                if (m != null) m.toggle();
             }
 
             // Zoom: hold key

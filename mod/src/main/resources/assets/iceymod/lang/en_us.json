@@ -3,5 +3,8 @@
   "key.iceymod.menu": "Open Menu",
   "key.iceymod.zoom": "Zoom",
   "key.iceymod.perspective": "Cycle Perspective",
-  "key.iceymod.waypoint": "Add Waypoint"
+  "key.iceymod.waypoint": "Waypoint Menu",
+  "key.iceymod.hidehud": "Hide HUD",
+  "key.iceymod.togglesprint": "Toggle Auto Sprint",
+  "key.iceymod.togglebright": "Toggle Full Bright"
 }
