@@ -269,11 +269,6 @@ public class IceyModScreen extends Screen {
         context.drawCenteredTextWithShadow(this.textRenderer,
                 "\u00A7b\u00A7lIcey Client \u00A77" + HudManager.getModules().size() + " modules",
                 this.width / 2, 10, 0xFFFFFFFF);
-
-        // Subtle hint text at bottom
-        context.drawCenteredTextWithShadow(this.textRenderer,
-                "\u00A78Arrow keys / scroll to navigate \u00A77\u2022 \u00A78Enter to toggle",
-                this.width / 2, this.height - 14, 0xFFAAAAAA);
     }
 
     @Override

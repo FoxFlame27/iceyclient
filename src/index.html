@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="styles/mods.css">
   <link rel="stylesheet" href="styles/skins.css">
   <link rel="stylesheet" href="styles/options.css">
+  <link rel="stylesheet" href="styles/servers.css">
   <link rel="stylesheet" href="styles/console.css">
   <link rel="stylesheet" href="styles/modals.css">
   <link rel="stylesheet" href="styles/toasts.css">
@@ -59,6 +60,12 @@
       <button class="nav-tab" data-page="skins" data-tooltip="Skins">
         <img class="nav-icon-img" src="assets/skins-icon.png" alt="Skins">
       </button>
+      <button class="nav-tab" data-page="servers" data-tooltip="Servers">
+        <svg class="nav-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
+          <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+      </button>
       <button class="nav-tab" data-page="console" data-tooltip="Console">
         <svg class="nav-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8">
           <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
@@ -80,6 +87,7 @@
     <div id="page-installations" class="page"></div>
     <div id="page-mods" class="page"></div>
     <div id="page-skins" class="page"></div>
+    <div id="page-servers" class="page"></div>
     <div id="page-console" class="page"></div>
     <div id="page-options" class="page"></div>
   </div>
@@ -106,6 +114,7 @@
   <script src="pages/installations.js"></script>
   <script src="pages/mods.js"></script>
   <script src="pages/skins.js"></script>
+  <script src="pages/servers.js"></script>
   <script src="pages/console.js"></script>
   <script src="pages/options.js"></script>
   <script src="app.js"></script>

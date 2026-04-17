@@ -19,6 +19,7 @@ function switchPage(pageName) {
   if (pageName === 'installations' && typeof InstallationsPageInit === 'function') InstallationsPageInit();
   if (pageName === 'mods' && typeof ModsPageInit === 'function') ModsPageInit();
   if (pageName === 'skins' && typeof SkinsPageInit === 'function') SkinsPageInit();
+  if (pageName === 'servers' && typeof ServersPageInit === 'function') ServersPageInit();
   if (pageName === 'console' && typeof ConsolePageInit === 'function') ConsolePageInit();
   if (pageName === 'options' && typeof OptionsPageInit === 'function') OptionsPageInit();
 }
@@ -135,9 +136,20 @@ async function _navLogout() {
   loadNavProfile();
 }
 
+// Check for updates on launch
+async function _checkForUpdates() {
+  try {
+    const result = await window.icey.checkUpdate();
+    if (result && result.updateAvailable) {
+      Toast.info('Update available: v' + result.latest + ' (current: v' + result.current + ')', 8000);
+    }
+  } catch (_) { /* silent */ }
+}
+
 // Init app
 (async () => {
   await SettingsManager.load();
   loadNavProfile();
   switchPage('home');
+  setTimeout(_checkForUpdates, 2000);
 })();

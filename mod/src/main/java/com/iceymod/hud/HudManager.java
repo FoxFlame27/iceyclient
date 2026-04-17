@@ -84,6 +84,10 @@ public class HudManager {
         modules.add(new LookingAtModule());
         modules.add(new MobKillsModule());
         modules.add(new NetherCoordsModule());
+        // Quality-of-life features
+        modules.add(new ZoomModule());
+        modules.add(new PerspectiveModule());
+        modules.add(new WaypointsModule());
         // Optimization modules (invisible, enabled by default)
         modules.add(new FpsBoostParticlesModule());
         modules.add(new FpsBoostCloudsModule());
