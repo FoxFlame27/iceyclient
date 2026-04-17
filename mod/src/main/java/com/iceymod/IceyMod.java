@@ -7,6 +7,8 @@ import com.iceymod.hud.modules.WaypointManager;
 import com.iceymod.hud.modules.WaypointsModule;
 import com.iceymod.hud.modules.ZoomModule;
 import com.iceymod.screen.IceyModScreen;
+import com.iceymod.screen.WaypointMenuScreen;
+import com.iceymod.render.WaypointBeamRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -34,6 +36,7 @@ public class IceyMod implements ClientModInitializer {
     public void onInitializeClient() {
         HudManager.init();
         WaypointManager.init();
+        WaypointBeamRenderer.register();
 
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.iceymod.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, KEY_CATEGORY));
@@ -57,11 +60,8 @@ public class IceyMod implements ClientModInitializer {
                 }
             }
             while (waypointKey.wasPressed()) {
-                HudModule wp = findModule("waypoints");
-                if (wp instanceof WaypointsModule) {
-                    // Auto-enable the module so the user can see what they just added
-                    wp.setEnabled(true);
-                    ((WaypointsModule) wp).addCurrentPosition();
+                if (client.currentScreen == null) {
+                    client.setScreen(new WaypointMenuScreen());
                 }
             }
 

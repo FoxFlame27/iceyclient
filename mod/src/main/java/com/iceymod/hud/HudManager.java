@@ -88,6 +88,17 @@ public class HudManager {
         modules.add(new ZoomModule());
         modules.add(new PerspectiveModule());
         modules.add(new WaypointsModule());
+        // Mace-focused combat modules + small cheats
+        modules.add(new WindBurstCooldownModule());
+        modules.add(new MaceEnchantsModule());
+        modules.add(new SmashKillsModule());
+        modules.add(new PredictedFallModule());
+        modules.add(new FallImmunityWarnModule());
+        modules.add(new WindChargeCountModule());
+        modules.add(new HeavyCoreCountModule());
+        modules.add(new AutoMaceSwapModule());
+        modules.add(new AutoRespawnModule());
+        modules.add(new NoHurtCamModule());
         // Optimization modules (invisible, enabled by default)
         modules.add(new FpsBoostParticlesModule());
         modules.add(new FpsBoostCloudsModule());
