@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.option.KeyBinding;
@@ -118,7 +119,7 @@ public class IceyMod implements ClientModInitializer {
                     int logoH = 40;
                     int x = sw - logoW - 8;
                     int y = sh - logoH - 8;
-                    ctx.drawTexturedQuad(LOGO_TEXTURE, x, x + logoW, y, y + logoH, 0, 0, 1, 1);
+                    ctx.drawTexture(RenderPipelines.GUI_TEXTURED, LOGO_TEXTURE, x, y, 0f, 0f, logoW, logoH, logoW, logoH);
                 });
             }
 
@@ -130,7 +131,7 @@ public class IceyMod implements ClientModInitializer {
                     int x = (sw - logoW) / 2;
                     int windowTop = (scr.height - 166) / 2;
                     int y = Math.max(2, windowTop - logoH - 4);
-                    ctx.drawTexturedQuad(LOGO_TEXTURE, x, x + logoW, y, y + logoH, 0, 0, 1, 1);
+                    ctx.drawTexture(RenderPipelines.GUI_TEXTURED, LOGO_TEXTURE, x, y, 0f, 0f, logoW, logoH, logoW, logoH);
                 });
             }
         });

@@ -3,6 +3,7 @@ package com.iceymod.screen;
 import com.iceymod.IceyMod;
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -301,7 +302,14 @@ public class IceyModScreen extends Screen {
                 this.width / 2, 10, 0xFFFFFFFF);
 
         // Draw gear icon texture over the invisible button
-        context.drawTexturedQuad(GEAR_TEXTURE, gearX, gearX + gearW, gearY, gearY + gearH, 0, 0, 1, 1);
+        context.drawTexture(
+                RenderPipelines.GUI_TEXTURED,
+                GEAR_TEXTURE,
+                gearX, gearY,
+                0f, 0f,
+                gearW, gearH,
+                gearW, gearH
+        );
         if (settingsMode) {
             context.drawCenteredTextWithShadow(this.textRenderer, "\u00A7b\u00A7lON",
                     gearX + gearW / 2, gearY + gearH + 2, 0xFFFFFFFF);
