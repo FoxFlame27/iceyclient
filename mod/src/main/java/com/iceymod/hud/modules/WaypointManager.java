@@ -35,6 +35,16 @@ public class WaypointManager {
         }
     }
 
+    public static void renameWaypoint(int index, String newName) {
+        if (index < 0 || index >= waypoints.size()) return;
+        if (newName == null) return;
+        String trimmed = newName.trim();
+        if (trimmed.isEmpty()) return;
+        Waypoint old = waypoints.get(index);
+        waypoints.set(index, new Waypoint(trimmed, old.x, old.y, old.z, old.color));
+        save();
+    }
+
     public static void save() {
         JsonArray arr = new JsonArray();
         for (Waypoint wp : waypoints) {

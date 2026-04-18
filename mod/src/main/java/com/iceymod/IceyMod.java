@@ -34,6 +34,7 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding hideHudKey;
     private static KeyBinding toggleSprintKey;
     private static KeyBinding toggleBrightKey;
+    private static KeyBinding toggleTotemKey;
 
     @Override
     public void onInitializeClient() {
@@ -55,6 +56,8 @@ public class IceyMod implements ClientModInitializer {
                 "key.iceymod.togglesprint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, KEY_CATEGORY));
         toggleBrightKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.iceymod.togglebright", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY));
+        toggleTotemKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.iceymod.toggletotem", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_T, KEY_CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (menuKey.wasPressed()) {
@@ -82,6 +85,10 @@ public class IceyMod implements ClientModInitializer {
             }
             while (toggleBrightKey.wasPressed()) {
                 HudModule m = findModule("fullbright");
+                if (m != null) m.toggle();
+            }
+            while (toggleTotemKey.wasPressed()) {
+                HudModule m = findModule("autototem");
                 if (m != null) m.toggle();
             }
 

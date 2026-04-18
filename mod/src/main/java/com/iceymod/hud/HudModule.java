@@ -60,7 +60,7 @@ public abstract class HudModule {
     public String getName() { return name; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
-    public void toggle() { this.enabled = !enabled; }
+    public void toggle() { setEnabled(!enabled); }
     public int getX() { return x; }
     public int getY() { return y; }
     public void setX(int x) { this.x = x; }

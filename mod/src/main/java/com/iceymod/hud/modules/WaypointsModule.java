@@ -37,16 +37,20 @@ public class WaypointsModule extends HudModule {
 
         int x = getX();
         int y = getY();
-        this.width = 140;
+        int lineH = 14;
+        int gap = 2;
+        int rowH = lineH + gap;
 
-        int drawn = 0;
-        for (WaypointManager.Waypoint wp : wps) {
+        // Compute widest row first so all rows share the same width — matches the style of single-line modules
+        int maxWidth = 0;
+        String[] texts = new String[wps.size()];
+        for (int i = 0; i < wps.size(); i++) {
+            WaypointManager.Waypoint wp = wps.get(i);
             double dx = wp.x - client.player.getX();
             double dz = wp.z - client.player.getZ();
             double dy = wp.y - client.player.getY();
             double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-            // Direction arrow based on player yaw
             float yaw = client.player.getYaw();
             double angle = Math.toDegrees(Math.atan2(-dx, dz));
             double rel = ((angle - yaw) % 360 + 540) % 360 - 180;
@@ -60,16 +64,20 @@ public class WaypointsModule extends HudModule {
             else if (rel > -112.5 && rel <= -67.5) arrow = "\u2190";
             else arrow = "\u2196";
 
-            String text = arrow + " " + wp.name + " " + (int) dist + "m";
-            int textW = client.textRenderer.getWidth(text);
-            if (textW + 10 > this.width) this.width = textW + 10;
-
-            int lineY = y + drawn * 14;
-            context.fill(x, lineY, x + this.width, lineY + 13, 0x80000000);
-            context.fill(x, lineY, x + 2, lineY + 13, wp.color);
-            context.drawTextWithShadow(client.textRenderer, text, x + 5, lineY + 3, wp.color);
-            drawn++;
+            texts[i] = arrow + " " + wp.name + " " + (int) dist + "m";
+            int tw = client.textRenderer.getWidth(texts[i]);
+            if (tw > maxWidth) maxWidth = tw;
         }
-        this.height = Math.max(drawn * 14, 14);
+        this.width = maxWidth + 10;
+
+        // Render each row matching the default module style: 0x90 black bg, 2px colored side bar, white text
+        for (int i = 0; i < wps.size(); i++) {
+            WaypointManager.Waypoint wp = wps.get(i);
+            int lineY = y + i * rowH;
+            context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
+            context.fill(x, lineY, x + 2, lineY + lineH, wp.color);
+            context.drawTextWithShadow(client.textRenderer, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
+        }
+        this.height = wps.size() * rowH - gap;
     }
 }

@@ -5,7 +5,8 @@
   "client": [
     "TitleScreenMixin",
     "GameRendererMixin",
-    "SimpleOptionAccessor"
+    "SimpleOptionAccessor",
+    "LogoDrawerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
