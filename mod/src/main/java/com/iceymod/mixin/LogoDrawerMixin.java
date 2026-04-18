@@ -30,7 +30,7 @@ public abstract class LogoDrawerMixin {
         int x = screenWidth / 2 - targetW / 2;
         // LOGO_BASE_Y is where vanilla puts the top of the MINECRAFT logo.
         // Start a bit higher so the whole logo is clearly above the button row.
-        int y = LogoDrawer.LOGO_BASE_Y + yOffset - 30;
+        int y = LogoDrawer.LOGO_BASE_Y + yOffset - 55;
         if (y < 4) y = 4;
         context.drawTexture(
                 RenderPipelines.GUI_TEXTURED,
