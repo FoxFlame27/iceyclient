@@ -1,7 +1,7 @@
 {
   "name": "icey-client",
   "productName": "Icey Client",
-  "version": "1.38.0",
+  "version": "1.39.0",
   "description": "A premium Minecraft launcher with an icy theme",
   "author": {
     "name": "Icey Client",
@@ -29,7 +29,8 @@
       "main.js",
       "preload.js",
       "src/**/*",
-      "mod/build/libs/iceymod-*.jar"
+      "mod/build/libs/iceymod-*.jar",
+      "resources/IceyNetherPanorama.zip"
     ],
     "mac": {
       "category": "public.app-category.games",

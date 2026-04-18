@@ -936,13 +936,63 @@ function launchMinecraft(installationId) {
         }
       }
 
-      // 3) Clean up any old bundled Icey resource pack (panorama is now in-mod only)
+      // 3) Install + auto-enable the Icey Nether Panorama resource pack
       const resourcepacksDir = path.join(installGameDir, 'resourcepacks');
-      const oldRpPath = path.join(resourcepacksDir, 'IceyModResourcePack.zip');
+      fs.mkdirSync(resourcepacksDir, { recursive: true });
       try {
-        if (fs.existsSync(oldRpPath)) {
-          fs.unlinkSync(oldRpPath);
-          log('info', 'Removed old bundled resource pack');
+        // Clean up previous bundled packs that we no longer ship
+        for (const old of ['IceyModResourcePack.zip']) {
+          const p = path.join(resourcepacksDir, old);
+          if (fs.existsSync(p)) { fs.unlinkSync(p); log('info', 'Removed stale pack: ' + old); }
+        }
+
+        const rpName = 'IceyNetherPanorama.zip';
+        const destRp = path.join(resourcepacksDir, rpName);
+        const rpSources = [
+          path.join(__dirname, 'resources', rpName),
+          path.join(process.resourcesPath || '', rpName),
+          path.join(DATA_DIR, rpName),
+        ];
+        let installed = false;
+        for (const src of rpSources) {
+          if (!src || !fs.existsSync(src)) continue;
+          try {
+            const srcStat = fs.statSync(src);
+            const destStat = fs.existsSync(destRp) ? fs.statSync(destRp) : null;
+            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+              fs.copyFileSync(src, destRp);
+              log('info', 'Installed Nether Panorama pack to ' + destRp);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Nether Panorama pack installed', level: 'info' });
+            }
+            installed = true;
+          } catch (e) {
+            log('warn', 'Failed to install panorama pack: ' + e.message);
+          }
+          break;
+        }
+
+        // Auto-register in options.txt so MC enables it on launch
+        if (installed) {
+          const optionsPath = path.join(installGameDir, 'options.txt');
+          let lines = [];
+          if (fs.existsSync(optionsPath)) lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
+          const entry = 'file/' + rpName;
+          let foundLine = false;
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('resourcePacks:')) {
+              foundLine = true;
+              try {
+                const packs = JSON.parse(lines[i].slice('resourcePacks:'.length));
+                if (!packs.includes(entry)) packs.push(entry);
+                lines[i] = 'resourcePacks:' + JSON.stringify(packs);
+              } catch (_) {
+                lines[i] = 'resourcePacks:' + JSON.stringify(['vanilla', entry]);
+              }
+              break;
+            }
+          }
+          if (!foundLine) lines.push('resourcePacks:' + JSON.stringify(['vanilla', entry]));
+          try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
         }
       } catch (_) {}
 
