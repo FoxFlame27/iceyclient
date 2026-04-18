@@ -17,7 +17,40 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npx electron-builder --win --publish never
+      - name: Pre-download NSIS resources (mitigates GitHub CDN 504s)
+        shell: pwsh
+        run: |
+          $cacheDir = "$env:LOCALAPPDATA\electron-builder\Cache\nsis"
+          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+          $urls = @(
+            @{ Name = "nsis-3.0.4.1"; Url = "https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z" },
+            @{ Name = "nsis-resources-3.4.1"; Url = "https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z" }
+          )
+          foreach ($r in $urls) {
+            $dst = "$cacheDir\$($r.Name).7z"
+            for ($i = 1; $i -le 5; $i++) {
+              Write-Host "Attempt $i: $($r.Name)"
+              try {
+                Invoke-WebRequest -Uri $r.Url -OutFile $dst -UseBasicParsing -TimeoutSec 120
+                Write-Host "  OK ($((Get-Item $dst).Length) bytes)"
+                break
+              } catch {
+                Write-Host "  Failed: $_"
+                Start-Sleep -Seconds 10
+              }
+            }
+          }
+      - name: Build (with retry)
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 3; $i++) {
+            Write-Host "electron-builder attempt $i"
+            npx electron-builder --win --publish never
+            if ($LASTEXITCODE -eq 0) { break }
+            Write-Host "Attempt $i failed, retrying in 15s..."
+            Start-Sleep -Seconds 15
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload artifacts
