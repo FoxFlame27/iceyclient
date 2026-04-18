@@ -193,14 +193,20 @@ async function _modsBrowseFiles() {
 }
 
 async function _installLocalFile(filePath, filename) {
-  if (!_modsActiveInstallation) return;
-  const mcDir = await window.icey.getMcDir();
+  if (!_modsActiveInstallation) { Toast.error('Select an installation first'); return; }
+  if (!filePath) { Toast.error('Invalid file path'); return; }
 
+  // Per-installation game dir — this is where the launcher actually looks for mods.
+  const gameDir = await window.icey.getInstallGameDir(_modsActiveInstallation.id);
+
+  const lower = filename.toLowerCase();
   let destFolder;
-  if (filename.endsWith('.jar')) {
-    destFolder = mcDir + '/mods';
-  } else if (filename.endsWith('.zip')) {
-    destFolder = mcDir + '/resourcepacks';
+  let isResourcePack = false;
+  if (lower.endsWith('.jar')) {
+    destFolder = gameDir + '/mods';
+  } else if (lower.endsWith('.zip')) {
+    destFolder = gameDir + '/resourcepacks';
+    isResourcePack = true;
   } else {
     Toast.error('Unsupported file type. Use .jar or .zip');
     return;
@@ -208,11 +214,14 @@ async function _installLocalFile(filePath, filename) {
 
   const dest = destFolder + '/' + filename;
   const result = await window.icey.copyFile(filePath, dest);
-  if (result.error) {
+  if (result && result.error) {
     Toast.error('Failed to install: ' + result.error);
-  } else {
-    Toast.success('Installed ' + filename);
+    return;
   }
+  if (isResourcePack) {
+    try { await window.icey.registerResourcepack(_modsActiveInstallation.id, filename); } catch (_) {}
+  }
+  Toast.success('Installed ' + filename);
 }
 
 function _setModsFilter(filter, btn) {
@@ -772,14 +781,15 @@ async function _shadersBrowseFiles() {
 }
 
 async function _installShaderFile(filePath, filename) {
-  if (!filename.endsWith('.zip')) {
+  if (!filename.toLowerCase().endsWith('.zip')) {
     Toast.error('Shader packs must be .zip files');
     return;
   }
-  const mcDir = await window.icey.getMcDir();
-  const dest = mcDir + '/shaderpacks/' + filename;
+  if (!_modsActiveInstallation) { Toast.error('Select an installation first'); return; }
+  const gameDir = await window.icey.getInstallGameDir(_modsActiveInstallation.id);
+  const dest = gameDir + '/shaderpacks/' + filename;
   const result = await window.icey.copyFile(filePath, dest);
-  if (result.error) {
+  if (result && result.error) {
     Toast.error('Failed to install: ' + result.error);
   } else {
     Toast.success('Installed ' + filename);
@@ -787,7 +797,7 @@ async function _installShaderFile(filePath, filename) {
 }
 
 async function _refreshInstalledShaderpacks() {
-  const packs = await window.icey.getInstalledShaderpacks();
+  const packs = await window.icey.getInstalledShaderpacks(_modsActiveInstallation?.id);
   const countEl = document.getElementById('shaders-installed-count');
   if (countEl) countEl.textContent = packs.length;
 

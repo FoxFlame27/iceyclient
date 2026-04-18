@@ -48,7 +48,7 @@ contextBridge.exposeInMainWorld('icey', {
 
   // Shaders
   installIris: (mcVersion) => ipcRenderer.invoke('install-iris', mcVersion),
-  getInstalledShaderpacks: () => ipcRenderer.invoke('get-installed-shaderpacks'),
+  getInstalledShaderpacks: (installationId) => ipcRenderer.invoke('get-installed-shaderpacks', installationId),
   deleteShaderpack: (filename) => ipcRenderer.invoke('delete-shaderpack', filename),
 
   // Updates
