@@ -10,8 +10,10 @@ import net.minecraft.client.MinecraftClient;
  * persistence side effects.
  */
 public class ZoomModule extends HudModule {
-    private static final float ZOOM_TARGET = 0.28f;   // 1.0 = normal, lower = more zoom
-    private static final float SMOOTH = 0.25f;
+    public final com.iceymod.hud.settings.DoubleSetting zoomFactor = addSetting(
+            new com.iceymod.hud.settings.DoubleSetting("zoomFactor", "Zoom Amount", 0.28, 0.1, 0.9, 0.05));
+    public final com.iceymod.hud.settings.DoubleSetting smoothness = addSetting(
+            new com.iceymod.hud.settings.DoubleSetting("smoothness", "Smoothness", 0.25, 0.05, 1.0, 0.05));
     private boolean zooming = false;
     private float currentFactor = 1.0f;
 
@@ -30,8 +32,9 @@ public class ZoomModule extends HudModule {
 
     @Override
     public void tick() {
-        float target = zooming ? ZOOM_TARGET : 1.0f;
-        currentFactor += (target - currentFactor) * SMOOTH;
+        float target = zooming ? zoomFactor.get().floatValue() : 1.0f;
+        float smooth = smoothness.get().floatValue();
+        currentFactor += (target - currentFactor) * smooth;
         if (Math.abs(currentFactor - target) < 0.001f) currentFactor = target;
     }
 

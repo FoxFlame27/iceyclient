@@ -10,6 +10,9 @@ import net.minecraft.util.math.BlockPos;
  * you don't accidentally yeet yourself off in bridge/pvp situations.
  */
 public class SafeWalkModule extends HudModule {
+    public final com.iceymod.hud.settings.IntSetting minDrop = addSetting(
+            new com.iceymod.hud.settings.IntSetting("minDrop", "Min Drop Blocks", 3, 2, 10));
+
     public SafeWalkModule() {
         super("safewalk", "Safe Walk", 0, 0);
         setEnabled(false);
@@ -40,7 +43,7 @@ public class SafeWalkModule extends HudModule {
                 if (st.isAir()) drop++;
                 else break;
             }
-            if (drop >= 3) { nearEdge = true; break; }
+            if (drop >= minDrop.get()) { nearEdge = true; break; }
         }
 
         if (nearEdge) {

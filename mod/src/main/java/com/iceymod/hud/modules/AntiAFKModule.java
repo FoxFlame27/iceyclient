@@ -8,6 +8,10 @@ import net.minecraft.client.MinecraftClient;
  * you as AFK and kick you.
  */
 public class AntiAFKModule extends HudModule {
+    public final com.iceymod.hud.settings.IntSetting intervalMinutes = addSetting(
+            new com.iceymod.hud.settings.IntSetting("intervalMin", "Interval (min)", 2, 1, 10));
+    public final com.iceymod.hud.settings.BoolSetting swingHand = addSetting(
+            new com.iceymod.hud.settings.BoolSetting("swing", "Swing Hand", true));
     private long lastActionAt = 0;
 
     public AntiAFKModule() {
@@ -24,11 +28,11 @@ public class AntiAFKModule extends HudModule {
         if (client.player == null) return;
         long now = System.currentTimeMillis();
         if (lastActionAt == 0) { lastActionAt = now; return; }
-        if (now - lastActionAt < 120_000) return;
+        long intervalMs = intervalMinutes.get() * 60_000L;
+        if (now - lastActionAt < intervalMs) return;
 
-        // Tiny nudge — rotate yaw by 1 degree and send a swing
         client.player.setYaw(client.player.getYaw() + 1.0f);
-        client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+        if (swingHand.get()) client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
         lastActionAt = now;
     }
 

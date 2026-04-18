@@ -1,6 +1,7 @@
 package com.iceymod.hud;
 
 import com.iceymod.hud.modules.*;
+import com.iceymod.hud.settings.Setting;
 import com.google.gson.*;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
@@ -186,15 +187,20 @@ public class HudManager {
             m.addProperty("enabled", module.isEnabled());
             m.addProperty("x", module.getX());
             m.addProperty("y", module.getY());
+            if (!module.getSettings().isEmpty()) {
+                JsonObject s = new JsonObject();
+                for (Setting<?> setting : module.getSettings()) {
+                    s.addProperty(setting.id, setting.serialize());
+                }
+                m.add("settings", s);
+            }
             modulesObj.add(module.getId(), m);
         }
         root.add("modules", modulesObj);
 
         try {
             Files.writeString(configPath, new GsonBuilder().setPrettyPrinting().create().toJson(root));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        } catch (IOException e) { /* silent */ }
     }
 
     public static void load() {
@@ -211,10 +217,16 @@ public class HudManager {
                     if (m.has("enabled")) module.setEnabled(m.get("enabled").getAsBoolean());
                     if (m.has("x")) module.setX(m.get("x").getAsInt());
                     if (m.has("y")) module.setY(m.get("y").getAsInt());
+                    if (m.has("settings") && m.get("settings").isJsonObject()) {
+                        JsonObject s = m.getAsJsonObject("settings");
+                        for (Setting<?> setting : module.getSettings()) {
+                            if (s.has(setting.id)) {
+                                try { setting.deserialize(s.get(setting.id).getAsString()); } catch (Exception ignored) {}
+                            }
+                        }
+                    }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception ignored) { /* silent */ }
     }
 }

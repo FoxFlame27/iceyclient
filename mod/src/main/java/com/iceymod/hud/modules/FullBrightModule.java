@@ -10,7 +10,8 @@ import net.minecraft.client.option.SimpleOption;
  * SimpleOption accessor to bypass the gamma validator's 0-1 cap.
  */
 public class FullBrightModule extends HudModule {
-    private static final double FULLBRIGHT_VALUE = 15.0;
+    public final com.iceymod.hud.settings.DoubleSetting brightness = addSetting(
+            new com.iceymod.hud.settings.DoubleSetting("brightness", "Brightness", 15.0, 1.0, 20.0, 1.0));
     private Double savedGamma = null;
 
     public FullBrightModule() {
@@ -41,9 +42,10 @@ public class FullBrightModule extends HudModule {
         if (client.options == null) return;
         SimpleOption<Double> gamma = client.options.getGamma();
         if (savedGamma == null) savedGamma = gamma.getValue();
-        if (!Double.valueOf(FULLBRIGHT_VALUE).equals(gamma.getValue())) {
+        double target = brightness.get();
+        if (!Double.valueOf(target).equals(gamma.getValue())) {
             try {
-                ((SimpleOptionAccessor) (Object) gamma).iceymod$setRawValue(FULLBRIGHT_VALUE);
+                ((SimpleOptionAccessor) (Object) gamma).iceymod$setRawValue(target);
             } catch (Throwable ignored) {}
         }
     }

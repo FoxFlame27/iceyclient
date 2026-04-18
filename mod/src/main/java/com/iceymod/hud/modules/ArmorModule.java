@@ -12,11 +12,15 @@ public class ArmorModule extends HudModule {
     };
 
     // Per-slot sizing
-    private static final int SLOT_SIZE = 20;     // height of each slot row
+    private static final int SLOT_SIZE = 20;
     private static final int ITEM_SIZE = 16;
-    private static final int BAR_HEIGHT = 2;
     private static final int BAR_WIDTH = 16;
-    private static final int SLOT_GAP = 2;       // gap between slots
+    private static final int SLOT_GAP = 2;
+
+    public final com.iceymod.hud.settings.IntSetting barHeight = addSetting(
+            new com.iceymod.hud.settings.IntSetting("barHeight", "Bar Height", 2, 1, 4));
+    public final com.iceymod.hud.settings.BoolSetting showHeldItem = addSetting(
+            new com.iceymod.hud.settings.BoolSetting("showHeld", "Show Held Item", true));
 
     public ArmorModule() {
         super("armor", "Armor", 5, 150);
@@ -48,10 +52,12 @@ public class ArmorModule extends HudModule {
         }
 
         // Held item too
-        ItemStack held = client.player.getMainHandStack();
-        if (!held.isEmpty()) {
-            drawSlot(context, held, bx, by + drawn * (SLOT_SIZE + SLOT_GAP));
-            drawn++;
+        if (showHeldItem.get()) {
+            ItemStack held = client.player.getMainHandStack();
+            if (!held.isEmpty()) {
+                drawSlot(context, held, bx, by + drawn * (SLOT_SIZE + SLOT_GAP));
+                drawn++;
+            }
         }
 
         this.height = Math.max(drawn * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP, SLOT_SIZE);
@@ -70,11 +76,10 @@ public class ArmorModule extends HudModule {
             int color = getDurabilityColor(ratio);
 
             int barY = y + ITEM_SIZE + 1;
-            // Bar background (dark)
-            context.fill(x, barY, x + BAR_WIDTH, barY + BAR_HEIGHT, 0xFF222222);
-            // Bar fill (colored by durability)
+            int bh = barHeight.get();
+            context.fill(x, barY, x + BAR_WIDTH, barY + bh, 0xFF222222);
             int fillW = Math.max(1, (int) (BAR_WIDTH * ratio));
-            context.fill(x, barY, x + fillW, barY + BAR_HEIGHT, color);
+            context.fill(x, barY, x + fillW, barY + bh, color);
         }
     }
 

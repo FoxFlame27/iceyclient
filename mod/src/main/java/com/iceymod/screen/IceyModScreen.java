@@ -20,6 +20,7 @@ public class IceyModScreen extends Screen {
     private static HudModule.Category currentFilter = null; // null = ALL
     private static int page = 0;
     private static int selectedIndex = 0;
+    private static boolean settingsMode = false;
 
     private int gridCols = 4;
     private int gridRows = 5;
@@ -111,14 +112,25 @@ public class IceyModScreen extends Screen {
             ButtonWidget btn = ButtonWidget.builder(
                     getModuleText(module, thisIdx == selectedIndex),
                     b -> {
-                        module.toggle();
                         selectedIndex = thisIdx;
-                        b.setMessage(getModuleText(module, true));
+                        if (settingsMode) {
+                            client.setScreen(new ModuleSettingsScreen(module, this));
+                        } else {
+                            module.toggle();
+                            b.setMessage(getModuleText(module, true));
+                        }
                     }
             ).dimensions(x, y, btnW, btnH).build();
             addDrawableChild(btn);
             moduleButtons.add(btn);
         }
+
+        // Gear icon (settings mode toggle) — top-right corner
+        ButtonWidget gear = ButtonWidget.builder(
+                Text.literal(settingsMode ? "\u00A7b\u00A7l\u2699 ON" : "\u2699"),
+                b -> { settingsMode = !settingsMode; rebuild(); }
+        ).dimensions(this.width - 50, 10, 40, 20).build();
+        addDrawableChild(gear);
 
         // Pagination row
         int paginationY = sh - bottomReserved + 4;
@@ -167,8 +179,11 @@ public class IceyModScreen extends Screen {
     }
 
     private Text getModuleText(HudModule module, boolean selected) {
-        String state = module.isEnabled() ? "\u00A7aON" : "\u00A7cOFF";
         String prefix = selected ? "\u00A7b\u00BB \u00A7r" : "";
+        if (settingsMode) {
+            return Text.literal(prefix + module.getName() + " \u00A77\u2699");
+        }
+        String state = module.isEnabled() ? "\u00A7aON" : "\u00A7cOFF";
         return Text.literal(prefix + module.getName() + ": " + state);
     }
 
@@ -209,8 +224,13 @@ public class IceyModScreen extends Screen {
         }
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_SPACE) {
             if (selectedIndex >= 0 && selectedIndex < filtered.size()) {
-                filtered.get(selectedIndex).toggle();
-                rebuild();
+                HudModule m = filtered.get(selectedIndex);
+                if (settingsMode) {
+                    client.setScreen(new ModuleSettingsScreen(m, this));
+                } else {
+                    m.toggle();
+                    rebuild();
+                }
             }
             return true;
         }

@@ -11,6 +11,10 @@ import net.minecraft.screen.slot.SlotActionType;
  * your main inventory and nothing useful is there already.
  */
 public class AutoTotemModule extends HudModule {
+    public final com.iceymod.hud.settings.IntSetting minHealth = addSetting(
+            new com.iceymod.hud.settings.IntSetting("minHealth", "Swap Below HP", 20, 1, 20));
+    public final com.iceymod.hud.settings.IntSetting delayMs = addSetting(
+            new com.iceymod.hud.settings.IntSetting("delayMs", "Swap Delay (ms)", 400, 100, 2000, 100));
     private long lastSwapAt = 0;
 
     public AutoTotemModule() {
@@ -28,7 +32,8 @@ public class AutoTotemModule extends HudModule {
         if (client.currentScreen != null) return;
 
         long now = System.currentTimeMillis();
-        if (now - lastSwapAt < 400) return;
+        if (now - lastSwapAt < delayMs.get()) return;
+        if (client.player.getHealth() > minHealth.get()) return;
 
         ItemStack off = client.player.getOffHandStack();
         if (off.isOf(Items.TOTEM_OF_UNDYING)) return;

@@ -1,7 +1,12 @@
 package com.iceymod.hud;
 
+import com.iceymod.hud.settings.ColorSetting;
+import com.iceymod.hud.settings.Setting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public abstract class HudModule {
     public enum Category {
@@ -16,6 +21,11 @@ public abstract class HudModule {
     protected int width = 80;
     protected int height = 14;
 
+    // Settings — universal ones every module gets, plus subclass-added ones.
+    protected final List<Setting<?>> settings = new ArrayList<>();
+    public final ColorSetting textColor = addSetting(new ColorSetting("textColor", "Text Color", 0xFFFFFFFF));
+    public final ColorSetting barColor  = addSetting(new ColorSetting("barColor",  "Bar Color",  0xFF5BC8F5));
+
     public HudModule(String id, String name, int defaultX, int defaultY) {
         this.id = id;
         this.name = name;
@@ -23,6 +33,13 @@ public abstract class HudModule {
         this.y = defaultY;
         this.enabled = true;
     }
+
+    protected <S extends Setting<?>> S addSetting(S s) {
+        settings.add(s);
+        return s;
+    }
+
+    public List<Setting<?>> getSettings() { return settings; }
 
     public Category getCategory() {
         return Category.INFO;
@@ -34,7 +51,7 @@ public abstract class HudModule {
     public abstract String getText(MinecraftClient client);
 
     /**
-     * Render this module on screen. Override for custom drawing (keystrokes, armor, etc).
+     * Render this module on screen. Override for custom drawing.
      */
     public void render(DrawContext context, MinecraftClient client) {
         if (!enabled) return;
@@ -45,17 +62,13 @@ public abstract class HudModule {
         this.width = textWidth + 10;
         this.height = 14;
 
-        // Semi-transparent background
         context.fill(x, y, x + width, y + height, 0x90000000);
-        // Left accent bar (icy blue)
-        context.fill(x, y, x + 2, y + height, 0xFF5BC8F5);
-        // Text with shadow
-        context.drawTextWithShadow(client.textRenderer, text, x + 6, y + 3, 0xFFFFFFFF);
+        context.fill(x, y, x + 2, y + height, barColor.get());
+        context.drawTextWithShadow(client.textRenderer, text, x + 6, y + 3, textColor.get());
     }
 
     public void tick() {}
 
-    // --- Getters / Setters ---
     public String getId() { return id; }
     public String getName() { return name; }
     public boolean isEnabled() { return enabled; }
