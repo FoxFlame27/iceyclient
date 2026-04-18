@@ -29,13 +29,13 @@ jobs:
           foreach ($r in $urls) {
             $dst = "$cacheDir\$($r.Name).7z"
             for ($i = 1; $i -le 5; $i++) {
-              Write-Host "Attempt $i: $($r.Name)"
+              Write-Host ("Attempt {0}: {1}" -f $i, $r.Name)
               try {
                 Invoke-WebRequest -Uri $r.Url -OutFile $dst -UseBasicParsing -TimeoutSec 120
-                Write-Host "  OK ($((Get-Item $dst).Length) bytes)"
+                Write-Host ("  OK ({0} bytes)" -f (Get-Item $dst).Length)
                 break
               } catch {
-                Write-Host "  Failed: $_"
+                Write-Host ("  Failed: {0}" -f $_.Exception.Message)
                 Start-Sleep -Seconds 10
               }
             }
@@ -44,10 +44,10 @@ jobs:
         shell: pwsh
         run: |
           for ($i = 1; $i -le 3; $i++) {
-            Write-Host "electron-builder attempt $i"
+            Write-Host ("electron-builder attempt {0}" -f $i)
             npx electron-builder --win --publish never
             if ($LASTEXITCODE -eq 0) { break }
-            Write-Host "Attempt $i failed, retrying in 15s..."
+            Write-Host ("Attempt {0} failed, retrying in 15s..." -f $i)
             Start-Sleep -Seconds 15
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
