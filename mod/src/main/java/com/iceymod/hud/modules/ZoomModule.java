@@ -24,6 +24,9 @@ public class ZoomModule extends HudModule {
     @Override
     public Category getCategory() { return Category.COMBAT; }
 
+    @Override
+    protected boolean shouldShowStyleSettings() { return false; }
+
     public void setZooming(boolean z) { this.zooming = z; }
     public boolean isZooming() { return zooming; }
 

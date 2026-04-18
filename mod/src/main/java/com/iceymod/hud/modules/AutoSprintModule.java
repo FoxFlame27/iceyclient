@@ -17,6 +17,9 @@ public class AutoSprintModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
+    protected boolean shouldShowStyleSettings() { return false; }
+
+    @Override
     public void setEnabled(boolean enabled) {
         if (!enabled) {
             MinecraftClient client = MinecraftClient.getInstance();

@@ -17,6 +17,9 @@ public class PerspectiveModule extends HudModule {
     @Override
     public Category getCategory() { return Category.COMBAT; }
 
+    @Override
+    protected boolean shouldShowStyleSettings() { return false; }
+
     public void cyclePerspective() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options == null) return;

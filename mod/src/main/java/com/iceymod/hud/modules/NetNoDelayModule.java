@@ -18,6 +18,9 @@ public class NetNoDelayModule extends HudModule {
     public Category getCategory() { return Category.OPTIMIZATION; }
 
     @Override
+    protected boolean shouldShowStyleSettings() { return false; }
+
+    @Override
     public void tick() {
         if (applied) return;
         try {

@@ -23,6 +23,9 @@ public class FullBrightModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
+    protected boolean shouldShowStyleSettings() { return false; }
+
+    @Override
     public void setEnabled(boolean enabled) {
         if (!enabled && savedGamma != null) {
             MinecraftClient client = MinecraftClient.getInstance();

@@ -21,10 +21,14 @@ public abstract class HudModule {
     protected int width = 80;
     protected int height = 14;
 
-    // Settings — universal ones every module gets, plus subclass-added ones.
+    // Settings list — subclasses add their own options here.
     protected final List<Setting<?>> settings = new ArrayList<>();
-    public final ColorSetting textColor = addSetting(new ColorSetting("textColor", "Text Color", 0xFFFFFFFF));
-    public final ColorSetting barColor  = addSetting(new ColorSetting("barColor",  "Bar Color",  0xFF5BC8F5));
+    // textColor / barColor are conditionally registered: invisible modules
+    // (Full Bright, Auto Sprint, etc.) don't need them, so they don't show up
+    // in the settings screen. Instances still exist for modules that DO
+    // use the default render().
+    public final ColorSetting textColor = new ColorSetting("textColor", "Text Color", 0xFFFFFFFF);
+    public final ColorSetting barColor  = new ColorSetting("barColor",  "Bar Color",  0xFF5BC8F5);
 
     public HudModule(String id, String name, int defaultX, int defaultY) {
         this.id = id;
@@ -32,7 +36,18 @@ public abstract class HudModule {
         this.x = defaultX;
         this.y = defaultY;
         this.enabled = true;
+        if (shouldShowStyleSettings()) {
+            settings.add(textColor);
+            settings.add(barColor);
+        }
     }
+
+    /**
+     * Whether this module should expose the universal Text Color / Bar Color
+     * settings. Invisible modules (FullBright, AutoSprint, Net*, FpsBoost*, etc.)
+     * override to false.
+     */
+    protected boolean shouldShowStyleSettings() { return true; }
 
     protected <S extends Setting<?>> S addSetting(S s) {
         settings.add(s);

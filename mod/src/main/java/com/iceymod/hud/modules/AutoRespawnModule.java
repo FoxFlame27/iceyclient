@@ -18,6 +18,9 @@ public class AutoRespawnModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
+    protected boolean shouldShowStyleSettings() { return false; }
+
+    @Override
     public void tick() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.currentScreen instanceof DeathScreen && client.player != null) {

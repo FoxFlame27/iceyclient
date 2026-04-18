@@ -1,11 +1,13 @@
 package com.iceymod.screen;
 
+import com.iceymod.IceyMod;
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -20,13 +22,17 @@ public class IceyModScreen extends Screen {
     private static HudModule.Category currentFilter = null; // null = ALL
     private static int page = 0;
     private static int selectedIndex = 0;
-    private static boolean settingsMode = false;
+    // Instance field so settings mode resets every time the menu is reopened.
+    private boolean settingsMode = false;
 
     private int gridCols = 4;
     private int gridRows = 5;
     private int perPage = 20;
     private List<HudModule> filtered = new ArrayList<>();
     private final List<ButtonWidget> moduleButtons = new ArrayList<>();
+
+    private static final Identifier GEAR_TEXTURE = Identifier.of(IceyMod.MOD_ID, "textures/gui/gear.png");
+    private int gearX, gearY, gearW, gearH;
 
     public IceyModScreen() {
         super(Text.literal("Icey Client"));
@@ -125,11 +131,15 @@ public class IceyModScreen extends Screen {
             moduleButtons.add(btn);
         }
 
-        // Gear icon (settings mode toggle) — top-right corner
+        // Gear icon (settings mode toggle) — top-right corner, renders as a texture
+        gearW = 28;
+        gearH = 28;
+        gearX = this.width - gearW - 10;
+        gearY = 10;
         ButtonWidget gear = ButtonWidget.builder(
-                Text.literal(settingsMode ? "\u00A7b\u00A7l\u2699 ON" : "\u2699"),
+                Text.literal(""),
                 b -> { settingsMode = !settingsMode; rebuild(); }
-        ).dimensions(this.width - 50, 10, 40, 20).build();
+        ).dimensions(gearX, gearY, gearW, gearH).build();
         addDrawableChild(gear);
 
         // Pagination row
@@ -289,6 +299,13 @@ public class IceyModScreen extends Screen {
         context.drawCenteredTextWithShadow(this.textRenderer,
                 "\u00A7b\u00A7lIcey Client \u00A77" + HudManager.getModules().size() + " modules",
                 this.width / 2, 10, 0xFFFFFFFF);
+
+        // Draw gear icon texture over the invisible button
+        context.drawTexturedQuad(GEAR_TEXTURE, gearX, gearX + gearW, gearY, gearY + gearH, 0, 0, 1, 1);
+        if (settingsMode) {
+            context.drawCenteredTextWithShadow(this.textRenderer, "\u00A7b\u00A7lON",
+                    gearX + gearW / 2, gearY + gearH + 2, 0xFFFFFFFF);
+        }
     }
 
     @Override

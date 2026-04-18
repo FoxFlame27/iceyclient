@@ -23,6 +23,9 @@ public class AutoMaceSwapModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
+    protected boolean shouldShowStyleSettings() { return false; }
+
+    @Override
     public void tick() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
