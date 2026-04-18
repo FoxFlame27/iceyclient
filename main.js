@@ -1311,13 +1311,42 @@ const MS_CLIENT_ID = '00000000402b5328'; // Official Minecraft client ID
 const MS_REDIRECT = 'https://login.live.com/oauth20_desktop.srf';
 const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
 
-function readAuth() {
+/**
+ * Auth store schema: { activeUuid: string, accounts: [{username, uuid, accessToken, refreshToken, skinUrl, expiresAt}] }
+ * readAuthStore() returns the full store. readAuth() returns the currently active account for backwards compat.
+ */
+function readAuthStore() {
   try {
-    if (fs.existsSync(AUTH_FILE)) return JSON.parse(fs.readFileSync(AUTH_FILE, 'utf-8'));
-  } catch (_) {}
-  return null;
+    if (!fs.existsSync(AUTH_FILE)) return { activeUuid: null, accounts: [] };
+    const raw = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf-8'));
+    // Migrate old single-account format
+    if (raw && raw.accessToken && raw.uuid && !raw.accounts) {
+      return { activeUuid: raw.uuid, accounts: [raw] };
+    }
+    if (!raw || !Array.isArray(raw.accounts)) return { activeUuid: null, accounts: [] };
+    return { activeUuid: raw.activeUuid || (raw.accounts[0]?.uuid ?? null), accounts: raw.accounts };
+  } catch (_) {
+    return { activeUuid: null, accounts: [] };
+  }
 }
-function writeAuth(data) { writeJsonAtomic(AUTH_FILE, data); }
+
+function writeAuthStore(store) { writeJsonAtomic(AUTH_FILE, store); }
+
+function readAuth() {
+  const store = readAuthStore();
+  if (!store.activeUuid) return null;
+  return store.accounts.find(a => a.uuid === store.activeUuid) || null;
+}
+
+function upsertAccount(account) {
+  const store = readAuthStore();
+  const idx = store.accounts.findIndex(a => a.uuid === account.uuid);
+  if (idx >= 0) store.accounts[idx] = account;
+  else store.accounts.push(account);
+  store.activeUuid = account.uuid;
+  writeAuthStore(store);
+  return store;
+}
 
 async function httpPost(url, body, contentType = 'application/x-www-form-urlencoded') {
   return new Promise((resolve, reject) => {
@@ -1414,7 +1443,7 @@ async function exchangeMicrosoftTokens(code) {
     refreshToken: msToken.refresh_token || null,
     expiresAt: Date.now() + (mcRes.expires_in || 86400) * 1000
   };
-  writeAuth(authData);
+  upsertAccount(authData);
   return authData;
 }
 
@@ -2313,7 +2342,12 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('ms-logout', () => {
-    try { if (fs.existsSync(AUTH_FILE)) fs.unlinkSync(AUTH_FILE); } catch (_) {}
+    // Legacy endpoint: remove the currently-active account only
+    const store = readAuthStore();
+    if (!store.activeUuid) { try { if (fs.existsSync(AUTH_FILE)) fs.unlinkSync(AUTH_FILE); } catch (_) {} return { success: true }; }
+    store.accounts = store.accounts.filter(a => a.uuid !== store.activeUuid);
+    store.activeUuid = store.accounts[0]?.uuid || null;
+    writeAuthStore(store);
     return { success: true };
   });
 
@@ -2323,6 +2357,37 @@ app.whenReady().then(() => {
       return null; // Expired
     }
     return auth;
+  });
+
+  // Multi-account support
+  ipcMain.handle('get-accounts', () => {
+    const store = readAuthStore();
+    return {
+      activeUuid: store.activeUuid,
+      accounts: store.accounts.map(a => ({
+        username: a.username,
+        uuid: a.uuid,
+        skinUrl: a.skinUrl || null,
+        expired: !!(a.expiresAt && Date.now() > a.expiresAt)
+      }))
+    };
+  });
+
+  ipcMain.handle('switch-account', (_, uuid) => {
+    const store = readAuthStore();
+    if (!store.accounts.find(a => a.uuid === uuid)) return { error: 'Account not found' };
+    store.activeUuid = uuid;
+    writeAuthStore(store);
+    const active = store.accounts.find(a => a.uuid === uuid);
+    return { success: true, active: { username: active.username, uuid: active.uuid, skinUrl: active.skinUrl || null } };
+  });
+
+  ipcMain.handle('remove-account', (_, uuid) => {
+    const store = readAuthStore();
+    store.accounts = store.accounts.filter(a => a.uuid !== uuid);
+    if (store.activeUuid === uuid) store.activeUuid = store.accounts[0]?.uuid || null;
+    writeAuthStore(store);
+    return { success: true, activeUuid: store.activeUuid };
   });
 
   ipcMain.handle('upload-skin', async (_, skinPath, variant) => {

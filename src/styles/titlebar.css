@@ -137,6 +137,79 @@
   color: var(--red);
 }
 
+.titlebar-dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+  opacity: 0.5;
+}
+
+.titlebar-accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.titlebar-account-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.titlebar-account-switch {
+  flex: 1;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  text-align: left !important;
+  padding: 6px 8px !important;
+}
+
+.titlebar-account-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.titlebar-account-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.titlebar-account-badge {
+  padding: 1px 6px;
+  background: rgba(239,68,68,0.15);
+  color: #f87171;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.titlebar-account-remove {
+  width: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+.titlebar-account-remove:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: var(--red-glow);
+}
+
 .titlebar-login-btn {
   padding: 6px 14px;
   border-radius: 8px;

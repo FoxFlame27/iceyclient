@@ -87,20 +87,70 @@ async function loadNavProfile() {
   }
 }
 
-function _updateProfileDropdown(auth) {
+async function _updateProfileDropdown(auth) {
   const dropdown = document.getElementById('titlebar-profile-dropdown');
   if (!dropdown || !auth) return;
+
+  let accountsData = { activeUuid: null, accounts: [] };
+  try { accountsData = await window.icey.getAccounts(); } catch (_) {}
+  const others = (accountsData.accounts || []).filter(a => a.uuid !== accountsData.activeUuid);
+
+  const otherAccountsHtml = others.map(a => `
+    <div class="titlebar-account-row">
+      <button class="titlebar-dropdown-btn titlebar-account-switch" onclick="_switchAccount('${_escapeAttr(a.uuid)}')">
+        <img class="titlebar-account-avatar" src="https://mineskin.eu/helm/${_escapeAttr(a.username)}/22.png" alt="">
+        <span class="titlebar-account-name">${_escapeHtml(a.username)}</span>
+        ${a.expired ? '<span class="titlebar-account-badge">expired</span>' : ''}
+      </button>
+      <button class="titlebar-account-remove" title="Remove" onclick="event.stopPropagation(); _removeAccount('${_escapeAttr(a.uuid)}')">&times;</button>
+    </div>
+  `).join('');
+
   dropdown.innerHTML = `
     <div class="titlebar-dropdown-user">
-      <img class="titlebar-dropdown-avatar" src="https://mineskin.eu/helm/${auth.username}/36.png" alt="">
+      <img class="titlebar-dropdown-avatar" src="https://mineskin.eu/helm/${_escapeAttr(auth.username)}/36.png" alt="">
       <div class="titlebar-dropdown-info">
-        <div class="titlebar-dropdown-name">${auth.username}</div>
-        <div class="titlebar-dropdown-label">Microsoft Account</div>
+        <div class="titlebar-dropdown-name">${_escapeHtml(auth.username)}</div>
+        <div class="titlebar-dropdown-label">Active Account</div>
       </div>
     </div>
+    ${others.length > 0 ? `<div class="titlebar-dropdown-divider"></div><div class="titlebar-accounts-list">${otherAccountsHtml}</div>` : ''}
+    <div class="titlebar-dropdown-divider"></div>
+    <button class="titlebar-dropdown-btn" onclick="_addAccount()">+ Add Account</button>
     <button class="titlebar-dropdown-btn" onclick="switchPage('skins'); _toggleProfileDropdown();">Manage Skin</button>
-    <button class="titlebar-dropdown-btn logout" onclick="_navLogout()">Log Out</button>
+    <button class="titlebar-dropdown-btn logout" onclick="_navLogout()">Log Out of ${_escapeHtml(auth.username)}</button>
   `;
+}
+
+function _escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function _escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+async function _addAccount() {
+  _toggleProfileDropdown();
+  const result = await window.icey.msLogin();
+  if (result.error) {
+    Toast.error(result.error);
+  } else {
+    Toast.success('Added ' + result.username);
+    await SettingsManager.set('username', result.username);
+    loadNavProfile();
+  }
+}
+
+async function _switchAccount(uuid) {
+  const result = await window.icey.switchAccount(uuid);
+  if (result.error) { Toast.error(result.error); return; }
+  Toast.success('Switched to ' + result.active.username);
+  await SettingsManager.set('username', result.active.username);
+  _toggleProfileDropdown();
+  loadNavProfile();
+}
+
+async function _removeAccount(uuid) {
+  const result = await window.icey.removeAccount(uuid);
+  if (result.error) { Toast.error(result.error); return; }
+  Toast.info('Account removed');
+  loadNavProfile();
 }
 
 function _toggleProfileDropdown() {
