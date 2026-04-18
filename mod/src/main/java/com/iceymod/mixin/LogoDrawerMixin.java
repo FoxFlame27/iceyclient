@@ -24,10 +24,14 @@ public abstract class LogoDrawerMixin {
 
     @Inject(method = "draw(Lnet/minecraft/client/gui/DrawContext;IFI)V", at = @At("HEAD"), cancellable = true)
     private void iceymod$replaceLogo(DrawContext context, int screenWidth, float horizontalAlphaMultiplier, int yOffset, CallbackInfo ci) {
-        int targetW = 320;
+        // Smaller than before and sits ABOVE the Single Player button.
+        int targetW = 200;
         int targetH = (int) ((long) targetW * SRC_H / SRC_W);
         int x = screenWidth / 2 - targetW / 2;
-        int y = LogoDrawer.LOGO_BASE_Y + yOffset - 14;
+        // LOGO_BASE_Y is where vanilla puts the top of the MINECRAFT logo.
+        // Start a bit higher so the whole logo is clearly above the button row.
+        int y = LogoDrawer.LOGO_BASE_Y + yOffset - 30;
+        if (y < 4) y = 4;
         context.drawTexture(
                 RenderPipelines.GUI_TEXTURED,
                 ICEY_LOGO,

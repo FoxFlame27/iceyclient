@@ -111,17 +111,8 @@ public class IceyMod implements ClientModInitializer {
         });
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            if (screen instanceof TitleScreen) {
-                ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
-                    int sw = client.getWindow().getScaledWidth();
-                    int sh = client.getWindow().getScaledHeight();
-                    int logoW = 200;
-                    int logoH = 40;
-                    int x = sw - logoW - 8;
-                    int y = sh - logoH - 8;
-                    ctx.drawTexture(RenderPipelines.GUI_TEXTURED, LOGO_TEXTURE, x, y, 0f, 0f, logoW, logoH, logoW, logoH);
-                });
-            }
+            // Title screen: no extra corner logo — the Icey Client logo is already drawn
+            // in place of the vanilla MINECRAFT logo by LogoDrawerMixin.
 
             if (screen instanceof HandledScreen) {
                 ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
