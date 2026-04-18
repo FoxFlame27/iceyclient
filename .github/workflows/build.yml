@@ -16,7 +16,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - name: npm install (with retry)
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 4; $i++) {
+            Write-Host ("npm install attempt {0}" -f $i)
+            npm install
+            if ($LASTEXITCODE -eq 0) { break }
+            Write-Host ("Attempt {0} failed, retrying in 20s..." -f $i)
+            Start-Sleep -Seconds 20
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Pre-download NSIS resources (mitigates GitHub CDN 504s)
         shell: pwsh
         run: |
@@ -68,8 +78,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
-      - run: npx electron-builder --mac --publish never
+      - name: npm install (with retry)
+        run: |
+          for i in 1 2 3 4; do
+            echo "npm install attempt $i"
+            if npm install; then
+              echo "OK"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 20s..."
+            sleep 20
+          done
+          exit 1
+      - name: electron-builder (with retry)
+        run: |
+          for i in 1 2 3; do
+            echo "electron-builder attempt $i"
+            if npx electron-builder --mac --publish never; then
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -88,7 +119,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - name: npm install (with retry)
+        run: |
+          for i in 1 2 3 4; do
+            echo "npm install attempt $i"
+            if npm install; then
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 20s..."
+            sleep 20
+          done
+          exit 1
       - name: Install fpm dependencies
         run: sudo apt-get update && sudo apt-get install -y libcrypt1 rpm
       - name: Pre-download Electron arm64 with retries

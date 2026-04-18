@@ -117,12 +117,14 @@ public class IceyMod implements ClientModInitializer {
             if (screen instanceof HandledScreen) {
                 ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
                     int sw = client.getWindow().getScaledWidth();
-                    int logoW = 160;
-                    int logoH = 32;
-                    int x = (sw - logoW) / 2;
                     int windowTop = (scr.height - 166) / 2;
-                    int y = Math.max(2, windowTop - logoH - 4);
-                    ctx.drawTexture(RenderPipelines.GUI_TEXTURED, LOGO_TEXTURE, x, y, 0f, 0f, logoW, logoH, logoW, logoH);
+                    int y = Math.max(2, windowTop - 14);
+                    ctx.drawCenteredTextWithShadow(
+                            client.textRenderer,
+                            net.minecraft.text.Text.literal("\u00A7b\u00A7lIcey Client"),
+                            sw / 2, y,
+                            0xFFFFFFFF
+                    );
                 });
             }
         });
