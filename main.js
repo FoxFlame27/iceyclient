@@ -1246,10 +1246,15 @@ function launchMinecraft(installationId) {
         mcProcesses.delete(launchId);
         if (mainWindow) {
           mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code, launchId });
-          // SIGTERM (143) / SIGINT (130) / user kill (null) are normal closes,
-          // anything else = crash. Ship the tail so the renderer can show it.
-          const clean = code === 0 || code === null || code === 143 || code === 130;
-          if (!clean) {
+
+          // Only surface a crash modal if the exit *looks* like a crash.
+          // Normal closes can produce many different codes across platforms
+          // (Windows JVM sometimes returns 1 even on a clean window-close),
+          // so we also require the tail to contain error-like output.
+          const cleanCode = code === 0 || code === null || code === 143 || code === 130;
+          const lastLines = tail.slice(-60).join('\n');
+          const looksLikeCrash = /(Exception|Error|SEVERE|Traceback|crash-reports?|Minecraft has crashed|OutOfMemory|SIGSEGV)/i.test(lastLines);
+          if (!cleanCode && looksLikeCrash) {
             mainWindow.webContents.send('mc-event', {
               type: 'mc-crashed',
               launchId,
@@ -1257,6 +1262,8 @@ function launchMinecraft(installationId) {
               username: launchUsername,
               tail: tail.slice(-60),
             });
+          } else if (!cleanCode) {
+            log('info', `MC #${launchId} exit code ${code} but tail has no crash markers — suppressing crash modal.`);
           }
         }
       });
