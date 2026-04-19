@@ -62,8 +62,8 @@ async function loadNavProfile() {
   if (container) {
     if (auth && auth.username) {
       container.innerHTML = `
-        <img class="nav-profile-avatar" src="https://mineskin.eu/helm/${auth.username}/40.png" alt="${auth.username}" title="${auth.username}" onclick="switchPage('skins')">
-        <div class="nav-profile-name">${auth.username}</div>
+        <img class="nav-profile-avatar" src="https://mineskin.eu/helm/${auth.username}/40.png" alt="${auth.username}" title="Click to switch account" onclick="_toggleProfileDropdown()">
+        <div class="nav-profile-name" onclick="_toggleProfileDropdown()" style="cursor:pointer">${auth.username}</div>
       `;
     } else {
       container.innerHTML = `
@@ -211,10 +211,14 @@ function _toggleProfileDropdown() {
 // Close dropdown when clicking outside
 document.addEventListener('click', (e) => {
   const dropdown = document.getElementById('titlebar-profile-dropdown');
-  const head = document.querySelector('.titlebar-profile-head');
-  if (dropdown && !dropdown.contains(e.target) && e.target !== head) {
-    dropdown.classList.add('hidden');
-  }
+  if (!dropdown) return;
+  const titlebarHead = document.querySelector('.titlebar-profile-head');
+  const navAvatar = document.querySelector('.nav-profile-avatar');
+  const navName = document.querySelector('#nav-profile .nav-profile-name');
+  const target = e.target;
+  if (dropdown.contains(target)) return;
+  if (target === titlebarHead || target === navAvatar || target === navName) return;
+  dropdown.classList.add('hidden');
 });
 
 async function _navLogin() {
