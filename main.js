@@ -1089,12 +1089,29 @@ function launchMinecraft(installationId) {
     if (settings.jvmArgs) args.push(...settings.jvmArgs.split(/\s+/).filter(Boolean));
     args.push('-cp', classpath);
     args.push(mainClass);
-    // Use Microsoft auth if available
+    // Choose auth based on active account: Microsoft (with valid token) or offline/cracked
     const auth = readAuth();
-    const launchUsername = (auth && auth.username) ? auth.username : username;
-    const launchUuid = (auth && auth.uuid) ? auth.uuid : uuid;
-    const launchToken = (auth && auth.accessToken && auth.expiresAt > Date.now()) ? auth.accessToken : '0';
-    const launchUserType = launchToken !== '0' ? 'msa' : 'legacy';
+    let launchUsername, launchUuid, launchToken, launchUserType;
+    if (auth && auth.type === 'offline') {
+      // Cracked/offline account — always legacy with deterministic offline UUID
+      launchUsername = auth.username || username;
+      launchUuid = offlineUuid(launchUsername);
+      launchToken = '0';
+      launchUserType = 'legacy';
+    } else if (auth && auth.accessToken && auth.expiresAt > Date.now()) {
+      // Valid Microsoft session
+      launchUsername = auth.username;
+      launchUuid = auth.uuid;
+      launchToken = auth.accessToken;
+      launchUserType = 'msa';
+    } else {
+      // No active account (or expired) — fall back to settings as vanilla-offline
+      launchUsername = username;
+      launchUuid = offlineUuid(launchUsername);
+      launchToken = '0';
+      launchUserType = 'legacy';
+    }
+    log('info', `[LAUNCH] Auth: ${launchUsername} (${launchUserType})`);
 
     // Game args
     args.push('--username', launchUsername);
@@ -1315,16 +1332,29 @@ const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
  * Auth store schema: { activeUuid: string, accounts: [{username, uuid, accessToken, refreshToken, skinUrl, expiresAt}] }
  * readAuthStore() returns the full store. readAuth() returns the currently active account for backwards compat.
  */
+const MAX_ACCOUNTS = 5;
+
+function offlineUuid(username) {
+  // Matches vanilla offline UUID: UUID.nameUUIDFromBytes("OfflinePlayer:" + name)
+  const hash = crypto.createHash('md5').update('OfflinePlayer:' + username, 'utf8').digest();
+  hash[6] = (hash[6] & 0x0F) | 0x30; // version 3
+  hash[8] = (hash[8] & 0x3F) | 0x80; // variant
+  const hex = hash.toString('hex');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+}
+
 function readAuthStore() {
   try {
     if (!fs.existsSync(AUTH_FILE)) return { activeUuid: null, accounts: [] };
     const raw = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf-8'));
     // Migrate old single-account format
     if (raw && raw.accessToken && raw.uuid && !raw.accounts) {
-      return { activeUuid: raw.uuid, accounts: [raw] };
+      return { activeUuid: raw.uuid, accounts: [{ ...raw, type: raw.type || 'microsoft' }] };
     }
     if (!raw || !Array.isArray(raw.accounts)) return { activeUuid: null, accounts: [] };
-    return { activeUuid: raw.activeUuid || (raw.accounts[0]?.uuid ?? null), accounts: raw.accounts };
+    // Fill in missing type field on legacy entries
+    const accounts = raw.accounts.map(a => ({ ...a, type: a.type || 'microsoft' }));
+    return { activeUuid: raw.activeUuid || (accounts[0]?.uuid ?? null), accounts };
   } catch (_) {
     return { activeUuid: null, accounts: [] };
   }
@@ -1341,8 +1371,14 @@ function readAuth() {
 function upsertAccount(account) {
   const store = readAuthStore();
   const idx = store.accounts.findIndex(a => a.uuid === account.uuid);
-  if (idx >= 0) store.accounts[idx] = account;
-  else store.accounts.push(account);
+  if (idx >= 0) {
+    store.accounts[idx] = account;
+  } else {
+    if (store.accounts.length >= MAX_ACCOUNTS) {
+      throw new Error('Max ' + MAX_ACCOUNTS + ' accounts. Remove one first.');
+    }
+    store.accounts.push(account);
+  }
   store.activeUuid = account.uuid;
   writeAuthStore(store);
   return store;
@@ -2334,6 +2370,12 @@ app.whenReady().then(() => {
 
   // Microsoft Auth
   ipcMain.handle('ms-login', async () => {
+    const existing = readAuthStore();
+    if (existing.accounts.length >= MAX_ACCOUNTS) {
+      // Allow only if we'd just be updating an existing account (same uuid after login)
+      // — we only know after login, so just return the friendly error up-front.
+      return { error: 'Max ' + MAX_ACCOUNTS + ' accounts saved. Remove one first.' };
+    }
     try {
       return await microsoftLogin();
     } catch (e) {
@@ -2364,13 +2406,30 @@ app.whenReady().then(() => {
     const store = readAuthStore();
     return {
       activeUuid: store.activeUuid,
+      maxAccounts: MAX_ACCOUNTS,
       accounts: store.accounts.map(a => ({
         username: a.username,
         uuid: a.uuid,
         skinUrl: a.skinUrl || null,
-        expired: !!(a.expiresAt && Date.now() > a.expiresAt)
+        type: a.type || 'microsoft',
+        expired: a.type === 'offline' ? false : !!(a.expiresAt && Date.now() > a.expiresAt)
       }))
     };
+  });
+
+  ipcMain.handle('add-offline-account', (_, username) => {
+    try {
+      const name = String(username || '').trim();
+      if (!name) return { error: 'Username required' };
+      if (name.length > 16) return { error: 'Username max 16 chars' };
+      if (!/^[A-Za-z0-9_]{1,16}$/.test(name)) return { error: 'Only letters, digits, underscore' };
+      const uuid = offlineUuid(name);
+      const account = { username: name, uuid, accessToken: '0', type: 'offline' };
+      upsertAccount(account);
+      return { success: true, account };
+    } catch (e) {
+      return { error: e.message };
+    }
   });
 
   ipcMain.handle('switch-account', (_, uuid) => {

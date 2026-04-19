@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('icey', {
   getAccounts: () => ipcRenderer.invoke('get-accounts'),
   switchAccount: (uuid) => ipcRenderer.invoke('switch-account', uuid),
   removeAccount: (uuid) => ipcRenderer.invoke('remove-account', uuid),
+  addOfflineAccount: (username) => ipcRenderer.invoke('add-offline-account', username),
   uploadSkin: (skinPath, variant) => ipcRenderer.invoke('upload-skin', skinPath, variant),
   uploadSkinFromUrl: (url, variant) => ipcRenderer.invoke('upload-skin-from-url', url, variant),
   getMcProfile: () => ipcRenderer.invoke('get-mc-profile'),

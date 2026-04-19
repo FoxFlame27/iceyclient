@@ -210,6 +210,31 @@
   background: var(--red-glow);
 }
 
+.titlebar-account-type {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.titlebar-account-type.ms {
+  background: rgba(91,200,245,0.15);
+  color: var(--accent);
+}
+.titlebar-account-type.offline {
+  background: rgba(251,146,60,0.15);
+  color: #fb923c;
+}
+
+.titlebar-maxed {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 6px;
+  line-height: 1.4;
+}
+
 .titlebar-login-btn {
   padding: 6px 14px;
   border-radius: 8px;

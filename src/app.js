@@ -91,32 +91,46 @@ async function _updateProfileDropdown(auth) {
   const dropdown = document.getElementById('titlebar-profile-dropdown');
   if (!dropdown || !auth) return;
 
-  let accountsData = { activeUuid: null, accounts: [] };
+  let accountsData = { activeUuid: null, accounts: [], maxAccounts: 5 };
   try { accountsData = await window.icey.getAccounts(); } catch (_) {}
   const others = (accountsData.accounts || []).filter(a => a.uuid !== accountsData.activeUuid);
+  const activeFull = (accountsData.accounts || []).find(a => a.uuid === accountsData.activeUuid) || { type: 'microsoft' };
+  const atMax = (accountsData.accounts?.length || 0) >= (accountsData.maxAccounts || 5);
+
+  const typeBadge = (type) => type === 'offline'
+    ? '<span class="titlebar-account-type offline">Cracked</span>'
+    : '<span class="titlebar-account-type ms">MS</span>';
 
   const otherAccountsHtml = others.map(a => `
     <div class="titlebar-account-row">
       <button class="titlebar-dropdown-btn titlebar-account-switch" onclick="_switchAccount('${_escapeAttr(a.uuid)}')">
         <img class="titlebar-account-avatar" src="https://mineskin.eu/helm/${_escapeAttr(a.username)}/22.png" alt="">
         <span class="titlebar-account-name">${_escapeHtml(a.username)}</span>
+        ${typeBadge(a.type)}
         ${a.expired ? '<span class="titlebar-account-badge">expired</span>' : ''}
       </button>
       <button class="titlebar-account-remove" title="Remove" onclick="event.stopPropagation(); _removeAccount('${_escapeAttr(a.uuid)}')">&times;</button>
     </div>
   `).join('');
 
+  const addButtons = atMax
+    ? `<div class="titlebar-maxed">Max ${accountsData.maxAccounts} accounts. Remove one to add another.</div>`
+    : `
+        <button class="titlebar-dropdown-btn" onclick="_addAccount()">+ Add Microsoft Account</button>
+        <button class="titlebar-dropdown-btn" onclick="_promptAddOffline()">+ Add Cracked Account</button>
+      `;
+
   dropdown.innerHTML = `
     <div class="titlebar-dropdown-user">
       <img class="titlebar-dropdown-avatar" src="https://mineskin.eu/helm/${_escapeAttr(auth.username)}/36.png" alt="">
       <div class="titlebar-dropdown-info">
-        <div class="titlebar-dropdown-name">${_escapeHtml(auth.username)}</div>
+        <div class="titlebar-dropdown-name">${_escapeHtml(auth.username)} ${typeBadge(activeFull.type)}</div>
         <div class="titlebar-dropdown-label">Active Account</div>
       </div>
     </div>
     ${others.length > 0 ? `<div class="titlebar-dropdown-divider"></div><div class="titlebar-accounts-list">${otherAccountsHtml}</div>` : ''}
     <div class="titlebar-dropdown-divider"></div>
-    <button class="titlebar-dropdown-btn" onclick="_addAccount()">+ Add Account</button>
+    ${addButtons}
     <button class="titlebar-dropdown-btn" onclick="switchPage('skins'); _toggleProfileDropdown();">Manage Skin</button>
     <button class="titlebar-dropdown-btn logout" onclick="_navLogout()">Log Out of ${_escapeHtml(auth.username)}</button>
   `;
@@ -135,6 +149,42 @@ async function _addAccount() {
     await SettingsManager.set('username', result.username);
     loadNavProfile();
   }
+}
+
+function _promptAddOffline() {
+  _toggleProfileDropdown();
+  showModal(`
+    <div class="create-install-modal">
+      <div class="create-modal-header">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div class="create-modal-title">Add Cracked Account</div>
+        <div class="create-modal-subtitle">Offline-mode username. Only works on cracked servers.</div>
+      </div>
+      <div class="create-modal-form">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" id="offline-username-input" placeholder="Steve" maxlength="16" autofocus>
+        </div>
+        <button class="btn-create-submit" onclick="_submitOfflineAccount()">Add Account</button>
+      </div>
+    </div>
+  `);
+  setTimeout(() => {
+    const input = document.getElementById('offline-username-input');
+    if (input) input.focus();
+  }, 50);
+}
+
+async function _submitOfflineAccount() {
+  const input = document.getElementById('offline-username-input');
+  const name = input ? input.value.trim() : '';
+  if (!name) { Toast.error('Enter a username'); return; }
+  const result = await window.icey.addOfflineAccount(name);
+  if (result.error) { Toast.error(result.error); return; }
+  closeModal();
+  Toast.success('Added ' + name + ' (cracked)');
+  await SettingsManager.set('username', name);
+  loadNavProfile();
 }
 
 async function _switchAccount(uuid) {
