@@ -19,8 +19,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class LogoDrawerMixin {
 
     private static final Identifier ICEY_LOGO = Identifier.of(IceyMod.MOD_ID, "textures/gui/title/iceyclient.png");
-    private static final int SRC_W = 612;
-    private static final int SRC_H = 408;
+    private static final int SRC_W = 1536;
+    private static final int SRC_H = 1024;
 
     @Inject(method = "draw(Lnet/minecraft/client/gui/DrawContext;IFI)V", at = @At("HEAD"), cancellable = true)
     private void iceymod$replaceLogo(DrawContext context, int screenWidth, float horizontalAlphaMultiplier, int yOffset, CallbackInfo ci) {
