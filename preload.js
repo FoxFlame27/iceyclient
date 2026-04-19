@@ -3,7 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('icey', {
   // Minecraft
   launchMinecraft: (installationId) => ipcRenderer.invoke('launch-mc', installationId),
-  stopMinecraft: () => ipcRenderer.send('stop-mc'),
+  stopMinecraft: (launchId) => ipcRenderer.send('stop-mc', launchId),
+  getRunningMc: () => ipcRenderer.invoke('get-running-mc'),
   onMcEvent: (callback) => {
     const handler = (_, data) => callback(data);
     ipcRenderer.on('mc-event', handler);

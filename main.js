@@ -8,7 +8,11 @@ const { spawn, execSync } = require('child_process');
 const crypto = require('crypto');
 
 let mainWindow = null;
-let mcProcess = null;
+// Map of active MC processes, keyed by a unique launch id. Multiple instances
+// (one per account/installation) can coexist — launching a new one doesn't
+// terminate the previous.
+const mcProcesses = new Map();
+let mcLaunchCounter = 0;
 
 // ── Paths ──────────────────────────────────────────────
 function getDataDir() {
@@ -1035,11 +1039,33 @@ function launchMinecraft(installationId) {
     const username = settings.username || 'Player';
     const uuid = settings.uuid || crypto.randomUUID();
 
+    // If another MC instance is already running, sanity-check that total Xmx
+    // won't exceed a safe share of system RAM. Just warn — don't block.
+    if (mcProcesses.size > 0) {
+      const totalMcMb = (mcProcesses.size * ram) + ram; // existing + this one
+      const systemMb = Math.floor(os.totalmem() / (1024 * 1024));
+      const safeMb = Math.floor(systemMb * 0.75);
+      if (totalMcMb > safeMb) {
+        const msg = `WARNING: Launching instance #${mcProcesses.size + 1} would allocate ${totalMcMb} MB of Xmx across all MC instances (system has ${systemMb} MB). Consider closing one or lowering RAM per installation to avoid freezing.`;
+        log('warn', msg);
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: msg, level: 'warn' });
+      } else {
+        log('info', `Launching concurrent instance #${mcProcesses.size + 1} (total Xmx ${totalMcMb} / ${systemMb} MB system)`);
+      }
+    }
+
     const args = [];
     // JVM args
     if (process.platform === 'darwin') args.push('-XstartOnFirstThread');
-    args.push(`-Xmx${ram}M`, `-Xms${Math.min(ram, 2048)}M`);
-    // High-performance G1GC tuning (Aikar-style) + network/FPS boosters
+    // Xms kept small (512M) so a second MC instance doesn't commit the full
+    // Xmx upfront — with AlwaysPreTouch removed, memory is allocated lazily
+    // as MC needs it. This is what prevents two instances from freezing the
+    // machine when the total heap would exceed physical RAM.
+    args.push(`-Xmx${ram}M`, `-Xms512M`);
+    // High-performance G1GC tuning (Aikar-style) + network boosters.
+    // NOTE: AlwaysPreTouch intentionally omitted — it forces the JVM to commit
+    // the entire Xmx at startup, which makes running multiple instances very
+    // dangerous on anything under 16-32 GB of RAM.
     args.push(
       '-XX:+UseG1GC',
       '-XX:+ParallelRefProcEnabled',
@@ -1055,7 +1081,6 @@ function launchMinecraft(installationId) {
       '-XX:SurvivorRatio=32',
       '-XX:+PerfDisableSharedMem',
       '-XX:MaxTenuringThreshold=1',
-      '-XX:+AlwaysPreTouch',
       '-XX:+DisableExplicitGC',
       '-XX:+UseStringDeduplication',
       '-Djava.net.preferIPv4Stack=true',
@@ -1130,58 +1155,60 @@ function launchMinecraft(installationId) {
     }
 
     try {
-      mcProcess = spawn(javaPath, args, {
+      const launchId = ++mcLaunchCounter;
+      const proc = spawn(javaPath, args, {
         cwd: installGameDir,
         stdio: 'pipe',
         detached: false,
         windowsHide: false
       });
+      mcProcesses.set(launchId, { proc, installationId, username: launchUsername });
 
-      mcProcess.stdout.on('data', (data) => {
+      proc.stdout.on('data', (data) => {
         const text = data.toString().trim();
         if (text) {
-          log('info', '[MC] ' + text);
+          log('info', `[MC #${launchId} ${launchUsername}] ` + text);
           if (mainWindow) {
-            mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'info' });
+            mainWindow.webContents.send('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'info', launchId });
           }
           if (text.includes('Setting user:') || text.includes('LWJGL') || text.includes('OpenAL')) {
-            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started' });
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started', launchId });
           }
         }
       });
 
-      mcProcess.stderr.on('data', (data) => {
+      proc.stderr.on('data', (data) => {
         const text = data.toString().trim();
         if (text) {
-          log('error', '[MC-ERR] ' + text);
+          log('error', `[MC #${launchId} ${launchUsername}-ERR] ` + text);
           if (mainWindow) {
-            mainWindow.webContents.send('mc-event', { type: 'console-log', message: text, level: 'error' });
+            mainWindow.webContents.send('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'error', launchId });
           }
         }
       });
 
-      mcProcess.on('error', (err) => {
-        log('error', 'MC process error: ' + err.message);
-        mcProcess = null;
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-error', message: err.message });
+      proc.on('error', (err) => {
+        log('error', `MC #${launchId} process error: ` + err.message);
+        mcProcesses.delete(launchId);
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-error', message: err.message, launchId });
       });
 
-      mcProcess.on('close', (code) => {
-        log('info', `MC exited with code ${code}`);
-        mcProcess = null;
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code });
+      proc.on('close', (code) => {
+        log('info', `MC #${launchId} (${launchUsername}) exited with code ${code}`);
+        mcProcesses.delete(launchId);
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code, launchId });
       });
 
       // Signal started quickly
       setTimeout(() => {
-        if (mcProcess && mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started' });
+        if (mcProcesses.has(launchId) && mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started', launchId });
       }, 1500);
 
       if (settings.closeLauncherOnStart) {
         setTimeout(() => { if (mainWindow) mainWindow.hide(); }, 2000);
       }
 
-      resolve({ success: true });
+      resolve({ success: true, launchId });
     } catch (e) {
       log('error', 'Failed to spawn MC: ' + e.message);
       reject(e);
@@ -1578,8 +1605,9 @@ app.whenReady().then(() => {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    if (mcProcess) {
-      try { mcProcess.kill(); } catch (_) { /* */ }
+    for (const [id, entry] of mcProcesses.entries()) {
+      try { entry.proc.kill(); } catch (_) {}
+      mcProcesses.delete(id);
     }
   });
 
@@ -1602,16 +1630,30 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.on('stop-mc', () => {
-    if (mcProcess) {
-      try {
-        mcProcess.kill();
-        mcProcess = null;
-        log('info', 'MC process killed by user');
-      } catch (e) {
-        log('error', 'Failed to kill MC: ' + e.message);
+  ipcMain.on('stop-mc', (_, launchId) => {
+    // If a specific launchId is provided, stop just that one. Otherwise stop all.
+    if (launchId) {
+      const entry = mcProcesses.get(launchId);
+      if (entry) {
+        try { entry.proc.kill(); } catch (_) {}
+        mcProcesses.delete(launchId);
+        log('info', `MC #${launchId} killed by user`);
       }
+    } else {
+      for (const [id, entry] of mcProcesses.entries()) {
+        try { entry.proc.kill(); } catch (_) {}
+        mcProcesses.delete(id);
+      }
+      log('info', 'All MC processes killed by user');
     }
+  });
+
+  ipcMain.handle('get-running-mc', () => {
+    return Array.from(mcProcesses.entries()).map(([id, e]) => ({
+      launchId: id,
+      installationId: e.installationId,
+      username: e.username,
+    }));
   });
 
   // Installations
