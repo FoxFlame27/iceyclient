@@ -1,6 +1,7 @@
 const MinecraftLauncher = {
   _state: 'idle', // idle | starting | running
-  _sessionStart: null,
+  _sessionStart: null,      // kept for getSessionTime UI — tracks the oldest live session
+  _sessions: new Map(),     // launchId -> startTime (ms)
   _timerInterval: null,
   _listeners: [],
   _mcEventCleanup: null,
@@ -10,13 +11,13 @@ const MinecraftLauncher = {
     this._mcEventCleanup = window.icey.onMcEvent((data) => {
       switch (data.type) {
         case 'mc-started':
-          this._setState('running');
+          this._onStarted(data.launchId);
           break;
         case 'mc-stopped':
-          this._setState('idle');
+          this._onStopped(data.launchId);
           break;
         case 'mc-error':
-          this._setState('idle');
+          this._onStopped(data.launchId);
           Toast.error(data.message || 'Minecraft encountered an error');
           break;
         case 'toast':
@@ -24,6 +25,37 @@ const MinecraftLauncher = {
           break;
       }
     });
+  },
+
+  _onStarted(launchId) {
+    // mc-started fires once per matching log line (LWJGL/OpenAL/Setting user:),
+    // so we only record the start the FIRST time for each launchId.
+    const id = launchId || 'legacy';
+    if (!this._sessions.has(id)) {
+      this._sessions.set(id, Date.now());
+    }
+    this._setState('running');
+  },
+
+  _onStopped(launchId) {
+    const id = launchId || 'legacy';
+    const startedAt = this._sessions.get(id);
+    if (startedAt) {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      if (elapsed > 0) {
+        const prev = SettingsManager.get('totalPlaytime') || 0;
+        SettingsManager.set('totalPlaytime', prev + elapsed);
+      }
+      this._sessions.delete(id);
+    }
+    // Only return to idle when ALL instances have stopped.
+    if (this._sessions.size === 0) {
+      this._setState('idle');
+    } else {
+      // Keep in running state for UI.
+      this._sessionStart = Math.min(...this._sessions.values());
+      this._notifyListeners();
+    }
   },
 
   getState() {
@@ -82,16 +114,15 @@ const MinecraftLauncher = {
   },
 
   _setState(state) {
-    const wasRunning = this._state === 'running' && this._sessionStart;
     this._state = state;
     if (state === 'running') {
-      this._sessionStart = Date.now();
-    } else {
-      if (wasRunning) {
-        const elapsed = Math.floor((Date.now() - this._sessionStart) / 1000);
-        const prev = SettingsManager.get('totalPlaytime') || 0;
-        SettingsManager.set('totalPlaytime', prev + elapsed);
+      // Oldest live session determines the timer shown in the UI.
+      if (this._sessions.size > 0) {
+        this._sessionStart = Math.min(...this._sessions.values());
+      } else if (!this._sessionStart) {
+        this._sessionStart = Date.now();
       }
+    } else {
       this._sessionStart = null;
     }
     this._notifyListeners();

@@ -49,6 +49,7 @@ async function _renderMainOptions(page, settings) {
             <div class="options-small-label">Total Playtime</div>
             <div class="options-small-value">${playtimeStr}</div>
           </div>
+          ${auth ? `<button class="options-small-reset" title="Reset" onclick="_optResetPlaytime()">&#x21bb;</button>` : ''}
         </div>
 
         <div class="options-small-card advanced-card" onclick="_optOpenAdvanced()">
@@ -183,6 +184,12 @@ async function _optSelectPanorama(filename) {
 
 async function _optToggleFeature(key, value) {
   await SettingsManager.set(key, value);
+  _optionsRender();
+}
+
+async function _optResetPlaytime() {
+  await SettingsManager.set('totalPlaytime', 0);
+  Toast.info('Playtime reset');
   _optionsRender();
 }
 

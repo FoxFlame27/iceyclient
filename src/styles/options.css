@@ -339,6 +339,22 @@
   font-weight: 600;
   color: var(--text-primary);
 }
+.options-small-reset {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.2s;
+}
+.options-small-reset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 /* Panorama picker card */
 .options-panorama-card {
