@@ -21,7 +21,6 @@ public abstract class SplashTextMixin {
         "icecold!",
         "brrrr!",
         "chilled to perfection!",
-        "colder than your ex's heart",
         "frostbite ready!",
         "no two snowflakes alike!",
         "permafrost certified!",
