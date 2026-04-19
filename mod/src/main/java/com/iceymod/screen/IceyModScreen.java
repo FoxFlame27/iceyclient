@@ -192,7 +192,9 @@ public class IceyModScreen extends Screen {
     private Text getModuleText(HudModule module, boolean selected) {
         String prefix = selected ? "\u00A7b\u00BB \u00A7r" : "";
         if (settingsMode) {
-            return Text.literal(prefix + module.getName() + " \u00A77\u2699");
+            // No icons, no on/off suffix — the top-right gear already tells
+            // you you're in settings mode. Just the clean module name.
+            return Text.literal(prefix + module.getName());
         }
         String state = module.isEnabled() ? "\u00A7aON" : "\u00A7cOFF";
         return Text.literal(prefix + module.getName() + ": " + state);
@@ -301,7 +303,7 @@ public class IceyModScreen extends Screen {
                 "\u00A7b\u00A7lIcey Client \u00A77" + HudManager.getModules().size() + " modules",
                 this.width / 2, 10, 0xFFFFFFFF);
 
-        // Draw gear icon texture over the invisible button
+        // Gear icon texture on top of the invisible button
         context.drawTexture(
                 RenderPipelines.GUI_TEXTURED,
                 GEAR_TEXTURE,
@@ -310,10 +312,10 @@ public class IceyModScreen extends Screen {
                 gearW, gearH,
                 gearW, gearH
         );
-        if (settingsMode) {
-            context.drawCenteredTextWithShadow(this.textRenderer, "\u00A7b\u00A7lON",
-                    gearX + gearW / 2, gearY + gearH + 2, 0xFFFFFFFF);
-        }
+        // Clear ON/OFF label directly below the gear
+        String state = settingsMode ? "\u00A7aON" : "\u00A77OFF";
+        context.drawCenteredTextWithShadow(this.textRenderer, state,
+                gearX + gearW / 2, gearY + gearH + 3, 0xFFFFFFFF);
     }
 
     @Override
