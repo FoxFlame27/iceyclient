@@ -1042,27 +1042,10 @@ function launchMinecraft(installationId) {
         } catch (_) {}
       }
 
-      // 4) Version-check mods (log only — do NOT rename or disable anything).
-      //    The user handles incompatible mods manually via the Mods tab.
-      try {
-        for (const f of fs.readdirSync(modsDir)) {
-          if (!f.endsWith('.jar')) continue;
-          if (/^iceymod/i.test(f) || /^fabric-api/i.test(f) || /skinshuffle/i.test(f)) continue;
-          const jarPath = path.join(modsDir, f);
-          try {
-            const jarBuf = fs.readFileSync(jarPath);
-            const modJson = _extractFileFromZip(jarBuf, 'fabric.mod.json');
-            if (!modJson) continue;
-            const meta = JSON.parse(modJson.toString('utf-8'));
-            const mcConstraint = meta.depends?.minecraft || meta.depends?.['minecraft'];
-            if (!mcConstraint) continue;
-            if (!_satisfiesVersionRange(installation.version, mcConstraint)) {
-              const modName = meta.name || f;
-              log('warn', `Mod "${modName}" may be incompatible (needs MC ${mcConstraint}, have ${installation.version}) — leaving it enabled per user preference.`);
-            }
-          } catch (_) { /* skip unparseable mods */ }
-        }
-      } catch (_) {}
+      // Mod-compatibility check removed entirely — the fabric.mod.json
+      // mcConstraint check produced false positives on mods that actually
+      // work fine across adjacent MC versions. The launcher leaves every
+      // mod file alone; manage them yourself from the Mods tab.
     }
 
     // Build arguments
