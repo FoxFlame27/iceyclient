@@ -38,6 +38,7 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding toggleBrightKey;
     private static KeyBinding toggleTotemKey;
     private static KeyBinding freelookKey;
+    private static KeyBinding copyCoordsKey;
 
     @Override
     public void onInitializeClient() {
@@ -63,6 +64,8 @@ public class IceyMod implements ClientModInitializer {
                 "key.iceymod.toggletotem", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_T, KEY_CATEGORY));
         freelookKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.iceymod.freelook", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, KEY_CATEGORY));
+        copyCoordsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.iceymod.copycoords", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_J, KEY_CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (menuKey.wasPressed()) {
@@ -109,6 +112,20 @@ public class IceyMod implements ClientModInitializer {
                 boolean shouldBeActive = fl.isEnabled() && freelookKey.isPressed();
                 if (shouldBeActive && !FreelookModule.isActive()) flm.start(client);
                 else if (!shouldBeActive && FreelookModule.isActive()) flm.stop(client);
+            }
+
+            // Copy coords to clipboard on key press
+            while (copyCoordsKey.wasPressed()) {
+                if (client.player != null) {
+                    int x = (int) Math.floor(client.player.getX());
+                    int y = (int) Math.floor(client.player.getY());
+                    int z = (int) Math.floor(client.player.getZ());
+                    String coords = x + ", " + y + ", " + z;
+                    client.keyboard.setClipboard(coords);
+                    client.player.sendMessage(
+                            net.minecraft.text.Text.literal("\u00A7b[Icey] \u00A7rCopied \u00A7a" + coords),
+                            true); // actionBar overlay — doesn't spam chat
+                }
             }
 
             HudManager.tick();
