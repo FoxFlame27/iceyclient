@@ -2,6 +2,7 @@ package com.iceymod;
 
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
+import com.iceymod.hud.modules.FreelookModule;
 import com.iceymod.hud.modules.PerspectiveModule;
 import com.iceymod.hud.modules.WaypointManager;
 import com.iceymod.hud.modules.WaypointsModule;
@@ -36,6 +37,7 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding toggleSprintKey;
     private static KeyBinding toggleBrightKey;
     private static KeyBinding toggleTotemKey;
+    private static KeyBinding freelookKey;
 
     @Override
     public void onInitializeClient() {
@@ -59,6 +61,8 @@ public class IceyMod implements ClientModInitializer {
                 "key.iceymod.togglebright", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY));
         toggleTotemKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.iceymod.toggletotem", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_T, KEY_CATEGORY));
+        freelookKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.iceymod.freelook", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, KEY_CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (menuKey.wasPressed()) {
@@ -99,6 +103,14 @@ public class IceyMod implements ClientModInitializer {
                 ((ZoomModule) zm).setZooming(zoomKey.isPressed());
             }
 
+            // Freelook: hold key — camera rotates while character keeps facing forward
+            HudModule fl = findModule("freelook");
+            if (fl instanceof FreelookModule flm) {
+                boolean shouldBeActive = fl.isEnabled() && freelookKey.isPressed();
+                if (shouldBeActive && !FreelookModule.isActive()) flm.start(client);
+                else if (!shouldBeActive && FreelookModule.isActive()) flm.stop(client);
+            }
+
             HudManager.tick();
         });
 
@@ -116,6 +128,12 @@ public class IceyMod implements ClientModInitializer {
 
             if (screen instanceof HandledScreen) {
                 ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
+                    // Skip brewing stands — tight layout, text overlaps the window
+                    if (scr instanceof net.minecraft.client.gui.screen.ingame.BrewingStandScreen) return;
+                    // Skip double chests — taller window pushes the text too far down
+                    if (scr instanceof net.minecraft.client.gui.screen.ingame.GenericContainerScreen gcs
+                            && gcs.getScreenHandler().getRows() == 6) return;
+
                     int sw = client.getWindow().getScaledWidth();
                     int windowTop = (scr.height - 166) / 2;
                     int y = Math.max(2, windowTop - 14);

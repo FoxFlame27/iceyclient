@@ -1204,11 +1204,16 @@ function launchMinecraft(installationId) {
         detached: false,
         windowsHide: false
       });
-      mcProcesses.set(launchId, { proc, installationId, username: launchUsername });
+      // Ring buffer of the last ~120 output lines per process — used to show
+      // a crash-log modal if MC exits with a non-zero code.
+      const tail = [];
+      const pushTail = (line) => { tail.push(line); if (tail.length > 120) tail.shift(); };
+      mcProcesses.set(launchId, { proc, installationId, username: launchUsername, tail });
 
       proc.stdout.on('data', (data) => {
         const text = data.toString().trim();
         if (text) {
+          pushTail(text);
           log('info', `[MC #${launchId} ${launchUsername}] ` + text);
           if (mainWindow) {
             mainWindow.webContents.send('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'info', launchId });
@@ -1222,6 +1227,7 @@ function launchMinecraft(installationId) {
       proc.stderr.on('data', (data) => {
         const text = data.toString().trim();
         if (text) {
+          pushTail('[err] ' + text);
           log('error', `[MC #${launchId} ${launchUsername}-ERR] ` + text);
           if (mainWindow) {
             mainWindow.webContents.send('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'error', launchId });
@@ -1238,7 +1244,21 @@ function launchMinecraft(installationId) {
       proc.on('close', (code) => {
         log('info', `MC #${launchId} (${launchUsername}) exited with code ${code}`);
         mcProcesses.delete(launchId);
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code, launchId });
+        if (mainWindow) {
+          mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code, launchId });
+          // SIGTERM (143) / SIGINT (130) / user kill (null) are normal closes,
+          // anything else = crash. Ship the tail so the renderer can show it.
+          const clean = code === 0 || code === null || code === 143 || code === 130;
+          if (!clean) {
+            mainWindow.webContents.send('mc-event', {
+              type: 'mc-crashed',
+              launchId,
+              code,
+              username: launchUsername,
+              tail: tail.slice(-60),
+            });
+          }
+        }
       });
 
       // Signal started quickly

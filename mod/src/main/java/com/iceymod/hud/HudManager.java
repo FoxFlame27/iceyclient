@@ -93,6 +93,7 @@ public class HudManager {
         modules.add(new ZoomModule());
         modules.add(new PerspectiveModule());
         modules.add(new WaypointsModule());
+        modules.add(new FreelookModule());
         // Small cheats / QoL
         modules.add(new AutoMaceSwapModule());
         modules.add(new AutoRespawnModule());

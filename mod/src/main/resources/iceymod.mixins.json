@@ -6,7 +6,9 @@
     "TitleScreenMixin",
     "GameRendererMixin",
     "SimpleOptionAccessor",
-    "LogoDrawerMixin"
+    "LogoDrawerMixin",
+    "EntityLookMixin",
+    "CameraMixin"
   ],
   "injectors": {
     "defaultRequire": 1

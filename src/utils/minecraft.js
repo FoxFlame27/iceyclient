@@ -20,6 +20,9 @@ const MinecraftLauncher = {
           this._onStopped(data.launchId);
           Toast.error(data.message || 'Minecraft encountered an error');
           break;
+        case 'mc-crashed':
+          _showCrashModal(data);
+          break;
         case 'toast':
           Toast.show(data.message, data.level || 'info');
           break;
@@ -150,3 +153,38 @@ const MinecraftLauncher = {
 };
 
 MinecraftLauncher.init();
+
+function _showCrashModal(data) {
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const linesHtml = (data.tail || []).map(l => `<div>${esc(l)}</div>`).join('') || '<div style="color:var(--text-muted)">(no output captured)</div>';
+  const user = data.username ? ` &bull; ${esc(data.username)}` : '';
+  showModal(`
+    <div class="crash-modal">
+      <div class="crash-modal-header">
+        <div>
+          <div class="crash-modal-title">Minecraft crashed</div>
+          <div class="crash-modal-sub">Exit code ${data.code}${user}</div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="crash-modal-body" id="crash-modal-body">${linesHtml}</div>
+      <div class="crash-modal-footer">
+        <button class="options-btn" onclick="_copyCrashLog()">Copy</button>
+        <button class="options-btn" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  `);
+  // Scroll the body to the bottom so the latest / likely-crash lines are visible
+  setTimeout(() => {
+    const body = document.getElementById('crash-modal-body');
+    if (body) body.scrollTop = body.scrollHeight;
+  }, 20);
+  window._lastCrashTail = (data.tail || []).join('\n');
+}
+
+function _copyCrashLog() {
+  try {
+    navigator.clipboard.writeText(window._lastCrashTail || '');
+    Toast.success('Crash log copied');
+  } catch (_) { Toast.error('Copy failed'); }
+}
