@@ -95,6 +95,25 @@ public class FreelookModule extends HudModule {
     }
 
     /**
+     * Disabling the module from the menu must kill freelook instantly —
+     * no blend-out, no active state. Otherwise the user sees freelook still
+     * "hanging on" until the next tick.
+     */
+    @Override
+    public void setEnabled(boolean enabled) {
+        if (!enabled && (active || blendOutEndsAt > 0)) {
+            active = false;
+            blendOutEndsAt = 0;
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (savedPerspective != null && client != null && client.options != null) {
+                client.options.setPerspective(savedPerspective);
+            }
+            savedPerspective = null;
+        }
+        super.setEnabled(enabled);
+    }
+
+    /**
      * Apply a mouse-cursor delta to the freelook camera. Called from the
      * EntityLookMixin when the freelook key is held.
      */

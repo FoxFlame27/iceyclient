@@ -1042,13 +1042,12 @@ function launchMinecraft(installationId) {
         } catch (_) {}
       }
 
-      // 4) Auto-disable mods incompatible with this MC version
-      const disabledMods = [];
+      // 4) Version-check mods (log only — do NOT rename or disable anything).
+      //    The user handles incompatible mods manually via the Mods tab.
       try {
         for (const f of fs.readdirSync(modsDir)) {
           if (!f.endsWith('.jar')) continue;
-          // Skip our own managed jars
-          if (/^iceymod/i.test(f) || /^fabric-api/i.test(f)) continue;
+          if (/^iceymod/i.test(f) || /^fabric-api/i.test(f) || /skinshuffle/i.test(f)) continue;
           const jarPath = path.join(modsDir, f);
           try {
             const jarBuf = fs.readFileSync(jarPath);
@@ -1058,22 +1057,12 @@ function launchMinecraft(installationId) {
             const mcConstraint = meta.depends?.minecraft || meta.depends?.['minecraft'];
             if (!mcConstraint) continue;
             if (!_satisfiesVersionRange(installation.version, mcConstraint)) {
-              const disabledPath = jarPath + '.disabled';
-              fs.renameSync(jarPath, disabledPath);
               const modName = meta.name || f;
-              disabledMods.push({ file: f, name: modName, requires: mcConstraint });
-              log('warn', `Auto-disabled incompatible mod: ${f} (requires MC ${mcConstraint}, have ${installation.version})`);
+              log('warn', `Mod "${modName}" may be incompatible (needs MC ${mcConstraint}, have ${installation.version}) — leaving it enabled per user preference.`);
             }
           } catch (_) { /* skip unparseable mods */ }
         }
       } catch (_) {}
-
-      if (disabledMods.length > 0) {
-        const names = disabledMods.map(m => m.name + ' (needs MC ' + m.requires + ')').join(', ');
-        const msg = 'Auto-disabled ' + disabledMods.length + ' incompatible mod(s): ' + names;
-        log('warn', msg);
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: msg, level: 'warn' });
-      }
     }
 
     // Build arguments
