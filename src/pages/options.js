@@ -45,11 +45,6 @@ async function _renderMainOptions(page, settings) {
       <!-- Top row: Playtime + Advanced -->
       <div class="options-top-row">
         <div class="options-small-card playtime-card">
-          <div class="options-small-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </div>
           <div class="options-small-body">
             <div class="options-small-label">Total Playtime</div>
             <div class="options-small-value">${playtimeStr}</div>
@@ -57,12 +52,6 @@ async function _renderMainOptions(page, settings) {
         </div>
 
         <div class="options-small-card advanced-card" onclick="_optOpenAdvanced()">
-          <div class="options-small-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </div>
           <div class="options-small-body">
             <div class="options-small-label">Advanced</div>
             <div class="options-small-value">All settings &rsaquo;</div>
@@ -98,12 +87,6 @@ async function _renderMainOptions(page, settings) {
         </div>
 
         <div class="options-toggle-card ${skinChangerEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('skinChangerEnabled', ${!skinChangerEnabled})">
-          <div class="options-toggle-icon options-toggle-icon-svg">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6">
-              <path d="M20.8 18.1 C 20.8 16 18.2 14.3 15.2 13.8 L 14 13.6 L 12 16 L 10 13.6 L 8.8 13.8 C 5.8 14.3 3.2 16 3.2 18.1 V 20 H 20.8 Z"/>
-              <circle cx="12" cy="8" r="4"/>
-            </svg>
-          </div>
           <div class="options-toggle-body">
             <div class="options-toggle-name">Skin Changer</div>
             <div class="options-toggle-desc">In-game skin swap mod</div>
