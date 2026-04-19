@@ -274,3 +274,300 @@
   padding: 0 20px;
   height: 56px;
 }
+
+/* ───────── New v2 Settings layout ───────── */
+.options-v2 {
+  padding: 0 24px 24px;
+  overflow-y: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.options-v2-header {
+  padding: 20px 0 4px;
+}
+.options-v2-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.options-top-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.options-small-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: rgba(15, 21, 38, 0.85);
+  border: 1.5px solid rgba(91,200,245,0.12);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+.options-small-card.advanced-card {
+  cursor: pointer;
+}
+.options-small-card.advanced-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+.options-small-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(91,200,245,0.1);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.options-small-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 3px;
+}
+.options-small-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Panorama picker card */
+.options-panorama-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 6;
+  min-height: 150px;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1.5px solid rgba(91,200,245,0.12);
+  background: rgba(15, 21, 38, 0.85);
+  transition: all 0.25s ease;
+}
+.options-panorama-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.3), 0 0 16px var(--accent-glow);
+}
+.options-panorama-preview {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-color: #1a2340;
+}
+.options-panorama-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16px 18px;
+  background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.options-panorama-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+.options-panorama-btn {
+  padding: 8px 14px;
+  border: 1.5px solid rgba(91,200,245,0.4);
+  background: rgba(91,200,245,0.2);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s;
+}
+.options-panorama-btn:hover {
+  border-color: var(--accent);
+  background: rgba(91,200,245,0.35);
+}
+.options-panorama-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Feature toggle row */
+.options-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.options-toggle-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: rgba(15, 21, 38, 0.85);
+  border: 1.5px solid rgba(91,200,245,0.12);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.options-toggle-card:hover {
+  border-color: var(--accent);
+}
+.options-toggle-card.on {
+  border-color: rgba(91,200,245,0.35);
+  box-shadow: 0 0 14px rgba(91,200,245,0.12);
+}
+.options-toggle-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: contain;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+.options-toggle-icon-svg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(91,200,245,0.1);
+  color: var(--accent);
+}
+.options-toggle-body {
+  flex: 1;
+  min-width: 0;
+}
+.options-toggle-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.options-toggle-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Panorama picker modal */
+.panorama-picker-modal {
+  padding: 24px;
+  width: 900px;
+  max-width: 94vw;
+  max-height: 82vh;
+  overflow-y: auto;
+}
+.panorama-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.panorama-picker-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.panorama-picker-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+.panorama-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(180px, 20vw, 220px), 1fr));
+  gap: 14px;
+}
+.panorama-option {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+.panorama-option:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.panorama-option.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+.panorama-option-preview {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-color: #1a2340;
+}
+.panorama-option-name {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 8px 10px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+.panorama-option-check {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* Advanced header */
+.options-advanced-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 0 10px;
+}
+.options-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.options-back-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .options-top-row, .options-toggle-row {
+    grid-template-columns: 1fr;
+  }
+}

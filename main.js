@@ -867,15 +867,13 @@ function launchMinecraft(installationId) {
       const modsDir = path.join(installGameDir, 'mods');
       fs.mkdirSync(modsDir, { recursive: true });
 
-      // 1) Install/UPDATE Icey mod jar — always replace with bundled version
+      // Settings-driven toggles (default: Icey mods ON, skin changer OFF)
+      const iceyModsEnabled = settings.iceyModsEnabled !== false;
+      const skinChangerEnabled = !!settings.skinChangerEnabled;
+
+      // 1) Install/UPDATE Icey mod jar — or remove it if Icey mods are disabled
       const modJarName = 'iceymod-1.0.0.jar';
       const destJar = path.join(modsDir, modJarName);
-      const searchPaths = [
-        path.join(__dirname, 'mod', 'build', 'libs', modJarName),
-        path.join(DATA_DIR, modJarName),
-        path.join(__dirname, 'resources', modJarName),
-      ];
-      // Also clean up any older iceymod jars that might be lurking
       try {
         for (const f of fs.readdirSync(modsDir)) {
           if (/^iceymod.*\.jar$/i.test(f) && f !== modJarName) {
@@ -884,23 +882,37 @@ function launchMinecraft(installationId) {
           }
         }
       } catch (_) {}
-      // Always copy latest bundled jar (replaces old version if present)
-      for (const src of searchPaths) {
-        if (fs.existsSync(src)) {
-          try {
-            const srcStat = fs.statSync(src);
-            const destStat = fs.existsSync(destJar) ? fs.statSync(destJar) : null;
-            // Only copy if source is newer or sizes differ
-            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
-              fs.copyFileSync(src, destJar);
-              log('info', 'Updated Icey mod to ' + destJar);
-              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod updated', level: 'info' });
+
+      if (iceyModsEnabled) {
+        const searchPaths = [
+          path.join(__dirname, 'mod', 'build', 'libs', modJarName),
+          path.join(DATA_DIR, modJarName),
+          path.join(__dirname, 'resources', modJarName),
+        ];
+        for (const src of searchPaths) {
+          if (fs.existsSync(src)) {
+            try {
+              const srcStat = fs.statSync(src);
+              const destStat = fs.existsSync(destJar) ? fs.statSync(destJar) : null;
+              if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+                fs.copyFileSync(src, destJar);
+                log('info', 'Updated Icey mod to ' + destJar);
+                if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod updated', level: 'info' });
+              }
+            } catch (e) {
+              log('warn', 'Failed to install Icey mod: ' + e.message);
             }
-          } catch (e) {
-            log('warn', 'Failed to install Icey mod: ' + e.message);
+            break;
           }
-          break;
         }
+      } else {
+        try {
+          if (fs.existsSync(destJar)) {
+            fs.unlinkSync(destJar);
+            log('info', 'Icey mod disabled by user — removed ' + modJarName);
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod disabled', level: 'info' });
+          }
+        } catch (_) {}
       }
 
       // 2) Install correct Fabric API for THIS MC version (validate, replace if wrong)
@@ -940,65 +952,95 @@ function launchMinecraft(installationId) {
         }
       }
 
-      // 3) Install + auto-enable the Icey Nether Panorama resource pack
+      // 3) Install + auto-enable the selected panorama pack (or remove if Icey mods disabled)
       const resourcepacksDir = path.join(installGameDir, 'resourcepacks');
       fs.mkdirSync(resourcepacksDir, { recursive: true });
+      const iceyPackName = 'IceyPanorama.zip'; // stable filename so options.txt entry is consistent
+      const destIceyPack = path.join(resourcepacksDir, iceyPackName);
       try {
-        // Clean up previous bundled packs that we no longer ship
-        for (const old of ['IceyModResourcePack.zip']) {
+        // Clean up any previously-bundled packs we no longer ship
+        for (const old of ['IceyModResourcePack.zip', 'IceyNetherPanorama.zip']) {
           const p = path.join(resourcepacksDir, old);
           if (fs.existsSync(p)) { fs.unlinkSync(p); log('info', 'Removed stale pack: ' + old); }
-        }
-
-        const rpName = 'IceyNetherPanorama.zip';
-        const destRp = path.join(resourcepacksDir, rpName);
-        const rpSources = [
-          path.join(__dirname, 'resources', rpName),
-          path.join(process.resourcesPath || '', rpName),
-          path.join(DATA_DIR, rpName),
-        ];
-        let installed = false;
-        for (const src of rpSources) {
-          if (!src || !fs.existsSync(src)) continue;
-          try {
-            const srcStat = fs.statSync(src);
-            const destStat = fs.existsSync(destRp) ? fs.statSync(destRp) : null;
-            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
-              fs.copyFileSync(src, destRp);
-              log('info', 'Installed Nether Panorama pack to ' + destRp);
-              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Nether Panorama pack installed', level: 'info' });
-            }
-            installed = true;
-          } catch (e) {
-            log('warn', 'Failed to install panorama pack: ' + e.message);
-          }
-          break;
-        }
-
-        // Auto-register in options.txt so MC enables it on launch
-        if (installed) {
-          const optionsPath = path.join(installGameDir, 'options.txt');
-          let lines = [];
-          if (fs.existsSync(optionsPath)) lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
-          const entry = 'file/' + rpName;
-          let foundLine = false;
-          for (let i = 0; i < lines.length; i++) {
-            if (lines[i].startsWith('resourcePacks:')) {
-              foundLine = true;
-              try {
-                const packs = JSON.parse(lines[i].slice('resourcePacks:'.length));
-                if (!packs.includes(entry)) packs.push(entry);
-                lines[i] = 'resourcePacks:' + JSON.stringify(packs);
-              } catch (_) {
-                lines[i] = 'resourcePacks:' + JSON.stringify(['vanilla', entry]);
-              }
-              break;
-            }
-          }
-          if (!foundLine) lines.push('resourcePacks:' + JSON.stringify(['vanilla', entry]));
-          try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
+          _unregisterResourcepackLine(installGameDir, old);
         }
       } catch (_) {}
+
+      if (iceyModsEnabled) {
+        try {
+          const selectedPanorama = settings.selectedPanorama || 'Nether Panorama.zip';
+          const srcPanorama = path.join(__dirname, 'resources', 'panoramas', selectedPanorama);
+          const altPanorama = path.join(process.resourcesPath || '', 'panoramas', selectedPanorama);
+          const panoSrc = fs.existsSync(srcPanorama) ? srcPanorama : (fs.existsSync(altPanorama) ? altPanorama : null);
+          if (panoSrc) {
+            const srcStat = fs.statSync(panoSrc);
+            const destStat = fs.existsSync(destIceyPack) ? fs.statSync(destIceyPack) : null;
+            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+              fs.copyFileSync(panoSrc, destIceyPack);
+              log('info', 'Installed panorama: ' + selectedPanorama);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Panorama: ' + selectedPanorama, level: 'info' });
+            }
+            _registerResourcepackLine(installGameDir, iceyPackName);
+          } else {
+            log('warn', 'Selected panorama not found: ' + selectedPanorama);
+          }
+        } catch (e) {
+          log('warn', 'Panorama install failed: ' + e.message);
+        }
+      } else {
+        try {
+          if (fs.existsSync(destIceyPack)) fs.unlinkSync(destIceyPack);
+          _unregisterResourcepackLine(installGameDir, iceyPackName);
+        } catch (_) {}
+      }
+
+      // 3b) Skin changer mod (SkinShuffle) — install or remove based on setting
+      const skinChangerJarName = 'IceySkinShuffle.jar';
+      const destSkinJar = path.join(modsDir, skinChangerJarName);
+      try {
+        // Remove any stale skinshuffle jars we didn't name
+        for (const f of fs.readdirSync(modsDir)) {
+          if (/skinshuffle/i.test(f) && f !== skinChangerJarName) {
+            try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed stale skinshuffle: ' + f); } catch (_) {}
+          }
+        }
+      } catch (_) {}
+      if (skinChangerEnabled) {
+        // Pick correct jar by MC version
+        let skinSrcName;
+        if (installation.version === '1.21.11' || installation.version === '1.21.10' || installation.version === '1.21.9') {
+          skinSrcName = 'skinshuffle-2.10.2+1.21.11-fabric.jar';
+        } else {
+          skinSrcName = 'SkinShuffle-2.9.5+1.21.6.jar';
+        }
+        const skinSources = [
+          path.join(__dirname, 'resources', 'mods', 'skinshuffle', skinSrcName),
+          path.join(process.resourcesPath || '', 'mods', 'skinshuffle', skinSrcName),
+        ];
+        for (const src of skinSources) {
+          if (src && fs.existsSync(src)) {
+            try {
+              const srcStat = fs.statSync(src);
+              const destStat = fs.existsSync(destSkinJar) ? fs.statSync(destSkinJar) : null;
+              if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+                fs.copyFileSync(src, destSkinJar);
+                log('info', 'Installed SkinShuffle: ' + skinSrcName);
+                if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'SkinShuffle installed', level: 'info' });
+              }
+            } catch (e) {
+              log('warn', 'SkinShuffle install failed: ' + e.message);
+            }
+            break;
+          }
+        }
+      } else {
+        try {
+          if (fs.existsSync(destSkinJar)) {
+            fs.unlinkSync(destSkinJar);
+            log('info', 'Skin changer disabled — removed SkinShuffle');
+          }
+        } catch (_) {}
+      }
 
       // 4) Auto-disable mods incompatible with this MC version
       const disabledMods = [];
@@ -1294,6 +1336,65 @@ function _satisfiesVersionRange(version, range) {
 }
 
 // ── ZIP file extractor using central directory (handles all JARs) ──────
+// ── Helpers: options.txt resource-pack list manipulation ────────────────
+function _registerResourcepackLine(installGameDir, filename) {
+  const optionsPath = path.join(installGameDir, 'options.txt');
+  let lines = [];
+  if (fs.existsSync(optionsPath)) lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
+  const entry = 'file/' + filename;
+  let found = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('resourcePacks:')) {
+      found = true;
+      try {
+        const packs = JSON.parse(lines[i].slice('resourcePacks:'.length));
+        if (!packs.includes(entry)) packs.push(entry);
+        lines[i] = 'resourcePacks:' + JSON.stringify(packs);
+      } catch (_) {
+        lines[i] = 'resourcePacks:' + JSON.stringify(['vanilla', entry]);
+      }
+      break;
+    }
+  }
+  if (!found) lines.push('resourcePacks:' + JSON.stringify(['vanilla', entry]));
+  fs.mkdirSync(installGameDir, { recursive: true });
+  try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
+}
+
+function _unregisterResourcepackLine(installGameDir, filename) {
+  const optionsPath = path.join(installGameDir, 'options.txt');
+  if (!fs.existsSync(optionsPath)) return;
+  const lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
+  const entry = 'file/' + filename;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('resourcePacks:')) {
+      try {
+        const packs = JSON.parse(lines[i].slice('resourcePacks:'.length));
+        const filtered = packs.filter(p => p !== entry);
+        lines[i] = 'resourcePacks:' + JSON.stringify(filtered);
+      } catch (_) {}
+      break;
+    }
+  }
+  try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
+}
+
+// ── Panorama catalog ────────────────────────────────────────────────────
+function getPanoramasDir() {
+  const candidates = [
+    path.join(__dirname, 'resources', 'panoramas'),
+    path.join(process.resourcesPath || '', 'panoramas'),
+  ];
+  for (const p of candidates) if (p && fs.existsSync(p)) return p;
+  return candidates[0];
+}
+
+function listPanoramaFiles() {
+  const dir = getPanoramasDir();
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.zip')).sort();
+}
+
 function _extractFileFromZip(zipBuffer, targetPath) {
   try {
     const buf = zipBuffer;
@@ -2043,6 +2144,30 @@ app.whenReady().then(() => {
     } catch (e) {
       log('warn', 'Failed to register resource pack: ' + e.message);
       return { error: e.message };
+    }
+  });
+
+  // Panoramas
+  ipcMain.handle('get-panoramas', () => {
+    return listPanoramaFiles().map(filename => ({
+      filename,
+      name: filename.replace(/\.zip$/i, '').replace(/\s+V\d+\b/i, m => ' ' + m.trim())
+    }));
+  });
+
+  ipcMain.handle('get-panorama-preview', (_, filename) => {
+    try {
+      if (!filename) return null;
+      const file = path.join(getPanoramasDir(), filename);
+      if (!fs.existsSync(file)) return null;
+      const zipBuf = fs.readFileSync(file);
+      // Minecraft panorama packs have 6 faces; panorama_1.png is usually north-facing
+      const preview = _extractFileFromZip(zipBuf, 'assets/minecraft/textures/gui/title/background/panorama_1.png')
+                   || _extractFileFromZip(zipBuf, 'assets/minecraft/textures/gui/title/background/panorama_0.png');
+      if (!preview) return null;
+      return 'data:image/png;base64,' + preview.toString('base64');
+    } catch (_) {
+      return null;
     }
   });
 

@@ -52,6 +52,10 @@ contextBridge.exposeInMainWorld('icey', {
   getInstalledShaderpacks: (installationId) => ipcRenderer.invoke('get-installed-shaderpacks', installationId),
   deleteShaderpack: (filename) => ipcRenderer.invoke('delete-shaderpack', filename),
 
+  // Panoramas
+  getPanoramas: () => ipcRenderer.invoke('get-panoramas'),
+  getPanoramaPreview: (filename) => ipcRenderer.invoke('get-panorama-preview', filename),
+
   // Updates
   checkUpdate: () => ipcRenderer.invoke('check-update'),
 
