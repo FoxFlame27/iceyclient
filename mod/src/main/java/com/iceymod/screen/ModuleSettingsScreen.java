@@ -12,24 +12,17 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Per-module settings editor. Rows are drawn manually (not via ButtonWidget's
- * default rendering) so labels stay high-contrast, color settings show the
- * actual selected color as a swatch + colored name, and toggle states read
- * clearly.
+ * Per-module settings editor using default vanilla Minecraft buttons.
+ * Each setting is a ButtonWidget whose label shows both the name and the
+ * current value. Click = cycle/toggle to the next value.
  */
 public class ModuleSettingsScreen extends Screen {
 
     private final HudModule module;
     private final Screen parent;
-    private final List<Row> rows = new ArrayList<>();
-
-    private int contentX, contentY, contentW;
-    private static final int ROW_H = 34;
-    private static final int ROW_GAP = 6;
 
     public ModuleSettingsScreen(HudModule module, Screen parent) {
         super(Text.literal(module.getName() + " Settings"));
@@ -39,51 +32,44 @@ public class ModuleSettingsScreen extends Screen {
 
     @Override
     protected void init() {
-        rows.clear();
         List<Setting<?>> settings = module.getSettings();
-        int targetW = Math.min(560, this.width - 80);
-        contentW = targetW;
-        contentX = this.width / 2 - targetW / 2;
+        int btnW = Math.min(300, this.width - 80);
+        int btnH = 20;
+        int gap = 4;
+        int centerX = this.width / 2;
 
-        int blockH = settings.size() * (ROW_H + ROW_GAP) + ROW_H * 2 + 12;
-        contentY = Math.max(70, this.height / 2 - blockH / 2);
-        int y = contentY;
+        int totalH = settings.size() * (btnH + gap) + (btnH + gap) * 2 + 20;
+        int startY = Math.max(60, this.height / 2 - totalH / 2);
+        int y = startY;
 
         for (Setting<?> s : settings) {
-            rows.add(new Row(s, y, null));
-            y += ROW_H + ROW_GAP;
+            final Setting<?> setting = s;
+            ButtonWidget btn = ButtonWidget.builder(
+                    formatLabel(setting),
+                    b -> {
+                        onClick(setting);
+                        b.setMessage(formatLabel(setting));
+                    }
+            ).dimensions(centerX - btnW / 2, y, btnW, btnH).build();
+            addDrawableChild(btn);
+            y += btnH + gap;
         }
 
-        // Reset button — real widget
-        y += 6;
+        y += 12;
+
         addDrawableChild(ButtonWidget.builder(
-                Text.literal("\u00A7eReset to Defaults"),
+                Text.literal("Reset to Defaults"),
                 b -> { resetAll(); rebuild(); }
-        ).dimensions(contentX, y, contentW, ROW_H - 2).build());
-        y += ROW_H + ROW_GAP;
+        ).dimensions(centerX - btnW / 2, y, btnW, btnH).build());
+        y += btnH + gap;
 
-        // Back button — real widget
         addDrawableChild(ButtonWidget.builder(
-                Text.literal("\u2190 Back"),
+                Text.literal("Back"),
                 b -> client.setScreen(parent)
-        ).dimensions(contentX, y, contentW, ROW_H - 2).build());
+        ).dimensions(centerX - btnW / 2, y, btnW, btnH).build());
     }
 
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            for (Row r : rows) {
-                if (mouseX >= contentX && mouseX <= contentX + contentW
-                        && mouseY >= r.y && mouseY <= r.y + ROW_H) {
-                    onRowClick(r.setting);
-                    return true;
-                }
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    private void onRowClick(Setting<?> setting) {
+    private void onClick(Setting<?> setting) {
         if (setting instanceof BoolSetting bs) {
             bs.set(!bs.get());
         } else if (setting instanceof IntSetting is) {
@@ -99,7 +85,47 @@ public class ModuleSettingsScreen extends Screen {
         } else if (setting instanceof EnumSetting es) {
             es.cycle();
         }
-        // No full rebuild needed — the next render call reads the new value.
+    }
+
+    private Text formatLabel(Setting<?> setting) {
+        String label = setting.label;
+        String valuePart;
+        if (setting instanceof BoolSetting bs) {
+            valuePart = bs.get() ? "\u00A7aON" : "\u00A7cOFF";
+        } else if (setting instanceof IntSetting is) {
+            valuePart = "\u00A7b" + is.get();
+        } else if (setting instanceof DoubleSetting ds) {
+            valuePart = "\u00A7b" + String.format("%.2f", ds.get());
+        } else if (setting instanceof ColorSetting cs) {
+            valuePart = chatCodeFor(cs.get()) + cs.colorName();
+        } else if (setting instanceof EnumSetting es) {
+            valuePart = "\u00A7b" + es.getCurrentOption();
+        } else {
+            valuePart = "";
+        }
+        return Text.literal(label + ": " + valuePart);
+    }
+
+    /**
+     * Approximate the closest Minecraft chat color code for an ARGB value,
+     * so the color-name label on the button renders in the chosen color.
+     */
+    private static String chatCodeFor(int argb) {
+        int r = (argb >> 16) & 0xFF;
+        int g = (argb >> 8) & 0xFF;
+        int b = argb & 0xFF;
+        // Gray / white / black
+        if (r < 40 && g < 40 && b < 40) return "\u00A70";           // black
+        if (r > 220 && g > 220 && b > 220) return "\u00A7f";         // white
+        if (Math.abs(r - g) < 30 && Math.abs(g - b) < 30) return "\u00A77"; // gray
+        // Primary hues by dominant channel
+        if (r > 200 && g > 160 && b < 120) return "\u00A76";         // orange
+        if (r > 200 && g > 200 && b < 140) return "\u00A7e";         // yellow
+        if (r > 200 && g < 150 && b < 150) return "\u00A7c";         // red
+        if (r < 150 && g > 180 && b < 150) return "\u00A7a";         // green
+        if (r < 150 && g > 150 && b > 200) return "\u00A7b";         // aqua / icy
+        if (r > 150 && g < 180 && b > 180) return "\u00A7d";         // pink / purple
+        return "\u00A7f";
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -114,28 +140,16 @@ public class ModuleSettingsScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0xD0070B14);
+        // Skip vanilla blur (avoids double-blur issues on recent versions)
+        context.fill(0, 0, this.width, this.height, 0xC0101010);
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Header
-        context.drawCenteredTextWithShadow(this.textRenderer,
-                Text.literal("\u00A7b\u00A7l" + module.getName()),
-                this.width / 2, 26, 0xFFFFFFFF);
-        context.drawCenteredTextWithShadow(this.textRenderer,
-                Text.literal("\u00A77Settings"),
-                this.width / 2, 42, 0xFFAAAAAA);
-
-        // Manual row rendering
-        for (Row r : rows) {
-            boolean hover = mouseX >= contentX && mouseX <= contentX + contentW
-                    && mouseY >= r.y && mouseY <= r.y + ROW_H;
-            drawRow(context, r.setting, r.y, hover);
-        }
-
         super.render(context, mouseX, mouseY, delta);
-
+        context.drawCenteredTextWithShadow(this.textRenderer,
+                Text.literal("\u00A7b\u00A7l" + module.getName() + " \u00A77Settings"),
+                this.width / 2, 20, 0xFFFFFFFF);
         if (module.getSettings().isEmpty()) {
             context.drawCenteredTextWithShadow(this.textRenderer,
                     Text.literal("\u00A77No configurable options"),
@@ -143,76 +157,6 @@ public class ModuleSettingsScreen extends Screen {
         }
     }
 
-    private void drawRow(DrawContext ctx, Setting<?> setting, int y, boolean hover) {
-        int x = contentX;
-        int w = contentW;
-
-        // Card background + border
-        int bg = hover ? 0xFF162033 : 0xFF0E1626;
-        int border = hover ? 0xFF5BC8F5 : 0x40000000;
-        ctx.fill(x, y, x + w, y + ROW_H, bg);
-        // 1px border
-        ctx.fill(x, y, x + w, y + 1, border);
-        ctx.fill(x, y + ROW_H - 1, x + w, y + ROW_H, border);
-        ctx.fill(x, y, x + 1, y + ROW_H, border);
-        ctx.fill(x + w - 1, y, x + w, y + ROW_H, border);
-
-        // Label on the left (always high-contrast white)
-        int textY = y + (ROW_H - 8) / 2;
-        ctx.drawTextWithShadow(this.textRenderer, setting.label, x + 14, textY, 0xFFFFFFFF);
-
-        // Value on the right
-        drawValue(ctx, setting, x + w - 14, textY);
-    }
-
-    private void drawValue(DrawContext ctx, Setting<?> setting, int rightX, int textY) {
-        if (setting instanceof BoolSetting bs) {
-            String label = bs.get() ? "ON" : "OFF";
-            int color = bs.get() ? 0xFF4ADE80 : 0xFFF87171;
-            int w = this.textRenderer.getWidth(label);
-            ctx.drawTextWithShadow(this.textRenderer, label, rightX - w, textY, color);
-            return;
-        }
-        if (setting instanceof IntSetting is) {
-            String label = String.valueOf(is.get());
-            int w = this.textRenderer.getWidth(label);
-            ctx.drawTextWithShadow(this.textRenderer, label, rightX - w, textY, 0xFF5BC8F5);
-            return;
-        }
-        if (setting instanceof DoubleSetting ds) {
-            String label = String.format("%.2f", ds.get());
-            int w = this.textRenderer.getWidth(label);
-            ctx.drawTextWithShadow(this.textRenderer, label, rightX - w, textY, 0xFF5BC8F5);
-            return;
-        }
-        if (setting instanceof ColorSetting cs) {
-            int color = cs.get();
-            String name = cs.colorName();
-            int textW = this.textRenderer.getWidth(name);
-            int swatchW = 14;
-            int swatchX = rightX - textW - 6 - swatchW;
-            int swatchTop = textY - 2;
-            int swatchBot = textY + 10;
-            // Outline for visibility over any bg
-            ctx.fill(swatchX - 1, swatchTop - 1, swatchX + swatchW + 1, swatchBot + 1, 0xFF000000);
-            ctx.fill(swatchX, swatchTop, swatchX + swatchW, swatchBot, color);
-            // Name in that same color
-            ctx.drawTextWithShadow(this.textRenderer, name, rightX - textW, textY, color);
-            return;
-        }
-        if (setting instanceof EnumSetting es) {
-            String label = es.getCurrentOption();
-            int w = this.textRenderer.getWidth(label);
-            ctx.drawTextWithShadow(this.textRenderer, label, rightX - w, textY, 0xFF5BC8F5);
-        }
-    }
-
     @Override
     public boolean shouldPause() { return false; }
-
-    private static final class Row {
-        final Setting<?> setting;
-        final int y;
-        Row(Setting<?> s, int y, Object unused) { this.setting = s; this.y = y; }
-    }
 }
