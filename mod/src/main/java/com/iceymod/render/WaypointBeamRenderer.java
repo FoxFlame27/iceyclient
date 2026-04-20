@@ -21,7 +21,15 @@ import java.util.List;
 public class WaypointBeamRenderer {
 
     public static void register() {
-        WorldRenderEvents.AFTER_TRANSLUCENT.register(WaypointBeamRenderer::onRender);
+        // VulkanMod ships its own stub of fabric-rendering-v1 that doesn't
+        // expose WorldRenderEvents. Guarding the registration so a missing
+        // field/method doesn't crash the mod on load — waypoints still work
+        // as HUD entries, just without the in-world beam.
+        try {
+            WorldRenderEvents.AFTER_TRANSLUCENT.register(WaypointBeamRenderer::onRender);
+        } catch (Throwable t) {
+            System.out.println("[IceyMod] WorldRenderEvents unavailable (VulkanMod / stub?) — waypoint beams disabled: " + t.getMessage());
+        }
     }
 
     private static boolean beamsEnabled() {

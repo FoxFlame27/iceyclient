@@ -862,14 +862,58 @@ function launchMinecraft(installationId) {
       }
     }
 
-    // Auto-install Icey mod + Fabric API for Fabric installations
+    // Settings-driven toggles (default: Icey mods ON, skin changer OFF)
+    const iceyModsEnabled = settings.iceyModsEnabled !== false;
+    const skinChangerEnabled = !!settings.skinChangerEnabled;
+
+    // Panorama pack installs on ANY installation (vanilla or Fabric) because
+    // it's just a resource pack — MC loads it regardless of mod loader.
+    {
+      const resourcepacksDir = path.join(installGameDir, 'resourcepacks');
+      fs.mkdirSync(resourcepacksDir, { recursive: true });
+      const iceyPackName = 'IceyPanorama.zip';
+      const destIceyPack = path.join(resourcepacksDir, iceyPackName);
+      try {
+        for (const old of ['IceyModResourcePack.zip', 'IceyNetherPanorama.zip']) {
+          const p = path.join(resourcepacksDir, old);
+          if (fs.existsSync(p)) { fs.unlinkSync(p); log('info', 'Removed stale pack: ' + old); }
+          _unregisterResourcepackLine(installGameDir, old);
+        }
+      } catch (_) {}
+
+      if (iceyModsEnabled) {
+        try {
+          const selectedPanorama = settings.selectedPanorama || 'Nether Panorama.zip';
+          const srcPanorama = path.join(__dirname, 'resources', 'panoramas', selectedPanorama);
+          const altPanorama = path.join(process.resourcesPath || '', 'panoramas', selectedPanorama);
+          const panoSrc = fs.existsSync(srcPanorama) ? srcPanorama : (fs.existsSync(altPanorama) ? altPanorama : null);
+          if (panoSrc) {
+            const srcStat = fs.statSync(panoSrc);
+            const destStat = fs.existsSync(destIceyPack) ? fs.statSync(destIceyPack) : null;
+            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+              fs.copyFileSync(panoSrc, destIceyPack);
+              log('info', 'Installed panorama: ' + selectedPanorama);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Panorama: ' + selectedPanorama, level: 'info' });
+            }
+            _registerResourcepackLine(installGameDir, iceyPackName);
+          } else {
+            log('warn', 'Selected panorama not found: ' + selectedPanorama);
+          }
+        } catch (e) {
+          log('warn', 'Panorama install failed: ' + e.message);
+        }
+      } else {
+        try {
+          if (fs.existsSync(destIceyPack)) fs.unlinkSync(destIceyPack);
+          _unregisterResourcepackLine(installGameDir, iceyPackName);
+        } catch (_) {}
+      }
+    }
+
+    // Auto-install Icey mod + Fabric API + skin-changer for Fabric installations
     if (installation.platform === 'fabric') {
       const modsDir = path.join(installGameDir, 'mods');
       fs.mkdirSync(modsDir, { recursive: true });
-
-      // Settings-driven toggles (default: Icey mods ON, skin changer OFF)
-      const iceyModsEnabled = settings.iceyModsEnabled !== false;
-      const skinChangerEnabled = !!settings.skinChangerEnabled;
 
       // 1) Install/UPDATE Icey mod jar — or remove it if Icey mods are disabled
       const modJarName = 'iceymod-1.0.0.jar';
@@ -952,49 +996,7 @@ function launchMinecraft(installationId) {
         }
       }
 
-      // 3) Install + auto-enable the selected panorama pack (or remove if Icey mods disabled)
-      const resourcepacksDir = path.join(installGameDir, 'resourcepacks');
-      fs.mkdirSync(resourcepacksDir, { recursive: true });
-      const iceyPackName = 'IceyPanorama.zip'; // stable filename so options.txt entry is consistent
-      const destIceyPack = path.join(resourcepacksDir, iceyPackName);
-      try {
-        // Clean up any previously-bundled packs we no longer ship
-        for (const old of ['IceyModResourcePack.zip', 'IceyNetherPanorama.zip']) {
-          const p = path.join(resourcepacksDir, old);
-          if (fs.existsSync(p)) { fs.unlinkSync(p); log('info', 'Removed stale pack: ' + old); }
-          _unregisterResourcepackLine(installGameDir, old);
-        }
-      } catch (_) {}
-
-      if (iceyModsEnabled) {
-        try {
-          const selectedPanorama = settings.selectedPanorama || 'Nether Panorama.zip';
-          const srcPanorama = path.join(__dirname, 'resources', 'panoramas', selectedPanorama);
-          const altPanorama = path.join(process.resourcesPath || '', 'panoramas', selectedPanorama);
-          const panoSrc = fs.existsSync(srcPanorama) ? srcPanorama : (fs.existsSync(altPanorama) ? altPanorama : null);
-          if (panoSrc) {
-            const srcStat = fs.statSync(panoSrc);
-            const destStat = fs.existsSync(destIceyPack) ? fs.statSync(destIceyPack) : null;
-            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
-              fs.copyFileSync(panoSrc, destIceyPack);
-              log('info', 'Installed panorama: ' + selectedPanorama);
-              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Panorama: ' + selectedPanorama, level: 'info' });
-            }
-            _registerResourcepackLine(installGameDir, iceyPackName);
-          } else {
-            log('warn', 'Selected panorama not found: ' + selectedPanorama);
-          }
-        } catch (e) {
-          log('warn', 'Panorama install failed: ' + e.message);
-        }
-      } else {
-        try {
-          if (fs.existsSync(destIceyPack)) fs.unlinkSync(destIceyPack);
-          _unregisterResourcepackLine(installGameDir, iceyPackName);
-        } catch (_) {}
-      }
-
-      // 3b) Skin changer mod (SkinShuffle) — install or remove based on setting
+      // 3) Skin changer mod (SkinShuffle) — install or remove based on setting
       const skinChangerJarName = 'IceySkinShuffle.jar';
       const destSkinJar = path.join(modsDir, skinChangerJarName);
       try {
