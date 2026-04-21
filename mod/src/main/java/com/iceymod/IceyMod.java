@@ -112,8 +112,17 @@ public class IceyMod implements ClientModInitializer {
             HudModule fl = findModule("freelook");
             if (fl instanceof FreelookModule flm) {
                 boolean shouldBeActive = fl.isEnabled() && freelookKey.isPressed();
-                if (shouldBeActive && !FreelookModule.isActive()) flm.start(client);
-                else if (!shouldBeActive && FreelookModule.isActive()) flm.stop(client);
+                if (shouldBeActive && !FreelookModule.isActive()) {
+                    flm.start(client);
+                    if (client.player != null) {
+                        client.player.sendMessage(net.minecraft.text.Text.literal("§b[Icey] §aFreelook ON"), true);
+                    }
+                } else if (!shouldBeActive && FreelookModule.isActive()) {
+                    flm.stop(client);
+                    if (client.player != null) {
+                        client.player.sendMessage(net.minecraft.text.Text.literal("§b[Icey] §7Freelook off"), true);
+                    }
+                }
             }
 
             // Copy coords to clipboard on key press

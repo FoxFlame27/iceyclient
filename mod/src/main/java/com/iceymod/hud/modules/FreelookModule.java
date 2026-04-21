@@ -23,8 +23,12 @@ public class FreelookModule extends HudModule {
     private static long blendOutEndsAt = 0;
     private static Perspective savedPerspective = null;
 
+    // Default OFF: first-person freelook is what users expect (camera rotates
+    // while they keep walking forward). Third-person freelook looks wrong
+    // because the camera position is still calculated from the player's
+    // real yaw, so the camera sits behind the player but points elsewhere.
     public final BoolSetting autoThirdPerson = addSetting(
-            new BoolSetting("autoThirdPerson", "Switch to 3rd Person", true));
+            new BoolSetting("autoThirdPerson", "Switch to 3rd Person", false));
 
     public FreelookModule() {
         super("freelook", "Freelook", 0, 0);
