@@ -81,7 +81,9 @@ public class ModuleSettingsScreen extends Screen {
             if (next > ds.max + 1e-6) next = ds.min;
             ds.set(next);
         } else if (setting instanceof ColorSetting cs) {
-            cs.cycle();
+            // Opens the full RGB + hex picker instead of cycling the preset
+            // palette — any ARGB value is reachable and the swatch updates live.
+            client.setScreen(new ColorPickerScreen(cs, this));
         } else if (setting instanceof EnumSetting es) {
             es.cycle();
         }

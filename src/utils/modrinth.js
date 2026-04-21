@@ -7,6 +7,8 @@ const ModrinthAPI = {
       facets = JSON.stringify([['project_type:mod'], ['categories:fabric']]);
     } else if (type === 'resourcepack') {
       facets = JSON.stringify([['project_type:resourcepack']]);
+    } else if (type === 'shader') {
+      facets = JSON.stringify([['project_type:shader']]);
     } else {
       facets = JSON.stringify([['categories:fabric']]);
     }
@@ -61,10 +63,13 @@ const ModrinthAPI = {
   },
 
   async getDownloadUrl(projectId, mcVersion, loader = 'fabric') {
-    // Strict: only return a version that matches the MC version AND loader
+    // Strict: only return a version that matches the MC version AND loader.
+    // Pass loader=null or loader='any' to skip loader filtering (shaders,
+    // resource packs — they're loader-agnostic).
     const params = new URLSearchParams();
-    params.set('game_versions', JSON.stringify([mcVersion]));
-    params.set('loaders', JSON.stringify([loader]));
+    if (mcVersion) params.set('game_versions', JSON.stringify([mcVersion]));
+    const skipLoader = !loader || loader === 'any';
+    if (!skipLoader) params.set('loaders', JSON.stringify([loader]));
 
     const response = await fetch(`${this.BASE_URL}/project/${projectId}/version?${params}`, {
       headers: { 'User-Agent': 'IceyClient/1.0.0' }
@@ -73,7 +78,9 @@ const ModrinthAPI = {
     const versions = await response.json();
 
     if (versions.length === 0) {
-      throw new Error(`No ${loader} version found for MC ${mcVersion}`);
+      throw new Error(skipLoader
+        ? `No version found for MC ${mcVersion || 'any'}`
+        : `No ${loader} version found for MC ${mcVersion}`);
     }
     const file = versions[0].files.find(f => f.primary) || versions[0].files[0];
     return { url: file.url, filename: file.filename };

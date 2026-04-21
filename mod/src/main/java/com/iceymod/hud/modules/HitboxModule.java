@@ -1,31 +1,34 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
+import com.iceymod.hud.settings.BoolSetting;
+import com.iceymod.hud.settings.ColorSetting;
+import com.iceymod.hud.settings.IntSetting;
 import net.minecraft.client.MinecraftClient;
 
 /**
- * Toggles entity hitbox rendering (same as F3+B).
- * In 1.21.11 hitbox toggle is via the debug key state.
+ * Draws wireframe bounding boxes around every entity in the world, using
+ * a fully-customizable color. The actual rendering lives in
+ * HitboxRenderer (hooked into WorldRenderEvents.AFTER_ENTITIES) — this
+ * class just holds the settings and the on/off state.
  */
 public class HitboxModule extends HudModule {
+    public final ColorSetting color = addSetting(new ColorSetting("color", "Color", 0xFFFFFFFF));
+    public final IntSetting range = addSetting(new IntSetting("range", "Max Range", 64, 8, 256, 8));
+    public final BoolSetting showSelf = addSetting(new BoolSetting("showSelf", "Include Self", false));
+    public final BoolSetting onlyLiving = addSetting(new BoolSetting("onlyLiving", "Only Living Entities", false));
+
     public HitboxModule() {
         super("hitboxes", "Hitboxes", 5, 200);
         setEnabled(false);
     }
 
+    @Override
+    protected boolean shouldShowStyleSettings() { return false; }
 
     @Override
-    public void tick() {
-        // Hitboxes are rendered when the debug key is toggled.
-        // We simulate this by toggling the option each tick.
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.getEntityRenderDispatcher() == null) return;
-        // The actual hitbox rendering is controlled internally by MC's debug state.
-        // This module just displays the status indicator.
-    }
+    public String getText(MinecraftClient client) { return null; }
 
     @Override
-    public String getText(MinecraftClient client) {
-        return "Hitboxes: " + (isEnabled() ? "\u00A7aON" : "\u00A7cOFF");
-    }
+    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
 }

@@ -48,9 +48,10 @@ contextBridge.exposeInMainWorld('icey', {
   installFabric: (installationId, mcVersion) => ipcRenderer.invoke('install-fabric', installationId, mcVersion),
 
   // Shaders
-  installIris: (mcVersion) => ipcRenderer.invoke('install-iris', mcVersion),
+  installIris: (mcVersion, installationId) => ipcRenderer.invoke('install-iris', mcVersion, installationId),
   getInstalledShaderpacks: (installationId) => ipcRenderer.invoke('get-installed-shaderpacks', installationId),
-  deleteShaderpack: (filename) => ipcRenderer.invoke('delete-shaderpack', filename),
+  deleteShaderpack: (installationId, filename) => ipcRenderer.invoke('delete-shaderpack', installationId, filename),
+  ensureShaderDeps: (installationId, mcVersion) => ipcRenderer.invoke('ensure-shader-deps', installationId, mcVersion),
 
   // Panoramas
   getPanoramas: () => ipcRenderer.invoke('get-panoramas'),

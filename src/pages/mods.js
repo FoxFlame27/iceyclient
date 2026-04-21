@@ -126,6 +126,7 @@ function _enterModsBrowse() {
         <button class="mods-filter-pill active" data-filter="all" onclick="_setModsFilter('all', this)">All</button>
         <button class="mods-filter-pill" data-filter="mod" onclick="_setModsFilter('mod', this)">Mods</button>
         <button class="mods-filter-pill" data-filter="resourcepack" onclick="_setModsFilter('resourcepack', this)">Resource Packs</button>
+        <button class="mods-filter-pill" data-filter="shader" onclick="_setModsFilter('shader', this)">Shaders</button>
       </div>
       <div id="mods-browse-results" class="mods-browse-list"></div>
       <div id="mods-load-more" class="mods-load-more" style="display:none;">Loading more...</div>
@@ -263,7 +264,7 @@ async function _modsSearch(query) {
   `;
 
   try {
-    const types = _modsFilter === 'all' ? ['mod', 'resourcepack'] : [_modsFilter];
+    const types = _modsFilter === 'all' ? ['mod', 'resourcepack', 'shader'] : [_modsFilter];
     let allResults = [];
 
     const promises = [];
@@ -340,7 +341,9 @@ async function _installModFromSearch(btn, source, modId, modName, projectType) {
   btn.disabled = true;
   btn.textContent = '...';
   try {
-    const results = await CurseForgeAPI.search(modName, projectType === 'resourcepack' ? 'resourcepack' : 'mod', 5);
+    const cfType = projectType === 'resourcepack' ? 'resourcepack'
+      : projectType === 'shader' ? 'shader' : 'mod';
+    const results = await CurseForgeAPI.search(modName, cfType, 5);
     const mod = results.find(r => String(r.id) === String(modId));
     const downloadInfo = mod ? CurseForgeAPI.getDownloadUrl(mod) : null;
     if (!downloadInfo || !downloadInfo.url) {
@@ -483,13 +486,33 @@ async function _confirmModDownload(modId, modName, projectType) {
   }
 }
 
+function _folderFor(projectType) {
+  if (projectType === 'resourcepack') return 'resourcepacks';
+  if (projectType === 'shader') return 'shaderpacks';
+  return 'mods';
+}
+
+async function _ensureShaderDepsIfNeeded(projectType) {
+  if (projectType !== 'shader' || !_modsActiveInstallation) return;
+  try {
+    Toast.info('Checking shader dependencies (Iris + Sodium)...');
+    const result = await window.icey.ensureShaderDeps(
+      _modsActiveInstallation.id,
+      _modsActiveInstallation.version
+    );
+    if (result && result.installed && result.installed.length > 0) {
+      Toast.success('Installed ' + result.installed.join(' + '));
+    }
+  } catch (e) { Toast.error('Shader deps failed: ' + e.message); }
+}
+
 async function _downloadModVersion(url, filename, modName, projectType) {
   if (!url || !filename) { Toast.error('Invalid download'); return; }
   closeModal();
+  await _ensureShaderDepsIfNeeded(projectType);
   Toast.info('Downloading ' + modName + '...');
   const gameDir = _modsActiveInstallation ? await window.icey.getInstallGameDir(_modsActiveInstallation.id) : await window.icey.getMcDir();
-  const folder = projectType === 'resourcepack' ? 'resourcepacks' : 'mods';
-  const dest = gameDir + '/' + folder + '/' + filename;
+  const dest = gameDir + '/' + _folderFor(projectType) + '/' + filename;
   const result = await window.icey.downloadFile(url, dest);
   if (result.error) {
     Toast.error('Download failed: ' + result.error);
@@ -503,9 +526,9 @@ async function _downloadModVersion(url, filename, modName, projectType) {
 }
 
 async function _doModDownload(url, filename, modName, projectType, btn) {
+  await _ensureShaderDepsIfNeeded(projectType);
   const gameDir = _modsActiveInstallation ? await window.icey.getInstallGameDir(_modsActiveInstallation.id) : await window.icey.getMcDir();
-  const folder = projectType === 'resourcepack' ? 'resourcepacks' : 'mods';
-  const dest = gameDir + '/' + folder + '/' + filename;
+  const dest = gameDir + '/' + _folderFor(projectType) + '/' + filename;
   const result = await window.icey.downloadFile(url, dest);
   if (result.error) {
     Toast.error('Download failed: ' + result.error);
@@ -644,7 +667,7 @@ async function _loadTrendingMods() {
   if (!resultsDiv) return;
   resultsDiv.innerHTML = '<div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div><div class="mod-skeleton skeleton"></div>';
   try {
-    const types = _modsFilter === 'all' ? ['mod', 'resourcepack'] : [_modsFilter];
+    const types = _modsFilter === 'all' ? ['mod', 'resourcepack', 'shader'] : [_modsFilter];
     let allResults = [];
     const promises = [];
     for (const type of types) {
@@ -673,7 +696,7 @@ async function _loadMoreMods() {
 
   try {
     const query = _modsCurrentQuery;
-    const types = _modsFilter === 'all' ? ['mod', 'resourcepack'] : [_modsFilter];
+    const types = _modsFilter === 'all' ? ['mod', 'resourcepack', 'shader'] : [_modsFilter];
     let allResults = [];
     const promises = [];
     for (const type of types) {
@@ -834,7 +857,8 @@ async function _refreshInstalledShaderpacks() {
 }
 
 async function _deleteShaderpack(filename) {
-  const result = await window.icey.deleteShaderpack(filename);
+  if (!_modsActiveInstallation) { Toast.error('No installation selected'); return; }
+  const result = await window.icey.deleteShaderpack(_modsActiveInstallation.id, filename);
   if (result.error) {
     Toast.error(result.error);
   } else {

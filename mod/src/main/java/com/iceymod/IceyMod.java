@@ -10,6 +10,7 @@ import com.iceymod.hud.modules.ZoomModule;
 import com.iceymod.screen.IceyModScreen;
 import com.iceymod.screen.WaypointMenuScreen;
 import com.iceymod.render.WaypointBeamRenderer;
+import com.iceymod.render.HitboxRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -45,6 +46,7 @@ public class IceyMod implements ClientModInitializer {
         HudManager.init();
         WaypointManager.init();
         WaypointBeamRenderer.register();
+        HitboxRenderer.register();
 
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.iceymod.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, KEY_CATEGORY));

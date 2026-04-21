@@ -2065,6 +2065,63 @@ app.whenReady().then(() => {
     }
   });
 
+  // Ensures Iris + Sodium are present in the installation's mods/ folder.
+  // Returns which ones (if any) were newly installed so the UI can toast.
+  ipcMain.handle('ensure-shader-deps', async (_, installationId, mcVersion) => {
+    try {
+      if (!installationId) return { error: 'No installation selected' };
+      const gameDir = getInstallGameDir(installationId);
+      const modsDir = path.join(gameDir, 'mods');
+      fs.mkdirSync(modsDir, { recursive: true });
+
+      const existing = fs.existsSync(modsDir) ? fs.readdirSync(modsDir) : [];
+      const hasIris = existing.some(f => /^iris.*\.jar$/i.test(f));
+      const hasSodium = existing.some(f => /^sodium.*\.jar$/i.test(f));
+
+      const installed = [];
+      const fetchLatest = (projectId) => new Promise((resolve, reject) => {
+        https.get(`https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${mcVersion}"]&loaders=["fabric"]`, {
+          headers: { 'User-Agent': 'IceyClient/1.0.0' }
+        }, (res) => {
+          let data = '';
+          res.on('data', (c) => data += c);
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+          res.on('error', reject);
+        }).on('error', reject);
+      });
+
+      if (!hasIris) {
+        const v = await fetchLatest('YL57xq9U');
+        if (v && v.length > 0) {
+          const file = v[0].files.find(f => f.primary) || v[0].files[0];
+          if (file) {
+            await downloadFile(file.url, path.join(modsDir, file.filename));
+            log('info', 'Iris auto-installed for shader: ' + file.filename);
+            installed.push('Iris');
+          }
+        }
+      }
+      if (!hasSodium) {
+        const v = await fetchLatest('AANobbMI');
+        if (v && v.length > 0) {
+          const file = v[0].files.find(f => f.primary) || v[0].files[0];
+          if (file) {
+            await downloadFile(file.url, path.join(modsDir, file.filename));
+            log('info', 'Sodium auto-installed for shader: ' + file.filename);
+            installed.push('Sodium');
+          }
+        }
+      }
+
+      const shaderpacksDir = path.join(gameDir, 'shaderpacks');
+      fs.mkdirSync(shaderpacksDir, { recursive: true });
+      return { success: true, installed };
+    } catch (e) {
+      log('error', 'ensure-shader-deps error: ' + e.message);
+      return { error: e.message };
+    }
+  });
+
   // Shaderpacks management
   ipcMain.handle('get-installed-shaderpacks', (_, installationId) => {
     const gameDir = installationId ? getInstallGameDir(installationId) : getDefaultMcDir();

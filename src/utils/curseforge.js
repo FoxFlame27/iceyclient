@@ -16,6 +16,8 @@ const CurseForgeAPI = {
       params.set('classId', '6'); // Mods
     } else if (type === 'resourcepack') {
       params.set('classId', '12'); // Resource packs
+    } else if (type === 'shader') {
+      params.set('classId', '6552'); // Shader packs
     }
 
     const response = await fetch(`${this.BASE_URL}/mods/search?${params}`, {
@@ -36,7 +38,7 @@ const CurseForgeAPI = {
       downloads: mod.downloadCount,
       icon_url: mod.logo?.thumbnailUrl || '',
       source: 'curseforge',
-      project_type: type === 'resourcepack' ? 'resourcepack' : 'mod',
+      project_type: type === 'resourcepack' ? 'resourcepack' : (type === 'shader' ? 'shader' : 'mod'),
       latestFiles: mod.latestFiles
     }));
   },

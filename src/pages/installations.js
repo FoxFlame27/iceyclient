@@ -439,7 +439,7 @@ async function _submitCreateInstallation() {
         if (installShaders) {
           progressText.textContent = 'Installing Iris Shaders...';
           progressBar.style.width = '85%';
-          const irisResult = await window.icey.installIris(version);
+          const irisResult = await window.icey.installIris(version, instId);
           if (irisResult.error) {
             Toast.error('Iris install failed: ' + irisResult.error);
           } else {
