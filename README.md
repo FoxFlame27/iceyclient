@@ -1,59 +1,12 @@
-# Icey Client
+lhiiii, ty for downloading 
+get .exe for windows
 
-A premium Minecraft launcher with an icy theme, built with Electron.
+get arm 64x .dmg for mac but make sure to run this command if the app says iceyclient is damaged and cant be opened: 
+xacttr -cr /Applications/Icey\ Client.app 
 
-## Prerequisites
+---
 
-- **Node.js** 18+
-- **Java** 17+ (required for launching Minecraft and installing Fabric)
+## What's new in v1.52.0
 
-## Install
-
-```bash
-npm install
-```
-
-## Run
-
-```bash
-npm start
-```
-
-## Build
-
-```bash
-npm run build
-```
-
-Builds are output to the `dist/` folder.
-
-## Custom Assets
-
-Drop your own images into `src/assets/` with these filenames:
-
-| File | Purpose |
-|------|---------|
-| `homebg.png` | Home page background |
-| `icon.png` | Logo displayed on home page |
-| `fabric.png` | Fabric logo (no background) |
-| `installbg.png` | Default installation card image |
-
-## Launcher Data
-
-Launcher data (installations, settings, logs) is stored separately from the app:
-
-| OS | Path |
-|----|------|
-| Windows | `%APPDATA%\IceyClient\` |
-| macOS | `~/Library/Application Support/IceyClient/` |
-| Linux | `~/.iceyclient/` |
-
-## Features
-
-- Custom frameless window with icy theme
-- Minecraft installation management (Vanilla + Fabric)
-- Mod and resource pack browsing via Modrinth & CurseForge
-- Drag-and-drop mod installation
-- Configurable RAM, JVM args, themes, accent colors
-- Session timer and play state management
-- Cross-platform (Windows + macOS)
+- **Edit waypoint coordinates** — Press B → "Edit Coordinates" → pick a waypoint → type new X/Y/Z, or hit "Use My Current Position" to snap it to where you're standing.
+- **Distance tag above every beam** — Each waypoint beacon now has a floating "name • 42m" label that always faces the camera and stays readable from anywhere. Updates live as you move. Color matches the beam.

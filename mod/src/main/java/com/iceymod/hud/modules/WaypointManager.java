@@ -45,6 +45,13 @@ public class WaypointManager {
         save();
     }
 
+    public static void updateWaypointCoords(int index, int x, int y, int z) {
+        if (index < 0 || index >= waypoints.size()) return;
+        Waypoint old = waypoints.get(index);
+        waypoints.set(index, new Waypoint(old.name, x, y, z, old.color));
+        save();
+    }
+
     public static void save() {
         JsonArray arr = new JsonArray();
         for (Waypoint wp : waypoints) {
