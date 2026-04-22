@@ -11,6 +11,8 @@ import com.iceymod.screen.IceyModScreen;
 import com.iceymod.screen.WaypointMenuScreen;
 import com.iceymod.render.WaypointBeamRenderer;
 import com.iceymod.render.HitboxRenderer;
+import com.iceymod.render.MinimapRenderer;
+import com.iceymod.compat.KeyBindingCompat;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -47,57 +49,48 @@ public class IceyMod implements ClientModInitializer {
         WaypointManager.init();
         WaypointBeamRenderer.register();
         HitboxRenderer.register();
+        MinimapRenderer.register();
 
-        menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, KEY_CATEGORY));
-        zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_M, KEY_CATEGORY));
-        perspectiveKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.perspective", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, KEY_CATEGORY));
-        waypointKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.waypoint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, KEY_CATEGORY));
-        hideHudKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.hidehud", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_H, KEY_CATEGORY));
-        toggleSprintKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.togglesprint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, KEY_CATEGORY));
-        toggleBrightKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.togglebright", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, KEY_CATEGORY));
-        toggleTotemKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.toggletotem", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_T, KEY_CATEGORY));
-        freelookKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.freelook", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, KEY_CATEGORY));
-        copyCoordsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.iceymod.copycoords", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_J, KEY_CATEGORY));
+        menuKey         = registerKey("key.iceymod.menu",         GLFW.GLFW_KEY_Y);
+        zoomKey         = registerKey("key.iceymod.zoom",         GLFW.GLFW_KEY_M);
+        perspectiveKey  = registerKey("key.iceymod.perspective",  GLFW.GLFW_KEY_R);
+        waypointKey     = registerKey("key.iceymod.waypoint",     GLFW.GLFW_KEY_B);
+        hideHudKey      = registerKey("key.iceymod.hidehud",      GLFW.GLFW_KEY_H);
+        toggleSprintKey = registerKey("key.iceymod.togglesprint", GLFW.GLFW_KEY_N);
+        toggleBrightKey = registerKey("key.iceymod.togglebright", GLFW.GLFW_KEY_G);
+        toggleTotemKey  = registerKey("key.iceymod.toggletotem",  GLFW.GLFW_KEY_T);
+        freelookKey     = registerKey("key.iceymod.freelook",     GLFW.GLFW_KEY_LEFT_ALT);
+        copyCoordsKey   = registerKey("key.iceymod.copycoords",   GLFW.GLFW_KEY_J);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (menuKey.wasPressed()) {
+            while (wasPressed(menuKey)) {
                 if (client.currentScreen == null) {
                     client.setScreen(new IceyModScreen());
                 }
             }
-            while (perspectiveKey.wasPressed()) {
+            while (wasPressed(perspectiveKey)) {
                 HudModule pm = findModule("perspective");
                 if (pm instanceof PerspectiveModule) {
                     ((PerspectiveModule) pm).cyclePerspective();
                 }
             }
-            while (waypointKey.wasPressed()) {
+            while (wasPressed(waypointKey)) {
                 if (client.currentScreen == null) {
                     client.setScreen(new WaypointMenuScreen());
                 }
             }
-            while (hideHudKey.wasPressed()) {
+            while (wasPressed(hideHudKey)) {
                 HudManager.toggleHudVisibility();
             }
-            while (toggleSprintKey.wasPressed()) {
+            while (wasPressed(toggleSprintKey)) {
                 HudModule m = findModule("autosprint");
                 if (m != null) m.toggle();
             }
-            while (toggleBrightKey.wasPressed()) {
+            while (wasPressed(toggleBrightKey)) {
                 HudModule m = findModule("fullbright");
                 if (m != null) m.toggle();
             }
-            while (toggleTotemKey.wasPressed()) {
+            while (wasPressed(toggleTotemKey)) {
                 HudModule m = findModule("autototem");
                 if (m != null) m.toggle();
             }
@@ -105,13 +98,13 @@ public class IceyMod implements ClientModInitializer {
             // Zoom: hold key
             HudModule zm = findModule("zoom");
             if (zm instanceof ZoomModule) {
-                ((ZoomModule) zm).setZooming(zoomKey.isPressed());
+                ((ZoomModule) zm).setZooming(isPressed(zoomKey));
             }
 
             // Freelook: hold key — camera rotates while character keeps facing forward
             HudModule fl = findModule("freelook");
             if (fl instanceof FreelookModule flm) {
-                boolean shouldBeActive = fl.isEnabled() && freelookKey.isPressed();
+                boolean shouldBeActive = fl.isEnabled() && isPressed(freelookKey);
                 if (shouldBeActive && !FreelookModule.isActive()) {
                     flm.start(client);
                     if (client.player != null) {
@@ -126,7 +119,7 @@ public class IceyMod implements ClientModInitializer {
             }
 
             // Copy coords to clipboard on key press
-            while (copyCoordsKey.wasPressed()) {
+            while (wasPressed(copyCoordsKey)) {
                 if (client.player != null) {
                     int x = (int) Math.floor(client.player.getX());
                     int y = (int) Math.floor(client.player.getY());
@@ -181,5 +174,31 @@ public class IceyMod implements ClientModInitializer {
             if (m.getId().equals(id)) return m;
         }
         return null;
+    }
+
+    /**
+     * Register a key via the compat helper so versions that removed the
+     * (String, Type, int, String) KeyBinding constructor don't crash the mod.
+     * Returns null if registration fails — all call sites null-check.
+     */
+    private static KeyBinding registerKey(String translationKey, int code) {
+        try {
+            KeyBinding kb = KeyBindingCompat.create(translationKey, InputUtil.Type.KEYSYM, code, KEY_CATEGORY);
+            if (kb == null) return null;
+            return KeyBindingHelper.registerKeyBinding(kb);
+        } catch (Throwable t) {
+            System.out.println("[IceyMod] Failed to register key " + translationKey + ": " + t.getMessage());
+            return null;
+        }
+    }
+
+    private static boolean wasPressed(KeyBinding kb) {
+        if (kb == null) return false;
+        try { return kb.wasPressed(); } catch (Throwable t) { return false; }
+    }
+
+    private static boolean isPressed(KeyBinding kb) {
+        if (kb == null) return false;
+        try { return kb.isPressed(); } catch (Throwable t) { return false; }
     }
 }

@@ -93,6 +93,7 @@ public class HudManager {
         modules.add(new ZoomModule());
         modules.add(new PerspectiveModule());
         modules.add(new WaypointsModule());
+        modules.add(new MinimapModule());
         modules.add(new FreelookModule());
         // Small cheats / QoL
         modules.add(new AutoMaceSwapModule());
@@ -140,10 +141,21 @@ public class HudManager {
         int visibleIdx = 0;
         for (HudModule m : modules) {
             if (m.getCategory() == HudModule.Category.OPTIMIZATION) continue;
-            int col = visibleIdx / perColumn;
-            int row = visibleIdx % perColumn;
-            int defaultX = startX + col * colWidth;
-            int defaultY = startY + row * rowHeight;
+
+            int defaultX;
+            int defaultY;
+            if (m instanceof MinimapModule) {
+                // Minimap belongs in the top-right corner, not in the info grid
+                int mmSize = ((MinimapModule) m).size.get();
+                defaultX = sw - mmSize - 8;
+                defaultY = 8;
+            } else {
+                int col = visibleIdx / perColumn;
+                int row = visibleIdx % perColumn;
+                defaultX = startX + col * colWidth;
+                defaultY = startY + row * rowHeight;
+                visibleIdx++;
+            }
 
             if (!configExists) {
                 m.setX(defaultX);
@@ -152,7 +164,6 @@ public class HudManager {
                 if (m.getX() < 0 || m.getX() > sw - 20) m.setX(defaultX);
                 if (m.getY() < 0 || m.getY() > sh - 10) m.setY(defaultY);
             }
-            visibleIdx++;
         }
         positionsClamped = true;
     }
