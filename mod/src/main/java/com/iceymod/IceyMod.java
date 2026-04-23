@@ -8,7 +8,9 @@ import com.iceymod.hud.modules.WaypointManager;
 import com.iceymod.hud.modules.WaypointsModule;
 import com.iceymod.hud.modules.ZoomModule;
 import com.iceymod.screen.IceyModScreen;
+import com.iceymod.screen.StructureMenuScreen;
 import com.iceymod.screen.WaypointMenuScreen;
+import com.iceymod.structure.StructureTracker;
 import com.iceymod.render.WaypointBeamRenderer;
 import com.iceymod.render.HitboxRenderer;
 import com.iceymod.render.MinimapRenderer;
@@ -42,6 +44,7 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding toggleTotemKey;
     private static KeyBinding freelookKey;
     private static KeyBinding copyCoordsKey;
+    private static KeyBinding structureKey;
 
     @Override
     public void onInitializeClient() {
@@ -50,6 +53,7 @@ public class IceyMod implements ClientModInitializer {
         WaypointBeamRenderer.register();
         HitboxRenderer.register();
         MinimapRenderer.register();
+        StructureTracker.register();
 
         menuKey         = registerKey("key.iceymod.menu",         GLFW.GLFW_KEY_Y);
         zoomKey         = registerKey("key.iceymod.zoom",         GLFW.GLFW_KEY_M);
@@ -61,6 +65,7 @@ public class IceyMod implements ClientModInitializer {
         toggleTotemKey  = registerKey("key.iceymod.toggletotem",  GLFW.GLFW_KEY_T);
         freelookKey     = registerKey("key.iceymod.freelook",     GLFW.GLFW_KEY_LEFT_ALT);
         copyCoordsKey   = registerKey("key.iceymod.copycoords",   GLFW.GLFW_KEY_J);
+        structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -77,6 +82,11 @@ public class IceyMod implements ClientModInitializer {
             while (wasPressed(waypointKey)) {
                 if (client.currentScreen == null) {
                     client.setScreen(new WaypointMenuScreen());
+                }
+            }
+            while (wasPressed(structureKey)) {
+                if (client.currentScreen == null) {
+                    client.setScreen(new StructureMenuScreen());
                 }
             }
             while (wasPressed(hideHudKey)) {

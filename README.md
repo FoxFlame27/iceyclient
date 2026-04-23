@@ -6,6 +6,17 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.60.0
+
+- **Structure Locator** — press `V` to open the menu (or enable the "Structure Locator" module in the Y menu). It scans chunks as they load for:
+  - **Trial Chambers** — detects Trial Spawners and Vault blocks (only exist in chambers).
+  - **Strongholds** — detects active End Portal blocks.
+  - **Player Bases** — detects Ender Chests, Shulker Boxes, and Beacons (crafted only, never natural).
+- **Waypoint-style menu** — Find New Structures / Pause · Waypoint a Structure · Delete · Clear All.
+- **Auto-waypoint** on discovery (toggleable). Distance-clustered so one chamber = one entry, not fifty.
+- **Rescan on enable** — already standing in a chamber when you toggle it on? It rescans every loaded chunk so the chamber shows up immediately.
+- **HUD list** — nearest structures shown with name, distance, and direction arrow (like waypoints).
+
 ## What's new in v1.53.0
 
 - **Xaero-style minimap** — press Y → enable "Minimap". A square terrain map in the top-right with biome-tinted colors (forests look green, swamps muddy, oceans match the biome shade), height shading, rotating player arrow, and waypoint dots. Drag it like any other HUD module.

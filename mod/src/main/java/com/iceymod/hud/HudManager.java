@@ -94,6 +94,7 @@ public class HudManager {
         modules.add(new PerspectiveModule());
         modules.add(new WaypointsModule());
         modules.add(new MinimapModule());
+        modules.add(new StructureLocatorModule());
         modules.add(new FreelookModule());
         // Small cheats / QoL
         modules.add(new AutoMaceSwapModule());
