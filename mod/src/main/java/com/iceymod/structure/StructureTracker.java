@@ -19,8 +19,10 @@ import net.minecraft.world.chunk.WorldChunk;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -48,14 +50,18 @@ public final class StructureTracker {
     public static final class Found {
         public final StructureType type;
         public final BlockPos pos;
-        public Found(StructureType type, BlockPos pos) {
+        public final String dimension;
+        public Found(StructureType type, BlockPos pos, String dimension) {
             this.type = type;
             this.pos = pos;
+            this.dimension = dimension;
         }
     }
 
+    // Everything is per-dimension so a Nether trip doesn't wipe your
+    // Overworld findings and vice versa.
     private static final List<Found> found = new ArrayList<>();
-    private static final Set<Long> scannedChunks = new HashSet<>();
+    private static final Map<String, Set<Long>> scannedChunksByDim = new HashMap<>();
     private static String currentWorldKey = "";
 
     // Structures closer than this (in blocks) are considered the same structure.
@@ -77,10 +83,20 @@ public final class StructureTracker {
         }
     }
 
+    /** Clears findings + scan state for the current dimension only. */
     public static void clear() {
         synchronized (found) {
+            found.removeIf(f -> f.dimension.equals(currentWorldKey));
+            Set<Long> dimSet = scannedChunksByDim.get(currentWorldKey);
+            if (dimSet != null) dimSet.clear();
+        }
+    }
+
+    /** Clears findings + scan state across every dimension. */
+    public static void clearAll() {
+        synchronized (found) {
             found.clear();
-            scannedChunks.clear();
+            scannedChunksByDim.clear();
         }
     }
 
@@ -122,7 +138,7 @@ public final class StructureTracker {
         String key = c.world.getRegistryKey().getValue().toString();
         if (!key.equals(currentWorldKey)) {
             currentWorldKey = key;
-            clear();
+            // Don't clear — findings + scanned-chunks persist per dimension.
         }
     }
 
@@ -139,10 +155,12 @@ public final class StructureTracker {
             if (mod == null || !mod.isEnabled()) return;
 
             resetIfWorldChanged();
+            String dim = world.getRegistryKey().getValue().toString();
 
             long key = chunk.getPos().toLong();
             synchronized (found) {
-                if (!scannedChunks.add(key)) return;
+                Set<Long> dimSet = scannedChunksByDim.computeIfAbsent(dim, k -> new HashSet<>());
+                if (!dimSet.add(key)) return;
             }
 
             boolean trackTrial = mod.trialChambers.get();
@@ -163,23 +181,24 @@ public final class StructureTracker {
                 if (type == null) continue;
 
                 BlockPos pos = be.getPos();
-                addIfNew(type, pos, mod.autoWaypoint.get());
+                addIfNew(type, pos, dim, mod.autoWaypoint.get());
             }
         } catch (Throwable t) {
             // Never crash the chunk pipeline — just drop the scan for this chunk.
         }
     }
 
-    private static void addIfNew(StructureType type, BlockPos pos, boolean autoWaypoint) {
+    private static void addIfNew(StructureType type, BlockPos pos, String dimension, boolean autoWaypoint) {
         synchronized (found) {
             for (Found f : found) {
                 if (f.type != type) continue;
+                if (!f.dimension.equals(dimension)) continue;
                 double dx = f.pos.getX() - pos.getX();
                 double dy = f.pos.getY() - pos.getY();
                 double dz = f.pos.getZ() - pos.getZ();
                 if (dx * dx + dy * dy + dz * dz < CLUSTER_DISTANCE * CLUSTER_DISTANCE) return;
             }
-            found.add(new Found(type, pos));
+            found.add(new Found(type, pos, dimension));
         }
         if (autoWaypoint) {
             try {
@@ -189,13 +208,19 @@ public final class StructureTracker {
     }
 
     /**
-     * Sorted-by-distance view for the HUD.
+     * Sorted-by-distance view for the HUD, filtered to the current
+     * dimension so Nether entries don't pollute an Overworld list.
      */
     public static List<Found> getSortedByDistance() {
         MinecraftClient c = MinecraftClient.getInstance();
-        if (c == null || c.player == null) return Collections.emptyList();
+        if (c == null || c.player == null || c.world == null) return Collections.emptyList();
+        String dim = c.world.getRegistryKey().getValue().toString();
         double px = c.player.getX(), py = c.player.getY(), pz = c.player.getZ();
-        List<Found> copy = getFound();
+        List<Found> all = getFound();
+        List<Found> copy = new ArrayList<>(all.size());
+        for (Found f : all) {
+            if (f.dimension.equals(dim)) copy.add(f);
+        }
         copy.sort((a, b) -> {
             double da = distSq(a.pos, px, py, pz);
             double db = distSq(b.pos, px, py, pz);
