@@ -105,7 +105,14 @@ public class StructureMenuScreen extends Screen {
 
         ButtonWidget clearBtn = ButtonWidget.builder(
                 Text.literal("§c✖ Clear All"),
-                b -> { StructureTracker.clear(); this.close(); }
+                b -> {
+                    StructureTracker.clear();
+                    // Re-sweep currently-loaded chunks so anything still in
+                    // range shows back up — otherwise the HUD gets stuck on
+                    // "Scanning chunks…" until the player walks to new chunks.
+                    StructureTracker.rescanNearby();
+                    this.close();
+                }
         ).dimensions(cx - btnW / 2, y, btnW, btnH).build();
         clearBtn.active = count > 0;
         addDrawableChild(clearBtn);
