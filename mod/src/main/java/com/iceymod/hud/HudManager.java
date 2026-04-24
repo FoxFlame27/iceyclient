@@ -178,16 +178,28 @@ public class HudManager {
         MinecraftClient client = MinecraftClient.getInstance();
         if (!positionsClamped) applyCenterDefaults();
         for (HudModule module : modules) {
-            if (module.isEnabled()) {
+            if (!module.isEnabled()) continue;
+            try {
                 module.render(context, client);
+            } catch (Throwable t) {
+                // One module's NoSuchMethodError or NPE shouldn't blank the HUD.
+                // Disable the offender so we don't crash every frame.
+                module.setEnabled(false);
+                System.out.println("[IceyMod] Disabled HUD module '" + module.getId() + "' after render error: " + t);
             }
         }
     }
 
     public static void tick() {
         for (HudModule module : modules) {
-            if (module.isEnabled()) {
+            if (!module.isEnabled()) continue;
+            try {
                 module.tick();
+            } catch (Throwable t) {
+                // Same defence for tick — 1.21.11 removed a few GameOptions
+                // getters and FpsBoost* modules blew up. Disable + log.
+                module.setEnabled(false);
+                System.out.println("[IceyMod] Disabled HUD module '" + module.getId() + "' after tick error: " + t);
             }
         }
     }

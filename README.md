@@ -6,6 +6,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.61.3
+
+- **Fix: 1.21.11 crash in FpsBoostGraphicsModule** — `GameOptions.getGraphicsMode()` was removed in 1.21.11, and the FpsBoost graphics module called it every tick, taking down the whole client ~1s after launch. `HudManager.tick` and `render` now wrap each module in a try/catch — if one module blows up on an API mismatch, it gets auto-disabled with a log line and the rest of the HUD keeps running.
+
 ## What's new in v1.61.2
 
 - **Fix: 1.21.11 startup crash from CameraMixin.** `Camera.update`'s signature changed in 1.21.11 and the freelook mixin couldn't find its injection target, crashing the game during class load. All mod mixins now tolerate missing targets (`require=0, expect=0`) — on a version where a target signature changed, the affected feature silently disables instead of taking down the whole game.
