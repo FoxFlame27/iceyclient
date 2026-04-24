@@ -2,19 +2,32 @@ package com.iceymod.compat;
 
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.Identifier;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
 /**
- * Version-compat shim for KeyBinding construction. The 4-arg (String, Type, int, String)
- * constructor existed through 1.21.8 but was replaced in 1.21.9+ with (String, Type, int,
- * KeyBinding.Category). We build against 1.21.8 but the mod ships into newer installs too,
- * so construction is probed once via reflection and cached.
+ * Version-compat shim for KeyBinding construction.
  *
- * Returns null if no constructor path works — callers must null-check and skip the bind.
+ * 1.21.8 and earlier:  new KeyBinding(String, InputUtil.Type, int, String)
+ * 1.21.9+:             new KeyBinding(String, InputUtil.Type, int, KeyBinding.Category)
+ *
+ * We build against 1.21.8 but ship into newer installs. Earlier attempts
+ * used Class.forName("net.minecraft.client.option.KeyBinding$Category"),
+ * which silently fails in production: Loom remaps compile-time class
+ * references but NOT string literals, so at runtime that class is named
+ * "net.minecraft.class_304$class_11900" — the Class.forName lookup falls
+ * through, mode becomes BROKEN, and no keybinds get registered.
+ *
+ * This rewrite avoids string-based reflection entirely. It enumerates
+ * KeyBinding's public constructors (the Class&lt;?&gt; object IS remapped),
+ * finds one with 4 parameters matching (String, InputUtil.Type, int, ???),
+ * and if the 4th is String uses the legacy path. Otherwise the 4th
+ * parameter's type IS the Category class — we then find any built-in
+ * category instance by iterating its public static fields of that type.
+ * No class-name string lookup needed, so this works in both dev and
+ * production regardless of obfuscation.
  */
 public final class KeyBindingCompat {
 
@@ -23,47 +36,56 @@ public final class KeyBindingCompat {
     private static Mode mode = Mode.UNKNOWN;
     private static Constructor<KeyBinding> legacyCtor;
     private static Constructor<KeyBinding> newCtor;
-    private static Method categoryCreate;
-    private static Class<?> categoryClass;
-    // Pre-resolved reference to KeyBinding.Category.MISC — using a built-in
-    // category is what gets our keys shown in the vanilla Controls screen.
-    // Custom Category.create(Identifier) categories don't appear there
-    // unless also registered via Fabric's internal category registry.
-    private static Object miscCategory;
+    private static Object defaultCategoryInstance;
 
     private KeyBindingCompat() {}
 
     @SuppressWarnings("unchecked")
     private static synchronized void probe() {
         if (mode != Mode.UNKNOWN) return;
-
-        // 1.21.8 path: (String, InputUtil.Type, int, String)
         try {
-            legacyCtor = (Constructor<KeyBinding>) KeyBinding.class.getConstructor(
-                    String.class, InputUtil.Type.class, int.class, String.class);
-            mode = Mode.LEGACY_STRING;
-            return;
-        } catch (NoSuchMethodException ignored) {}
+            for (Constructor<?> ctor : KeyBinding.class.getConstructors()) {
+                Class<?>[] params = ctor.getParameterTypes();
+                if (params.length != 4) continue;
+                if (params[0] != String.class) continue;
+                if (params[1] != InputUtil.Type.class) continue;
+                if (params[2] != int.class) continue;
 
-        // 1.21.9+ path: (String, InputUtil.Type, int, KeyBinding$Category)
-        try {
-            categoryClass = Class.forName("net.minecraft.client.option.KeyBinding$Category");
-            try {
-                categoryCreate = categoryClass.getMethod("create", Identifier.class);
-            } catch (NoSuchMethodException ignored) {
-                // Not strictly required — we prefer the MISC field anyway
+                if (params[3] == String.class) {
+                    legacyCtor = (Constructor<KeyBinding>) ctor;
+                    mode = Mode.LEGACY_STRING;
+                    return;
+                }
+
+                // params[3] IS the Category class (whatever its runtime name).
+                // Grab any built-in category instance — we don't care which
+                // one (Movement/Misc/Gameplay etc), we just need a registered
+                // category so the keybind shows up in vanilla's Controls.
+                Class<?> categoryClass = params[3];
+                for (Field f : categoryClass.getFields()) {
+                    if (!Modifier.isStatic(f.getModifiers())) continue;
+                    if (f.getType() != categoryClass) continue;
+                    try {
+                        Object value = f.get(null);
+                        if (value != null) {
+                            defaultCategoryInstance = value;
+                            break;
+                        }
+                    } catch (Throwable ignored) {}
+                }
+
+                if (defaultCategoryInstance != null) {
+                    newCtor = (Constructor<KeyBinding>) ctor;
+                    mode = Mode.NEW_CATEGORY;
+                    return;
+                }
             }
-            try {
-                Field miscField = categoryClass.getField("MISC");
-                miscCategory = miscField.get(null);
-            } catch (Throwable ignored) {}
-            newCtor = (Constructor<KeyBinding>) KeyBinding.class.getConstructor(
-                    String.class, InputUtil.Type.class, int.class, categoryClass);
-            mode = Mode.NEW_CATEGORY;
-            return;
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            System.out.println("[IceyMod] KeyBindingCompat probe threw: " + t);
+        }
 
         mode = Mode.BROKEN;
+        System.out.println("[IceyMod] KeyBindingCompat: no matching KeyBinding constructor found — keybinds disabled");
     }
 
     public static KeyBinding create(String translationKey, InputUtil.Type type, int code, String categoryKey) {
@@ -74,15 +96,7 @@ public final class KeyBindingCompat {
                     return legacyCtor.newInstance(translationKey, type, code, categoryKey);
                 }
                 case NEW_CATEGORY -> {
-                    // Prefer the built-in MISC category so our keys are visible
-                    // in the vanilla Controls screen. Only fall back to a
-                    // custom Identifier-based category if MISC resolution failed.
-                    Object category = miscCategory;
-                    if (category == null && categoryCreate != null) {
-                        category = categoryCreate.invoke(null, Identifier.of("iceymod", "main"));
-                    }
-                    if (category == null) return null;
-                    return newCtor.newInstance(translationKey, type, code, category);
+                    return newCtor.newInstance(translationKey, type, code, defaultCategoryInstance);
                 }
                 default -> {
                     return null;
