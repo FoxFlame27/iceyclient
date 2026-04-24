@@ -5,6 +5,7 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.Identifier;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
@@ -24,6 +25,11 @@ public final class KeyBindingCompat {
     private static Constructor<KeyBinding> newCtor;
     private static Method categoryCreate;
     private static Class<?> categoryClass;
+    // Pre-resolved reference to KeyBinding.Category.MISC — using a built-in
+    // category is what gets our keys shown in the vanilla Controls screen.
+    // Custom Category.create(Identifier) categories don't appear there
+    // unless also registered via Fabric's internal category registry.
+    private static Object miscCategory;
 
     private KeyBindingCompat() {}
 
@@ -42,7 +48,15 @@ public final class KeyBindingCompat {
         // 1.21.9+ path: (String, InputUtil.Type, int, KeyBinding$Category)
         try {
             categoryClass = Class.forName("net.minecraft.client.option.KeyBinding$Category");
-            categoryCreate = categoryClass.getMethod("create", Identifier.class);
+            try {
+                categoryCreate = categoryClass.getMethod("create", Identifier.class);
+            } catch (NoSuchMethodException ignored) {
+                // Not strictly required — we prefer the MISC field anyway
+            }
+            try {
+                Field miscField = categoryClass.getField("MISC");
+                miscCategory = miscField.get(null);
+            } catch (Throwable ignored) {}
             newCtor = (Constructor<KeyBinding>) KeyBinding.class.getConstructor(
                     String.class, InputUtil.Type.class, int.class, categoryClass);
             mode = Mode.NEW_CATEGORY;
@@ -60,8 +74,14 @@ public final class KeyBindingCompat {
                     return legacyCtor.newInstance(translationKey, type, code, categoryKey);
                 }
                 case NEW_CATEGORY -> {
-                    Identifier id = Identifier.of("iceymod", "main");
-                    Object category = categoryCreate.invoke(null, id);
+                    // Prefer the built-in MISC category so our keys are visible
+                    // in the vanilla Controls screen. Only fall back to a
+                    // custom Identifier-based category if MISC resolution failed.
+                    Object category = miscCategory;
+                    if (category == null && categoryCreate != null) {
+                        category = categoryCreate.invoke(null, Identifier.of("iceymod", "main"));
+                    }
+                    if (category == null) return null;
                     return newCtor.newInstance(translationKey, type, code, category);
                 }
                 default -> {
