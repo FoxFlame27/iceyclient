@@ -6,6 +6,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.61.4
+
+- **Fix: 1.21.11 crash in SplashTextMixin.** `SplashTextRenderer(String)` constructor was removed in 1.21.11, so the themed splash text mixin was crashing the title screen reload with `NoSuchMethodError`. `require=0` on the injection wasn't enough because the *target* still existed — the failing call was inside the mixin body. Every `@Inject` mixin now wraps its body in `try/catch(Throwable)` so runtime API drift silently falls through to vanilla instead of crashing.
+
 ## What's new in v1.61.3
 
 - **Fix: 1.21.11 crash in FpsBoostGraphicsModule** — `GameOptions.getGraphicsMode()` was removed in 1.21.11, and the FpsBoost graphics module called it every tick, taking down the whole client ~1s after launch. `HudManager.tick` and `render` now wrap each module in a try/catch — if one module blows up on an API mismatch, it gets auto-disabled with a log line and the rest of the HUD keeps running.

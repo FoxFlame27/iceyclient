@@ -27,13 +27,18 @@ public abstract class CameraMixin {
     @Inject(method = "update", at = @At("RETURN"), require = 0, expect = 0)
     private void iceymod$applyFreelook(BlockView world, Entity focused, boolean thirdPerson,
                                        boolean inverseView, float tickDelta, CallbackInfo ci) {
-        if (FreelookModule.isRendering() && focused != null) {
-            float playerYaw = focused.getYaw(tickDelta);
-            float playerPitch = focused.getPitch(tickDelta);
-            setRotation(
-                FreelookModule.getRenderYaw(playerYaw),
-                FreelookModule.getRenderPitch(playerPitch)
-            );
+        try {
+            if (FreelookModule.isRendering() && focused != null) {
+                float playerYaw = focused.getYaw(tickDelta);
+                float playerPitch = focused.getPitch(tickDelta);
+                setRotation(
+                    FreelookModule.getRenderYaw(playerYaw),
+                    FreelookModule.getRenderPitch(playerPitch)
+                );
+            }
+        } catch (Throwable ignored) {
+            // Entity.getYaw / setRotation could shift between versions —
+            // silently skip freelook rather than crash the render pass.
         }
     }
 }

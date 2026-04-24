@@ -24,21 +24,23 @@ public abstract class LogoDrawerMixin {
 
     @Inject(method = "draw(Lnet/minecraft/client/gui/DrawContext;IFI)V", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$replaceLogo(DrawContext context, int screenWidth, float horizontalAlphaMultiplier, int yOffset, CallbackInfo ci) {
-        // Scale down if the screen is narrower than the target logo width.
-        int targetW = Math.min(200, Math.max(64, screenWidth - 40));
-        int targetH = (int) ((long) targetW * SRC_H / SRC_W);
-        int x = Math.max(4, screenWidth / 2 - targetW / 2);
-        // LOGO_BASE_Y is where vanilla puts the top of the MINECRAFT logo.
-        // Start a bit higher so the whole logo is clearly above the button row.
-        int y = Math.max(4, LogoDrawer.LOGO_BASE_Y + yOffset - 55);
-        context.drawTexture(
-                RenderPipelines.GUI_TEXTURED,
-                ICEY_LOGO,
-                x, y,
-                0f, 0f,
-                targetW, targetH,
-                targetW, targetH
-        );
-        ci.cancel();
+        try {
+            int targetW = Math.min(200, Math.max(64, screenWidth - 40));
+            int targetH = (int) ((long) targetW * SRC_H / SRC_W);
+            int x = Math.max(4, screenWidth / 2 - targetW / 2);
+            int y = Math.max(4, LogoDrawer.LOGO_BASE_Y + yOffset - 55);
+            context.drawTexture(
+                    RenderPipelines.GUI_TEXTURED,
+                    ICEY_LOGO,
+                    x, y,
+                    0f, 0f,
+                    targetW, targetH,
+                    targetW, targetH
+            );
+            ci.cancel();
+        } catch (Throwable ignored) {
+            // drawTexture signature changed between versions — let vanilla
+            // render the default logo rather than crash the title screen.
+        }
     }
 }

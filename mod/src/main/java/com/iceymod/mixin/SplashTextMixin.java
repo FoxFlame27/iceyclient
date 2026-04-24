@@ -51,7 +51,12 @@ public abstract class SplashTextMixin {
 
     @Inject(method = "get", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$iceySplash(CallbackInfoReturnable<SplashTextRenderer> cir) {
-        String text = ICEY_SPLASHES[ThreadLocalRandom.current().nextInt(ICEY_SPLASHES.length)];
-        cir.setReturnValue(new SplashTextRenderer(text));
+        try {
+            String text = ICEY_SPLASHES[ThreadLocalRandom.current().nextInt(ICEY_SPLASHES.length)];
+            cir.setReturnValue(new SplashTextRenderer(text));
+        } catch (Throwable ignored) {
+            // SplashTextRenderer's constructor signature changed in 1.21.11 —
+            // fall through to vanilla splash text rather than crash.
+        }
     }
 }

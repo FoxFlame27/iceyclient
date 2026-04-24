@@ -18,12 +18,14 @@ public abstract class EntityLookMixin {
 
     @Inject(method = "changeLookDirection", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$freelook(double cursorDeltaX, double cursorDeltaY, CallbackInfo ci) {
-        if (!FreelookModule.isActive()) return;
-        Entity self = (Entity) (Object) this;
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client != null && self == client.player) {
-            FreelookModule.applyDelta(cursorDeltaX, cursorDeltaY);
-            ci.cancel();
-        }
+        try {
+            if (!FreelookModule.isActive()) return;
+            Entity self = (Entity) (Object) this;
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client != null && self == client.player) {
+                FreelookModule.applyDelta(cursorDeltaX, cursorDeltaY);
+                ci.cancel();
+            }
+        } catch (Throwable ignored) {}
     }
 }

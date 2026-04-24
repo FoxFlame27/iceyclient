@@ -20,14 +20,16 @@ public abstract class GameRendererMixin {
 
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true, require = 0, expect = 0)
     private void iceymod$applyZoom(Camera camera, float tickDelta, boolean changingFov, CallbackInfoReturnable<Float> cir) {
-        for (HudModule m : HudManager.getModules()) {
-            if (m instanceof ZoomModule && m.isEnabled()) {
-                float factor = ((ZoomModule) m).getZoomFactor();
-                if (factor < 1.0f) {
-                    cir.setReturnValue(cir.getReturnValue() * factor);
+        try {
+            for (HudModule m : HudManager.getModules()) {
+                if (m instanceof ZoomModule && m.isEnabled()) {
+                    float factor = ((ZoomModule) m).getZoomFactor();
+                    if (factor < 1.0f) {
+                        cir.setReturnValue(cir.getReturnValue() * factor);
+                    }
+                    return;
                 }
-                return;
             }
-        }
+        } catch (Throwable ignored) {}
     }
 }
