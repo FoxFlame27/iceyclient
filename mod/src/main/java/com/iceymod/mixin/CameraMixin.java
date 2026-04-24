@@ -21,7 +21,10 @@ public abstract class CameraMixin {
     @Shadow
     protected abstract void setRotation(float yaw, float pitch);
 
-    @Inject(method = "update", at = @At("RETURN"))
+    // require=0, expect=0 so this mixin silently no-ops on MC versions
+    // where Camera.update's signature changed — game still boots, just
+    // without freelook rendering.
+    @Inject(method = "update", at = @At("RETURN"), require = 0, expect = 0)
     private void iceymod$applyFreelook(BlockView world, Entity focused, boolean thirdPerson,
                                        boolean inverseView, float tickDelta, CallbackInfo ci) {
         if (FreelookModule.isRendering() && focused != null) {

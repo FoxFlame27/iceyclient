@@ -49,7 +49,7 @@ public abstract class SplashTextMixin {
         "keep your cool!"
     };
 
-    @Inject(method = "get", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "get", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$iceySplash(CallbackInfoReturnable<SplashTextRenderer> cir) {
         String text = ICEY_SPLASHES[ThreadLocalRandom.current().nextInt(ICEY_SPLASHES.length)];
         cir.setReturnValue(new SplashTextRenderer(text));

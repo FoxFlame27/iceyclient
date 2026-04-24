@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
 
-    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true, require = 0, expect = 0)
     private void iceymod$applyZoom(Camera camera, float tickDelta, boolean changingFov, CallbackInfoReturnable<Float> cir) {
         for (HudModule m : HudManager.getModules()) {
             if (m instanceof ZoomModule && m.isEnabled()) {

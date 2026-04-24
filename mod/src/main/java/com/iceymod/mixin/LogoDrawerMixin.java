@@ -22,7 +22,7 @@ public abstract class LogoDrawerMixin {
     private static final int SRC_W = 1536;
     private static final int SRC_H = 1024;
 
-    @Inject(method = "draw(Lnet/minecraft/client/gui/DrawContext;IFI)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "draw(Lnet/minecraft/client/gui/DrawContext;IFI)V", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$replaceLogo(DrawContext context, int screenWidth, float horizontalAlphaMultiplier, int yOffset, CallbackInfo ci) {
         // Scale down if the screen is narrower than the target logo width.
         int targetW = Math.min(200, Math.max(64, screenWidth - 40));

@@ -5,6 +5,7 @@ import com.iceymod.hud.HudModule;
 import com.iceymod.hud.modules.StructureLocatorModule;
 import com.iceymod.hud.modules.WaypointManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.block.entity.BeaconBlockEntity;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.EndPortalBlockEntity;
@@ -69,11 +70,31 @@ public final class StructureTracker {
 
     private StructureTracker() {}
 
+    private static int tickCounter = 0;
+
     public static void register() {
+        // Primary detection path: react to chunks as they load.
         try {
             ClientChunkEvents.CHUNK_LOAD.register(StructureTracker::onChunkLoad);
         } catch (Throwable t) {
-            System.out.println("[IceyMod] ClientChunkEvents unavailable — structure locator disabled: " + t.getMessage());
+            System.out.println("[IceyMod] ClientChunkEvents.CHUNK_LOAD unavailable — structure locator will rely on periodic tick rescan: " + t.getMessage());
+        }
+        // Fallback path: every second, re-scan chunks in render range.
+        // Chunks already scanned are deduped via scannedChunksByDim, so this
+        // is effectively a no-op for already-seen chunks. It covers the
+        // case where CHUNK_LOAD never fires (Fabric API package changes on
+        // newer MC versions, for example).
+        try {
+            ClientTickEvents.END_CLIENT_TICK.register(client -> {
+                tickCounter++;
+                if (tickCounter < 20) return;
+                tickCounter = 0;
+                StructureLocatorModule mod = getModule();
+                if (mod == null || !mod.isEnabled()) return;
+                rescanNearby();
+            });
+        } catch (Throwable t) {
+            System.out.println("[IceyMod] ClientTickEvents unavailable — periodic structure rescan disabled: " + t.getMessage());
         }
     }
 

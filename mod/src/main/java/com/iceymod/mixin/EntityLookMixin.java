@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Entity.class)
 public abstract class EntityLookMixin {
 
-    @Inject(method = "changeLookDirection", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "changeLookDirection", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$freelook(double cursorDeltaX, double cursorDeltaY, CallbackInfo ci) {
         if (!FreelookModule.isActive()) return;
         Entity self = (Entity) (Object) this;
