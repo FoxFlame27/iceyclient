@@ -11,6 +11,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BeaconBlockEntity;
 import net.minecraft.block.entity.BellBlockEntity;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.EndGatewayBlockEntity;
 import net.minecraft.block.entity.EndPortalBlockEntity;
 import net.minecraft.block.entity.EnderChestBlockEntity;
 import net.minecraft.block.entity.ShulkerBoxBlockEntity;
@@ -48,6 +49,7 @@ public final class StructureTracker {
         NETHER_FORTRESS ("Nether Fortress", 0xFF8B1A1A),
         BASTION         ("Bastion Remnant", 0xFFC78A3E),
         END_CITY        ("End City",        0xFFE2CEF2),
+        END_GATEWAY     ("End Gateway",     0xFF9966FF),
         OCEAN_MONUMENT  ("Ocean Monument",  0xFF50C7E8),
         ANCIENT_CITY    ("Ancient City",    0xFF33FFAA),
         RUINED_PORTAL   ("Ruined Portal",   0xFFAA00FF),
@@ -205,6 +207,7 @@ public final class StructureTracker {
             boolean trackStronghold = mod.strongholds.get();
             boolean trackBase = mod.playerBases.get();
             boolean trackVillage = mod.villages.get();
+            boolean trackGateway = mod.endGateways.get();
 
             for (BlockEntity be : chunk.getBlockEntities().values()) {
                 StructureType type = null;
@@ -218,6 +221,8 @@ public final class StructureTracker {
                     type = StructureType.PLAYER_BASE;
                 } else if (trackVillage && be instanceof BellBlockEntity) {
                     type = StructureType.VILLAGE;
+                } else if (trackGateway && be instanceof EndGatewayBlockEntity) {
+                    type = StructureType.END_GATEWAY;
                 }
                 if (type != null) addIfNew(type, be.getPos(), dim, autoWp);
             }
@@ -234,7 +239,20 @@ public final class StructureTracker {
                 if (hit != null) addIfNew(StructureType.BASTION, hit, dim, autoWp);
             }
             if (isEnd && mod.endCities.get()) {
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.PURPUR_PILLAR), 40, 90, 4);
+                // Maximize End-city detection: every chunk fragment of an
+                // outer-end island that gets sent to the client gets
+                // sampled with a finer step (2 instead of 4) over a wider
+                // Y range (30-110 covers low islands + tall city spires),
+                // and we accept ANY of the 5 unique end-city blocks —
+                // pillars are sparse, but purpur_block + end_stone_bricks
+                // make up most of the city walls/floors.
+                BlockPos hit = scanChunkForBlock(chunk,
+                        s -> s.isOf(Blocks.PURPUR_PILLAR)
+                          || s.isOf(Blocks.PURPUR_BLOCK)
+                          || s.isOf(Blocks.PURPUR_STAIRS)
+                          || s.isOf(Blocks.PURPUR_SLAB)
+                          || s.isOf(Blocks.END_STONE_BRICKS),
+                        30, 110, 2);
                 if (hit != null) addIfNew(StructureType.END_CITY, hit, dim, autoWp);
             }
             if (isOver && mod.oceanMonuments.get()) {

@@ -153,6 +153,7 @@ public class StructureMenuScreen extends Screen {
                 new Row("Nether Fortresses",mod.netherFortresses),
                 new Row("Bastion Remnants", mod.bastions),
                 new Row("End Cities",       mod.endCities),
+                new Row("End Gateways",     mod.endGateways),
                 new Row("Ocean Monuments",  mod.oceanMonuments),
                 new Row("Ancient Cities",   mod.ancientCities),
                 new Row("Ruined Portals",   mod.ruinedPortals),

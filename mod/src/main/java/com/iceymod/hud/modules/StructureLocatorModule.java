@@ -22,6 +22,7 @@ public class StructureLocatorModule extends HudModule {
     public final BoolSetting netherFortresses = addSetting(new BoolSetting("netherFortresses", "Nether Fortresses",true));
     public final BoolSetting bastions         = addSetting(new BoolSetting("bastions",         "Bastion Remnants", true));
     public final BoolSetting endCities        = addSetting(new BoolSetting("endCities",        "End Cities",       true));
+    public final BoolSetting endGateways      = addSetting(new BoolSetting("endGateways",      "End Gateways",     true));
     public final BoolSetting oceanMonuments   = addSetting(new BoolSetting("oceanMonuments",   "Ocean Monuments",  true));
     public final BoolSetting ancientCities    = addSetting(new BoolSetting("ancientCities",    "Ancient Cities",   true));
     public final BoolSetting ruinedPortals    = addSetting(new BoolSetting("ruinedPortals",    "Ruined Portals",   false));

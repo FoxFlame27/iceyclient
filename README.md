@@ -6,6 +6,12 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.64.0
+
+- **End City detection — way more sensitive.** Now samples for `purpur_pillar`, `purpur_block`, `purpur_stairs`, `purpur_slab`, AND `end_stone_bricks` (was just pillars). Scan step finer (2 blocks vs 4) and Y range wider (30–110 vs 40–90). Any sliver of a city or end ship inside a loaded chunk should register now.
+- **New structure type: End Gateway.** Detected via `EndGatewayBlockEntity`. Auto-waypoint them so you can systematically gateway-hop to outer-end islands — far faster than elytra-flying for finding new cities.
+- **Caveat:** the End is huge and the server only sends chunks within your render distance. No mod can see structures outside loaded chunks — use gateways + max render distance.
+
 ## What's new in v1.63.1
 
 - **Freecam smoothness + range fix.** Movement was running on the 20 Hz tick loop, so motion stepped on a 60+ fps display. Moved input-read + position update into the per-frame Camera path with delta-time scaling — now it glides. Also clamped the camera within your render-distance radius so you can't fly past the chunks the server actually sent (which was making it look like "doesn't render everything").
@@ -59,6 +65,7 @@ xacttr -cr /Applications/Icey\ Client.app
 - **Fix: Structure Locator getting stuck at "Scanning chunks…"** — every dimension trip (Overworld → Nether → back) was wiping all your found chambers/bases. Now each finding is tagged with the dimension it was discovered in, and findings + scan state survive dimension switches. The HUD only shows entries for the dimension you're currently in.
 - **Clear All** now only clears the current dimension's findings — your Nether list is safe when you clear Overworld.
 
+
 ## What's new in v1.60.0
 
 - **Structure Locator** — press `V` to open the menu (or enable the "Structure Locator" module in the Y menu). It scans chunks as they load for:
@@ -75,8 +82,3 @@ xacttr -cr /Applications/Icey\ Client.app
 - **Xaero-style minimap** — press Y → enable "Minimap". A square terrain map in the top-right with biome-tinted colors (forests look green, swamps muddy, oceans match the biome shade), height shading, rotating player arrow, and waypoint dots. Drag it like any other HUD module.
 - **Tunable** — size 64–192 px, radius 16–192 blocks, toggles for biome tint, height shading, north indicator, coords under map, and waypoint dots. All in the module's gear menu.
 - **1.21.11 crash fix** — the mod was crashing at startup on 1.21.11 because `KeyBinding`'s constructor signature changed between versions. Now uses a reflection-based compat shim so the same jar works from 1.21.8 through 1.21.11.
-
-## What's new in v1.52.0
-
-- **Edit waypoint coordinates** — Press B → "Edit Coordinates" → pick a waypoint → type new X/Y/Z, or hit "Use My Current Position" to snap it to where you're standing.
-- **Distance tag above every beam** — Each waypoint beacon now has a floating "name • 42m" label that always faces the camera and stays readable from anywhere. Updates live as you move. Color matches the beam.
