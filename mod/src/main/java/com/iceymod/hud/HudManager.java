@@ -95,6 +95,7 @@ public class HudManager {
         modules.add(new WaypointsModule());
         modules.add(new MinimapModule());
         modules.add(new StructureLocatorModule());
+        modules.add(new BiomeLocatorModule());
         modules.add(new FreelookModule());
         modules.add(new FreecamModule());
         // Small cheats / QoL

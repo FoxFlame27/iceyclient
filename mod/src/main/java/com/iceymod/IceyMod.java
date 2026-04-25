@@ -12,6 +12,8 @@ import com.iceymod.screen.IceyModScreen;
 import com.iceymod.screen.StructureMenuScreen;
 import com.iceymod.screen.WaypointMenuScreen;
 import com.iceymod.structure.StructureTracker;
+import com.iceymod.structure.BiomeTracker;
+import com.iceymod.screen.BiomeMenuScreen;
 import com.iceymod.render.WaypointBeamRenderer;
 import com.iceymod.render.HitboxRenderer;
 import com.iceymod.render.MinimapRenderer;
@@ -47,6 +49,7 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding copyCoordsKey;
     private static KeyBinding structureKey;
     private static KeyBinding freecamKey;
+    private static KeyBinding biomeKey;
 
     @Override
     public void onInitializeClient() {
@@ -56,6 +59,7 @@ public class IceyMod implements ClientModInitializer {
         HitboxRenderer.register();
         MinimapRenderer.register();
         StructureTracker.register();
+        BiomeTracker.register();
 
         menuKey         = registerKey("key.iceymod.menu",         GLFW.GLFW_KEY_Y);
         zoomKey         = registerKey("key.iceymod.zoom",         GLFW.GLFW_KEY_M);
@@ -69,6 +73,7 @@ public class IceyMod implements ClientModInitializer {
         copyCoordsKey   = registerKey("key.iceymod.copycoords",   GLFW.GLFW_KEY_J);
         structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
         freecamKey      = registerKey("key.iceymod.freecam",      GLFW.GLFW_KEY_F4);
+        biomeKey        = registerKey("key.iceymod.biome",        GLFW.GLFW_KEY_K);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -90,6 +95,11 @@ public class IceyMod implements ClientModInitializer {
             while (wasPressed(structureKey)) {
                 if (client.currentScreen == null) {
                     client.setScreen(new StructureMenuScreen());
+                }
+            }
+            while (wasPressed(biomeKey)) {
+                if (client.currentScreen == null) {
+                    client.setScreen(new BiomeMenuScreen());
                 }
             }
             while (wasPressed(freecamKey)) {

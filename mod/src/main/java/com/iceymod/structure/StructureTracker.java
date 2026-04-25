@@ -8,6 +8,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.mob.ShulkerEntity;
+import net.minecraft.world.biome.BiomeKeys;
 import net.minecraft.block.entity.BeaconBlockEntity;
 import net.minecraft.block.entity.BellBlockEntity;
 import net.minecraft.block.entity.BlockEntity;
@@ -107,10 +110,33 @@ public final class StructureTracker {
                 if (mod == null || !mod.isEnabled()) return;
                 rescanNearby();
                 detectEndTeleport(client);
+                detectShulkers(client);
             });
         } catch (Throwable t) {
             System.out.println("[IceyMod] ClientTickEvents unavailable — periodic structure rescan disabled: " + t.getMessage());
         }
+    }
+
+    /**
+     * Shulkers only spawn naturally inside End Cities. If we see one in
+     * the loaded entity list, that's a 100% reliable End-City marker —
+     * even on chunks where the block-sample scan didn't catch any
+     * purpur. Cheap iteration: typical chunk has &lt;50 entities, and
+     * we only do this once per second.
+     */
+    private static void detectShulkers(net.minecraft.client.MinecraftClient client) {
+        try {
+            if (client == null || client.world == null) return;
+            String dim = client.world.getRegistryKey().getValue().toString();
+            if (!dim.contains("the_end")) return;
+            StructureLocatorModule mod = getModule();
+            if (mod == null || !mod.endCities.get()) return;
+            for (Entity e : client.world.getEntities()) {
+                if (e instanceof ShulkerEntity) {
+                    addIfNew(StructureType.END_CITY, e.getBlockPos(), dim, mod.autoWaypoint.get());
+                }
+            }
+        } catch (Throwable ignored) {}
     }
 
     /**
@@ -183,7 +209,13 @@ public final class StructureTracker {
 
             int cx = c.player.getBlockX() >> 4;
             int cz = c.player.getBlockZ() >> 4;
-            int radius = c.options.getViewDistance().getValue();
+            // Go beyond the client's view distance: servers sometimes
+            // lazy-send extra chunks (simulation distance + neighbor
+            // pre-load) that wouldn't be in our render set. Loop a bit
+            // wider and let getWorldChunk null-skip the unloaded ones —
+            // null check is O(1) so the extra iterations are free.
+            int viewRadius = c.options.getViewDistance().getValue();
+            int radius = viewRadius + 4;
 
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
@@ -271,23 +303,33 @@ public final class StructureTracker {
                 if (hit != null) addIfNew(StructureType.BASTION, hit, dim, autoWp);
             }
             if (isEnd && mod.endCities.get()) {
-                // Maximize End-city detection: every chunk fragment of an
-                // outer-end island that gets sent to the client gets
-                // sampled with a finer step (2 instead of 4) over a wider
-                // Y range (30-110 covers low islands + tall city spires),
-                // and we accept ANY of the 5 unique end-city blocks —
-                // pillars are sparse, but purpur_block + end_stone_bricks
-                // make up most of the city walls/floors.
-                // End cities: broad signature → 5 hits required to dodge
-                // a single player-placed purpur block.
-                BlockPos hit = scanChunkForBlock(chunk,
-                        s -> s.isOf(Blocks.PURPUR_PILLAR)
-                          || s.isOf(Blocks.PURPUR_BLOCK)
-                          || s.isOf(Blocks.PURPUR_STAIRS)
-                          || s.isOf(Blocks.PURPUR_SLAB)
-                          || s.isOf(Blocks.END_STONE_BRICKS),
-                        30, 110, 2, 5);
-                if (hit != null) addIfNew(StructureType.END_CITY, hit, dim, autoWp);
+                // Biome-gated max sensitivity:
+                //   - END_HIGHLANDS / END_MIDLANDS = the only biomes
+                //     where end cities can spawn. Scan EVERY block
+                //     (step=1) over full Y (0-128), trigger on a single
+                //     hit. Catches even one purpur block sticking out
+                //     of an island fragment. About 8× the scan work of
+                //     before but still well under 100us per chunk.
+                //   - Anywhere else = skip entirely. Cities can't spawn
+                //     so no need to waste cycles or risk false hits.
+                int chunkCenterX = chunk.getPos().getStartX() + 8;
+                int chunkCenterZ = chunk.getPos().getStartZ() + 8;
+                boolean rightBiome = false;
+                try {
+                    var biome = world.getBiome(new BlockPos(chunkCenterX, 64, chunkCenterZ));
+                    rightBiome = biome.matchesKey(BiomeKeys.END_HIGHLANDS)
+                              || biome.matchesKey(BiomeKeys.END_MIDLANDS);
+                } catch (Throwable ignored) {}
+                if (rightBiome) {
+                    BlockPos hit = scanChunkForBlock(chunk,
+                            s -> s.isOf(Blocks.PURPUR_PILLAR)
+                              || s.isOf(Blocks.PURPUR_BLOCK)
+                              || s.isOf(Blocks.PURPUR_STAIRS)
+                              || s.isOf(Blocks.PURPUR_SLAB)
+                              || s.isOf(Blocks.END_STONE_BRICKS),
+                            0, 128, 1, 1);
+                    if (hit != null) addIfNew(StructureType.END_CITY, hit, dim, autoWp);
+                }
             }
             if (isOver && mod.oceanMonuments.get()) {
                 BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.PRISMARINE_BRICKS), 39, 60, 4, 3);

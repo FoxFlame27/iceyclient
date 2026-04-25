@@ -6,6 +6,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.67.0
+
+- **Biome Locator** — press `K` to open. Same UX as the Structure Locator: Find/Pause, Select Biomes (12 toggles, rare ones default-on), Waypoint, Delete, Clear. Detects 12 biomes: Cherry Grove, Mushroom Fields, Ice Spikes, Sunflower Plains, Bamboo Jungle, Eroded Badlands, Deep Dark, Pale Garden, Deep Frozen Ocean, Badlands, Jungle, Savanna. Auto-waypoint + chat ping on first find of each.
+- **End City detection — pushed to the limit.** Now biome-gated: in `END_HIGHLANDS` / `END_MIDLANDS` (the only biomes cities spawn in), we sample EVERY block (step=1) over the full Y 0-128, and a single purpur block triggers a find. Outside those biomes the scan is skipped entirely. Roughly 8× the per-chunk effort but only on island fragments where it matters.
+- **Shulker entity → 100% reliable End City marker.** Shulkers only spawn in End Cities naturally — if one's loaded in your world, we declare a city at that position. Even works through walls.
+- **Rescan radius bumped past view distance.** Now `viewDistance + 4` chunks so we catch any extra chunks the server lazy-sends (simulation distance / neighbor pre-load). null-skip is O(1) so it's free.
+
 ## What's new in v1.66.0
 
 - **Fix: HUD dragging didn't work on 1.21.11.** Screen's `mouseClicked / mouseDragged / mouseReleased` were re-signatured to take a `Click` object. Loom remaps method descriptors at jar build, so on 1.21.11 our `@Override` methods stopped overriding anything → drag events never reached our handler. HudEditScreen now polls the left mouse button via raw GLFW inside `render()` (whose signature didn't change) and runs the drag state machine itself. Works on both 1.21.8 and 1.21.11.
