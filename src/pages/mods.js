@@ -143,6 +143,24 @@ function _enterModsBrowse() {
     }
   });
 
+  // Delegated install-button handler — replaces the old inline onclick
+  // which silently broke whenever a mod name had unusual characters.
+  const resultsContainer = document.getElementById('mods-browse-results');
+  if (resultsContainer && !resultsContainer.dataset.installListenerAttached) {
+    resultsContainer.dataset.installListenerAttached = '1';
+    resultsContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-install-mod');
+      if (!btn) return;
+      _installModFromSearch(
+        btn,
+        btn.dataset.source,
+        btn.dataset.modId,
+        btn.dataset.modName,
+        btn.dataset.projectType
+      );
+    });
+  }
+
   _loadTrendingMods();
 }
 
@@ -318,7 +336,14 @@ function _renderModListItem(mod) {
       <div class="mod-list-actions">
         ${installed
           ? '<span class="badge-installed">Installed</span>'
-          : `<button class="btn-install-mod" onclick="_installModFromSearch(this, '${mod.source}', '${mod.id}', '${_escapeAttr(mod.name)}', '${mod.project_type || 'mod'}')">Install</button>`
+          // data-attrs + delegated listener — inline onclick was getting
+          // broken by special characters in mod names (apostrophes,
+          // ampersands, backslashes), making "nothing happen" on click.
+          : `<button class="btn-install-mod"
+                     data-source="${_escapeHtml(mod.source)}"
+                     data-mod-id="${_escapeHtml(String(mod.id))}"
+                     data-mod-name="${_escapeHtml(mod.name)}"
+                     data-project-type="${_escapeHtml(mod.project_type || 'mod')}">Install</button>`
         }
       </div>
     </div>
