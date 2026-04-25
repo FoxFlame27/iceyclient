@@ -34,8 +34,11 @@ public abstract class CameraMixin {
                                        boolean inverseView, float tickDelta, CallbackInfo ci) {
         try {
             // Freecam takes precedence over freelook — both override
-            // rotation, but freecam ALSO overrides position.
+            // rotation, but freecam ALSO overrides position. Run the
+            // per-frame movement update HERE (not in tick) so motion
+            // is smooth at render rate instead of stepping at 20 Hz.
             if (FreecamModule.isActive()) {
+                FreecamModule.updatePerFrame();
                 setPos(FreecamModule.camX(), FreecamModule.camY(), FreecamModule.camZ());
                 setRotation(FreecamModule.camYaw(), FreecamModule.camPitch());
                 return;

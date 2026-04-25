@@ -1,10 +1,14 @@
-lhiiii, ty for downloading 
+ ty for downloading 
 get .exe for windows
 
 get arm 64x .dmg for mac but make sure to run this command if the app says iceyclient is damaged and cant be opened: 
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.63.1
+
+- **Freecam smoothness + range fix.** Movement was running on the 20 Hz tick loop, so motion stepped on a 60+ fps display. Moved input-read + position update into the per-frame Camera path with delta-time scaling — now it glides. Also clamped the camera within your render-distance radius so you can't fly past the chunks the server actually sent (which was making it look like "doesn't render everything").
 
 ## What's new in v1.63.0
 

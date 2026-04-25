@@ -29,14 +29,20 @@ public class FreecamModule extends HudModule {
     private static float yaw, pitch;
     private static Perspective savedPerspective = null;
 
+    // Block-per-tick base; multiplied by 20 internally to derive blocks/sec.
     public final DoubleSetting moveSpeed = addSetting(
             new DoubleSetting("moveSpeed", "Move Speed", 0.5, 0.05, 5.0, 0.05));
     public final DoubleSetting sprintMul = addSetting(
             new DoubleSetting("sprintMul", "Sprint Multiplier", 3.0, 1.0, 10.0, 0.5));
 
+    // Anchor module instance so the static frame loop can read settings.
+    private static FreecamModule INSTANCE;
+    private static long lastFrameNanos = 0L;
+
     public FreecamModule() {
         super("freecam", "Freecam", 0, 0);
         setEnabled(true);
+        INSTANCE = this;
     }
 
     @Override
@@ -63,6 +69,7 @@ public class FreecamModule extends HudModule {
         if (active || client == null || client.player == null) return;
         if (!isEnabled()) return;
         active = true;
+        lastFrameNanos = 0L; // Reset delta-time so the first frame doesn't jump.
         var eye = client.player.getEyePos();
         posX = eye.x;
         posY = eye.y;
@@ -112,51 +119,91 @@ public class FreecamModule extends HudModule {
     }
 
     /**
-     * Per-tick movement update. Reads vanilla movement keys (forward,
-     * back, strafe, jump, sneak, sprint) and walks the freecam position
-     * by their composite vector.
+     * Per-FRAME movement. Called from CameraMixin before each frame's
+     * setPos so motion stays smooth at render rate (60+ fps) instead of
+     * stepping at the 20 Hz tick rate. Also clamps the camera within
+     * the player's chunk-load radius — the server only sends chunks
+     * around the player, so flying outside that range gives you a
+     * blank/stale view.
      */
+    public static void updatePerFrame() {
+        if (!active || INSTANCE == null) return;
+        MinecraftClient c = MinecraftClient.getInstance();
+        if (c == null || c.options == null || c.player == null) return;
+
+        long now = System.nanoTime();
+        double dt;
+        if (lastFrameNanos == 0L) {
+            dt = 0.0;
+        } else {
+            dt = (now - lastFrameNanos) / 1_000_000_000.0;
+            // Cap so a hitch / pause doesn't teleport the camera.
+            if (dt > 0.1) dt = 0.1;
+        }
+        lastFrameNanos = now;
+
+        // Don't read movement keys when a non-chat screen is open —
+        // typing in inventory shouldn't fly the camera.
+        boolean inputActive = c.currentScreen == null
+                || c.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
+
+        if (inputActive && dt > 0.0) {
+            boolean fwd    = c.options.forwardKey.isPressed();
+            boolean back   = c.options.backKey.isPressed();
+            boolean left   = c.options.leftKey.isPressed();
+            boolean right  = c.options.rightKey.isPressed();
+            boolean up     = c.options.jumpKey.isPressed();
+            boolean down   = c.options.sneakKey.isPressed();
+            boolean sprint = c.options.sprintKey.isPressed();
+
+            // moveSpeed setting is "blocks per tick"; 20 ticks/sec → blocks/sec.
+            double speed = INSTANCE.moveSpeed.get() * 20.0;
+            if (sprint) speed *= INSTANCE.sprintMul.get();
+
+            double dx = 0, dy = 0, dz = 0;
+            float yawRad = (float) Math.toRadians(yaw);
+            float sinY = (float) Math.sin(yawRad);
+            float cosY = (float) Math.cos(yawRad);
+
+            if (fwd)   { dx -= sinY; dz += cosY; }
+            if (back)  { dx += sinY; dz -= cosY; }
+            if (left)  { dx -= cosY; dz -= sinY; }
+            if (right) { dx += cosY; dz += sinY; }
+            if (up)    { dy += 1.0; }
+            if (down)  { dy -= 1.0; }
+
+            double mag = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (mag > 0.001) {
+                double step = speed * dt;
+                posX += (dx / mag) * step;
+                posY += (dy / mag) * step;
+                posZ += (dz / mag) * step;
+            }
+        }
+
+        // Clamp distance to the player so the camera stays inside chunks
+        // the server has actually sent. View distance × 16 = block radius;
+        // shave 32 so we don't sit at the very edge where chunks pop in/out.
+        try {
+            int viewChunks = c.options.getViewDistance().getValue();
+            double maxDist = Math.max(64.0, viewChunks * 16.0 - 32.0);
+            double px = c.player.getX(), py = c.player.getEyeY(), pz = c.player.getZ();
+            double rx = posX - px, ry = posY - py, rz = posZ - pz;
+            double distSq = rx * rx + ry * ry + rz * rz;
+            if (distSq > maxDist * maxDist) {
+                double dist = Math.sqrt(distSq);
+                double scale = maxDist / dist;
+                posX = px + rx * scale;
+                posY = py + ry * scale;
+                posZ = pz + rz * scale;
+            }
+        } catch (Throwable ignored) {}
+    }
+
     @Override
     public void tick() {
-        if (!active) return;
-        MinecraftClient c = MinecraftClient.getInstance();
-        if (c == null || c.options == null) return;
-        // While a screen is open (chat / inventory / pause) input keys
-        // aren't being polled by the player anyway — leave camera still.
-        if (c.currentScreen != null
-                && !(c.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen)) return;
-
-        boolean fwd   = c.options.forwardKey.isPressed();
-        boolean back  = c.options.backKey.isPressed();
-        boolean left  = c.options.leftKey.isPressed();
-        boolean right = c.options.rightKey.isPressed();
-        boolean up    = c.options.jumpKey.isPressed();
-        boolean down  = c.options.sneakKey.isPressed();
-        boolean sprint = c.options.sprintKey.isPressed();
-
-        double speed = moveSpeed.get();
-        if (sprint) speed *= sprintMul.get();
-
-        double dx = 0, dy = 0, dz = 0;
-        float yawRad = (float) Math.toRadians(yaw);
-        float sinY = (float) Math.sin(yawRad);
-        float cosY = (float) Math.cos(yawRad);
-
-        // Forward in MC: -sin(yaw) X, +cos(yaw) Z (yaw 0 = facing +Z south)
-        if (fwd)   { dx -= sinY; dz += cosY; }
-        if (back)  { dx += sinY; dz -= cosY; }
-        // Strafe is perpendicular to forward
-        if (left)  { dx -= cosY; dz -= sinY; }
-        if (right) { dx += cosY; dz += sinY; }
-        if (up)    { dy += 1.0; }
-        if (down)  { dy -= 1.0; }
-
-        double mag = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (mag > 0.001) {
-            posX += (dx / mag) * speed;
-            posY += (dy / mag) * speed;
-            posZ += (dz / mag) * speed;
-        }
+        // Movement now runs per frame in updatePerFrame() — see CameraMixin.
+        // Keep this empty so 20 Hz tick doesn't double-apply movement.
     }
 
     @Override
