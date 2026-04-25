@@ -6,7 +6,10 @@ import com.iceymod.hud.modules.StructureLocatorModule;
 import com.iceymod.hud.modules.WaypointManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BeaconBlockEntity;
+import net.minecraft.block.entity.BellBlockEntity;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.EndPortalBlockEntity;
 import net.minecraft.block.entity.EnderChestBlockEntity;
@@ -39,9 +42,17 @@ import java.util.Set;
 public final class StructureTracker {
 
     public enum StructureType {
-        TRIAL_CHAMBER("Trial Chamber", 0xFFFF8800),
-        STRONGHOLD("Stronghold",       0xFFBB66FF),
-        PLAYER_BASE("Player Base",     0xFF55FF55);
+        TRIAL_CHAMBER   ("Trial Chamber",   0xFFFF8800),
+        STRONGHOLD      ("Stronghold",      0xFFBB66FF),
+        PLAYER_BASE     ("Player Base",     0xFF55FF55),
+        NETHER_FORTRESS ("Nether Fortress", 0xFF8B1A1A),
+        BASTION         ("Bastion Remnant", 0xFFC78A3E),
+        END_CITY        ("End City",        0xFFE2CEF2),
+        OCEAN_MONUMENT  ("Ocean Monument",  0xFF50C7E8),
+        ANCIENT_CITY    ("Ancient City",    0xFF33FFAA),
+        RUINED_PORTAL   ("Ruined Portal",   0xFFAA00FF),
+        DESERT_PYRAMID  ("Desert Pyramid",  0xFFE8D17A),
+        VILLAGE         ("Village",         0xFFCCAA77);
 
         public final String label;
         public final int color;
@@ -184,9 +195,16 @@ public final class StructureTracker {
                 if (!dimSet.add(key)) return;
             }
 
+            boolean autoWp = mod.autoWaypoint.get();
+            boolean isNether = dim.contains("nether");
+            boolean isEnd    = dim.contains("the_end");
+            boolean isOver   = !isNether && !isEnd;
+
+            // --- Block-entity based detections (cheap — no block iteration) ---
             boolean trackTrial = mod.trialChambers.get();
             boolean trackStronghold = mod.strongholds.get();
             boolean trackBase = mod.playerBases.get();
+            boolean trackVillage = mod.villages.get();
 
             for (BlockEntity be : chunk.getBlockEntities().values()) {
                 StructureType type = null;
@@ -198,11 +216,44 @@ public final class StructureTracker {
                         || be instanceof ShulkerBoxBlockEntity
                         || be instanceof BeaconBlockEntity)) {
                     type = StructureType.PLAYER_BASE;
+                } else if (trackVillage && be instanceof BellBlockEntity) {
+                    type = StructureType.VILLAGE;
                 }
-                if (type == null) continue;
+                if (type != null) addIfNew(type, be.getPos(), dim, autoWp);
+            }
 
-                BlockPos pos = be.getPos();
-                addIfNew(type, pos, dim, mod.autoWaypoint.get());
+            // --- Block-sample detections (unique signature blocks) ---
+            if (isNether && mod.netherFortresses.get()) {
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.NETHER_BRICK_FENCE), 20, 100, 4);
+                if (hit != null) addIfNew(StructureType.NETHER_FORTRESS, hit, dim, autoWp);
+            }
+            if (isNether && mod.bastions.get()) {
+                BlockPos hit = scanChunkForBlock(chunk,
+                        s -> s.isOf(Blocks.LODESTONE) || s.isOf(Blocks.GILDED_BLACKSTONE),
+                        20, 120, 4);
+                if (hit != null) addIfNew(StructureType.BASTION, hit, dim, autoWp);
+            }
+            if (isEnd && mod.endCities.get()) {
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.PURPUR_PILLAR), 40, 90, 4);
+                if (hit != null) addIfNew(StructureType.END_CITY, hit, dim, autoWp);
+            }
+            if (isOver && mod.oceanMonuments.get()) {
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.PRISMARINE_BRICKS), 39, 60, 4);
+                if (hit != null) addIfNew(StructureType.OCEAN_MONUMENT, hit, dim, autoWp);
+            }
+            if (isOver && mod.ancientCities.get()) {
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.REINFORCED_DEEPSLATE), -55, -25, 4);
+                if (hit != null) addIfNew(StructureType.ANCIENT_CITY, hit, dim, autoWp);
+            }
+            if (mod.ruinedPortals.get()) {
+                int yMin = isNether ? 10 : 30;
+                int yMax = isNether ? 100 : 120;
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.CRYING_OBSIDIAN), yMin, yMax, 4);
+                if (hit != null) addIfNew(StructureType.RUINED_PORTAL, hit, dim, autoWp);
+            }
+            if (isOver && mod.desertPyramids.get()) {
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.CHISELED_SANDSTONE), 60, 85, 4);
+                if (hit != null) addIfNew(StructureType.DESERT_PYRAMID, hit, dim, autoWp);
             }
         } catch (Throwable t) {
             // Never crash the chunk pipeline — just drop the scan for this chunk.
@@ -253,5 +304,31 @@ public final class StructureTracker {
     private static double distSq(BlockPos p, double x, double y, double z) {
         double dx = p.getX() - x, dy = p.getY() - y, dz = p.getZ() - z;
         return dx * dx + dy * dy + dz * dz;
+    }
+
+    /**
+     * Coarse-grid sample of a chunk for a specific signature block. Returns
+     * the first matching BlockPos, or null. Grid step trades precision for
+     * speed — step=4 = 16 horizontal samples per chunk (covers 16x16 block
+     * chunk reliably for any structure bigger than a 4x4 tile).
+     */
+    private static BlockPos scanChunkForBlock(WorldChunk chunk,
+                                              java.util.function.Predicate<BlockState> match,
+                                              int yMin, int yMax, int step) {
+        try {
+            int baseX = chunk.getPos().getStartX();
+            int baseZ = chunk.getPos().getStartZ();
+            BlockPos.Mutable pos = new BlockPos.Mutable();
+            for (int y = yMin; y <= yMax; y += step) {
+                for (int dx = 0; dx < 16; dx += step) {
+                    for (int dz = 0; dz < 16; dz += step) {
+                        pos.set(baseX + dx, y, baseZ + dz);
+                        BlockState state = chunk.getBlockState(pos);
+                        if (match.test(state)) return new BlockPos(baseX + dx, y, baseZ + dz);
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+        return null;
     }
 }

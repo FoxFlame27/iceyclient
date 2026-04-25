@@ -4,6 +4,7 @@ import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.modules.StructureLocatorModule;
 import com.iceymod.hud.modules.WaypointManager;
+import com.iceymod.hud.settings.BoolSetting;
 import com.iceymod.structure.StructureTracker;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -23,7 +24,7 @@ import java.util.List;
  */
 public class StructureMenuScreen extends Screen {
 
-    private enum State { MAIN, WAYPOINT_LIST, DELETE_LIST }
+    private enum State { MAIN, WAYPOINT_LIST, DELETE_LIST, TYPES }
     private State state = State.MAIN;
 
     public StructureMenuScreen() {
@@ -46,6 +47,7 @@ public class StructureMenuScreen extends Screen {
 
         switch (state) {
             case MAIN -> buildMain(cx, btnW, btnH, gap);
+            case TYPES -> buildTypes(cx, btnW, btnH, gap);
             case WAYPOINT_LIST -> buildList(cx, btnW, btnH, gap, "§b✎ ", idx -> {
                 List<StructureTracker.Found> all = StructureTracker.getSortedByDistance();
                 if (idx >= 0 && idx < all.size()) {
@@ -87,6 +89,12 @@ public class StructureMenuScreen extends Screen {
         ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
         y += btnH + gap;
 
+        addDrawableChild(ButtonWidget.builder(
+                Text.literal("§d☑ Select Structures"),
+                b -> { state = State.TYPES; rebuild(); }
+        ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
+        y += btnH + gap;
+
         ButtonWidget wpBtn = ButtonWidget.builder(
                 Text.literal("§b✎ Waypoint a Structure"),
                 b -> { state = State.WAYPOINT_LIST; rebuild(); }
@@ -122,6 +130,62 @@ public class StructureMenuScreen extends Screen {
                 Text.translatable("gui.cancel"),
                 b -> this.close()
         ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
+    }
+
+    /**
+     * Two-column grid of toggle buttons, one per structure type. Pressing
+     * a button flips the corresponding BoolSetting and re-renders. New
+     * findings start respecting the toggle on the next chunk scan.
+     */
+    private void buildTypes(int cx, int btnW, int btnH, int gap) {
+        StructureLocatorModule mod = findModule();
+        if (mod == null) {
+            state = State.MAIN;
+            rebuild();
+            return;
+        }
+
+        record Row(String label, BoolSetting setting) {}
+        Row[] rows = new Row[] {
+                new Row("Trial Chambers",   mod.trialChambers),
+                new Row("Strongholds",      mod.strongholds),
+                new Row("Player Bases",     mod.playerBases),
+                new Row("Nether Fortresses",mod.netherFortresses),
+                new Row("Bastion Remnants", mod.bastions),
+                new Row("End Cities",       mod.endCities),
+                new Row("Ocean Monuments",  mod.oceanMonuments),
+                new Row("Ancient Cities",   mod.ancientCities),
+                new Row("Ruined Portals",   mod.ruinedPortals),
+                new Row("Desert Pyramids",  mod.desertPyramids),
+                new Row("Villages",         mod.villages)
+        };
+
+        int colW = (btnW - gap) / 2;
+        int rowsPerCol = (rows.length + 1) / 2;
+        int gridH = rowsPerCol * (btnH + gap);
+        int y0 = this.height / 2 - gridH / 2 - 10;
+
+        for (int i = 0; i < rows.length; i++) {
+            final Row r = rows[i];
+            int col = i % 2;
+            int row = i / 2;
+            int bx = cx - btnW / 2 + col * (colW + gap);
+            int by = y0 + row * (btnH + gap);
+            String label = (r.setting().get() ? "§a☑ " : "§7☐ ") + r.label();
+            addDrawableChild(ButtonWidget.builder(
+                    Text.literal(label),
+                    b -> {
+                        r.setting().set(!r.setting().get());
+                        StructureTracker.rescanNearby();
+                        rebuild();
+                    }
+            ).dimensions(bx, by, colW, btnH).build());
+        }
+
+        addDrawableChild(ButtonWidget.builder(
+                Text.literal("← Back"),
+                b -> { state = State.MAIN; rebuild(); }
+        ).dimensions(cx - btnW / 2, y0 + gridH + gap * 2, btnW, btnH).build());
     }
 
     private void buildList(int cx, int btnW, int btnH, int gap, String prefix, java.util.function.IntConsumer onPick) {
@@ -172,6 +236,7 @@ public class StructureMenuScreen extends Screen {
 
         String title = switch (state) {
             case MAIN -> "§b§lStructure Locator";
+            case TYPES -> "§b§lSelect Structures";
             case WAYPOINT_LIST -> "§b§lWaypoint a Structure";
             case DELETE_LIST -> "§b§lDelete a Structure";
         };

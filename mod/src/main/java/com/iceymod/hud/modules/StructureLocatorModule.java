@@ -16,11 +16,19 @@ import java.util.List;
  * toggles and renders what the tracker found.
  */
 public class StructureLocatorModule extends HudModule {
-    public final BoolSetting trialChambers = addSetting(new BoolSetting("trialChambers", "Trial Chambers", true));
-    public final BoolSetting strongholds   = addSetting(new BoolSetting("strongholds",   "Strongholds",    true));
-    public final BoolSetting playerBases   = addSetting(new BoolSetting("playerBases",   "Player Bases",   true));
-    public final BoolSetting autoWaypoint  = addSetting(new BoolSetting("autoWaypoint",  "Auto-Waypoint on Discovery", true));
-    public final IntSetting maxShown       = addSetting(new IntSetting("maxShown",       "Max Shown", 4, 1, 10));
+    public final BoolSetting trialChambers    = addSetting(new BoolSetting("trialChambers",    "Trial Chambers",   true));
+    public final BoolSetting strongholds      = addSetting(new BoolSetting("strongholds",      "Strongholds",      true));
+    public final BoolSetting playerBases      = addSetting(new BoolSetting("playerBases",      "Player Bases",     true));
+    public final BoolSetting netherFortresses = addSetting(new BoolSetting("netherFortresses", "Nether Fortresses",true));
+    public final BoolSetting bastions         = addSetting(new BoolSetting("bastions",         "Bastion Remnants", true));
+    public final BoolSetting endCities        = addSetting(new BoolSetting("endCities",        "End Cities",       true));
+    public final BoolSetting oceanMonuments   = addSetting(new BoolSetting("oceanMonuments",   "Ocean Monuments",  true));
+    public final BoolSetting ancientCities    = addSetting(new BoolSetting("ancientCities",    "Ancient Cities",   true));
+    public final BoolSetting ruinedPortals    = addSetting(new BoolSetting("ruinedPortals",    "Ruined Portals",   false));
+    public final BoolSetting desertPyramids   = addSetting(new BoolSetting("desertPyramids",   "Desert Pyramids",  true));
+    public final BoolSetting villages         = addSetting(new BoolSetting("villages",         "Villages",         false));
+    public final BoolSetting autoWaypoint     = addSetting(new BoolSetting("autoWaypoint",     "Auto-Waypoint on Discovery", true));
+    public final IntSetting maxShown          = addSetting(new IntSetting("maxShown",          "Max Shown", 4, 1, 10));
 
     public StructureLocatorModule() {
         super("structurelocator", "Structure Locator", 0, 0);
