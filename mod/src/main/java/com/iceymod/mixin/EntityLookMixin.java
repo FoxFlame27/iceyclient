@@ -1,5 +1,6 @@
 package com.iceymod.mixin;
 
+import com.iceymod.hud.modules.FreecamModule;
 import com.iceymod.hud.modules.FreelookModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
@@ -19,10 +20,18 @@ public abstract class EntityLookMixin {
     @Inject(method = "changeLookDirection", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$freelook(double cursorDeltaX, double cursorDeltaY, CallbackInfo ci) {
         try {
-            if (!FreelookModule.isActive()) return;
             Entity self = (Entity) (Object) this;
             MinecraftClient client = MinecraftClient.getInstance();
-            if (client != null && self == client.player) {
+            if (client == null || self != client.player) return;
+
+            // Freecam takes priority — mouse rotates the detached camera,
+            // not the player.
+            if (FreecamModule.isActive()) {
+                FreecamModule.applyDelta(cursorDeltaX, cursorDeltaY);
+                ci.cancel();
+                return;
+            }
+            if (FreelookModule.isActive()) {
                 FreelookModule.applyDelta(cursorDeltaX, cursorDeltaY);
                 ci.cancel();
             }

@@ -9,6 +9,7 @@
     "LogoDrawerMixin",
     "EntityLookMixin",
     "CameraMixin",
+    "KeyboardInputMixin",
     "SplashTextMixin"
   ],
   "injectors": {

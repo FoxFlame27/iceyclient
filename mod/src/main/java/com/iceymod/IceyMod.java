@@ -2,6 +2,7 @@ package com.iceymod;
 
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
+import com.iceymod.hud.modules.FreecamModule;
 import com.iceymod.hud.modules.FreelookModule;
 import com.iceymod.hud.modules.PerspectiveModule;
 import com.iceymod.hud.modules.WaypointManager;
@@ -45,6 +46,7 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding freelookKey;
     private static KeyBinding copyCoordsKey;
     private static KeyBinding structureKey;
+    private static KeyBinding freecamKey;
 
     @Override
     public void onInitializeClient() {
@@ -66,6 +68,7 @@ public class IceyMod implements ClientModInitializer {
         freelookKey     = registerKey("key.iceymod.freelook",     GLFW.GLFW_KEY_LEFT_ALT);
         copyCoordsKey   = registerKey("key.iceymod.copycoords",   GLFW.GLFW_KEY_J);
         structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
+        freecamKey      = registerKey("key.iceymod.freecam",      GLFW.GLFW_KEY_F4);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -87,6 +90,12 @@ public class IceyMod implements ClientModInitializer {
             while (wasPressed(structureKey)) {
                 if (client.currentScreen == null) {
                     client.setScreen(new StructureMenuScreen());
+                }
+            }
+            while (wasPressed(freecamKey)) {
+                HudModule fc = findModule("freecam");
+                if (fc instanceof FreecamModule fcm) {
+                    fcm.toggle(client);
                 }
             }
             while (wasPressed(hideHudKey)) {

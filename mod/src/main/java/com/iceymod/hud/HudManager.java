@@ -96,6 +96,7 @@ public class HudManager {
         modules.add(new MinimapModule());
         modules.add(new StructureLocatorModule());
         modules.add(new FreelookModule());
+        modules.add(new FreecamModule());
         // Small cheats / QoL
         modules.add(new AutoMaceSwapModule());
         modules.add(new AutoRespawnModule());
