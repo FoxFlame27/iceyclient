@@ -6,6 +6,17 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.65.1
+
+- **Only ping when a structure is actually there.** Block-sample detections now require multiple signature hits in the same chunk before declaring a find — a single player-placed `crying_obsidian` / `purpur_block` / `lodestone` won't trigger false positives anymore. Per-type thresholds:
+  - End City: 5 hits (broad signature, easy to false-trigger on a single purpur block)
+  - Nether Fortress: 3 hits
+  - Bastion: 2 hits
+  - Ocean Monument: 3 hits
+  - Ruined Portal: 2 hits
+  - Desert Pyramid: 2 hits
+  - Ancient City: 1 hit (reinforced_deepslate is genuinely unique — even one is reliable)
+
 ## What's new in v1.65.0
 
 - **Seed Predictor for End Cities.** Press `V` → "Predict from Seed". Paste your world seed (numeric or string — same hash semantics as vanilla), set a search radius, and we replicate vanilla's region-grid placement algorithm (spacing 20, separation 11, salt 10387313, seeded with `worldSeed + rx*341873128712 + rz*132897987541 + salt`) to spit out every candidate End-City start chunk inside the radius. Sorted by distance from origin.

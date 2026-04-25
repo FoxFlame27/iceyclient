@@ -257,14 +257,17 @@ public final class StructureTracker {
             }
 
             // --- Block-sample detections (unique signature blocks) ---
+            // minHits gates how many sample matches we require before
+            // calling it a structure — a single match is usually a
+            // player-placed block, multiple in one chunk = real struct.
             if (isNether && mod.netherFortresses.get()) {
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.NETHER_BRICK_FENCE), 20, 100, 4);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.NETHER_BRICK_FENCE), 20, 100, 4, 3);
                 if (hit != null) addIfNew(StructureType.NETHER_FORTRESS, hit, dim, autoWp);
             }
             if (isNether && mod.bastions.get()) {
                 BlockPos hit = scanChunkForBlock(chunk,
                         s -> s.isOf(Blocks.LODESTONE) || s.isOf(Blocks.GILDED_BLACKSTONE),
-                        20, 120, 4);
+                        20, 120, 4, 2);
                 if (hit != null) addIfNew(StructureType.BASTION, hit, dim, autoWp);
             }
             if (isEnd && mod.endCities.get()) {
@@ -275,31 +278,34 @@ public final class StructureTracker {
                 // and we accept ANY of the 5 unique end-city blocks —
                 // pillars are sparse, but purpur_block + end_stone_bricks
                 // make up most of the city walls/floors.
+                // End cities: broad signature → 5 hits required to dodge
+                // a single player-placed purpur block.
                 BlockPos hit = scanChunkForBlock(chunk,
                         s -> s.isOf(Blocks.PURPUR_PILLAR)
                           || s.isOf(Blocks.PURPUR_BLOCK)
                           || s.isOf(Blocks.PURPUR_STAIRS)
                           || s.isOf(Blocks.PURPUR_SLAB)
                           || s.isOf(Blocks.END_STONE_BRICKS),
-                        30, 110, 2);
+                        30, 110, 2, 5);
                 if (hit != null) addIfNew(StructureType.END_CITY, hit, dim, autoWp);
             }
             if (isOver && mod.oceanMonuments.get()) {
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.PRISMARINE_BRICKS), 39, 60, 4);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.PRISMARINE_BRICKS), 39, 60, 4, 3);
                 if (hit != null) addIfNew(StructureType.OCEAN_MONUMENT, hit, dim, autoWp);
             }
             if (isOver && mod.ancientCities.get()) {
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.REINFORCED_DEEPSLATE), -55, -25, 4);
+                // reinforced_deepslate is genuinely unique — a single hit is enough
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.REINFORCED_DEEPSLATE), -55, -25, 4, 1);
                 if (hit != null) addIfNew(StructureType.ANCIENT_CITY, hit, dim, autoWp);
             }
             if (mod.ruinedPortals.get()) {
                 int yMin = isNether ? 10 : 30;
                 int yMax = isNether ? 100 : 120;
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.CRYING_OBSIDIAN), yMin, yMax, 4);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.CRYING_OBSIDIAN), yMin, yMax, 4, 2);
                 if (hit != null) addIfNew(StructureType.RUINED_PORTAL, hit, dim, autoWp);
             }
             if (isOver && mod.desertPyramids.get()) {
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.CHISELED_SANDSTONE), 60, 85, 4);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.CHISELED_SANDSTONE), 60, 85, 4, 2);
                 if (hit != null) addIfNew(StructureType.DESERT_PYRAMID, hit, dim, autoWp);
             }
         } catch (Throwable t) {
@@ -378,23 +384,43 @@ public final class StructureTracker {
 
     /**
      * Coarse-grid sample of a chunk for a specific signature block. Returns
-     * the first matching BlockPos, or null. Grid step trades precision for
-     * speed — step=4 = 16 horizontal samples per chunk (covers 16x16 block
-     * chunk reliably for any structure bigger than a 4x4 tile).
+     * the first matching BlockPos, or null. Equivalent to
+     * scanChunkForBlock(chunk, match, yMin, yMax, step, 1).
      */
     private static BlockPos scanChunkForBlock(WorldChunk chunk,
                                               java.util.function.Predicate<BlockState> match,
                                               int yMin, int yMax, int step) {
+        return scanChunkForBlock(chunk, match, yMin, yMax, step, 1);
+    }
+
+    /**
+     * Returns first matching BlockPos only if at least {@code minHits}
+     * sample positions in the chunk match the predicate. Used for
+     * structures whose signature block can also be player-placed
+     * (purpur, crying_obsidian, etc.) — a single hit is probably a
+     * player build, but several hits in one chunk reliably mean a
+     * naturally-generated structure.
+     */
+    private static BlockPos scanChunkForBlock(WorldChunk chunk,
+                                              java.util.function.Predicate<BlockState> match,
+                                              int yMin, int yMax, int step,
+                                              int minHits) {
         try {
             int baseX = chunk.getPos().getStartX();
             int baseZ = chunk.getPos().getStartZ();
             BlockPos.Mutable pos = new BlockPos.Mutable();
+            int hits = 0;
+            BlockPos firstHit = null;
             for (int y = yMin; y <= yMax; y += step) {
                 for (int dx = 0; dx < 16; dx += step) {
                     for (int dz = 0; dz < 16; dz += step) {
                         pos.set(baseX + dx, y, baseZ + dz);
                         BlockState state = chunk.getBlockState(pos);
-                        if (match.test(state)) return new BlockPos(baseX + dx, y, baseZ + dz);
+                        if (match.test(state)) {
+                            hits++;
+                            if (firstHit == null) firstHit = new BlockPos(baseX + dx, y, baseZ + dz);
+                            if (hits >= minHits) return firstHit;
+                        }
                     }
                 }
             }
