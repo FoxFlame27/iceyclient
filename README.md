@@ -6,6 +6,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.64.1
+
+- **Action-bar ping on every structure find** — `§b[Icey] §a<Type> found! §7x/y/z` shows above your hotbar the moment a new Trial Chamber / End City / Village / etc. is detected. Fires once per cluster — re-entering the same structure won't spam.
+- **End rescan 4× faster** — periodic chunk rescan was every 1 s; now 0.25 s in the End so newly-loaded outer-island chunks register the moment they arrive.
+- **Tighter End clustering** — End-dim detections now cluster at 40 blocks (vs 80) so an End City and its End Ship register as separate entries with separate waypoints.
+- **End Anchor auto-waypoint** — gateway-teleporting in the End drops an "End Anchor" waypoint at landing so you can return to that outer island without re-rolling RNG.
+
 ## What's new in v1.64.0
 
 - **End City detection — way more sensitive.** Now samples for `purpur_pillar`, `purpur_block`, `purpur_stairs`, `purpur_slab`, AND `end_stone_bricks` (was just pillars). Scan step finer (2 blocks vs 4) and Y range wider (30–110 vs 40–90). Any sliver of a city or end ship inside a loaded chunk should register now.
@@ -46,9 +53,6 @@ xacttr -cr /Applications/Icey\ Client.app
 
 - **Fix: 1.21.11 crash in SplashTextMixin.** `SplashTextRenderer(String)` constructor was removed in 1.21.11, so the themed splash text mixin was crashing the title screen reload with `NoSuchMethodError`. `require=0` on the injection wasn't enough because the *target* still existed — the failing call was inside the mixin body. Every `@Inject` mixin now wraps its body in `try/catch(Throwable)` so runtime API drift silently falls through to vanilla instead of crashing.
 
-## What's new in v1.61.3
-
-- **Fix: 1.21.11 crash in FpsBoostGraphicsModule** — `GameOptions.getGraphicsMode()` was removed in 1.21.11, and the FpsBoost graphics module called it every tick, taking down the whole client ~1s after launch. `HudManager.tick` and `render` now wrap each module in a try/catch — if one module blows up on an API mismatch, it gets auto-disabled with a log line and the rest of the HUD keeps running.
 
 ## What's new in v1.61.2
 

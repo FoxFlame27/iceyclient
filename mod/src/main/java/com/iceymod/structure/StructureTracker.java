@@ -84,6 +84,7 @@ public final class StructureTracker {
     private StructureTracker() {}
 
     private static int tickCounter = 0;
+    private static double lastPlayerX = Double.NaN, lastPlayerY = Double.NaN, lastPlayerZ = Double.NaN;
 
     public static void register() {
         // Primary detection path: react to chunks as they load.
@@ -92,23 +93,51 @@ public final class StructureTracker {
         } catch (Throwable t) {
             System.out.println("[IceyMod] ClientChunkEvents.CHUNK_LOAD unavailable — structure locator will rely on periodic tick rescan: " + t.getMessage());
         }
-        // Fallback path: every second, re-scan chunks in render range.
-        // Chunks already scanned are deduped via scannedChunksByDim, so this
-        // is effectively a no-op for already-seen chunks. It covers the
-        // case where CHUNK_LOAD never fires (Fabric API package changes on
-        // newer MC versions, for example).
+        // Fallback path: periodic tick rescan. Chunks already scanned are
+        // deduped via scannedChunksByDim, so this is a near-no-op for
+        // already-seen chunks. The End scans 4× as often as overworld so
+        // newly-loaded outer-end chunks register the moment they arrive.
         try {
             ClientTickEvents.END_CLIENT_TICK.register(client -> {
                 tickCounter++;
-                if (tickCounter < 20) return;
+                int threshold = currentWorldKey.contains("the_end") ? 5 : 20;
+                if (tickCounter < threshold) return;
                 tickCounter = 0;
                 StructureLocatorModule mod = getModule();
                 if (mod == null || !mod.isEnabled()) return;
                 rescanNearby();
+                detectEndTeleport(client);
             });
         } catch (Throwable t) {
             System.out.println("[IceyMod] ClientTickEvents unavailable — periodic structure rescan disabled: " + t.getMessage());
         }
+    }
+
+    /**
+     * Drop an "End Anchor" waypoint when the player teleports a long way
+     * inside the End — i.e. through an end gateway. Lets the user return
+     * to outer-end islands they've visited without re-rolling RNG.
+     */
+    private static void detectEndTeleport(net.minecraft.client.MinecraftClient client) {
+        try {
+            if (client == null || client.player == null || client.world == null) return;
+            String dim = client.world.getRegistryKey().getValue().toString();
+            double x = client.player.getX(), y = client.player.getY(), z = client.player.getZ();
+            if (dim.contains("the_end") && !Double.isNaN(lastPlayerX)) {
+                double dx = x - lastPlayerX, dy = y - lastPlayerY, dz = z - lastPlayerZ;
+                double distSq = dx * dx + dy * dy + dz * dz;
+                if (distSq > 300 * 300) {
+                    WaypointManager.addWaypoint("End Anchor", (int) x, (int) y, (int) z);
+                    if (client.player != null) {
+                        client.player.sendMessage(
+                                net.minecraft.text.Text.literal("§b[Icey] §aEnd Anchor §7waypointed at " +
+                                        (int) x + "/" + (int) y + "/" + (int) z),
+                                true);
+                    }
+                }
+            }
+            lastPlayerX = x; lastPlayerY = y; lastPlayerZ = z;
+        } catch (Throwable ignored) {}
     }
 
     public static List<Found> getFound() {
@@ -279,6 +308,13 @@ public final class StructureTracker {
     }
 
     private static void addIfNew(StructureType type, BlockPos pos, String dimension, boolean autoWaypoint) {
+        // Tighter clustering in the End so a city + its end ship don't
+        // collapse into a single entry — they're typically 50-80 blocks
+        // apart, and we want both as separate waypoints.
+        double clusterDist = dimension.contains("the_end") ? 40.0 : CLUSTER_DISTANCE;
+        double clusterSq = clusterDist * clusterDist;
+
+        boolean wasNew = false;
         synchronized (found) {
             for (Found f : found) {
                 if (f.type != type) continue;
@@ -286,14 +322,28 @@ public final class StructureTracker {
                 double dx = f.pos.getX() - pos.getX();
                 double dy = f.pos.getY() - pos.getY();
                 double dz = f.pos.getZ() - pos.getZ();
-                if (dx * dx + dy * dy + dz * dz < CLUSTER_DISTANCE * CLUSTER_DISTANCE) return;
+                if (dx * dx + dy * dy + dz * dz < clusterSq) return;
             }
             found.add(new Found(type, pos, dimension));
+            wasNew = true;
         }
-        if (autoWaypoint) {
+        if (wasNew) {
+            // Action-bar ping so the user actually NOTICES a new find,
+            // even if their HUD widget is off-screen or the entry sorts
+            // far down the list.
             try {
-                WaypointManager.addWaypoint(type.label, pos.getX(), pos.getY(), pos.getZ());
+                net.minecraft.client.MinecraftClient c = net.minecraft.client.MinecraftClient.getInstance();
+                if (c != null && c.player != null) {
+                    c.player.sendMessage(net.minecraft.text.Text.literal(
+                            "§b[Icey] §a" + type.label + " found! §7" +
+                                    pos.getX() + "/" + pos.getY() + "/" + pos.getZ()), true);
+                }
             } catch (Throwable ignored) {}
+            if (autoWaypoint) {
+                try {
+                    WaypointManager.addWaypoint(type.label, pos.getX(), pos.getY(), pos.getZ());
+                } catch (Throwable ignored) {}
+            }
         }
     }
 
