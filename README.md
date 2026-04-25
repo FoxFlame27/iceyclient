@@ -6,6 +6,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.64.2
+
+- **Real chat message on every structure find**, not action-bar — persists in the chat log so you can scroll back and re-read. Format: `§b[IceyClient] §aTrial Chamber found! §8(x, y, z)`. Same change for the End-Anchor gateway-hop message.
+
 ## What's new in v1.64.1
 
 - **Action-bar ping on every structure find** — `§b[Icey] §a<Type> found! §7x/y/z` shows above your hotbar the moment a new Trial Chamber / End City / Village / etc. is detected. Fires once per cluster — re-entering the same structure won't spam.

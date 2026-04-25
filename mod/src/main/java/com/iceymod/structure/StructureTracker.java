@@ -130,9 +130,9 @@ public final class StructureTracker {
                     WaypointManager.addWaypoint("End Anchor", (int) x, (int) y, (int) z);
                     if (client.player != null) {
                         client.player.sendMessage(
-                                net.minecraft.text.Text.literal("§b[Icey] §aEnd Anchor §7waypointed at " +
-                                        (int) x + "/" + (int) y + "/" + (int) z),
-                                true);
+                                net.minecraft.text.Text.literal("§b[IceyClient] §aEnd Anchor waypointed §8(" +
+                                        (int) x + ", " + (int) y + ", " + (int) z + ")"),
+                                false);
                     }
                 }
             }
@@ -334,9 +334,11 @@ public final class StructureTracker {
             try {
                 net.minecraft.client.MinecraftClient c = net.minecraft.client.MinecraftClient.getInstance();
                 if (c != null && c.player != null) {
+                    // Real chat message (overlay=false) so it's persistent
+                    // in the chat log, not just a fading action-bar line.
                     c.player.sendMessage(net.minecraft.text.Text.literal(
-                            "§b[Icey] §a" + type.label + " found! §7" +
-                                    pos.getX() + "/" + pos.getY() + "/" + pos.getZ()), true);
+                            "§b[IceyClient] §a" + type.label + " found! §8(" +
+                                    pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")"), false);
                 }
             } catch (Throwable ignored) {}
             if (autoWaypoint) {
