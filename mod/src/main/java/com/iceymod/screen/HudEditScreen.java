@@ -2,15 +2,33 @@ package com.iceymod.screen;
 
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
 
+/**
+ * HUD module-position editor.
+ *
+ * History note: this screen previously overrode {@code mouseClicked /
+ * mouseDragged / mouseReleased} on Screen. In 1.21.11 those methods
+ * were re-signatured to take a {@code Click} object instead of
+ * {@code (double, double, int)}. Loom remaps method descriptors at
+ * jar build time, so on 1.21.11 the @Override methods stop overriding
+ * anything — they sit there as dead private methods, and dragging the
+ * HUD silently no-ops.
+ *
+ * Fix: poll mouse state inside {@link #render(DrawContext, int, int, float)}
+ * (whose signature didn't change) and run a small click/drag/release
+ * state machine ourselves. Works identically on 1.21.8 and 1.21.11.
+ */
 public class HudEditScreen extends Screen {
     private final Screen parent;
     private HudModule dragging = null;
     private int dragOffsetX, dragOffsetY;
+    private boolean prevLeftDown = false;
 
     public HudEditScreen(Screen parent) {
         super(Text.literal("Edit HUD"));
@@ -27,22 +45,28 @@ public class HudEditScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Skip vanilla blur (1.21.11 double-blur crash) — we draw our own overlay in render().
+        // Skip vanilla blur (1.21.11 double-blur crash) - we draw our own overlay in render().
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        // Polled drag state machine — works regardless of version-specific
+        // mouseClicked / mouseDragged / mouseReleased signature changes.
+        try {
+            updateDrag(mouseX, mouseY);
+        } catch (Throwable ignored) {}
+
         context.fill(0, 0, this.width, this.height, 0x80000000);
 
         context.drawCenteredTextWithShadow(textRenderer,
-                "\u00A7b\u00A7lDrag modules to reposition", this.width / 2, 8, 0xFFFFFFFF);
+                "§b§lDrag modules to reposition", this.width / 2, 8, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer,
-                "\u00A77Click and drag any module below", this.width / 2, 20, 0xFFFFFFFF);
+                "§7Click and drag any module below", this.width / 2, 20, 0xFFFFFFFF);
 
         for (HudModule module : HudManager.getModules()) {
             if (!module.isEnabled()) continue;
 
-            module.render(context, client);
+            try { module.render(context, client); } catch (Throwable ignored) {}
 
             int x = module.getX() - 2;
             int y = module.getY() - 2;
@@ -65,48 +89,55 @@ public class HudEditScreen extends Screen {
         super.render(context, mouseX, mouseY, delta);
     }
 
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            var modules = HudManager.getModules();
-            for (int i = modules.size() - 1; i >= 0; i--) {
-                HudModule module = modules.get(i);
-                if (!module.isEnabled()) continue;
-                int mx = (int) mouseX;
-                int my = (int) mouseY;
-                if (mx >= module.getX() - 2 && mx <= module.getX() + module.getWidth() + 2
-                        && my >= module.getY() - 2 && my <= module.getY() + module.getHeight() + 2) {
-                    dragging = module;
-                    dragOffsetX = mx - module.getX();
-                    dragOffsetY = my - module.getY();
-                    return true;
+    /**
+     * Mouse drag state machine, polled each frame from render(). Reads
+     * the left mouse button via raw GLFW (works on every MC version)
+     * and the cursor via the mouseX/mouseY render args.
+     */
+    private void updateDrag(int mouseX, int mouseY) {
+        MinecraftClient c = MinecraftClient.getInstance();
+        if (c == null || c.getWindow() == null) return;
+        long handle = c.getWindow().getHandle();
+        boolean leftDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+
+        // Just-pressed → look for a module under cursor and begin drag.
+        if (leftDown && !prevLeftDown && dragging == null) {
+            // Skip clicks landing on the Done button area at the bottom.
+            if (mouseY < this.height - 32) {
+                var modules = HudManager.getModules();
+                for (int i = modules.size() - 1; i >= 0; i--) {
+                    HudModule module = modules.get(i);
+                    if (!module.isEnabled()) continue;
+                    int x = module.getX() - 2;
+                    int y = module.getY() - 2;
+                    int w = module.getWidth() + 4;
+                    int h = module.getHeight() + 4;
+                    if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h) {
+                        dragging = module;
+                        dragOffsetX = mouseX - module.getX();
+                        dragOffsetY = mouseY - module.getY();
+                        break;
+                    }
                 }
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
 
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (dragging != null && button == 0) {
-            int newX = (int) mouseX - dragOffsetX;
-            int newY = (int) mouseY - dragOffsetY;
+        // Held → keep dragging.
+        if (leftDown && dragging != null) {
+            int newX = mouseX - dragOffsetX;
+            int newY = mouseY - dragOffsetY;
             newX = Math.max(0, Math.min(newX, this.width - dragging.getWidth()));
             newY = Math.max(0, Math.min(newY, this.height - dragging.getHeight()));
             dragging.setX(newX);
             dragging.setY(newY);
-            return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
-    }
 
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && dragging != null) {
+        // Just-released → drop.
+        if (!leftDown && prevLeftDown) {
             dragging = null;
-            return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+
+        prevLeftDown = leftDown;
     }
 
     @Override
