@@ -95,6 +95,14 @@ public class StructureMenuScreen extends Screen {
         ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
         y += btnH + gap;
 
+        addDrawableChild(ButtonWidget.builder(
+                Text.literal("§6🎲 Predict from Seed"),
+                b -> {
+                    if (this.client != null) this.client.setScreen(new SeedPredictorScreen());
+                }
+        ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
+        y += btnH + gap;
+
         ButtonWidget wpBtn = ButtonWidget.builder(
                 Text.literal("§b✎ Waypoint a Structure"),
                 b -> { state = State.WAYPOINT_LIST; rebuild(); }
