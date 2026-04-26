@@ -196,7 +196,10 @@ public final class BiomeTracker {
             } catch (Throwable ignored) {}
             if (autoWaypoint) {
                 try {
-                    WaypointManager.addWaypoint(type.label, pos.getX(), 64, pos.getZ());
+                    // Same dedup logic as structures, larger radius
+                    // since biomes can stretch hundreds of blocks.
+                    WaypointManager.addWaypointIfNew(type.label,
+                            pos.getX(), 64, pos.getZ(), type.color, 256.0);
                 } catch (Throwable ignored) {}
             }
         }

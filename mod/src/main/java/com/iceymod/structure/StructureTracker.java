@@ -81,8 +81,10 @@ public final class StructureTracker {
     private static final Map<String, Set<Long>> scannedChunksByDim = new HashMap<>();
     private static String currentWorldKey = "";
 
-    // Structures closer than this (in blocks) are considered the same structure.
-    private static final double CLUSTER_DISTANCE = 80.0;
+    // Structures closer than this (in blocks) are considered the same
+    // structure (50 m as the default; End uses 40 m since cities/ships
+    // are smaller and more numerous).
+    private static final double CLUSTER_DISTANCE = 50.0;
 
     private StructureTracker() {}
 
@@ -391,7 +393,11 @@ public final class StructureTracker {
             } catch (Throwable ignored) {}
             if (autoWaypoint) {
                 try {
-                    WaypointManager.addWaypoint(type.label, pos.getX(), pos.getY(), pos.getZ());
+                    // Dedup at 100 m — a Trial Chamber detected from
+                    // multiple BEs in the same area should produce one
+                    // waypoint, not many.
+                    WaypointManager.addWaypointIfNew(type.label,
+                            pos.getX(), pos.getY(), pos.getZ(), type.color, 100.0);
                 } catch (Throwable ignored) {}
             }
         }

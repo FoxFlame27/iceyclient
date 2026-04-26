@@ -6,15 +6,34 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.68.1
+
+Follow-up fixes to v1.68.0 — the core release was good but the waypoint HUD had list-overflow + duplicate-spam issues.
+
+- **Waypoints HUD capped at 5 nearest.** Sorted by distance to player; if you have more, a "§7+ N more" footer line appears. Stops the list overflowing past the screen and breaking drag.
+- **Auto-waypoints dedupe by name + 100 m proximity.** Trial Chamber finds (and every other auto-create path: structures, biomes, deaths) skip if a same-named waypoint already exists nearby. Manual Set-Here / chat-coord clicks bypass dedup.
+- **Structure cluster radius tightened to 50 m** (was 80 m); biomes stay at 256 m (any tighter would fragment one biome blob into many entries).
+- **Empty Waypoints module shows a placeholder** ("§7No waypoints") so the HUD widget stays visible and draggable when your list is empty.
+- **HUD edit drag no longer skips the bottom 32 px** — only the actual Done-button rect is excluded, so modules positioned near the bottom of the screen are now draggable.
+- **Death waypoint dedupe** at 32 m so dying repeatedly in the same lava pit doesn't make 20 "Last Death" waypoints.
+
 ## What's new in v1.68.0
 
-Big QoL release — five things bundled.
+Module search · Item Glow · Death waypoint · Chat coords · Waypoint recolor.
 
 - **Module search bar.** Press Y → type in the box at the top to filter modules by name across whatever category is selected. Esc / clear box to reset.
 - **Item Glow** — new module under Combat. Outlines dropped items you care about (Mace, Totem, Netherite gear/blocks/scrap, Elytra, Beacon, Nether Star, Dragon Egg, Heart of the Sea, Trident, Shulker Shells, optionally Enchanted Books) with the vanilla glow shader so they pop through walls. Per-item toggles in module settings. Done via a client-side `Entity.isGlowing` override mixin — server doesn't know.
-- **Last Death is a real waypoint now.** Removed the `Last Death` HUD module; replaced with an `Auto-Waypoint on Death` setting on the Waypoints module (default ON). Every time you die, a red "Last Death" waypoint drops at your last position so you can fly back for your stuff.
+- **Last Death is a real waypoint now.** Removed the `Last Death` HUD module; replaced with an `Auto-Waypoint on Death` setting on the Waypoints module (default ON). Every time you die, a red "Last Death" waypoint drops at your last position so you can fly back for your stuff. Dedupes within 32 m so dying repeatedly in the same lava pit doesn't create 20 waypoints.
 - **Click coordinates in chat to waypoint them.** Server / system messages containing coordinate triples (parens or no parens, comma/slash/space separators) get rewritten into a clickable underlined link. Click → drops a waypoint there. Internally goes through a registered `/iceywp x y z [name]` client command so signed-message security isn't broken.
 - **Recolor any waypoint** — Press B → "🎨 Recolor Waypoint" → pick a waypoint → opens the RGB color picker (sliders + hex field + palette, same one as module colors). Saves to `iceymod_waypoints.json` and the beam color updates immediately.
+
+**HUD-list fixes** (caught while testing):
+
+- **Waypoints HUD capped at 5 nearest.** Sorted by distance to player; if you have more, a "§7+ N more" footer line appears. Stops the list overflowing past the screen and breaking drag.
+- **Auto-waypoints dedupe by name + 100 m proximity.** Trial Chamber finds (and every other auto-create path: structures, biomes, deaths) skip if a same-named waypoint already exists nearby. Manual Set-Here / chat-coord clicks bypass dedup.
+- **Structure cluster radius tightened to 50 m** (was 80 m); biomes stay at 256 m (any tighter would fragment one biome blob into many entries).
+- **Empty Waypoints module shows a placeholder** ("§7No waypoints") so the HUD widget stays visible and draggable when your list is empty.
+- **HUD edit drag no longer skips the bottom 32 px** — only the actual Done-button rect is excluded, so modules positioned near the bottom of the screen are now draggable.
 
 Everything stays 1.21.11-safe — the glow mixin uses `require=0, expect=0` + try/catch so it falls through to vanilla on any API drift, and the chat-rewrite + click-handling are wrapped so unsupported events on newer versions silently disable.
 

@@ -39,10 +39,15 @@ public class WaypointsModule extends HudModule {
             int x = (int) client.player.getX();
             int y = (int) client.player.getY();
             int z = (int) client.player.getZ();
-            // Red — death waypoints should stand out from regular ones.
-            WaypointManager.addWaypoint("Last Death", x, y, z, 0xFFFF3344);
-            client.player.sendMessage(net.minecraft.text.Text.literal(
-                    "§b[IceyClient] §cLast Death waypointed §8(" + x + ", " + y + ", " + z + ")"), false);
+            // Dedup so dying repeatedly in the same lava pit doesn't
+            // create 20 "Last Death" waypoints. 32-block radius — close
+            // deaths overwrite, distant deaths still register.
+            boolean added = WaypointManager.addWaypointIfNew(
+                    "Last Death", x, y, z, 0xFFFF3344, 32.0);
+            if (added) {
+                client.player.sendMessage(net.minecraft.text.Text.literal(
+                        "§b[IceyClient] §cLast Death waypointed §8(" + x + ", " + y + ", " + z + ")"), false);
+            }
         }
         wasDead = dead;
     }
@@ -63,7 +68,34 @@ public class WaypointsModule extends HudModule {
     public void render(DrawContext context, MinecraftClient client) {
         if (!isEnabled() || client.player == null) return;
         List<WaypointManager.Waypoint> wps = WaypointManager.getWaypoints();
-        if (wps.isEmpty()) return;
+        if (wps.isEmpty()) {
+            // Empty placeholder — still occupies real estate so the
+            // module stays draggable in HudEditScreen and visible in
+            // the HUD.
+            String empty = "§7No waypoints";
+            int tw = client.textRenderer.getWidth(empty);
+            this.width = tw + 10;
+            this.height = 14;
+            context.fill(getX(), getY(), getX() + this.width, getY() + this.height, 0x90000000);
+            context.fill(getX(), getY(), getX() + 2, getY() + this.height, 0xFF5BC8F5);
+            context.drawTextWithShadow(client.textRenderer, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
+            return;
+        }
+
+        // Cap to 5 nearest waypoints — beyond that the list overflows
+        // the screen and stops being draggable. Sort a copy by 3D
+        // distance to player without mutating WaypointManager order.
+        final int MAX_DISPLAY = 5;
+        final double pX = client.player.getX();
+        final double pY = client.player.getY();
+        final double pZ = client.player.getZ();
+        java.util.List<WaypointManager.Waypoint> sorted = new java.util.ArrayList<>(wps);
+        sorted.sort((a, b) -> {
+            double da = (a.x - pX) * (a.x - pX) + (a.y - pY) * (a.y - pY) + (a.z - pZ) * (a.z - pZ);
+            double db = (b.x - pX) * (b.x - pX) + (b.y - pY) * (b.y - pY) + (b.z - pZ) * (b.z - pZ);
+            return Double.compare(da, db);
+        });
+        int shown = Math.min(sorted.size(), MAX_DISPLAY);
 
         int x = getX();
         int y = getY();
@@ -71,17 +103,18 @@ public class WaypointsModule extends HudModule {
         int gap = 2;
         int rowH = lineH + gap;
 
-        // Compute widest row first so all rows share the same width — matches the style of single-line modules
         int maxWidth = 0;
-        String[] texts = new String[wps.size()];
-        for (int i = 0; i < wps.size(); i++) {
-            WaypointManager.Waypoint wp = wps.get(i);
-            double dx = wp.x - client.player.getX();
-            double dz = wp.z - client.player.getZ();
-            double dy = wp.y - client.player.getY();
+        String[] texts = new String[shown];
+        WaypointManager.Waypoint[] visible = new WaypointManager.Waypoint[shown];
+        float yaw = client.player.getYaw();
+        for (int i = 0; i < shown; i++) {
+            WaypointManager.Waypoint wp = sorted.get(i);
+            visible[i] = wp;
+            double dx = wp.x - pX;
+            double dz = wp.z - pZ;
+            double dy = wp.y - pY;
             double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-            float yaw = client.player.getYaw();
             double angle = Math.toDegrees(Math.atan2(-dx, dz));
             double rel = ((angle - yaw) % 360 + 540) % 360 - 180;
             String arrow;
@@ -98,16 +131,27 @@ public class WaypointsModule extends HudModule {
             int tw = client.textRenderer.getWidth(texts[i]);
             if (tw > maxWidth) maxWidth = tw;
         }
+        // Trailing "+N more" line if there are extras beyond the cap.
+        boolean hasOverflow = sorted.size() > shown;
+        String overflowText = hasOverflow ? "§7+ " + (sorted.size() - shown) + " more" : null;
+        if (hasOverflow) {
+            int ow = client.textRenderer.getWidth(overflowText);
+            if (ow > maxWidth) maxWidth = ow;
+        }
         this.width = maxWidth + 10;
 
-        // Render each row matching the default module style: 0x90 black bg, 2px colored side bar, white text
-        for (int i = 0; i < wps.size(); i++) {
-            WaypointManager.Waypoint wp = wps.get(i);
+        for (int i = 0; i < shown; i++) {
             int lineY = y + i * rowH;
             context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
-            context.fill(x, lineY, x + 2, lineY + lineH, wp.color);
+            context.fill(x, lineY, x + 2, lineY + lineH, visible[i].color);
             context.drawTextWithShadow(client.textRenderer, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
         }
-        this.height = wps.size() * rowH - gap;
+        if (hasOverflow) {
+            int lineY = y + shown * rowH;
+            context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
+            context.fill(x, lineY, x + 2, lineY + lineH, 0xFF888888);
+            context.drawTextWithShadow(client.textRenderer, overflowText, x + 6, lineY + 3, 0xFFAAAAAA);
+        }
+        this.height = (shown + (hasOverflow ? 1 : 0)) * rowH - gap;
     }
 }

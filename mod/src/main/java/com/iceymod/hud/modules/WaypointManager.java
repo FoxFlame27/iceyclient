@@ -34,6 +34,25 @@ public class WaypointManager {
         save();
     }
 
+    /**
+     * Auto-paths use this — refuses the add if a same-named waypoint
+     * already exists within {@code dedupRadius} blocks. Stops the
+     * waypoint list from filling up with "Trial Chamber" duplicates
+     * every time you re-enter a chunk you've already detected.
+     */
+    public static boolean addWaypointIfNew(String name, int x, int y, int z, int color, double dedupRadius) {
+        if (name == null) return false;
+        double rsq = dedupRadius * dedupRadius;
+        for (Waypoint wp : waypoints) {
+            if (!name.equals(wp.name)) continue;
+            double dx = wp.x - x, dy = wp.y - y, dz = wp.z - z;
+            if (dx * dx + dy * dy + dz * dz < rsq) return false;
+        }
+        waypoints.add(new Waypoint(name, x, y, z, color));
+        save();
+        return true;
+    }
+
     /** Repaint an existing waypoint. */
     public static void updateWaypointColor(int index, int color) {
         if (index < 0 || index >= waypoints.size()) return;

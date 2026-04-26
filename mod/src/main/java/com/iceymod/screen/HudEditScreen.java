@@ -102,8 +102,17 @@ public class HudEditScreen extends Screen {
 
         // Just-pressed → look for a module under cursor and begin drag.
         if (leftDown && !prevLeftDown && dragging == null) {
-            // Skip clicks landing on the Done button area at the bottom.
-            if (mouseY < this.height - 32) {
+            // Only skip clicks landing on the actual Done button rect
+            // (centered at bottom, 100x20). The previous "anywhere in
+            // the bottom 32 px" skip blocked dragging modules positioned
+            // near the bottom of the screen — including the default
+            // Waypoints position on tall windows.
+            int doneX = this.width / 2 - 50;
+            int doneY = this.height - 28;
+            boolean onDoneButton =
+                    mouseX >= doneX && mouseX <= doneX + 100
+                 && mouseY >= doneY && mouseY <= doneY + 20;
+            if (!onDoneButton) {
                 var modules = HudManager.getModules();
                 for (int i = modules.size() - 1; i >= 0; i--) {
                     HudModule module = modules.get(i);
