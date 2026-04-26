@@ -200,26 +200,39 @@ public class IceyModScreen extends Screen {
         return Text.literal(prefix + module.getName() + ": " + state);
     }
 
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (filtered.isEmpty()) return super.keyPressed(keyCode, scanCode, modifiers);
+    // GLFW key polling: 1.21.11 changed Screen.keyPressed's signature to
+    // take a KeyInput object, so our (int, int, int) override stops
+    // overriding anything at runtime → arrow-key navigation silently
+    // dies. We poll inside render() instead — works on both 1.21.8 and
+    // 1.21.11 since GLFW key state is independent of MC version.
+    private final java.util.HashMap<Integer, Boolean> prevKeyState = new java.util.HashMap<>();
 
+    private boolean keyEdge(int glfwKey) {
+        try {
+            long handle = client.getWindow().getHandle();
+            boolean down = GLFW.glfwGetKey(handle, glfwKey) == GLFW.GLFW_PRESS;
+            boolean wasDown = prevKeyState.getOrDefault(glfwKey, false);
+            prevKeyState.put(glfwKey, down);
+            return down && !wasDown;
+        } catch (Throwable t) { return false; }
+    }
+
+    private void pollNavigationKeys() {
+        if (filtered.isEmpty()) return;
         int startIdx = page * perPage;
         int localIdx = selectedIndex - startIdx;
 
-        if (keyCode == GLFW.GLFW_KEY_UP) {
+        if (keyEdge(GLFW.GLFW_KEY_UP)) {
             int next = selectedIndex - gridCols;
             if (next < 0) next = selectedIndex;
             moveSelection(next);
-            return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_DOWN) {
+        if (keyEdge(GLFW.GLFW_KEY_DOWN)) {
             int next = selectedIndex + gridCols;
             if (next >= filtered.size()) next = selectedIndex;
             moveSelection(next);
-            return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_LEFT) {
+        if (keyEdge(GLFW.GLFW_KEY_LEFT)) {
             if (localIdx > 0 && selectedIndex > 0) {
                 moveSelection(selectedIndex - 1);
             } else if (page > 0) {
@@ -227,15 +240,11 @@ public class IceyModScreen extends Screen {
                 selectedIndex = Math.min(page * perPage + perPage - 1, filtered.size() - 1);
                 rebuild();
             }
-            return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_RIGHT) {
-            if (selectedIndex < filtered.size() - 1) {
-                moveSelection(selectedIndex + 1);
-            }
-            return true;
+        if (keyEdge(GLFW.GLFW_KEY_RIGHT)) {
+            if (selectedIndex < filtered.size() - 1) moveSelection(selectedIndex + 1);
         }
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_SPACE) {
+        if (keyEdge(GLFW.GLFW_KEY_ENTER) || keyEdge(GLFW.GLFW_KEY_SPACE)) {
             if (selectedIndex >= 0 && selectedIndex < filtered.size()) {
                 HudModule m = filtered.get(selectedIndex);
                 if (settingsMode) {
@@ -245,18 +254,14 @@ public class IceyModScreen extends Screen {
                     rebuild();
                 }
             }
-            return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
+        if (keyEdge(GLFW.GLFW_KEY_PAGE_DOWN)) {
             int totalPages = Math.max(1, (filtered.size() + perPage - 1) / perPage);
             if (page < totalPages - 1) { page++; selectedIndex = page * perPage; rebuild(); }
-            return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
+        if (keyEdge(GLFW.GLFW_KEY_PAGE_UP)) {
             if (page > 0) { page--; selectedIndex = page * perPage; rebuild(); }
-            return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -297,6 +302,7 @@ public class IceyModScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        try { pollNavigationKeys(); } catch (Throwable ignored) {}
         super.render(context, mouseX, mouseY, delta);
 
         context.drawCenteredTextWithShadow(this.textRenderer,

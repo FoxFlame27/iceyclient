@@ -264,13 +264,21 @@ public class WaypointMenuScreen extends Screen {
         return null;
     }
 
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER) {
-            if (state == State.RENAME_INPUT && nameInput != null) { commitRename(); return true; }
-            if (state == State.EDIT_INPUT && xInput != null) { commitEdit(); return true; }
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+    // 1.21.11 changed Screen.keyPressed's signature so our (int,int,int)
+    // override stops firing. Poll Enter via raw GLFW in render() with
+    // edge detection — works on both 1.21.8 and 1.21.11.
+    private boolean prevEnterDown = false;
+
+    private void pollEnter() {
+        try {
+            long handle = client.getWindow().getHandle();
+            boolean down = org.lwjgl.glfw.GLFW.glfwGetKey(handle, org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+            if (down && !prevEnterDown) {
+                if (state == State.RENAME_INPUT && nameInput != null) { commitRename(); }
+                else if (state == State.EDIT_INPUT && xInput != null) { commitEdit(); }
+            }
+            prevEnterDown = down;
+        } catch (Throwable ignored) {}
     }
 
     @Override
@@ -280,6 +288,7 @@ public class WaypointMenuScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        pollEnter();
         super.render(context, mouseX, mouseY, delta);
         String title = switch (state) {
             case MAIN -> "§b§lWaypoints";

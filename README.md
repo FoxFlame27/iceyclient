@@ -6,6 +6,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.67.1
+
+- **Keyboard shortcuts in iceymod menus now work on 1.21.11.** `Screen.keyPressed`'s signature changed in 1.21.11 (now takes a `KeyInput` object), so our overrides silently stopped firing. Replaced both with raw GLFW polling inside `render()`:
+  - **Y menu** — arrow keys to navigate, Enter/Space to toggle module, Page Up/Down to switch pages.
+  - **Waypoint menu** — Enter to confirm rename / edit-coords without clicking Save.
+- Mouse handling was already fine; this just restores the keyboard shortcuts.
+
 ## What's new in v1.67.0
 
 - **Biome Locator** — press `K` to open. Same UX as the Structure Locator: Find/Pause, Select Biomes (12 toggles, rare ones default-on), Waypoint, Delete, Clear. Detects 12 biomes: Cherry Grove, Mushroom Fields, Ice Spikes, Sunflower Plains, Bamboo Jungle, Eroded Badlands, Deep Dark, Pale Garden, Deep Frozen Ocean, Badlands, Jungle, Savanna. Auto-waypoint + chat ping on first find of each.
