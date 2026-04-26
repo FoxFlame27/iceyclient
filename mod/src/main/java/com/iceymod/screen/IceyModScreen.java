@@ -7,6 +7,7 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
@@ -23,6 +24,10 @@ public class IceyModScreen extends Screen {
     private static HudModule.Category currentFilter = null; // null = ALL
     private static int page = 0;
     private static int selectedIndex = 0;
+    // Persisted across rebuilds during typing so the field doesn't lose
+    // text when the screen re-inits on each keystroke.
+    private static String searchQuery = "";
+    private TextFieldWidget searchField;
     // Instance field so settings mode resets every time the menu is reopened.
     private boolean settingsMode = false;
 
@@ -45,8 +50,32 @@ public class IceyModScreen extends Screen {
         int sh = this.height;
         moduleButtons.clear();
 
-        // Filter buttons row (slightly bigger)
-        int filterY = 30;
+        // Search bar — between title (y=8) and category filter row (y=44).
+        int searchW = 220;
+        int searchH = 16;
+        searchField = new TextFieldWidget(this.textRenderer, centerX - searchW / 2, 22,
+                searchW, searchH, Text.literal(""));
+        searchField.setMaxLength(32);
+        searchField.setPlaceholder(Text.literal("§7Search modules…"));
+        searchField.setText(searchQuery);
+        searchField.setChangedListener(s -> {
+            if (!s.equals(searchQuery)) {
+                searchQuery = s;
+                page = 0;
+                selectedIndex = 0;
+                rebuild();
+            }
+        });
+        addDrawableChild(searchField);
+        // If the user is mid-search, the rebuild triggered by typing
+        // would otherwise leave focus on nothing — re-grab it.
+        if (searchQuery != null && !searchQuery.isEmpty()) {
+            setInitialFocus(searchField);
+            searchField.setFocused(true);
+        }
+
+        // Filter buttons row — pushed below the search bar.
+        int filterY = 44;
         int filterBtnW = 64;
         int filterBtnH = 18;
         int filterGap = 4;
@@ -72,15 +101,18 @@ public class IceyModScreen extends Screen {
             ).dimensions(x, filterY, filterBtnW, filterBtnH).build());
         }
 
-        // Filter modules (ALL excludes OPTIMIZATION so it only appears in its own tab)
+        // Filter modules: category gate + free-text name search.
+        // ALL excludes OPTIMIZATION so it only appears in its own tab.
+        String q = searchQuery == null ? "" : searchQuery.toLowerCase().trim();
         List<HudModule> all = HudManager.getModules();
         filtered = new ArrayList<>();
         for (HudModule m : all) {
-            if (currentFilter == null) {
-                if (m.getCategory() != HudModule.Category.OPTIMIZATION) filtered.add(m);
-            } else if (m.getCategory() == currentFilter) {
-                filtered.add(m);
-            }
+            boolean catOk = currentFilter == null
+                    ? m.getCategory() != HudModule.Category.OPTIMIZATION
+                    : m.getCategory() == currentFilter;
+            if (!catOk) continue;
+            if (!q.isEmpty() && !m.getName().toLowerCase().contains(q)) continue;
+            filtered.add(m);
         }
 
         // Grid sizing — bigger buttons, paginated so they always fit
@@ -219,6 +251,10 @@ public class IceyModScreen extends Screen {
 
     private void pollNavigationKeys() {
         if (filtered.isEmpty()) return;
+        // Skip nav-key polling when the search field is focused so
+        // typing arrow keys / Enter / Space don't double-fire as
+        // grid navigation while the user is editing the query.
+        if (searchField != null && searchField.isFocused()) return;
         int startIdx = page * perPage;
         int localIdx = selectedIndex - startIdx;
 

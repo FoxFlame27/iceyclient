@@ -28,6 +28,20 @@ public class WaypointManager {
         save();
     }
 
+    /** Add with explicit color (used by death-waypoint, structure pings, etc.). */
+    public static void addWaypoint(String name, int x, int y, int z, int color) {
+        waypoints.add(new Waypoint(name, x, y, z, color));
+        save();
+    }
+
+    /** Repaint an existing waypoint. */
+    public static void updateWaypointColor(int index, int color) {
+        if (index < 0 || index >= waypoints.size()) return;
+        Waypoint old = waypoints.get(index);
+        waypoints.set(index, new Waypoint(old.name, old.x, old.y, old.z, color));
+        save();
+    }
+
     public static void removeWaypoint(int index) {
         if (index >= 0 && index < waypoints.size()) {
             waypoints.remove(index);

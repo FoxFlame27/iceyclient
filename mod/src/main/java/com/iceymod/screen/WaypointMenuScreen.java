@@ -21,7 +21,7 @@ import java.util.List;
  */
 public class WaypointMenuScreen extends Screen {
 
-    private enum State { MAIN, DELETE_LIST, RENAME_LIST, RENAME_INPUT, EDIT_LIST, EDIT_INPUT }
+    private enum State { MAIN, DELETE_LIST, RENAME_LIST, RENAME_INPUT, EDIT_LIST, EDIT_INPUT, COLOR_LIST }
     private State state = State.MAIN;
     private int actionIndex = -1;
     private TextFieldWidget nameInput;
@@ -54,6 +54,18 @@ public class WaypointMenuScreen extends Screen {
                 actionIndex = idx;
                 state = State.EDIT_INPUT;
                 rebuild();
+            });
+            case COLOR_LIST -> buildList(cx, btnW, btnH, gap, "§d🎨 ", idx -> {
+                var list = WaypointManager.getWaypoints();
+                if (idx < 0 || idx >= list.size()) return;
+                WaypointManager.Waypoint wp = list.get(idx);
+                final int targetIdx = idx;
+                if (this.client != null) {
+                    this.client.setScreen(new ColorPickerScreen(
+                            wp.color, "Waypoint Color: " + wp.name,
+                            color -> WaypointManager.updateWaypointColor(targetIdx, color),
+                            this));
+                }
             });
             case RENAME_INPUT -> buildRenameInput(cx, btnW, btnH, gap);
             case EDIT_INPUT -> buildEditInput(cx, btnW, btnH, gap);
@@ -90,6 +102,14 @@ public class WaypointMenuScreen extends Screen {
         ).dimensions(cx - btnW / 2, y, btnW, btnH).build();
         editBtn.active = !WaypointManager.getWaypoints().isEmpty();
         addDrawableChild(editBtn);
+        y += btnH + gap;
+
+        ButtonWidget colorBtn = ButtonWidget.builder(
+                Text.literal("§d🎨 Recolor Waypoint"),
+                b -> { state = State.COLOR_LIST; rebuild(); }
+        ).dimensions(cx - btnW / 2, y, btnW, btnH).build();
+        colorBtn.active = !WaypointManager.getWaypoints().isEmpty();
+        addDrawableChild(colorBtn);
         y += btnH + gap;
 
         ButtonWidget delBtn = ButtonWidget.builder(
@@ -297,6 +317,7 @@ public class WaypointMenuScreen extends Screen {
             case EDIT_LIST -> "§b§lEdit Coordinates";
             case RENAME_INPUT -> "§b§lNew Name";
             case EDIT_INPUT -> "§b§lEdit Coordinates";
+            case COLOR_LIST -> "§d§lRecolor Waypoint";
         };
         context.drawCenteredTextWithShadow(this.textRenderer, title, this.width / 2, this.height / 2 - 110, 0xFFFFFFFF);
         if (state != State.RENAME_INPUT && state != State.EDIT_INPUT) {

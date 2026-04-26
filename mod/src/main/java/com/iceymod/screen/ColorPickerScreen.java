@@ -18,6 +18,9 @@ public class ColorPickerScreen extends Screen {
     private final ColorSetting setting;
     private final Screen parent;
     private final int originalValue;
+    /** Callback for the standalone-color path (waypoints). null when bound to a setting. */
+    private final java.util.function.IntConsumer onApply;
+    private final String displayLabel;
 
     private int r, g, b;
     private int alpha = 0xFF;
@@ -29,8 +32,26 @@ public class ColorPickerScreen extends Screen {
         super(Text.literal("Color"));
         this.setting = setting;
         this.parent = parent;
+        this.onApply = null;
+        this.displayLabel = setting.label;
         this.originalValue = setting.get();
         unpack(originalValue);
+    }
+
+    /**
+     * Standalone color picker not tied to a ColorSetting — used when
+     * picking a waypoint color, where the value lives in WaypointManager
+     * instead of a Setting.
+     */
+    public ColorPickerScreen(int initialColor, String label,
+                             java.util.function.IntConsumer onApply, Screen parent) {
+        super(Text.literal(label));
+        this.setting = null;
+        this.parent = parent;
+        this.onApply = onApply;
+        this.displayLabel = label;
+        this.originalValue = initialColor;
+        unpack(initialColor);
     }
 
     private void unpack(int argb) {
@@ -87,19 +108,33 @@ public class ColorPickerScreen extends Screen {
 
         addDrawableChild(ButtonWidget.builder(
             Text.literal("Save"),
-            btn -> { setting.set(pack()); client.setScreen(parent); }
+            btn -> {
+                int packed = pack();
+                if (setting != null) setting.set(packed);
+                if (onApply != null) onApply.accept(packed);
+                client.setScreen(parent);
+            }
         ).dimensions(x, y, col, sh).build());
         y += sh + gap;
 
-        addDrawableChild(ButtonWidget.builder(
+        ButtonWidget resetBtn = ButtonWidget.builder(
             Text.literal("Reset to Default"),
-            btn -> { unpack(setting.getDefault()); syncSliders(); syncHex(); }
-        ).dimensions(x, y, col, sh).build());
-        y += sh + gap;
+            btn -> {
+                int def = setting != null ? setting.getDefault() : originalValue;
+                unpack(def); syncSliders(); syncHex();
+            }
+        ).dimensions(x, y, col, sh).build();
+        // Hide the "Reset to Default" button on the standalone path —
+        // there's no meaningful "default" for a waypoint color.
+        if (setting != null) addDrawableChild(resetBtn);
+        if (setting != null) y += sh + gap;
 
         addDrawableChild(ButtonWidget.builder(
             Text.literal("Cancel"),
-            btn -> { setting.set(originalValue); client.setScreen(parent); }
+            btn -> {
+                if (setting != null) setting.set(originalValue);
+                client.setScreen(parent);
+            }
         ).dimensions(x, y, col, sh).build());
     }
 
@@ -145,7 +180,7 @@ public class ColorPickerScreen extends Screen {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         // Title
         ctx.drawCenteredTextWithShadow(this.textRenderer,
-            Text.literal("§b§l" + setting.label),
+            Text.literal("§b§l" + displayLabel),
             this.width / 2, 22, 0xFFFFFFFF);
         ctx.drawCenteredTextWithShadow(this.textRenderer,
             Text.literal("§7Drag sliders or type a hex value"),

@@ -10,6 +10,7 @@
     "EntityLookMixin",
     "CameraMixin",
     "KeyboardInputMixin",
+    "EntityIsGlowingMixin",
     "SplashTextMixin"
   ],
   "injectors": {

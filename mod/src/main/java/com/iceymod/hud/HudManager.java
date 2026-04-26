@@ -34,6 +34,7 @@ public class HudManager {
         modules.add(new ArmorModule());
         // Info
         modules.add(new HitboxModule());
+        modules.add(new ItemGlowModule());
         modules.add(new DirectionModule());
         modules.add(new DayCounterModule());
         modules.add(new ServerModule());
@@ -83,7 +84,6 @@ public class HudManager {
         modules.add(new ToolBreakWarnModule());
         modules.add(new HostileMobsModule());
         modules.add(new NearestHostileModule());
-        modules.add(new LastDeathModule());
         modules.add(new BedCoordsModule());
         modules.add(new ChunkModule());
         modules.add(new LookingAtModule());

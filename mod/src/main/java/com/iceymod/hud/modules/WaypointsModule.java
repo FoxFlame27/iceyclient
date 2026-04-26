@@ -1,6 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
+import com.iceymod.hud.settings.BoolSetting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
@@ -12,9 +13,38 @@ import java.util.List;
  */
 public class WaypointsModule extends HudModule {
 
+    /**
+     * When ON, every player death drops a "Last Death" waypoint at the
+     * player's last known position. Replaces the old standalone
+     * LastDeathModule HUD widget — the data is now an actual waypoint
+     * you can fly back to.
+     */
+    public final BoolSetting deathWaypoint = addSetting(
+            new BoolSetting("deathWaypoint", "Auto-Waypoint on Death", true));
+
+    private static boolean wasDead = false;
+
     public WaypointsModule() {
         super("waypoints", "Waypoints", 0, 0);
         setEnabled(false);
+    }
+
+    @Override
+    public void tick() {
+        if (!deathWaypoint.get()) return;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.player == null) return;
+        boolean dead = client.player.isDead();
+        if (dead && !wasDead) {
+            int x = (int) client.player.getX();
+            int y = (int) client.player.getY();
+            int z = (int) client.player.getZ();
+            // Red — death waypoints should stand out from regular ones.
+            WaypointManager.addWaypoint("Last Death", x, y, z, 0xFFFF3344);
+            client.player.sendMessage(net.minecraft.text.Text.literal(
+                    "§b[IceyClient] §cLast Death waypointed §8(" + x + ", " + y + ", " + z + ")"), false);
+        }
+        wasDead = dead;
     }
 
     public void addCurrentPosition() {

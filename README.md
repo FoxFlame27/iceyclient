@@ -6,6 +6,18 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.68.0
+
+Big QoL release — five things bundled.
+
+- **Module search bar.** Press Y → type in the box at the top to filter modules by name across whatever category is selected. Esc / clear box to reset.
+- **Item Glow** — new module under Combat. Outlines dropped items you care about (Mace, Totem, Netherite gear/blocks/scrap, Elytra, Beacon, Nether Star, Dragon Egg, Heart of the Sea, Trident, Shulker Shells, optionally Enchanted Books) with the vanilla glow shader so they pop through walls. Per-item toggles in module settings. Done via a client-side `Entity.isGlowing` override mixin — server doesn't know.
+- **Last Death is a real waypoint now.** Removed the `Last Death` HUD module; replaced with an `Auto-Waypoint on Death` setting on the Waypoints module (default ON). Every time you die, a red "Last Death" waypoint drops at your last position so you can fly back for your stuff.
+- **Click coordinates in chat to waypoint them.** Server / system messages containing coordinate triples (parens or no parens, comma/slash/space separators) get rewritten into a clickable underlined link. Click → drops a waypoint there. Internally goes through a registered `/iceywp x y z [name]` client command so signed-message security isn't broken.
+- **Recolor any waypoint** — Press B → "🎨 Recolor Waypoint" → pick a waypoint → opens the RGB color picker (sliders + hex field + palette, same one as module colors). Saves to `iceymod_waypoints.json` and the beam color updates immediately.
+
+Everything stays 1.21.11-safe — the glow mixin uses `require=0, expect=0` + try/catch so it falls through to vanilla on any API drift, and the chat-rewrite + click-handling are wrapped so unsupported events on newer versions silently disable.
+
 ## What's new in v1.67.1
 
 - **Keyboard shortcuts in iceymod menus now work on 1.21.11.** `Screen.keyPressed`'s signature changed in 1.21.11 (now takes a `KeyInput` object), so our overrides silently stopped firing. Replaced both with raw GLFW polling inside `render()`:

@@ -14,6 +14,7 @@ import com.iceymod.screen.WaypointMenuScreen;
 import com.iceymod.structure.StructureTracker;
 import com.iceymod.structure.BiomeTracker;
 import com.iceymod.screen.BiomeMenuScreen;
+import com.iceymod.chat.ChatCoordParser;
 import com.iceymod.render.WaypointBeamRenderer;
 import com.iceymod.render.HitboxRenderer;
 import com.iceymod.render.MinimapRenderer;
@@ -60,6 +61,7 @@ public class IceyMod implements ClientModInitializer {
         MinimapRenderer.register();
         StructureTracker.register();
         BiomeTracker.register();
+        ChatCoordParser.register();
 
         menuKey         = registerKey("key.iceymod.menu",         GLFW.GLFW_KEY_Y);
         zoomKey         = registerKey("key.iceymod.zoom",         GLFW.GLFW_KEY_M);
