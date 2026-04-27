@@ -6,6 +6,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.70.0
+
+- **Import World (.zip).** New button on each installation's detail panel — click to open a file picker, pick a Minecraft world ZIP (the kind you download from Planet Minecraft / mcpedl / etc.), and it gets unzipped straight into that installation's `saves/` folder. Launch the install and the world is right there in the singleplayer list.
+- Auto-detects whether the zip has a single root folder (most do — extracted as-is) or has files at the top level (wrapped under the zip's filename so MC still finds `level.dat`).
+- Re-importing the same zip won't overwrite — the second copy gets `(2)`, `(3)`, etc. appended so you keep both.
+- Path-traversal guarded — any zip entry trying to escape `saves/` is rejected.
+
 ## What's new in v1.69.0
 
 - **Per-world waypoints.** Saved waypoints are now scoped to the world they were created in. Server play uses the server address as the key (e.g. `lifesteal.net`), singleplayer uses the save's level name, so a Spawn waypoint on one server doesn't show up on another or in your singleplayer worlds. The waypoint config file (`config/iceymod_waypoints.json`) gained a `worlds` map under it; pre-existing flat-list files are auto-migrated into a `default` key on first launch so nothing is lost.

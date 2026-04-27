@@ -1396,6 +1396,134 @@ function listPanoramaFiles() {
   return fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.zip')).sort();
 }
 
+/**
+ * Extract a Minecraft world ZIP into the installation's saves dir.
+ *
+ * Walks the central directory once to detect the layout:
+ *   - All entries share the same root folder → extract verbatim.
+ *   - No common root → wrap everything under <zip-basename>/ so MC
+ *     finds level.dat at saves/<wrapper>/level.dat.
+ *
+ * If the resulting world folder name already exists in saves/, append
+ * " (2)", " (3)" etc. Never silently overwrites.
+ *
+ * Returns { worldName, fileCount } or throws on bad zip / IO error.
+ */
+function importWorldZip(zipPath, savesDir) {
+  const zlib = require('zlib');
+  const buf = fs.readFileSync(zipPath);
+  const len = buf.length;
+
+  // Locate End Of Central Directory record (search backwards).
+  let eocdOffset = -1;
+  for (let i = len - 22; i >= Math.max(0, len - 65557); i--) {
+    if (buf[i] === 0x50 && buf[i+1] === 0x4b && buf[i+2] === 0x05 && buf[i+3] === 0x06) {
+      eocdOffset = i;
+      break;
+    }
+  }
+  if (eocdOffset === -1) throw new Error('Not a valid ZIP file');
+
+  const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+  const cdEntries = buf.readUInt16LE(eocdOffset + 10);
+
+  // Pass 1: collect entry metadata + figure out common root prefix.
+  const entries = [];
+  let commonRoot = null;
+  let offset = cdOffset;
+  for (let i = 0; i < cdEntries && offset < len - 46; i++) {
+    if (buf[offset] !== 0x50 || buf[offset+1] !== 0x4b
+        || buf[offset+2] !== 0x01 || buf[offset+3] !== 0x02) {
+      throw new Error('Corrupt central directory at entry ' + i);
+    }
+    const compMethod = buf.readUInt16LE(offset + 10);
+    const compSize = buf.readUInt32LE(offset + 20);
+    const nameLen = buf.readUInt16LE(offset + 28);
+    const extraLen = buf.readUInt16LE(offset + 30);
+    const commentLen = buf.readUInt16LE(offset + 32);
+    const localHeaderOffset = buf.readUInt32LE(offset + 42);
+    const name = buf.toString('utf-8', offset + 46, offset + 46 + nameLen);
+    offset += 46 + nameLen + extraLen + commentLen;
+
+    if (name.length === 0) continue;
+    entries.push({ name, compMethod, compSize, localHeaderOffset });
+
+    // Track common top-level folder.
+    const slash = name.indexOf('/');
+    const top = slash === -1 ? null : name.substring(0, slash);
+    if (commonRoot === null && top) {
+      commonRoot = top;
+    } else if (commonRoot !== null && top !== commonRoot) {
+      // Mixed root or top-level file → no common prefix.
+      commonRoot = '';
+    }
+  }
+
+  // Decide final wrapper name.
+  let wrapper;
+  if (commonRoot && commonRoot !== '') {
+    wrapper = commonRoot;
+  } else {
+    wrapper = path.basename(zipPath, path.extname(zipPath));
+  }
+
+  // Resolve a non-colliding final dir.
+  fs.mkdirSync(savesDir, { recursive: true });
+  let finalName = wrapper;
+  let suffix = 2;
+  while (fs.existsSync(path.join(savesDir, finalName))) {
+    finalName = wrapper + ' (' + (suffix++) + ')';
+  }
+  const targetRoot = path.join(savesDir, finalName);
+  fs.mkdirSync(targetRoot, { recursive: true });
+
+  // Pass 2: write each entry. If commonRoot existed, strip it from the
+  // entry path so we end up at <savesDir>/<finalName>/<rest>. Otherwise
+  // the entry path is used verbatim under the wrapper.
+  let written = 0;
+  for (const e of entries) {
+    if (e.name.endsWith('/')) continue; // directory marker
+
+    let relPath;
+    if (commonRoot && commonRoot !== '') {
+      // strip "<commonRoot>/" prefix
+      relPath = e.name.substring(commonRoot.length + 1);
+    } else {
+      relPath = e.name;
+    }
+    if (!relPath) continue;
+
+    const destPath = path.join(targetRoot, relPath);
+    // Path-traversal guard: dest must remain within targetRoot.
+    const resolved = path.resolve(destPath);
+    const resolvedRoot = path.resolve(targetRoot);
+    if (!resolved.startsWith(resolvedRoot + path.sep) && resolved !== resolvedRoot) {
+      throw new Error('Suspicious entry path: ' + e.name);
+    }
+
+    // Read local file header to find data start.
+    const lh = e.localHeaderOffset;
+    if (lh + 30 > len) throw new Error('Truncated local header for ' + e.name);
+    const lhNameLen = buf.readUInt16LE(lh + 26);
+    const lhExtraLen = buf.readUInt16LE(lh + 28);
+    const dataStart = lh + 30 + lhNameLen + lhExtraLen;
+    if (dataStart + e.compSize > len) throw new Error('Truncated entry data for ' + e.name);
+    const rawData = buf.slice(dataStart, dataStart + e.compSize);
+
+    let data;
+    if (e.compMethod === 0) data = rawData;
+    else if (e.compMethod === 8) data = zlib.inflateRawSync(rawData);
+    else throw new Error('Unsupported compression method ' + e.compMethod + ' for ' + e.name);
+
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    fs.writeFileSync(destPath, data);
+    written++;
+  }
+
+  log('info', 'Imported world "' + finalName + '" (' + written + ' files) into ' + savesDir);
+  return { worldName: finalName, fileCount: written };
+}
+
 function _extractFileFromZip(zipBuffer, targetPath) {
   try {
     const buf = zipBuffer;
@@ -1843,6 +1971,20 @@ app.whenReady().then(() => {
       fs.copyFileSync(src, dest);
       return { success: true };
     } catch (e) {
+      return { error: e.message };
+    }
+  });
+
+  ipcMain.handle('import-world', async (_, installationId, zipPath) => {
+    try {
+      if (!installationId) return { error: 'No installation selected' };
+      if (!zipPath || !fs.existsSync(zipPath)) return { error: 'File not found' };
+      const gameDir = getInstallGameDir(installationId);
+      const savesDir = path.join(gameDir, 'saves');
+      const result = importWorldZip(zipPath, savesDir);
+      return { success: true, worldName: result.worldName, fileCount: result.fileCount };
+    } catch (e) {
+      log('warn', 'Import world failed: ' + e.message);
       return { error: e.message };
     }
   });

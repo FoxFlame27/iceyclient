@@ -158,7 +158,27 @@ async function _loadInstallDetail(id, installations) {
     <button class="detail-select-secondary" onclick="_selectInstallation('${inst.id}')">
       ${inst.selected ? '<span style="color:#4ade80">Selected</span>' : 'Select as Active'}
     </button>
+    <button class="detail-select-secondary" onclick="_importWorld('${inst.id}')" title="Import a Minecraft world ZIP into this installation's saves">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:6px;">
+        <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>
+      </svg>
+      Import World (.zip)
+    </button>
   `;
+}
+
+async function _importWorld(id) {
+  const filePath = await window.icey.selectFile([
+    { name: 'Minecraft Worlds', extensions: ['zip'] }
+  ]);
+  if (!filePath) return;
+  Toast.info('Importing world…');
+  const result = await window.icey.importWorld(id, filePath);
+  if (result && result.error) {
+    Toast.error('Import failed: ' + result.error);
+    return;
+  }
+  Toast.success('Imported "' + result.worldName + '" (' + result.fileCount + ' files)');
 }
 
 async function _selectAndLaunch(id) {

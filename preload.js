@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('icey', {
   deleteMod: (installationId, filename) => ipcRenderer.invoke('delete-mod', installationId, filename),
   toggleMod: (installationId, filename) => ipcRenderer.invoke('toggle-mod', installationId, filename),
   registerResourcepack: (installationId, filename) => ipcRenderer.invoke('register-resourcepack', installationId, filename),
+  importWorld: (installationId, zipPath) => ipcRenderer.invoke('import-world', installationId, zipPath),
 
   // Downloads
   downloadFile: (url, dest) => ipcRenderer.invoke('download-file', url, dest),
