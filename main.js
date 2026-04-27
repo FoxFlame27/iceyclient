@@ -540,7 +540,16 @@ function launchMinecraft(installationId) {
       // Find fabric version directory
       const versionsDir = path.join(mcDir, 'versions');
       if (fs.existsSync(versionsDir)) {
-        const fabricDirs = fs.readdirSync(versionsDir).filter(d => d.startsWith('fabric-loader') && d.includes(version));
+        // Match `fabric-loader-<loader>-<version>` exactly on the trailing
+        // version. `includes` would false-match shorter versions inside
+        // longer ones — e.g. version "1.21.1" finding "...-1.21.11", which
+        // pairs the wrong intermediary with the client jar and crashes
+        // TinyRemapper with "Unfixable conflicts" during deobfuscation.
+        const fabricDirs = fs.readdirSync(versionsDir).filter(d => d.startsWith('fabric-loader') && d.endsWith('-' + version));
+        if (fabricDirs.length === 0) {
+          log('warn', 'No fabric-loader dir for MC ' + version + ' — install Fabric for this version (or recreate the installation)');
+          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'No Fabric loader installed for ' + version + ' — launching vanilla', level: 'warn' });
+        }
         if (fabricDirs.length > 0) {
           versionId = fabricDirs[0];
           const fabricJsonPath = path.join(versionsDir, fabricDirs[0], fabricDirs[0] + '.json');
