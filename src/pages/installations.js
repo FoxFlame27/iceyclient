@@ -161,6 +161,24 @@ function _dragHasFile(e) {
 }
 
 async function _runImport(installationId, filePath) {
+  // Final defensive Fabric check — every code path goes through this
+  // function so a stale UI / drag-drop short circuit can't slip a
+  // non-Fabric target past us.
+  try {
+    const all = await window.icey.getInstallations();
+    const target = all.find(i => i.id === installationId);
+    if (!target) {
+      Toast.error('Installation not found');
+      return;
+    }
+    if (target.platform !== 'fabric') {
+      Toast.error('Maps can only be imported into Fabric installations');
+      return;
+    }
+  } catch (_) {
+    // If we can't even read installations, fall through and let the
+    // IPC handler itself complain — but don't refuse silently.
+  }
   Toast.info('Importing world…');
   const result = await window.icey.importWorld(installationId, filePath);
   if (result && result.error) {
@@ -288,12 +306,23 @@ async function _loadInstallDetail(id, installations) {
     <button class="detail-select-secondary" onclick="_selectInstallation('${inst.id}')">
       ${inst.selected ? '<span style="color:#4ade80">Selected</span>' : 'Select as Active'}
     </button>
-    <button class="detail-select-secondary" onclick="_importWorld('${inst.id}')" title="Import a Minecraft world ZIP into this installation's saves">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:6px;">
-        <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>
-      </svg>
-      Import World (.zip)
-    </button>
+    ${inst.platform === 'fabric' ? `
+      <button class="detail-select-secondary" onclick="_importWorld('${inst.id}')" title="Import a Minecraft world ZIP into this installation's saves">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:6px;">
+          <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>
+        </svg>
+        Import World (.zip)
+      </button>
+    ` : `
+      <button class="detail-select-secondary" disabled
+              title="Map import is only available on Fabric installations (so you can use mods like E4MC to share with friends)"
+              style="opacity:.5;cursor:not-allowed;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:6px;">
+          <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>
+        </svg>
+        Import World — Fabric only
+      </button>
+    `}
   `;
 }
 
@@ -325,13 +354,24 @@ async function _importWorldFromPath(filePath) {
     Toast.error('Create an installation first');
     return;
   }
+  // Map import is Fabric-only — filter the candidate list before
+  // any auto-pick or chooser logic.
+  const fabricOnly = installations.filter(i => i.platform === 'fabric');
+  if (fabricOnly.length === 0) {
+    Toast.error('No Fabric installations found — create one to import maps');
+    return;
+  }
   let targetId;
-  if (_installSelectedId && installations.find(i => i.id === _installSelectedId)) {
-    targetId = _installSelectedId;
-  } else if (installations.length === 1) {
-    targetId = installations[0].id;
-  } else {
-    targetId = await _pickInstallationForImport(installations);
+  // Prefer the currently-selected install if it's Fabric.
+  if (_installSelectedId) {
+    const selected = installations.find(i => i.id === _installSelectedId);
+    if (selected && selected.platform === 'fabric') targetId = selected.id;
+  }
+  if (!targetId && fabricOnly.length === 1) {
+    targetId = fabricOnly[0].id;
+  }
+  if (!targetId) {
+    targetId = await _pickInstallationForImport(fabricOnly);
     if (!targetId) return;
   }
   _runImport(targetId, filePath);

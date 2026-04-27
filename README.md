@@ -6,6 +6,17 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.72.0
+
+- **Map import is now Fabric-only.** Worlds can only be imported into Fabric installations. The intent: most "play with friends remotely without LAN/port-forwarding" tooling — E4MC, Hopper, etc. — is Fabric-only, so gating import to Fabric keeps the workflow consistent and stops you from importing into a vanilla install you can't share from.
+  - Detail-panel button is disabled on Vanilla installations with a tooltip explaining why.
+  - Header "Import World" chooser only lists Fabric installations.
+  - Drag-and-drop onto a Vanilla card (or no card with no Fabric installations) shows a clear error toast — `_runImport` does a final defensive check so no path slips through.
+
+### How to play an imported map with a remote friend (no LAN, no port forwarding)
+
+Install **[E4MC](https://modrinth.com/mod/e4mc)** in your Fabric installation (Mods page → search `e4mc` → Install). Open the imported world → press the E4MC keybind → it gives you a tunneled link. Friend installs E4MC, joins via the link. Done. No Hamachi, no router config, no Realms subscription.
+
 ## What's new in v1.71.1
 
 Bug pass on the import-world flow. Two real fixes (the third was a Windows-specific concern).
