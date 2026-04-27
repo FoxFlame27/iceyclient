@@ -21,6 +21,10 @@ async function InstallationsPageInit() {
       <div class="installations-inner">
         <div class="installations-header">
           <h1 class="installations-title">Installations</h1>
+          <button class="btn-create-install" onclick="_importWorldFromHeader()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Import World
+          </button>
           <button class="btn-create-install" onclick="showCreateInstallModal()">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Installation
@@ -178,7 +182,88 @@ async function _importWorld(id) {
     Toast.error('Import failed: ' + result.error);
     return;
   }
-  Toast.success('Imported "' + result.worldName + '" (' + result.fileCount + ' files)');
+  Toast.success('World loaded: ' + result.worldName);
+}
+
+/**
+ * Header "+ Import World" entry point. Picks the zip first; if exactly
+ * one installation exists OR one is currently selected, imports
+ * straight into it. Otherwise pops a chooser modal listing every
+ * installation.
+ */
+async function _importWorldFromHeader() {
+  const filePath = await window.icey.selectFile([
+    { name: 'Minecraft Worlds', extensions: ['zip'] }
+  ]);
+  if (!filePath) return;
+
+  const installations = await window.icey.getInstallations();
+  if (!installations || installations.length === 0) {
+    Toast.error('Create an installation first');
+    return;
+  }
+
+  let targetId;
+  if (_installSelectedId && installations.find(i => i.id === _installSelectedId)) {
+    targetId = _installSelectedId;
+  } else if (installations.length === 1) {
+    targetId = installations[0].id;
+  } else {
+    targetId = await _pickInstallationForImport(installations);
+    if (!targetId) return;
+  }
+
+  Toast.info('Importing world…');
+  const result = await window.icey.importWorld(targetId, filePath);
+  if (result && result.error) {
+    Toast.error('Import failed: ' + result.error);
+    return;
+  }
+  Toast.success('World loaded: ' + result.worldName);
+}
+
+function _pickInstallationForImport(installations) {
+  return new Promise(resolve => {
+    const items = installations.map(i =>
+      `<button class="import-pick-item" data-id="${i.id}">
+         <div class="import-pick-name">${i.name}</div>
+         <div class="import-pick-meta">${i.version}${i.platform === 'fabric' ? ' · Fabric' : ''}</div>
+       </button>`
+    ).join('');
+    showModal(`
+      <div class="import-pick-modal">
+        <div class="import-pick-header">
+          <h2 class="import-pick-title">Import into…</h2>
+          <button class="modal-close" onclick="closeModal()">
+            <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+        <div class="import-pick-body" id="import-pick-body">${items}</div>
+      </div>
+    `);
+    const body = document.getElementById('import-pick-body');
+    body.querySelectorAll('.import-pick-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        closeModal();
+        resolve(id);
+      });
+    });
+    // Cancel via close → resolve(null) once modal closes. Hooked via
+    // a one-shot mutation observer so we don't leak the promise.
+    const root = document.querySelector('.import-pick-modal');
+    if (root) {
+      const observer = new MutationObserver(() => {
+        if (!document.body.contains(root)) {
+          observer.disconnect();
+          resolve(null);
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    } else {
+      resolve(null);
+    }
+  });
 }
 
 async function _selectAndLaunch(id) {

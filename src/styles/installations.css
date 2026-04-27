@@ -717,3 +717,59 @@
   font-size: 14px;
   color: var(--text-secondary);
 }
+
+/* Import-into-which-installation chooser, used when "Import World" is
+   pressed in the page header and more than one installation exists. */
+.import-pick-modal {
+  background: var(--bg-secondary, #14181f);
+  border: 1px solid var(--border, #232a36);
+  border-radius: 12px;
+  padding: 16px;
+  width: 360px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+.import-pick-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.import-pick-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.import-pick-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+.import-pick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary, #1c2230);
+  border: 1px solid var(--border, #232a36);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary, #e2e8f0);
+  transition: background 80ms ease, border-color 80ms ease;
+}
+.import-pick-item:hover {
+  background: var(--bg-hover, #232a36);
+  border-color: var(--accent, #5BC8F5);
+}
+.import-pick-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+.import-pick-meta {
+  font-size: 12px;
+  color: var(--text-secondary, #94a3b8);
+}

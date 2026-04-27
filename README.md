@@ -6,6 +6,12 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.70.1
+
+- **"Import World" button in the installations header.** Press it without selecting an installation first — picks the zip, then if you have more than one installation pops a chooser modal to ask which one. With one installation (or one already selected), goes straight in.
+- Per-installation Import World button (in the detail panel) is still there.
+- Success toast wording is now `World loaded: <name>` and shows in the top-right (where the existing toast container lives) so it's hard to miss.
+
 ## What's new in v1.70.0
 
 - **Import World (.zip).** New button on each installation's detail panel — click to open a file picker, pick a Minecraft world ZIP (the kind you download from Planet Minecraft / mcpedl / etc.), and it gets unzipped straight into that installation's `saves/` folder. Launch the install and the world is right there in the singleplayer list.
