@@ -6,6 +6,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.73.1
+
+- **Fix: Installations page rendered blank.** v1.71.0 added `position: relative` to `#page-installations` to anchor the drag-drop overlay, but `.page` already sets `position: absolute; inset: 0` — overriding to relative made `inset: 0` stop stretching the element, so the page's HTML was rendered but the layout collapsed and only the panorama showed. Removed the override; the drop overlay still anchors correctly because `.page`'s own `position: absolute` is already a positioning context.
+
 ## What's new in v1.73.0
 
 - **Auto-prompt to install E4MC after a world import.** When the import finishes, if the target Fabric installation doesn't already have E4MC in its `mods/` folder, a small modal pops up offering to install it from Modrinth (matched to the installation's MC version). One click, no leaving the launcher. "Skip" remembers the choice in `localStorage` so you're not pestered next time.
