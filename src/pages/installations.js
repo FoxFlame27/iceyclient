@@ -58,35 +58,46 @@ async function InstallationsPageInit() {
  * Cross-platform: this is pure DOM + Electron 28 File.path, no native
  * deps, works the same on Windows / macOS / Linux ARM64.
  */
-let _dragDropInstalled = false;
+let _dragCounter = 0;
 function _setupWorldDragDrop() {
-  if (_dragDropInstalled) return;
-  _dragDropInstalled = true;
-
   const page = document.getElementById('page-installations');
   if (!page) return;
 
-  const overlay = document.createElement('div');
-  overlay.className = 'install-drop-overlay';
-  overlay.innerHTML = `
-    <div class="install-drop-message">
-      <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.6">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="7 10 12 15 17 10"/>
-        <line x1="12" y1="15" x2="12" y2="3"/>
-      </svg>
-      <div class="install-drop-text">Drop world .zip to import</div>
-      <div class="install-drop-sub">Drop on a card to target that installation</div>
-    </div>
-  `;
-  page.appendChild(overlay);
+  // The overlay child gets removed every time InstallationsPageInit
+  // reassigns innerHTML — re-append it on every call.
+  let overlay = page.querySelector(':scope > .install-drop-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'install-drop-overlay';
+    overlay.innerHTML = `
+      <div class="install-drop-message">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <div class="install-drop-text">Drop world .zip to import</div>
+        <div class="install-drop-sub">Drop on a card to target that installation</div>
+      </div>
+    `;
+    page.appendChild(overlay);
+  }
 
-  let counter = 0;
+  // Listeners on `page` survive innerHTML reassignment (the element
+  // itself isn't replaced) — bind once via a flag on the element.
+  if (page.dataset.dragBound === '1') return;
+  page.dataset.dragBound = '1';
+
+  // Tiny helper so handlers re-fetch the overlay each call (it gets
+  // recreated on every InstallationsPageInit() innerHTML reassignment).
+  const getOverlay = () => page.querySelector(':scope > .install-drop-overlay');
+
   page.addEventListener('dragenter', (e) => {
     if (!_dragHasFile(e)) return;
     e.preventDefault();
-    counter++;
-    overlay.classList.add('visible');
+    _dragCounter++;
+    const ov = getOverlay();
+    if (ov) ov.classList.add('visible');
   });
   page.addEventListener('dragover', (e) => {
     if (!_dragHasFile(e)) return;
@@ -94,13 +105,17 @@ function _setupWorldDragDrop() {
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
   });
   page.addEventListener('dragleave', () => {
-    counter = Math.max(0, counter - 1);
-    if (counter === 0) overlay.classList.remove('visible');
+    _dragCounter = Math.max(0, _dragCounter - 1);
+    if (_dragCounter === 0) {
+      const ov = getOverlay();
+      if (ov) ov.classList.remove('visible');
+    }
   });
   page.addEventListener('drop', async (e) => {
     e.preventDefault();
-    counter = 0;
-    overlay.classList.remove('visible');
+    _dragCounter = 0;
+    const ov = getOverlay();
+    if (ov) ov.classList.remove('visible');
     const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if (!file) return;
     const filePath = file.path;

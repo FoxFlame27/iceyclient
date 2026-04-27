@@ -1503,12 +1503,24 @@ function importWorldZip(zipPath, savesDir) {
     }
     if (!relPath) continue;
 
+    // Defense: zip spec uses '/' for separators, but a malicious or
+    // mis-encoded zip might embed '\' or '..' segments. Normalize and
+    // reject anything that tries to escape targetRoot. On Windows
+    // path.join treats '\' as a separator too, which is exactly the
+    // surface we need to neutralize.
+    if (relPath.includes('\\')) {
+      throw new Error('Backslash in zip entry name (rejected): ' + e.name);
+    }
+    if (relPath.split('/').some(seg => seg === '..' || seg === '')) {
+      throw new Error('Suspicious entry path: ' + e.name);
+    }
+
     const destPath = path.join(targetRoot, relPath);
-    // Path-traversal guard: dest must remain within targetRoot.
+    // Belt-and-braces path-traversal guard.
     const resolved = path.resolve(destPath);
     const resolvedRoot = path.resolve(targetRoot);
     if (!resolved.startsWith(resolvedRoot + path.sep) && resolved !== resolvedRoot) {
-      throw new Error('Suspicious entry path: ' + e.name);
+      throw new Error('Path traversal blocked: ' + e.name);
     }
 
     // Read local file header to find data start.

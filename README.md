@@ -6,6 +6,14 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.71.1
+
+Bug pass on the import-world flow. Two real fixes (the third was a Windows-specific concern).
+
+- **Drop overlay was disappearing after page refresh.** `InstallationsPageInit()` reassigns the page's `innerHTML`, which silently removed the overlay element we'd appended. The "already installed" flag then prevented re-adding it. Listener-bind and overlay-create are now separated: listeners bind once via a `data-drag-bound` attribute on the page element (survives `innerHTML` reassignment), the overlay is recreated every init, and the dragenter/dragleave/drop handlers re-fetch the overlay via a small `getOverlay()` helper.
+- **Hardened path-traversal on Windows.** The previous `path.resolve` + `startsWith` check was correct, but `path.join` on Windows treats `\` as a directory separator. A malicious zip with entries like `..\..\evil.txt` could in theory squeeze through. Added an explicit pre-check: any entry name containing `\` or any `..` / empty segment is rejected before reaching `path.join`. Belt-and-braces.
+- Cross-platform reminder: pure Node `fs` + `zlib` + `path`, no native deps. Verified the Linux ARM64 path resolves to `~/.iceyclient/installations/<id>/game/saves` via `getDataDir()`.
+
 ## What's new in v1.71.0
 
 - **Drag-and-drop world import.** Drop a `.zip` file anywhere on the Installations page to import it. Drop on a specific installation card to target that installation directly; drop in the empty area to use the currently-selected installation (or open the chooser if you've got several).
