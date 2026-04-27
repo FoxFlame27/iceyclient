@@ -42,6 +42,117 @@ async function InstallationsPageInit() {
   if (_installSelectedId) {
     _loadInstallDetail(_installSelectedId, installations);
   }
+
+  _setupWorldDragDrop();
+}
+
+/**
+ * Drag-and-drop a Minecraft world .zip onto the installations page.
+ *
+ *   - Drop on an install card → import into THAT installation.
+ *   - Drop anywhere else on the page → use selected install if any,
+ *     else the only install if there's one, else show the chooser.
+ *
+ * Visual feedback: full-page dashed overlay during drag-over.
+ *
+ * Cross-platform: this is pure DOM + Electron 28 File.path, no native
+ * deps, works the same on Windows / macOS / Linux ARM64.
+ */
+let _dragDropInstalled = false;
+function _setupWorldDragDrop() {
+  if (_dragDropInstalled) return;
+  _dragDropInstalled = true;
+
+  const page = document.getElementById('page-installations');
+  if (!page) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'install-drop-overlay';
+  overlay.innerHTML = `
+    <div class="install-drop-message">
+      <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      <div class="install-drop-text">Drop world .zip to import</div>
+      <div class="install-drop-sub">Drop on a card to target that installation</div>
+    </div>
+  `;
+  page.appendChild(overlay);
+
+  let counter = 0;
+  page.addEventListener('dragenter', (e) => {
+    if (!_dragHasFile(e)) return;
+    e.preventDefault();
+    counter++;
+    overlay.classList.add('visible');
+  });
+  page.addEventListener('dragover', (e) => {
+    if (!_dragHasFile(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  });
+  page.addEventListener('dragleave', () => {
+    counter = Math.max(0, counter - 1);
+    if (counter === 0) overlay.classList.remove('visible');
+  });
+  page.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    counter = 0;
+    overlay.classList.remove('visible');
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    const filePath = file.path;
+    if (!filePath) {
+      Toast.error('Could not read dropped file');
+      return;
+    }
+    const lower = filePath.toLowerCase();
+    if (lower.endsWith('.rar') || lower.endsWith('.7z')) {
+      Toast.error('.rar / .7z aren’t supported — extract to .zip first');
+      return;
+    }
+    if (!lower.endsWith('.zip')) {
+      Toast.error('Drop a .zip world file');
+      return;
+    }
+
+    // If the drop landed on a specific install card, prefer that one.
+    let targetId = null;
+    let target = e.target;
+    while (target && target !== page) {
+      if (target.classList && target.classList.contains('install-card')) {
+        targetId = target.dataset.id;
+        break;
+      }
+      target = target.parentElement;
+    }
+    if (targetId) {
+      _runImport(targetId, filePath);
+    } else {
+      _importWorldFromPath(filePath);
+    }
+  });
+}
+
+function _dragHasFile(e) {
+  const items = e.dataTransfer && e.dataTransfer.items;
+  if (!items) return false;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].kind === 'file') return true;
+  }
+  return false;
+}
+
+async function _runImport(installationId, filePath) {
+  Toast.info('Importing world…');
+  const result = await window.icey.importWorld(installationId, filePath);
+  if (result && result.error) {
+    Toast.error('Import failed: ' + result.error);
+    return;
+  }
+  Toast.success('World loaded: ' + result.worldName);
 }
 
 function _renderInstallationCards(installations) {
@@ -176,13 +287,7 @@ async function _importWorld(id) {
     { name: 'Minecraft Worlds', extensions: ['zip'] }
   ]);
   if (!filePath) return;
-  Toast.info('Importing world…');
-  const result = await window.icey.importWorld(id, filePath);
-  if (result && result.error) {
-    Toast.error('Import failed: ' + result.error);
-    return;
-  }
-  Toast.success('World loaded: ' + result.worldName);
+  _runImport(id, filePath);
 }
 
 /**
@@ -196,13 +301,15 @@ async function _importWorldFromHeader() {
     { name: 'Minecraft Worlds', extensions: ['zip'] }
   ]);
   if (!filePath) return;
+  _importWorldFromPath(filePath);
+}
 
+async function _importWorldFromPath(filePath) {
   const installations = await window.icey.getInstallations();
   if (!installations || installations.length === 0) {
     Toast.error('Create an installation first');
     return;
   }
-
   let targetId;
   if (_installSelectedId && installations.find(i => i.id === _installSelectedId)) {
     targetId = _installSelectedId;
@@ -212,14 +319,7 @@ async function _importWorldFromHeader() {
     targetId = await _pickInstallationForImport(installations);
     if (!targetId) return;
   }
-
-  Toast.info('Importing world…');
-  const result = await window.icey.importWorld(targetId, filePath);
-  if (result && result.error) {
-    Toast.error('Import failed: ' + result.error);
-    return;
-  }
-  Toast.success('World loaded: ' + result.worldName);
+  _runImport(targetId, filePath);
 }
 
 function _pickInstallationForImport(installations) {

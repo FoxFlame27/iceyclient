@@ -1430,6 +1430,7 @@ function importWorldZip(zipPath, savesDir) {
   // Pass 1: collect entry metadata + figure out common root prefix.
   const entries = [];
   let commonRoot = null;
+  let hasLevelDat = false;
   let offset = cdOffset;
   for (let i = 0; i < cdEntries && offset < len - 46; i++) {
     if (buf[offset] !== 0x50 || buf[offset+1] !== 0x4b
@@ -1448,6 +1449,11 @@ function importWorldZip(zipPath, savesDir) {
     if (name.length === 0) continue;
     entries.push({ name, compMethod, compSize, localHeaderOffset });
 
+    // Sanity check: a real world archive contains level.dat somewhere.
+    if (name.endsWith('/level.dat') || name === 'level.dat') {
+      hasLevelDat = true;
+    }
+
     // Track common top-level folder.
     const slash = name.indexOf('/');
     const top = slash === -1 ? null : name.substring(0, slash);
@@ -1457,6 +1463,10 @@ function importWorldZip(zipPath, savesDir) {
       // Mixed root or top-level file → no common prefix.
       commonRoot = '';
     }
+  }
+
+  if (!hasLevelDat) {
+    throw new Error('No level.dat found in zip — not a Minecraft world archive');
   }
 
   // Decide final wrapper name.

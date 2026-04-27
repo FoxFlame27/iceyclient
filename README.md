@@ -6,6 +6,17 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.71.0
+
+- **Drag-and-drop world import.** Drop a `.zip` file anywhere on the Installations page to import it. Drop on a specific installation card to target that installation directly; drop in the empty area to use the currently-selected installation (or open the chooser if you've got several).
+- **Sanity-check on import.** Zips that don't contain a `level.dat` are rejected up front instead of writing junk into `saves/`. Clear error toast on `.rar` / `.7z` (extract to `.zip` first).
+- **Cross-platform paths verified end-to-end.** The launcher resolves saves to:
+  - **Windows**: `%APPDATA%\IceyClient\installations\<id>\game\saves`
+  - **macOS**: `~/Library/Application Support/IceyClient/installations/<id>/game/saves`
+  - **Linux** (incl. ARM64): `~/.iceyclient/installations/<id>/game/saves`
+  Per-installation isolated saves, no clobbering vanilla MC, no PATH magic.
+- Visual: dashed cyan overlay covers the page while you're dragging a file over it, with a "Drop world .zip to import" message.
+
 ## What's new in v1.70.1
 
 - **"Import World" button in the installations header.** Press it without selecting an installation first — picks the zip, then if you have more than one installation pops a chooser modal to ask which one. With one installation (or one already selected), goes straight in.

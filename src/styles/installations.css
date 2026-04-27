@@ -1,5 +1,6 @@
 #page-installations {
   height: 100%;
+  position: relative; /* anchor for the drop overlay */
 }
 
 /* ─── Layout: grid + detail panel ─── */
@@ -771,5 +772,42 @@
 }
 .import-pick-meta {
   font-size: 12px;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* Drop-target overlay — covers the installations page during a
+   file drag. Lets the user know they can drop a .zip world here. */
+.install-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 24, 0.78);
+  border: 2px dashed rgba(91, 200, 245, 0.6);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.install-drop-overlay.visible {
+  opacity: 1;
+}
+.install-drop-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent, #5BC8F5);
+  text-align: center;
+}
+.install-drop-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #e2e8f0);
+}
+.install-drop-sub {
+  font-size: 13px;
   color: var(--text-secondary, #94a3b8);
 }
