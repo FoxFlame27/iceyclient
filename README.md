@@ -6,6 +6,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.73.0
+
+- **Auto-prompt to install E4MC after a world import.** When the import finishes, if the target Fabric installation doesn't already have E4MC in its `mods/` folder, a small modal pops up offering to install it from Modrinth (matched to the installation's MC version). One click, no leaving the launcher. "Skip" remembers the choice in `localStorage` so you're not pestered next time.
+- The install pulls E4MC's primary jar via the existing Modrinth API + downloadFile IPC — same path the Mods browser uses.
+
 ## What's new in v1.72.0
 
 - **Map import is now Fabric-only.** Worlds can only be imported into Fabric installations. The intent: most "play with friends remotely without LAN/port-forwarding" tooling — E4MC, Hopper, etc. — is Fabric-only, so gating import to Fabric keeps the workflow consistent and stops you from importing into a vanilla install you can't share from.

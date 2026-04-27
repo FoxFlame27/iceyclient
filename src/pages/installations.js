@@ -186,6 +186,79 @@ async function _runImport(installationId, filePath) {
     return;
   }
   Toast.success('World loaded: ' + result.worldName);
+  // Offer to install E4MC for instant remote multiplayer — only if
+  // the install doesn't already have it AND the user hasn't dismissed
+  // the prompt before.
+  _maybePromptE4mc(installationId);
+}
+
+async function _maybePromptE4mc(installationId) {
+  try {
+    if (localStorage.getItem('iceyE4mcSkip') === '1') return;
+    const data = await window.icey.getInstalledMods(installationId);
+    const mods = (data && data.mods) || [];
+    const hasE4mc = mods.some(m => /e4mc/i.test(m.filename || m.name || ''));
+    if (hasE4mc) return;
+
+    const installations = await window.icey.getInstallations();
+    const inst = installations.find(i => i.id === installationId);
+    if (!inst || inst.platform !== 'fabric') return;
+
+    showModal(`
+      <div class="import-pick-modal" style="width:380px;">
+        <div class="import-pick-header">
+          <h2 class="import-pick-title">Play with friends remotely?</h2>
+          <button class="modal-close" onclick="closeModal()">
+            <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+        <p style="color:var(--text-secondary,#94a3b8);font-size:13px;line-height:1.5;margin:0 0 12px;">
+          Install <b>E4MC</b> and you can share any world over the internet — no port forwarding, no Realms. Open the world, press the E4MC keybind, send your friend the link.
+        </p>
+        <div style="display:flex;gap:8px;flex-direction:column;">
+          <button class="import-pick-item" id="e4mc-install-btn">
+            <div class="import-pick-name">Install E4MC</div>
+            <div class="import-pick-meta">From Modrinth · ~150 KB · Fabric ${inst.version}</div>
+          </button>
+          <button class="import-pick-item" id="e4mc-skip-btn">
+            <div class="import-pick-name">Skip</div>
+            <div class="import-pick-meta">Don't ask again</div>
+          </button>
+        </div>
+      </div>
+    `);
+    document.getElementById('e4mc-install-btn').addEventListener('click', () => {
+      closeModal();
+      _installE4mc(installationId, inst.version);
+    });
+    document.getElementById('e4mc-skip-btn').addEventListener('click', () => {
+      localStorage.setItem('iceyE4mcSkip', '1');
+      closeModal();
+    });
+  } catch (_) {
+    // Modal is a nice-to-have; never let it break the import success path.
+  }
+}
+
+async function _installE4mc(installationId, mcVersion) {
+  Toast.info('Installing E4MC…');
+  try {
+    const dl = await ModrinthAPI.getDownloadUrl('e4mc', mcVersion, 'fabric');
+    if (!dl || !dl.url) {
+      Toast.error('No E4MC version for MC ' + mcVersion);
+      return;
+    }
+    const gameDir = await window.icey.getInstallGameDir(installationId);
+    const dest = gameDir + '/mods/' + dl.filename;
+    const result = await window.icey.downloadFile(dl.url, dest);
+    if (result && result.error) {
+      Toast.error('E4MC install failed: ' + result.error);
+      return;
+    }
+    Toast.success('E4MC installed — restart MC to use it');
+  } catch (e) {
+    Toast.error('E4MC install failed: ' + (e && e.message ? e.message : e));
+  }
 }
 
 function _renderInstallationCards(installations) {
