@@ -6,6 +6,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.74.0
+
+- **E4MC prompt now re-appears on every world import** until E4MC is actually installed. Previously the "Skip" button persisted via `localStorage.iceyE4mcSkip`, so dismissing it once meant you'd never see it again — easy to forget the option exists. Now Skip just closes for this import; the next import re-prompts. The hint text on the Skip button changed from "Don't ask again" to "Maybe later" to match. The check that suppresses the prompt when E4MC is already in `mods/` is unchanged, so installs that already have it stay quiet.
+
 ## What's new in v1.73.2
 
 - **Fix: Fabric "Unfixable conflicts" crash on MC 1.21.1 (and other short-version installations).** The launch code was matching the Fabric loader dir with `d.includes(version)` — when both `fabric-loader-X-1.21.1` and `fabric-loader-Y-1.21.11` existed, launching the 1.21.1 installation could pick up the 1.21.11 profile (because `"1.21.11"` contains `"1.21.1"`). The launcher then paired the 1.21.11 intermediary mappings with the 1.21.1 client jar and TinyRemapper crashed during deobfuscation with hundreds of method-mapping conflicts. Switched the matcher to `d.endsWith('-' + version)` so only the exact version matches. Also added a clearer warning log when no Fabric dir is found for the installation's MC version.

@@ -194,7 +194,6 @@ async function _runImport(installationId, filePath) {
 
 async function _maybePromptE4mc(installationId) {
   try {
-    if (localStorage.getItem('iceyE4mcSkip') === '1') return;
     const data = await window.icey.getInstalledMods(installationId);
     const mods = (data && data.mods) || [];
     const hasE4mc = mods.some(m => /e4mc/i.test(m.filename || m.name || ''));
@@ -222,7 +221,7 @@ async function _maybePromptE4mc(installationId) {
           </button>
           <button class="import-pick-item" id="e4mc-skip-btn">
             <div class="import-pick-name">Skip</div>
-            <div class="import-pick-meta">Don't ask again</div>
+            <div class="import-pick-meta">Maybe later</div>
           </button>
         </div>
       </div>
@@ -232,7 +231,6 @@ async function _maybePromptE4mc(installationId) {
       _installE4mc(installationId, inst.version);
     });
     document.getElementById('e4mc-skip-btn').addEventListener('click', () => {
-      localStorage.setItem('iceyE4mcSkip', '1');
       closeModal();
     });
   } catch (_) {
