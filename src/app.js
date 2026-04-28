@@ -59,11 +59,26 @@ async function loadNavProfile() {
   const titlebarProfile = document.getElementById('titlebar-profile');
   const auth = await window.icey.getAuth();
 
+  // Pull saved accounts so we can show the dropdown even when no account
+  // is currently active — otherwise a user with 5 expired accounts can't
+  // reach the remove buttons because getAuth returns null and the UI
+  // collapses to a Login-only state.
+  let accountsData = { accounts: [], maxAccounts: 5 };
+  try { accountsData = await window.icey.getAccounts(); } catch (_) {}
+  const hasSavedAccounts = (accountsData.accounts || []).length > 0;
+
   if (container) {
     if (auth && auth.username) {
       container.innerHTML = `
         <img class="nav-profile-avatar" src="https://mineskin.eu/helm/${auth.username}/40.png" alt="${auth.username}" title="Click to switch account" onclick="_toggleProfileDropdown()">
         <div class="nav-profile-name" onclick="_toggleProfileDropdown()" style="cursor:pointer">${auth.username}</div>
+      `;
+    } else if (hasSavedAccounts) {
+      container.innerHTML = `
+        <div class="nav-profile-login" onclick="_toggleProfileDropdown()" title="Manage accounts">
+          <img src="assets/skins-icon.png" alt="Accounts" style="width:22px;height:22px;filter:invert(1);opacity:0.6;">
+        </div>
+        <div class="nav-profile-name" style="color:var(--accent);cursor:pointer" onclick="_toggleProfileDropdown()">Accounts</div>
       `;
     } else {
       container.innerHTML = `
@@ -81,6 +96,13 @@ async function loadNavProfile() {
         <img class="titlebar-profile-head" src="https://mineskin.eu/helm/${auth.username}/24.png" alt="${auth.username}" onclick="_toggleProfileDropdown()">
       `;
       _updateProfileDropdown(auth);
+    } else if (hasSavedAccounts) {
+      // Generic Steve head — clickable so user can reach the dropdown to
+      // switch to / remove a saved account.
+      titlebarProfile.innerHTML = `
+        <img class="titlebar-profile-head" src="https://mineskin.eu/helm/MHF_Steve/24.png" alt="Manage accounts" title="Manage accounts" onclick="_toggleProfileDropdown()">
+      `;
+      _updateProfileDropdown(null);
     } else {
       titlebarProfile.innerHTML = '';
     }
@@ -89,13 +111,20 @@ async function loadNavProfile() {
 
 async function _updateProfileDropdown(auth) {
   const dropdown = document.getElementById('titlebar-profile-dropdown');
-  if (!dropdown || !auth) return;
+  if (!dropdown) return;
 
   let accountsData = { activeUuid: null, accounts: [], maxAccounts: 5 };
   try { accountsData = await window.icey.getAccounts(); } catch (_) {}
-  const others = (accountsData.accounts || []).filter(a => a.uuid !== accountsData.activeUuid);
-  const activeFull = (accountsData.accounts || []).find(a => a.uuid === accountsData.activeUuid) || { type: 'microsoft' };
-  const atMax = (accountsData.accounts?.length || 0) >= (accountsData.maxAccounts || 5);
+  const allAccounts = accountsData.accounts || [];
+  // When auth is null (every saved account is expired), show *all* saved
+  // accounts in the list so the user can remove one to free up a slot.
+  const others = auth
+    ? allAccounts.filter(a => a.uuid !== accountsData.activeUuid)
+    : allAccounts;
+  const activeFull = auth
+    ? (allAccounts.find(a => a.uuid === accountsData.activeUuid) || { type: 'microsoft' })
+    : null;
+  const atMax = allAccounts.length >= (accountsData.maxAccounts || 5);
 
   const typeBadge = (type) => type === 'offline'
     ? '<span class="titlebar-account-type offline">Cracked</span>'
@@ -120,7 +149,7 @@ async function _updateProfileDropdown(auth) {
         <button class="titlebar-dropdown-btn" onclick="_promptAddOffline()">+ Add Cracked Account</button>
       `;
 
-  dropdown.innerHTML = `
+  const headerHtml = auth ? `
     <div class="titlebar-dropdown-user">
       <img class="titlebar-dropdown-avatar" src="https://mineskin.eu/helm/${_escapeAttr(auth.username)}/36.png" alt="">
       <div class="titlebar-dropdown-info">
@@ -128,11 +157,26 @@ async function _updateProfileDropdown(auth) {
         <div class="titlebar-dropdown-label">Active Account</div>
       </div>
     </div>
+  ` : `
+    <div class="titlebar-dropdown-user">
+      <div class="titlebar-dropdown-info">
+        <div class="titlebar-dropdown-name">No active account</div>
+        <div class="titlebar-dropdown-label">${others.length} saved · pick one or remove to free a slot</div>
+      </div>
+    </div>
+  `;
+
+  const footerHtml = auth ? `
+    <button class="titlebar-dropdown-btn" onclick="switchPage('skins'); _toggleProfileDropdown();">Manage Skin</button>
+    <button class="titlebar-dropdown-btn logout" onclick="_navLogout()">Log Out of ${_escapeHtml(auth.username)}</button>
+  ` : '';
+
+  dropdown.innerHTML = `
+    ${headerHtml}
     ${others.length > 0 ? `<div class="titlebar-dropdown-divider"></div><div class="titlebar-accounts-list">${otherAccountsHtml}</div>` : ''}
     <div class="titlebar-dropdown-divider"></div>
     ${addButtons}
-    <button class="titlebar-dropdown-btn" onclick="switchPage('skins'); _toggleProfileDropdown();">Manage Skin</button>
-    <button class="titlebar-dropdown-btn logout" onclick="_navLogout()">Log Out of ${_escapeHtml(auth.username)}</button>
+    ${footerHtml}
   `;
 }
 

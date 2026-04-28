@@ -6,6 +6,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.76.0
+
+- **Fix: account manager unreachable when every saved account was expired.** Previously `getAuth` returned null whenever the active account's token had passed its `expiresAt`, which collapsed the titlebar profile area to nothing and the sidebar to a "Login" button. Clicking Login then hit the max-5-accounts cap and you had no way to remove an old one — soft-locked. Now: if there are saved accounts but no active one, a generic Steve avatar shows in the titlebar and an "Accounts" entry shows in the sidebar; clicking either opens the dropdown with all saved accounts (each with a Remove button) plus the "No active account" header. Removing one frees the slot so you can add a new MS login.
+
 ## What's new in v1.75.0
 
 - **Fix: launcher auto-installed the wrong Fabric API jar for any MC version not in the hardcoded list** (1.21.1, 1.21, 1.20.x, etc. all silently got 1.21.11's Fabric API, then crashed at launch with `HARD_DEP_INCOMPATIBLE_PRESELECTED fabric-api ... requires minecraft 1.21.11`). Replaced the hardcoded version map with a Modrinth API query at launch time — the launcher now fetches the latest Fabric API jar that lists the installation's exact MC version under `game_versions`. Works for every MC version Modrinth covers; falls through cleanly (logs a warning and skips auto-install) when the network call fails or no matching version exists, instead of pinning the wrong jar.
