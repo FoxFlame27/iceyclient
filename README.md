@@ -6,6 +6,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.75.0
+
+- **Fix: launcher auto-installed the wrong Fabric API jar for any MC version not in the hardcoded list** (1.21.1, 1.21, 1.20.x, etc. all silently got 1.21.11's Fabric API, then crashed at launch with `HARD_DEP_INCOMPATIBLE_PRESELECTED fabric-api ... requires minecraft 1.21.11`). Replaced the hardcoded version map with a Modrinth API query at launch time — the launcher now fetches the latest Fabric API jar that lists the installation's exact MC version under `game_versions`. Works for every MC version Modrinth covers; falls through cleanly (logs a warning and skips auto-install) when the network call fails or no matching version exists, instead of pinning the wrong jar.
+
 ## What's new in v1.74.0
 
 - **E4MC prompt now re-appears on every world import** until E4MC is actually installed. Previously the "Skip" button persisted via `localStorage.iceyE4mcSkip`, so dismissing it once meant you'd never see it again — easy to forget the option exists. Now Skip just closes for this import; the next import re-prompts. The hint text on the Skip button changed from "Don't ask again" to "Maybe later" to match. The check that suppresses the prompt when E4MC is already in `mods/` is unchanged, so installs that already have it stay quiet.

@@ -968,41 +968,63 @@ function launchMinecraft(installationId) {
         } catch (_) {}
       }
 
-      // 2) Install correct Fabric API for THIS MC version (validate, replace if wrong)
-      const fabricApiByVersion = {
-        '1.21.8': '0.136.1+1.21.8',
-        '1.21.9': '0.138.1+1.21.9',
-        '1.21.10': '0.138.4+1.21.10',
-        '1.21.11': '0.139.4+1.21.11',
-      };
-      const fabricApiVer = fabricApiByVersion[installation.version] || '0.139.4+1.21.11';
-      const correctApiJar = 'fabric-api-' + fabricApiVer + '.jar';
-      const correctApiDest = path.join(modsDir, correctApiJar);
-
-      // Delete any wrong-version fabric-api jars
-      const fabricApiPattern = /^fabric-api.*\.jar$/i;
+      // 2) Install correct Fabric API for THIS MC version. Hardcoded version
+      // maps drift fast and skip MC versions silently — query Modrinth for the
+      // latest fabric-api version compatible with the installation's MC version
+      // and trust whatever it returns. Falls back to skipping the install if the
+      // network call fails (better to not auto-install than pin a wrong jar).
+      let fabricApiFile = null;
       try {
-        for (const f of fs.readdirSync(modsDir)) {
-          if (fabricApiPattern.test(f) && f !== correctApiJar) {
-            fs.unlinkSync(path.join(modsDir, f));
-            log('info', 'Removed wrong-version Fabric API: ' + f);
-            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Removed wrong Fabric API: ' + f, level: 'info' });
+        const modrinthUrl = `https://api.modrinth.com/v2/project/fabric-api/version?game_versions=[%22${installation.version}%22]&loaders=[%22fabric%22]`;
+        const versions = await new Promise((resolve, reject) => {
+          https.get(modrinthUrl, { headers: { 'User-Agent': 'IceyClient/1.0.0' } }, (res) => {
+            let data = '';
+            res.on('data', (c) => data += c);
+            res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+            res.on('error', reject);
+          }).on('error', reject);
+        });
+        if (Array.isArray(versions) && versions.length > 0) {
+          const file = versions[0].files.find(f => f.primary) || versions[0].files[0];
+          if (file && file.filename && file.url) {
+            fabricApiFile = { filename: file.filename, url: file.url };
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        log('warn', 'Modrinth lookup for Fabric API failed: ' + e.message);
+      }
 
-      // Download correct Fabric API if not already present
-      if (!fs.existsSync(correctApiDest)) {
-        const fabricApiUrl = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/' + fabricApiVer + '/' + correctApiJar;
-        log('info', 'Downloading Fabric API ' + fabricApiVer + '...');
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading Fabric API ' + fabricApiVer + '...', level: 'info' });
+      if (fabricApiFile) {
+        const correctApiJar = fabricApiFile.filename;
+        const correctApiDest = path.join(modsDir, correctApiJar);
+
+        // Delete any wrong-version fabric-api jars
+        const fabricApiPattern = /^fabric-api.*\.jar$/i;
         try {
-          await downloadFile(fabricApiUrl, correctApiDest);
-          log('info', 'Fabric API installed to ' + correctApiDest);
-          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Fabric API installed', level: 'info' });
-        } catch (e) {
-          log('warn', 'Failed to download Fabric API: ' + e.message);
+          for (const f of fs.readdirSync(modsDir)) {
+            if (fabricApiPattern.test(f) && f !== correctApiJar) {
+              fs.unlinkSync(path.join(modsDir, f));
+              log('info', 'Removed wrong-version Fabric API: ' + f);
+              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Removed wrong Fabric API: ' + f, level: 'info' });
+            }
+          }
+        } catch (_) {}
+
+        // Download correct Fabric API if not already present
+        if (!fs.existsSync(correctApiDest)) {
+          log('info', 'Downloading Fabric API ' + correctApiJar + ' for MC ' + installation.version);
+          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading ' + correctApiJar, level: 'info' });
+          try {
+            await downloadFile(fabricApiFile.url, correctApiDest);
+            log('info', 'Fabric API installed to ' + correctApiDest);
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Fabric API installed', level: 'info' });
+          } catch (e) {
+            log('warn', 'Failed to download Fabric API: ' + e.message);
+          }
         }
+      } else {
+        log('warn', 'No Fabric API version found on Modrinth for MC ' + installation.version + ' — skipping auto-install');
+        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'No Fabric API for MC ' + installation.version + ' on Modrinth — skipping', level: 'warn' });
       }
 
       // 3) Skin changer mod (SkinShuffle) — install or remove based on setting
