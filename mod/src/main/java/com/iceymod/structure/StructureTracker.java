@@ -17,6 +17,7 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.EndGatewayBlockEntity;
 import net.minecraft.block.entity.EndPortalBlockEntity;
 import net.minecraft.block.entity.EnderChestBlockEntity;
+import net.minecraft.block.entity.MobSpawnerBlockEntity;
 import net.minecraft.block.entity.ShulkerBoxBlockEntity;
 import net.minecraft.block.entity.TrialSpawnerBlockEntity;
 import net.minecraft.block.entity.VaultBlockEntity;
@@ -57,7 +58,8 @@ public final class StructureTracker {
         ANCIENT_CITY    ("Ancient City",    0xFF33FFAA),
         RUINED_PORTAL   ("Ruined Portal",   0xFFAA00FF),
         DESERT_PYRAMID  ("Desert Pyramid",  0xFFE8D17A),
-        VILLAGE         ("Village",         0xFFCCAA77);
+        VILLAGE         ("Village",         0xFFCCAA77),
+        SPAWNER         ("Spawner",         0xFFFF4040);
 
         public final String label;
         public final int color;
@@ -271,11 +273,19 @@ public final class StructureTracker {
             boolean trackBase = mod.playerBases.get();
             boolean trackVillage = mod.villages.get();
             boolean trackGateway = mod.endGateways.get();
+            boolean trackSpawner = mod.spawners.get();
 
             for (BlockEntity be : chunk.getBlockEntities().values()) {
                 StructureType type = null;
                 if (trackTrial && (be instanceof TrialSpawnerBlockEntity || be instanceof VaultBlockEntity)) {
                     type = StructureType.TRIAL_CHAMBER;
+                } else if (trackSpawner && be instanceof MobSpawnerBlockEntity) {
+                    // Mob spawners come from dungeons, mineshafts, fortresses,
+                    // stronghold libraries — each one is a worthwhile XP/loot
+                    // anchor on its own, so they get their own SPAWNER entry
+                    // (with tight clustering in addIfNew so two real spawners
+                    // 10 blocks apart still both show).
+                    type = StructureType.SPAWNER;
                 } else if (trackStronghold && be instanceof EndPortalBlockEntity) {
                     type = StructureType.STRONGHOLD;
                 } else if (trackBase && (be instanceof EnderChestBlockEntity
@@ -361,7 +371,13 @@ public final class StructureTracker {
         // Tighter clustering in the End so a city + its end ship don't
         // collapse into a single entry — they're typically 50-80 blocks
         // apart, and we want both as separate waypoints.
-        double clusterDist = dimension.contains("the_end") ? 40.0 : CLUSTER_DISTANCE;
+        // Spawners are individual point-of-interest blocks (one per dungeon
+        // or mineshaft room) — collapse only exact-same-block re-scans, so
+        // two real spawners 10+ blocks apart both show as separate entries.
+        double clusterDist;
+        if (type == StructureType.SPAWNER) clusterDist = 4.0;
+        else if (dimension.contains("the_end")) clusterDist = 40.0;
+        else clusterDist = CLUSTER_DISTANCE;
         double clusterSq = clusterDist * clusterDist;
 
         boolean wasNew = false;

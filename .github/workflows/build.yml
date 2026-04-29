@@ -7,7 +7,23 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-mod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Build iceymod jar
+        run: cd mod && chmod +x gradlew && ./gradlew build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar
+          path: mod/build/libs/iceymod-*.jar
+
   build-windows:
+    needs: build-mod
     runs-on: windows-latest
     permissions:
       contents: write
@@ -16,6 +32,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Download freshly-built mod jar
+        uses: actions/download-artifact@v4
+        with:
+          name: mod-jar
+          path: mod/build/libs
       - name: npm install (with retry)
         shell: pwsh
         run: |
@@ -70,6 +91,7 @@ jobs:
           path: dist/*.exe
 
   build-mac:
+    needs: build-mod
     runs-on: macos-latest
     permissions:
       contents: write
@@ -78,6 +100,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Download freshly-built mod jar
+        uses: actions/download-artifact@v4
+        with:
+          name: mod-jar
+          path: mod/build/libs
       - name: npm install (with retry)
         run: |
           for i in 1 2 3 4; do
@@ -111,6 +138,7 @@ jobs:
           path: dist/*.dmg
 
   build-linux-arm64:
+    needs: build-mod
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -119,6 +147,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Download freshly-built mod jar
+        uses: actions/download-artifact@v4
+        with:
+          name: mod-jar
+          path: mod/build/libs
       - name: npm install (with retry)
         run: |
           for i in 1 2 3 4; do

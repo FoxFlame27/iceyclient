@@ -6,6 +6,12 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.77.0
+
+- **Structure Locator now finds Spawners** (regular monster spawners — dungeons, mineshafts, fortress nether-fortress entrance rooms, stronghold libraries). Each spawner shows as its own row in the locator HUD with a red marker; auto-waypoints place an individual flag on each one. Toggle in the module settings (default on).
+- Spawners use a 4-block cluster threshold (vs the 50/40-block threshold for area structures) so two real spawners 10+ blocks apart still both register as separate entries — matters for mineshafts where multiple cave-spider spawners are nearby.
+- **CI: `iceymod` jar is now rebuilt on every release.** The launcher build pipeline previously just packed whatever prebuilt jar was sitting in `mod/build/libs/` from a developer's machine, so changes to the Java mod source weren't actually shipped without a manual local rebuild. Added a `build-mod` job (Temurin JDK 21 + `./gradlew build`) that runs first, uploads the fresh jar as an artifact, and the three platform jobs each download it before electron-builder packages the launcher.
+
 ## What's new in v1.76.0
 
 - **Fix: account manager unreachable when every saved account was expired.** Previously `getAuth` returned null whenever the active account's token had passed its `expiresAt`, which collapsed the titlebar profile area to nothing and the sidebar to a "Login" button. Clicking Login then hit the max-5-accounts cap and you had no way to remove an old one — soft-locked. Now: if there are saved accounts but no active one, a generic Steve avatar shows in the titlebar and an "Accounts" entry shows in the sidebar; clicking either opens the dropdown with all saved accounts (each with a Remove button) plus the "No active account" header. Removing one frees the slot so you can add a new MS login.

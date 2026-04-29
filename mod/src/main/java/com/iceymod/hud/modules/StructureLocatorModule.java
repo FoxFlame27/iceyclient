@@ -28,6 +28,7 @@ public class StructureLocatorModule extends HudModule {
     public final BoolSetting ruinedPortals    = addSetting(new BoolSetting("ruinedPortals",    "Ruined Portals",   false));
     public final BoolSetting desertPyramids   = addSetting(new BoolSetting("desertPyramids",   "Desert Pyramids",  true));
     public final BoolSetting villages         = addSetting(new BoolSetting("villages",         "Villages",         false));
+    public final BoolSetting spawners         = addSetting(new BoolSetting("spawners",         "Spawners",         true));
     public final BoolSetting autoWaypoint     = addSetting(new BoolSetting("autoWaypoint",     "Auto-Waypoint on Discovery", true));
     public final IntSetting maxShown          = addSetting(new IntSetting("maxShown",          "Max Shown", 4, 1, 10));
 
