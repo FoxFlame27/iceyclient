@@ -6,6 +6,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.77.1
+
+- **Fix: Structure Locator / Biome Locator / Waypoints HUD widgets were invisible after enabling.** The first-run `applyCenterDefaults` placed every non-minimap module in a centered grid mid-screen, so these three widgets ended up behind whatever else was stacked there. Anchored them top-left in a vertical stack instead — Structures at y=40, Biomes at y=120, Waypoints at y=200. **Existing configs:** the structure menu's "Find New Structures" button and the waypoint menu's "Set Waypoint Here" button now also snap their widget to a visible top-left position if it's currently buried in the middle 50% of the screen — so you don't need to delete `iceymod.json` to recover.
+- **Spawners checkbox added to the structure-locator's "Select Structures" toggle grid** (was missing in v1.77.0 — the BoolSetting existed and defaulted on, but the menu didn't list it).
+
 ## What's new in v1.77.0
 
 - **Structure Locator now finds Spawners** (regular monster spawners — dungeons, mineshafts, fortress nether-fortress entrance rooms, stronghold libraries). Each spawner shows as its own row in the locator HUD with a red marker; auto-waypoints place an individual flag on each one. Toggle in the module settings (default on).

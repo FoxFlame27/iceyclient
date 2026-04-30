@@ -82,6 +82,24 @@ public class WaypointMenuScreen extends Screen {
                     if (wp instanceof WaypointsModule) {
                         wp.setEnabled(true);
                         ((WaypointsModule) wp).addCurrentPosition();
+                        // Snap widget into a visible spot if it's currently
+                        // buried mid-screen (applyCenterDefaults only fires
+                        // on first launch, so existing configs may have
+                        // this hidden behind other modules).
+                        int wx = wp.getX(), wy = wp.getY();
+                        MinecraftClient mc = MinecraftClient.getInstance();
+                        if (mc != null && mc.getWindow() != null) {
+                            int sw = mc.getWindow().getScaledWidth();
+                            int sh = mc.getWindow().getScaledHeight();
+                            if (sw > 0 && sh > 0) {
+                                boolean buriedX = wx > sw / 4 && wx < sw * 3 / 4;
+                                boolean buriedY = wy > sh / 4 && wy < sh * 3 / 4;
+                                if (buriedX || buriedY) {
+                                    wp.setX(8);
+                                    wp.setY(200);
+                                }
+                            }
+                        }
                     }
                     this.close();
                 }

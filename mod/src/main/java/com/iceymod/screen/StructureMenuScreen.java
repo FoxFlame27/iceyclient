@@ -82,7 +82,27 @@ public class StructureMenuScreen extends Screen {
                     if (mod != null) {
                         boolean turningOn = !mod.isEnabled();
                         mod.setEnabled(turningOn);
-                        if (turningOn) StructureTracker.rescanNearby();
+                        if (turningOn) {
+                            // Ensure widget is in a visible spot when first
+                            // enabled — applyCenterDefaults only fires on
+                            // first launch, so existing configs may have
+                            // this buried in the mid-screen info grid.
+                            int mx = mod.getX(), my = mod.getY();
+                            MinecraftClient mc = MinecraftClient.getInstance();
+                            if (mc != null && mc.getWindow() != null) {
+                                int sw = mc.getWindow().getScaledWidth();
+                                int sh = mc.getWindow().getScaledHeight();
+                                if (sw > 0 && sh > 0) {
+                                    boolean buriedX = mx > sw / 4 && mx < sw * 3 / 4;
+                                    boolean buriedY = my > sh / 4 && my < sh * 3 / 4;
+                                    if (buriedX || buriedY) {
+                                        mod.setX(8);
+                                        mod.setY(40);
+                                    }
+                                }
+                            }
+                            StructureTracker.rescanNearby();
+                        }
                     }
                     rebuild();
                 }
@@ -159,7 +179,8 @@ public class StructureMenuScreen extends Screen {
                 new Row("Ancient Cities",   mod.ancientCities),
                 new Row("Ruined Portals",   mod.ruinedPortals),
                 new Row("Desert Pyramids",  mod.desertPyramids),
-                new Row("Villages",         mod.villages)
+                new Row("Villages",         mod.villages),
+                new Row("Spawners",         mod.spawners)
         };
 
         int colW = (btnW - gap) / 2;

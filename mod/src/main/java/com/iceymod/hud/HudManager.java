@@ -152,6 +152,19 @@ public class HudManager {
                 int mmSize = ((MinimapModule) m).size.get();
                 defaultX = sw - mmSize - 8;
                 defaultY = 8;
+            } else if (m instanceof StructureLocatorModule) {
+                // Locator + waypoint widgets need to be visible by default,
+                // not buried mid-screen in the info grid where they overlap
+                // whatever else is stacked there. Anchor them top-left in a
+                // vertical stack: structures · biomes · waypoints.
+                defaultX = 8;
+                defaultY = 40;
+            } else if (m instanceof BiomeLocatorModule) {
+                defaultX = 8;
+                defaultY = 120;
+            } else if (m instanceof WaypointsModule) {
+                defaultX = 8;
+                defaultY = 200;
             } else {
                 int col = visibleIdx / perColumn;
                 int row = visibleIdx % perColumn;
