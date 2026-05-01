@@ -1,10 +1,18 @@
-lb ty for downloading 
+llb ty for downloading 
 get .exe for windows
 
 get arm 64x .dmg for mac but make sure to run this command if the app says iceyclient is damaged and cant be opened: 
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.78.0
+
+- **X-Ray module added.** Toggle key: `X`. Hides every block not in your selected see-through list, leaving ores / spawners / loot exposed inside otherwise-invisible terrain. ~85 individually-toggleable blocks across categories: overworld + nether ores, mineral blocks, raw blocks, spawners (regular / trial / vault), structure markers (reinforced deepslate, end portal frame, dragon egg), loot containers (chest / trapped chest / ender chest / barrel / shulker box / hopper / dispenser / dropper / furnace), utility (beacon / conduit / lodestone / brewing stand / enchanting table / anvil / respawn anchor), amethyst (block / budding / cluster / 3 bud sizes), light/glow (glowstone, shroomlight, sea lantern, jack-o-lantern, all 3 froglights, redstone lamp), mob heads (player / zombie / creeper / skeleton / wither / piglin / dragon), ice (ice / packed / blue), nether markers (crying obsidian, gilded blackstone, magma, soul sand/soil, nether brick fence), sculk (sculk / catalyst / shrieker / sensor), misc (honey, honeycomb, moss, turtle/sniffer egg). Most ores + dungeon markers default ON, decorative/light blocks default OFF.
+- **Settings screen rebuilt as an adaptive grid.** Old screen put every setting in one column → off-screen-and-unclickable for X-ray's 85+ entries. Now uses 1–4 columns based on count, scaling to fit the screen height. Short lists still show as a single wide column.
+- **Minimap removed.** The Xaero-style minimap module + renderer are gone — `MinimapModule.java` and `MinimapRenderer.java` deleted, registration pulled from `HudManager.init()` and `IceyMod.onInitializeClient()`, top-right special-case removed from `applyCenterDefaults`. Saved positions for `minimap` in `iceymod.json` from older builds become inert (no-op on load).
+- **Sodium caveat:** X-Ray uses a vanilla `Block.shouldDrawSide` mixin. Sodium replaces face-occlusion with its own pipeline, so X-Ray may be ignored on Sodium installs until Sodium-specific mixins are added.
+- **Ethics caveat:** X-Ray is detectable on most public servers. Fine for SP / your own server; obvious risk on others.
 
 ## What's new in v1.77.1
 

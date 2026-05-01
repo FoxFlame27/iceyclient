@@ -33,40 +33,52 @@ public class ModuleSettingsScreen extends Screen {
     @Override
     protected void init() {
         List<Setting<?>> settings = module.getSettings();
-        int btnW = Math.min(300, this.width - 80);
-        int btnH = 20;
-        int gap = 4;
+        int btnH = 18;
+        int gap = 3;
         int centerX = this.width / 2;
+        int topY = 50;
+        int bottomY = this.height - 40;
+        int gridH = bottomY - topY;
+        int rowsPerCol = Math.max(1, gridH / (btnH + gap));
 
-        int totalH = settings.size() * (btnH + gap) + (btnH + gap) * 2 + 20;
-        int startY = Math.max(60, this.height / 2 - totalH / 2);
-        int y = startY;
+        // Adaptive column layout — single wide column for short lists,
+        // grid for long ones (X-Ray has ~85 settings; need 3 cols to fit).
+        int cols = (int) Math.ceil((double) settings.size() / rowsPerCol);
+        if (cols < 1) cols = 1;
+        if (cols > 4) cols = 4;
+        int gridW = Math.min(this.width - 40, cols * 220 + (cols - 1) * gap);
+        int btnW = (gridW - (cols - 1) * gap) / cols;
+        int gridX = centerX - gridW / 2;
 
-        for (Setting<?> s : settings) {
-            final Setting<?> setting = s;
+        for (int i = 0; i < settings.size(); i++) {
+            final Setting<?> setting = settings.get(i);
+            int col = i / rowsPerCol;
+            int row = i % rowsPerCol;
+            int x = gridX + col * (btnW + gap);
+            int y = topY + row * (btnH + gap);
             ButtonWidget btn = ButtonWidget.builder(
                     formatLabel(setting),
                     b -> {
                         onClick(setting);
                         b.setMessage(formatLabel(setting));
                     }
-            ).dimensions(centerX - btnW / 2, y, btnW, btnH).build();
+            ).dimensions(x, y, btnW, btnH).build();
             addDrawableChild(btn);
-            y += btnH + gap;
         }
 
-        y += 12;
-
+        // Footer buttons centered below the grid
+        int footerW = Math.min(300, this.width - 80);
+        int footerY = bottomY + 4;
         addDrawableChild(ButtonWidget.builder(
                 Text.literal("Reset to Defaults"),
                 b -> { resetAll(); rebuild(); }
-        ).dimensions(centerX - btnW / 2, y, btnW, btnH).build());
-        y += btnH + gap;
+        ).dimensions(centerX - footerW / 2, footerY, footerW, 18).build());
+        footerY += 18 + gap;
 
         addDrawableChild(ButtonWidget.builder(
                 Text.literal("Back"),
                 b -> client.setScreen(parent)
-        ).dimensions(centerX - btnW / 2, y, btnW, btnH).build());
+        ).dimensions(centerX - footerW / 2, footerY, footerW, 18).build());
     }
 
     private void onClick(Setting<?> setting) {

@@ -93,9 +93,9 @@ public class HudManager {
         modules.add(new ZoomModule());
         modules.add(new PerspectiveModule());
         modules.add(new WaypointsModule());
-        modules.add(new MinimapModule());
         modules.add(new StructureLocatorModule());
         modules.add(new BiomeLocatorModule());
+        modules.add(new XrayModule());
         modules.add(new FreelookModule());
         modules.add(new FreecamModule());
         // Small cheats / QoL
@@ -147,12 +147,7 @@ public class HudManager {
 
             int defaultX;
             int defaultY;
-            if (m instanceof MinimapModule) {
-                // Minimap belongs in the top-right corner, not in the info grid
-                int mmSize = ((MinimapModule) m).size.get();
-                defaultX = sw - mmSize - 8;
-                defaultY = 8;
-            } else if (m instanceof StructureLocatorModule) {
+            if (m instanceof StructureLocatorModule) {
                 // Locator + waypoint widgets need to be visible by default,
                 // not buried mid-screen in the info grid where they overlap
                 // whatever else is stacked there. Anchor them top-left in a

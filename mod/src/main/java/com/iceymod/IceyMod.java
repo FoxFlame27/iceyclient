@@ -17,7 +17,6 @@ import com.iceymod.screen.BiomeMenuScreen;
 import com.iceymod.chat.ChatCoordParser;
 import com.iceymod.render.WaypointBeamRenderer;
 import com.iceymod.render.HitboxRenderer;
-import com.iceymod.render.MinimapRenderer;
 import com.iceymod.compat.KeyBindingCompat;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -51,6 +50,7 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding structureKey;
     private static KeyBinding freecamKey;
     private static KeyBinding biomeKey;
+    private static KeyBinding xrayKey;
 
     @Override
     public void onInitializeClient() {
@@ -58,7 +58,6 @@ public class IceyMod implements ClientModInitializer {
         WaypointManager.init();
         WaypointBeamRenderer.register();
         HitboxRenderer.register();
-        MinimapRenderer.register();
         StructureTracker.register();
         BiomeTracker.register();
         ChatCoordParser.register();
@@ -76,6 +75,7 @@ public class IceyMod implements ClientModInitializer {
         structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
         freecamKey      = registerKey("key.iceymod.freecam",      GLFW.GLFW_KEY_F4);
         biomeKey        = registerKey("key.iceymod.biome",        GLFW.GLFW_KEY_K);
+        xrayKey         = registerKey("key.iceymod.xray",         GLFW.GLFW_KEY_X);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -124,6 +124,16 @@ public class IceyMod implements ClientModInitializer {
             while (wasPressed(toggleTotemKey)) {
                 HudModule m = findModule("autototem");
                 if (m != null) m.toggle();
+            }
+            while (wasPressed(xrayKey)) {
+                HudModule m = findModule("xray");
+                if (m != null) {
+                    m.toggle();
+                    if (client.player != null) {
+                        client.player.sendMessage(net.minecraft.text.Text.literal(
+                                m.isEnabled() ? "§b[Icey] §aX-Ray ON" : "§b[Icey] §7X-Ray off"), true);
+                    }
+                }
             }
 
             // Zoom: hold key
