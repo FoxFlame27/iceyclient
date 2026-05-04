@@ -11,8 +11,7 @@
     "CameraMixin",
     "KeyboardInputMixin",
     "EntityIsGlowingMixin",
-    "SplashTextMixin",
-    "BlockShouldDrawSideMixin"
+    "SplashTextMixin"
   ],
   "injectors": {
     "defaultRequire": 1

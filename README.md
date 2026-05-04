@@ -6,6 +6,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.78.1
+
+- **Reverted: X-Ray removed.** v1.78.0 added an X-Ray module + `Block.shouldDrawSide` mixin and broke all HUD rendering. Pulled the module, mixin, mixin registration, keybind, and lang entry. Settings screen's adaptive grid layout (also from v1.78.0) stays — it's an unrelated improvement.
+- **Hardened mod init.** Every setup call in `onInitializeClient` (HudManager / WaypointManager / WaypointBeamRenderer / HitboxRenderer / StructureTracker / BiomeTracker / ChatCoordParser) is now wrapped in its own try/catch. A constructor crash in one subsystem can no longer cancel the rest of mod init — partial Icey beats entirely-broken Icey.
+
 ## What's new in v1.78.0
 
 - **X-Ray module added.** Toggle key: `X`. Hides every block not in your selected see-through list, leaving ores / spawners / loot exposed inside otherwise-invisible terrain. ~85 individually-toggleable blocks across categories: overworld + nether ores, mineral blocks, raw blocks, spawners (regular / trial / vault), structure markers (reinforced deepslate, end portal frame, dragon egg), loot containers (chest / trapped chest / ender chest / barrel / shulker box / hopper / dispenser / dropper / furnace), utility (beacon / conduit / lodestone / brewing stand / enchanting table / anvil / respawn anchor), amethyst (block / budding / cluster / 3 bud sizes), light/glow (glowstone, shroomlight, sea lantern, jack-o-lantern, all 3 froglights, redstone lamp), mob heads (player / zombie / creeper / skeleton / wither / piglin / dragon), ice (ice / packed / blue), nether markers (crying obsidian, gilded blackstone, magma, soul sand/soil, nether brick fence), sculk (sculk / catalyst / shrieker / sensor), misc (honey, honeycomb, moss, turtle/sniffer egg). Most ores + dungeon markers default ON, decorative/light blocks default OFF.

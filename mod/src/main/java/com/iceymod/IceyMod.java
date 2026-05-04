@@ -50,17 +50,20 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding structureKey;
     private static KeyBinding freecamKey;
     private static KeyBinding biomeKey;
-    private static KeyBinding xrayKey;
 
     @Override
     public void onInitializeClient() {
-        HudManager.init();
-        WaypointManager.init();
-        WaypointBeamRenderer.register();
-        HitboxRenderer.register();
-        StructureTracker.register();
-        BiomeTracker.register();
-        ChatCoordParser.register();
+        // Each setup call is independently caught so a single failure (e.g.
+        // a new MC version having renamed a class one of our modules
+        // references) doesn't take the whole mod down — partial Icey >
+        // entirely-broken Icey.
+        try { HudManager.init(); }            catch (Throwable t) { System.out.println("[IceyMod] HudManager.init failed: " + t); }
+        try { WaypointManager.init(); }        catch (Throwable t) { System.out.println("[IceyMod] WaypointManager.init failed: " + t); }
+        try { WaypointBeamRenderer.register(); } catch (Throwable t) { System.out.println("[IceyMod] WaypointBeamRenderer failed: " + t); }
+        try { HitboxRenderer.register(); }     catch (Throwable t) { System.out.println("[IceyMod] HitboxRenderer failed: " + t); }
+        try { StructureTracker.register(); }   catch (Throwable t) { System.out.println("[IceyMod] StructureTracker failed: " + t); }
+        try { BiomeTracker.register(); }       catch (Throwable t) { System.out.println("[IceyMod] BiomeTracker failed: " + t); }
+        try { ChatCoordParser.register(); }    catch (Throwable t) { System.out.println("[IceyMod] ChatCoordParser failed: " + t); }
 
         menuKey         = registerKey("key.iceymod.menu",         GLFW.GLFW_KEY_Y);
         zoomKey         = registerKey("key.iceymod.zoom",         GLFW.GLFW_KEY_M);
@@ -75,7 +78,6 @@ public class IceyMod implements ClientModInitializer {
         structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
         freecamKey      = registerKey("key.iceymod.freecam",      GLFW.GLFW_KEY_F4);
         biomeKey        = registerKey("key.iceymod.biome",        GLFW.GLFW_KEY_K);
-        xrayKey         = registerKey("key.iceymod.xray",         GLFW.GLFW_KEY_X);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -124,16 +126,6 @@ public class IceyMod implements ClientModInitializer {
             while (wasPressed(toggleTotemKey)) {
                 HudModule m = findModule("autototem");
                 if (m != null) m.toggle();
-            }
-            while (wasPressed(xrayKey)) {
-                HudModule m = findModule("xray");
-                if (m != null) {
-                    m.toggle();
-                    if (client.player != null) {
-                        client.player.sendMessage(net.minecraft.text.Text.literal(
-                                m.isEnabled() ? "§b[Icey] §aX-Ray ON" : "§b[Icey] §7X-Ray off"), true);
-                    }
-                }
             }
 
             // Zoom: hold key
