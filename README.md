@@ -6,6 +6,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.78.2
+
+- **Fix: HUDs only showed in edit mode, blank in actual gameplay.** Root cause was an old defensive pattern in `HudManager.render` / `tick`: any module that threw a single exception was permanently disabled and its `enabled=false` saved to `iceymod.json`. The HUD edit screen has its own render path that silently catches exceptions and keeps drawing — that's why moving HUDs around showed them but normal play didn't. On new MC versions where multiple modules can throw on first render call, this auto-disable cascade left users with a nearly-empty HUD bar that didn't recover even after the underlying compat bug was fixed. Now: render/tick errors are silently caught, the module is *not* disabled, and we log the error once per module per session (not once per frame) so stdout doesn't get flooded.
+- **One-shot config migration.** Re-enables any module whose default was on but whose saved state is off — undoing the auto-disables persisted by previous versions. Marked complete via `migrations.renderSafe: true` in `iceymod.json` so the migration only runs once and respects your future explicit toggles.
+
 ## What's new in v1.78.1
 
 - **Reverted: X-Ray removed.** v1.78.0 added an X-Ray module + `Block.shouldDrawSide` mixin and broke all HUD rendering. Pulled the module, mixin, mixin registration, keybind, and lang entry. Settings screen's adaptive grid layout (also from v1.78.0) stays — it's an unrelated improvement.

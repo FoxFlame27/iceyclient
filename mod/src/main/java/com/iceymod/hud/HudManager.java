@@ -118,8 +118,47 @@ public class HudManager {
         modules.add(new NetNoDelayModule());
         modules.add(new NetBufferModule());
 
+        // Snapshot each module's default-enabled state BEFORE load() lets
+        // saved config override it. The migration below uses this to
+        // distinguish "user explicitly disabled this" vs "previous version's
+        // auto-disable-on-render-error force-killed it".
+        java.util.Map<String, Boolean> defaultEnabled = new java.util.HashMap<>();
+        for (HudModule m : modules) defaultEnabled.put(m.getId(), m.isEnabled());
+
         load();
+        migrateRenderSafe(defaultEnabled);
         applyCenterDefaults();
+    }
+
+    /**
+     * One-shot: previous versions of HudManager.render auto-disabled any
+     * module that threw on a single frame, and persisted that disable to
+     * iceymod.json. On a new MC version several modules can throw on
+     * their first render call, which left users with a near-empty HUD bar
+     * that didn't recover even after the underlying bug was fixed.
+     *
+     * <p>This pass resets enabled=false → true for any module whose
+     * <em>default</em> was enabled and whose saved state is disabled, then
+     * marks the migration done so it doesn't keep flipping a user's
+     * explicit "off" choices on every launch.
+     */
+    private static void migrateRenderSafe(java.util.Map<String, Boolean> defaultEnabled) {
+        if (configPath == null || !Files.exists(configPath)) return;
+        try {
+            String json = Files.readString(configPath);
+            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+            JsonObject migrations = root.has("migrations") && root.get("migrations").isJsonObject()
+                    ? root.getAsJsonObject("migrations") : null;
+            if (migrations != null && migrations.has("renderSafe")
+                    && migrations.get("renderSafe").getAsBoolean()) return;
+
+            for (HudModule m : modules) {
+                if (Boolean.TRUE.equals(defaultEnabled.get(m.getId())) && !m.isEnabled()) {
+                    m.setEnabled(true);
+                }
+            }
+            save(); // persists with the migration flag below
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -182,6 +221,15 @@ public class HudManager {
         return modules;
     }
 
+    // Tracks which modules have already logged a render or tick error so
+    // we don't spam stdout every frame. We DON'T disable the offending
+    // module on a single throw any more — a transient miss shouldn't kill
+    // the widget for the rest of the session, and on new MC versions
+    // multiple modules can throw on their first render call (which used
+    // to disable them all → empty HUD bar).
+    private static final java.util.Set<String> renderErrLogged = new java.util.HashSet<>();
+    private static final java.util.Set<String> tickErrLogged   = new java.util.HashSet<>();
+
     public static void render(DrawContext context) {
         if (!hudVisible) return;
         MinecraftClient client = MinecraftClient.getInstance();
@@ -191,10 +239,9 @@ public class HudManager {
             try {
                 module.render(context, client);
             } catch (Throwable t) {
-                // One module's NoSuchMethodError or NPE shouldn't blank the HUD.
-                // Disable the offender so we don't crash every frame.
-                module.setEnabled(false);
-                System.out.println("[IceyMod] Disabled HUD module '" + module.getId() + "' after render error: " + t);
+                if (renderErrLogged.add(module.getId())) {
+                    System.out.println("[IceyMod] Render error in '" + module.getId() + "': " + t);
+                }
             }
         }
     }
@@ -205,10 +252,9 @@ public class HudManager {
             try {
                 module.tick();
             } catch (Throwable t) {
-                // Same defence for tick — 1.21.11 removed a few GameOptions
-                // getters and FpsBoost* modules blew up. Disable + log.
-                module.setEnabled(false);
-                System.out.println("[IceyMod] Disabled HUD module '" + module.getId() + "' after tick error: " + t);
+                if (tickErrLogged.add(module.getId())) {
+                    System.out.println("[IceyMod] Tick error in '" + module.getId() + "': " + t);
+                }
             }
         }
     }
@@ -231,6 +277,12 @@ public class HudManager {
             modulesObj.add(module.getId(), m);
         }
         root.add("modules", modulesObj);
+
+        // Persist migration flags so one-shot fixes (e.g. renderSafe) don't
+        // re-run on every launch and stomp on the user's later choices.
+        JsonObject migrations = new JsonObject();
+        migrations.addProperty("renderSafe", true);
+        root.add("migrations", migrations);
 
         try {
             Files.writeString(configPath, new GsonBuilder().setPrettyPrinting().create().toJson(root));
