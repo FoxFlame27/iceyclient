@@ -1,5 +1,6 @@
 package com.iceysmp;
 
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
@@ -170,7 +171,7 @@ public final class StatTracker {
         });
 
         // PvP: hook AFTER_DEATH so we see the kill with the proper damage source
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+        ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             try {
                 if (!(entity instanceof ServerPlayerEntity victim)) return;
                 PlayerEntity attacker = resolveAttacker(source);
@@ -190,7 +191,7 @@ public final class StatTracker {
         });
 
         // Combat tag: when one player damages another, tag both
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
             try {
                 if (!(entity instanceof ServerPlayerEntity victim)) return true;
                 PlayerEntity attacker = resolveAttacker(source);

@@ -6,6 +6,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.79.1
+
+- **CI fix:** Icey SMP wouldn't compile — `ServerLivingEntityEvents` was imported from the wrong package (`event.lifecycle.v1` instead of the correct `entity.event.v1`). Same class, but the Fabric API splits lifecycle events from entity events into separate sub-packages. Build failed on all 4 matrix entries; now resolved.
+
 ## What's new in v1.79.0
 
 - **Icey SMP — new server-side Fabric mod.** Drop the jar in your server's `mods/` folder. Tracks Mining (top players get Haste II / Haste I), PvP (Strength II / Strength I), and Playtime (top player gets Saturation). Anti-farm: combat tag (10s, both must be tagged), same-victim kill cooldown (10min), ore-block whitelist. Recomputes every 30s; effects refresh on each cycle so they auto-fade when you drop off the top. Stats persist to `world/iceysmp/stats.json`. Commands: `/icey top mining|pvp|playtime`, `/icey reload` (op-3), `/icey reset` (op-4). Config file at `config/iceysmp.properties` (intervals, cooldowns, effect duration). Works on Minecraft 1.21 through 1.21.11 via per-version CI builds.
