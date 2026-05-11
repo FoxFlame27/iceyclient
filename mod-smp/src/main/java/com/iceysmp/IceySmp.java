@@ -8,13 +8,11 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 /**
  * Icey SMP — server-side leaderboard + auto-buff + PvP guardrails.
  *
- * Stats tracked + applied as MC status effects: see {@link LeaderboardManager.Category}.
- * Effect amplifier scales with each player's count via a non-linear curve
- * (fast at low counts, slow at high counts) capped per-effect.
- *
- * PvP guardrails: combat tag, /spawn block during combat, kill on logout
- * during combat, full-stat-steal on legitimate kill, 10-minute noob
- * protection from first join, iron starter kit on first join.
+ * <p>Init order is intentional: commands register BEFORE any state setup
+ * that could throw on a foreign Yarn version. If config / stats / combat /
+ * leaderboard fail to initialize, /icey still exists — it just reports
+ * "not ready" so users can see something went wrong instead of "command
+ * not found" with no signal.
  */
 public final class IceySmp implements ModInitializer {
     public static final String MOD_ID = "iceysmp";
@@ -26,34 +24,57 @@ public final class IceySmp implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        System.out.println("[IceySMP] onInitialize start");
+
+        // 1. Register commands FIRST so /icey exists even if downstream init throws.
+        try {
+            SmpCommands.register();
+            System.out.println("[IceySMP] commands registered");
+        } catch (Throwable t) {
+            System.out.println("[IceySMP] command registration failed: " + t);
+            t.printStackTrace();
+        }
+
+        // 2. Config
         try {
             config = SmpConfig.loadOrDefault();
-            stats = new StatTracker();
-            combat = new CombatTracker(config.combatTagSeconds());
-            leaderboard = new LeaderboardManager(stats, combat, config);
+            System.out.println("[IceySMP] config loaded");
+        } catch (Throwable t) {
+            System.out.println("[IceySMP] config load failed: " + t);
+            config = new SmpConfig(); // default — fields keep their initializers
+        }
 
+        // 3. State
+        try { stats = new StatTracker(); System.out.println("[IceySMP] stats tracker ready"); }
+        catch (Throwable t) { System.out.println("[IceySMP] stats init failed: " + t); }
+        try {
+            int tagSec = (config != null) ? config.combatTagSeconds() : 25;
+            combat = new CombatTracker(tagSec);
+            System.out.println("[IceySMP] combat tracker ready");
+        } catch (Throwable t) { System.out.println("[IceySMP] combat init failed: " + t); }
+        try {
+            if (stats != null && combat != null) {
+                leaderboard = new LeaderboardManager(stats, combat, config);
+                System.out.println("[IceySMP] leaderboard ready");
+            }
+        } catch (Throwable t) { System.out.println("[IceySMP] leaderboard init failed: " + t); }
+
+        // 4. Server-lifecycle hooks
+        try {
             ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-                stats.load(server);
-                leaderboard.bind(server);
-                System.out.println("[IceySMP] Loaded " + stats.size() + " player stats");
+                if (stats != null) stats.load(server);
+                if (leaderboard != null) leaderboard.bind(server);
+                System.out.println("[IceySMP] SERVER_STARTED: " + (stats == null ? 0 : stats.size()) + " players in stats");
             });
-            ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-                stats.save(server);
-                System.out.println("[IceySMP] Saved player stats");
-            });
-
+            ServerLifecycleEvents.SERVER_STOPPING.register(server -> { if (stats != null) stats.save(server); });
             ServerTickEvents.END_SERVER_TICK.register(server -> {
-                try { leaderboard.tick(server); } catch (Throwable t) {
-                    System.out.println("[IceySMP] tick error: " + t);
-                }
+                if (leaderboard == null) return;
+                try { leaderboard.tick(server); } catch (Throwable t) { System.out.println("[IceySMP] tick error: " + t); }
             });
-
-            // Player join: create stats row if absent (sets firstJoinTimestamp),
-            // then grant starter kit if their stats entry is brand new.
             ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
                 try {
                     var p = handler.player;
-                    if (p == null) return;
+                    if (p == null || stats == null) return;
                     PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());
                     StarterKit.giveIfFirstJoin(p, ps, config);
                     if (NoobProtection.isProtected(ps, config)) {
@@ -61,19 +82,15 @@ public final class IceySmp implements ModInitializer {
                                 "§b§l[Icey SMP] §aYou have §l" + NoobProtection.remainingMinutes(ps, config)
                                 + " min§r§a of noob protection — no PvP damage to or from you."), false);
                     }
-                } catch (Throwable t) {
-                    System.out.println("[IceySMP] JOIN handler failed: " + t);
-                }
+                } catch (Throwable t) { System.out.println("[IceySMP] JOIN handler failed: " + t); }
             });
-
-            StatTracker.registerEvents(stats, combat, config);
-            CombatLogoutHandler.register(combat, config);
-            SmpCommands.register();
-
-            System.out.println("[IceySMP] Initialized");
+            if (stats != null && combat != null) StatTracker.registerEvents(stats, combat, config);
+            if (combat != null) CombatLogoutHandler.register(combat, config);
+            System.out.println("[IceySMP] event hooks installed");
         } catch (Throwable t) {
-            System.out.println("[IceySMP] Init failed: " + t);
-            t.printStackTrace();
+            System.out.println("[IceySMP] event-hook setup failed: " + t);
         }
+
+        System.out.println("[IceySMP] onInitialize complete");
     }
 }

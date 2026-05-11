@@ -18,6 +18,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.10
+
+- **`/icey` registers now even if other init breaks.** Restructured `IceySmp.onInitialize` so `SmpCommands.register()` runs FIRST, before any state setup (`SmpConfig.loadOrDefault`, `new StatTracker`, `new CombatTracker`, `new LeaderboardManager`). Each of those is wrapped in its own try/catch and logs progress to stdout (`[IceySMP] config loaded`, `[IceySMP] stats tracker ready`, etc.). Previously a single throwable anywhere in the init chain would skip command registration entirely — `/icey` simply wouldn't exist even though the mod claimed to be loaded. Now it always exists; commands null-check downstream state and report "not ready" if construction failed.
+- **Menu paginated 8-per-page.** 16 categories crammed into one screen was tight. Rewrote `LeaderboardScreen` as 2 pages of 8 (2 cols × 4 rows), bigger buttons (220×24), with Prev/Next/Close nav buttons at the bottom. Page indicator under the title ("Page 1 of 2").
+
 ## What's new in v1.80.9
 
 Two issues from "/icey nothing works, only 3 categories show":
