@@ -467,7 +467,7 @@ async function _optDownloadIceySmp() {
       return;
     }
     const mcVer = _smpResolveBuildVersion(selected.version);
-    const filename = `iceysmp-mc${mcVer}-1.0.0.jar`;
+    const filename = `iceymodplus-mc${mcVer}-1.0.0.jar`;
     const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/${filename}`;
     const gameDir = await window.icey.getInstallGameDir(selected.id);
     const dest = gameDir + '/mods/' + filename;

@@ -8,9 +8,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
+import net.minecraft.stat.Stats;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,7 +39,11 @@ public final class LeaderboardManager {
     private final SmpConfig config;
 
     private long tickCounter = 0;
-    private final Map<String, Long> lastAnnouncedTop = new java.util.HashMap<>();
+    private final Map<String, Long> lastAnnouncedTop = new HashMap<>();
+    // Per-player snapshot of MC StatHandler readings for delta tracking.
+    // index: 0=FISH_CAUGHT, 1=WALK_ONE_CM, 2=JUMP, 3=SNEAK_TIME, 4=experienceLevel
+    // 0 in any slot means "no prior reading" → first read seeds, doesn't add to counter.
+    private final Map<UUID, int[]> statSnapshots = new HashMap<>();
 
     public LeaderboardManager(StatTracker stats, CombatTracker combat, SmpConfig config) {
         this.stats = stats;
@@ -54,6 +61,16 @@ public final class LeaderboardManager {
             PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());
             ps.playtimeTicks++;
             ps.name = p.getName().getString();
+        }
+
+        // Once a second, read MC's StatHandler for each online player and
+        // add the delta-since-last-tick to our counters. Cheaper than
+        // hooking individual events for fishing / jumps / sneak / walk
+        // and works because MC tracks these natively per-player.
+        if (tickCounter % 20 == 0) {
+            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+                snapshotAndAddDelta(p);
+            }
         }
 
         long recomputePeriodTicks = Math.max(1, config.recomputeSeconds() * 20L);
@@ -94,6 +111,28 @@ public final class LeaderboardManager {
                 } catch (Throwable ignored) {}
             }
         }
+    }
+
+    private void snapshotAndAddDelta(ServerPlayerEntity p) {
+        try {
+            int curFish  = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.FISH_CAUGHT));
+            int curWalk  = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.WALK_ONE_CM));
+            int curJump  = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.JUMP));
+            int curSneak = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.SNEAK_TIME));
+            int curXp    = p.experienceLevel;
+
+            int[] last = statSnapshots.computeIfAbsent(p.getUuid(), u -> new int[5]);
+            PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());
+            // Only add delta if we have a prior snapshot (last[*] != 0).
+            // This avoids counting a player's pre-existing MC stats as fresh
+            // gains the moment they connect to a fresh iceysmp install.
+            if (last[0] > 0) ps.fishCaught       += Math.max(0, curFish  - last[0]);
+            if (last[1] > 0) ps.distanceWalkedCm += Math.max(0, curWalk  - last[1]);
+            if (last[2] > 0) ps.jumps            += Math.max(0, curJump  - last[2]);
+            if (last[3] > 0) ps.sneakTimeTicks   += Math.max(0, curSneak - last[3]);
+            if (last[4] > 0 && curXp > last[4]) ps.xpLevelsGained += (curXp - last[4]);
+            last[0] = curFish; last[1] = curWalk; last[2] = curJump; last[3] = curSneak; last[4] = curXp;
+        } catch (Throwable ignored) {}
     }
 
     /** Count-based amplifier scaling. */
@@ -163,7 +202,13 @@ public final class LeaderboardManager {
         WOOD         ("wood",        "Wood Chopped",  ps -> ps.woodChopped,   StatusEffects.HASTE,        5),
         DAMAGE_DEALT ("dmgdealt",    "Damage Dealt",  ps -> ps.damageDealt,   StatusEffects.STRENGTH,     200L),  // 200 = 20HP × 10
         DAMAGE_TAKEN ("dmgtaken",    "Damage Taken",  ps -> ps.damageTaken,   StatusEffects.RESISTANCE,   200L),
-        DEATHS       ("deaths",      "Deaths",        ps -> ps.deaths,        StatusEffects.REGENERATION, 1);
+        DEATHS       ("deaths",      "Deaths",        ps -> ps.deaths,        StatusEffects.REGENERATION, 1),
+        // v1.82 — read from MC's StatHandler via per-tick deltas:
+        FISHING      ("fishing",     "Fishing",       ps -> ps.fishCaught,       StatusEffects.LUCK,                1),
+        WALKING      ("walking",     "Distance",      ps -> ps.distanceWalkedCm, StatusEffects.SPEED,               100_000L), // 1 km per unit
+        JUMPS        ("jumps",       "Jumps",         ps -> ps.jumps,            StatusEffects.JUMP_BOOST,          50L),      // 50 jumps per unit
+        XP_LEVELS    ("xplevels",    "XP Levels",     ps -> ps.xpLevelsGained,   StatusEffects.HERO_OF_THE_VILLAGE, 1),
+        SNEAK_TIME   ("sneak",       "Sneak Time",    ps -> ps.sneakTimeTicks,   StatusEffects.SLOW_FALLING,        1200L);    // 1 minute per unit
 
         final String id;
         final String label;

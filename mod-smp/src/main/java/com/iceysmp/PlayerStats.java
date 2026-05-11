@@ -24,6 +24,12 @@ public final class PlayerStats {
     public long damageDealt;     // total HP dealt (× 10, since damage is float)
     public long damageTaken;     // total HP taken
     public long deaths;          // own deaths
+    // New in v1.82 — read from MC's StatHandler via per-tick deltas:
+    public long fishCaught;
+    public long distanceWalkedCm;
+    public long jumps;
+    public long xpLevelsGained;
+    public long sneakTimeTicks;
 
     public PlayerStats(String name) {
         this.name = name;
@@ -50,5 +56,10 @@ public final class PlayerStats {
         this.damageDealt  += victim.damageDealt;  victim.damageDealt  = 0;
         this.damageTaken  += victim.damageTaken;  victim.damageTaken  = 0;
         this.deaths       += victim.deaths;       victim.deaths       = 0;
+        this.fishCaught       += victim.fishCaught;       victim.fishCaught       = 0;
+        this.distanceWalkedCm += victim.distanceWalkedCm; victim.distanceWalkedCm = 0;
+        this.jumps            += victim.jumps;            victim.jumps            = 0;
+        this.xpLevelsGained   += victim.xpLevelsGained;   victim.xpLevelsGained   = 0;
+        this.sneakTimeTicks   += victim.sneakTimeTicks;   victim.sneakTimeTicks   = 0;
     }
 }

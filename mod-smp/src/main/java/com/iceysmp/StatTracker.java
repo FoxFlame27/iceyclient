@@ -121,6 +121,11 @@ public final class StatTracker {
                 st.damageDealt   = extractLong(body, "dmgDealt");
                 st.damageTaken   = extractLong(body, "dmgTaken");
                 st.deaths        = extractLong(body, "deaths");
+                st.fishCaught       = extractLong(body, "fish");
+                st.distanceWalkedCm = extractLong(body, "walkCm");
+                st.jumps            = extractLong(body, "jumps");
+                st.xpLevelsGained   = extractLong(body, "xpLevels");
+                st.sneakTimeTicks   = extractLong(body, "sneak");
                 try { map.put(UUID.fromString(uuidStr), st); } catch (Exception ignored) {}
             }
         } catch (IOException ignored) {}
@@ -149,7 +154,12 @@ public final class StatTracker {
                 sb.append("\"wood\":").append(s.woodChopped).append(",");
                 sb.append("\"dmgDealt\":").append(s.damageDealt).append(",");
                 sb.append("\"dmgTaken\":").append(s.damageTaken).append(",");
-                sb.append("\"deaths\":").append(s.deaths);
+                sb.append("\"deaths\":").append(s.deaths).append(",");
+                sb.append("\"fish\":").append(s.fishCaught).append(",");
+                sb.append("\"walkCm\":").append(s.distanceWalkedCm).append(",");
+                sb.append("\"jumps\":").append(s.jumps).append(",");
+                sb.append("\"xpLevels\":").append(s.xpLevelsGained).append(",");
+                sb.append("\"sneak\":").append(s.sneakTimeTicks);
                 sb.append("}");
             }
             sb.append("\n}\n");

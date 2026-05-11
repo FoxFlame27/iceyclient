@@ -1,10 +1,34 @@
 llb ty for downloading 
 get .exe for windows
 
+## Download iceymod+ (server mod)
+
+Drop the jar directly into your server's `mods/` folder (or your singleplayer client's mods folder — it works in both). Direct downloads per MC version, no launcher needed:
+
+- **MC 1.21** → [iceymodplus-mc1.21-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-mc1.21-1.0.0.jar)
+- **MC 1.21.5** → [iceymodplus-mc1.21.5-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-mc1.21.5-1.0.0.jar)
+- **MC 1.21.8** → [iceymodplus-mc1.21.8-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-mc1.21.8-1.0.0.jar)
+- **MC 1.21.11** → [iceymodplus-mc1.21.11-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-mc1.21.11-1.0.0.jar)
+
+`latest/download/` always resolves to the most recent release tag. Pick the build that matches (or is older than) your server's MC version.
+
+
 get arm 64x .dmg for mac but make sure to run this command if the app says iceyclient is damaged and cant be opened: 
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.80.5
+
+- **5 new leaderboard categories** (16 total). Pulled from MC's built-in `StatHandler` via per-second delta snapshots — no mixins needed:
+  - **Fishing** (fish caught) → Luck
+  - **Distance Walked** (km) → Speed
+  - **Jumps** → Jump Boost
+  - **XP Levels Gained** → Hero of the Village
+  - **Sneak Time** (minutes) → Slow Falling
+- All 5 are stealable on PvP kill like the other counters.
+- **Mod renamed `iceysmp` → `iceymodplus`** for distribution. The internal mod id stays `iceysmp` (don't break existing world saves' permission entries), but the jar filename is now `iceymodplus-mc<MCVER>-1.0.0.jar`. CI matrix artifacts and the launcher Download button both updated.
+- **Direct GitHub download links** added to the top of the README — one URL per supported MC version, always pointing at the latest release. No launcher required.
 
 ## What's new in v1.81.0
 

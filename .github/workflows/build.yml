@@ -252,7 +252,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: smp-jar-mc${{ matrix.mc }}
-          path: mod-smp/build/libs/iceysmp-mc${{ matrix.mc }}-*.jar
+          path: mod-smp/build/libs/iceymodplus-mc${{ matrix.mc }}-*.jar
 
   release:
     needs: [build-windows, build-mac, build-linux-arm64, build-smp]
