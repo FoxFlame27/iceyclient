@@ -18,6 +18,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.7
+
+- **CI fix:** three more Yarn signature drifts blocked the SMP build — `ServerPlayerEntity.teleport` had different arg counts across matrix entries (8-arg with ServerWorld+Set+yaw+pitch+resetCamera vs 7-arg without the boolean vs 6-arg without the Set), `ServerPlayerEntity.damage` flipped between `(world, source, amount)` and `(source, amount)`, and `LivingEntity.kill` between `(ServerWorld)` and no-args. Pulled all three into a new `VersionShim` class that walks every known signature via reflection in order. Bytecode in `SmpCommands` / `CombatLogoutHandler` no longer references any of the unstable overloads directly; they call `VersionShim.teleportSafe / damageSafe / killSafe`.
+
 ## What's new in v1.80.6
 
 - **CI fix:** Yarn renamed `getSpawnPos` between `ServerWorld` and `WorldProperties` (via `getLevelProperties`) across the 1.21.x matrix — and the 6-arg teleport overload my `/spawn` fallback called doesn't exist (only the 4-arg `LivingEntity` and 8-arg `ServerPlayerEntity` versions do). Replaced the `getSpawnPos` call with a reflection-based `resolveWorldSpawn(world)` that tries `world.getSpawnPos()`, then `world.getLevelProperties().getSpawnPos()`, then `getProperties()` and `getLevelData()` variants, falling back to `(0,64,0)` if all fail. Removed the broken 6-arg teleport fallback. Source now compiles against every Yarn version in the matrix.

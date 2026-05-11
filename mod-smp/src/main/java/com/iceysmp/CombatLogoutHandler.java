@@ -29,10 +29,10 @@ public final class CombatLogoutHandler {
                 // Damage source: out-of-world / generic — the AFTER_DEATH handler
                 // already routes PvP credit via the lastDamageTaker if it was a
                 // player hit recently, so we don't need to fake an attacker here.
-                p.damage(server.getOverworld(),
-                         server.getOverworld().getDamageSources().outOfWorld(),
-                         Float.MAX_VALUE);
-                if (p.isAlive()) p.kill(server.getOverworld());
+                VersionShim.damageSafe(p, server.getOverworld(),
+                        server.getOverworld().getDamageSources().outOfWorld(),
+                        Float.MAX_VALUE);
+                if (p.isAlive()) VersionShim.killSafe(p, server.getOverworld());
                 p.sendMessage(Text.literal("§c§l[Icey SMP] §rYou combat-logged. You died."), false);
             } catch (Throwable t) {
                 System.out.println("[IceySMP] CombatLogout death failed: " + t);

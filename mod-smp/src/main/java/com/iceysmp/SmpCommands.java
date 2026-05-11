@@ -90,13 +90,9 @@ public final class SmpCommands {
         if (server == null) return 0;
         ServerWorld overworld = server.getOverworld();
         BlockPos spawn = resolveWorldSpawn(overworld);
-        try {
-            // 1.21+ signature: (ServerWorld, x, y, z, Set<PositionFlag>, yaw, pitch, resetCamera)
-            p.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
-                       Set.of(), p.getYaw(), p.getPitch(), false);
-        } catch (Throwable t) {
-            System.out.println("[IceySMP] /spawn teleport failed: " + t);
-        }
+        VersionShim.teleportSafe(p, overworld,
+                spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
+                p.getYaw(), p.getPitch());
         p.sendMessage(Text.literal("§b§l[Icey SMP] §aTeleported to spawn."), false);
         return 1;
     }
