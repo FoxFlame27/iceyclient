@@ -18,6 +18,19 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.9
+
+Two issues from "/icey nothing works, only 3 categories show":
+
+1. **Defensive enum init.** Each `Category` constant was referencing a `StatusEffects.X` field directly in its constructor — meaning if even one of those fields didn't exist on a particular Yarn version in the matrix (e.g. `LUCK` / `JUMP_BOOST` / `HERO_OF_THE_VILLAGE` / `SLOW_FALLING` were renamed or moved), the entire enum failed to class-load, which cascaded into `LeaderboardManager` construction throwing, which made `IceySmp.onInitialize`'s try/catch swallow the error and skip `SmpCommands.register()` → no `/icey` command exists on the server. Switched every effect ref to a `Supplier<RegistryEntry<StatusEffect>>` that's lazily evaluated; a missing field disables that one category's buff but doesn't kill the rest of the mod.
+2. **Client menu only had 3 buttons.** `LeaderboardScreen` was hardcoded to Mining/PvP/Playtime. Rewrote as a 2-column grid that lists all 16 categories. Each button still does the same thing — sends `/icey top <id>` and closes — but now every category is reachable from the in-game N keybind.
+
+Also: **pack.png icon** copied to `assets/iceysmp/icon.png` and registered in `fabric.mod.json` so iceymod+ shows up with the Icey logo in Mod Menu / `/modlist` instead of the default question mark.
+
+## What's new in v1.80.8
+
+- **iceymod+ now has an icon** in the Fabric mod list. Copied the existing iceymod icon to `assets/iceysmp/icon.png` and referenced it from `fabric.mod.json` so the mod shows up with the proper logo (not the default question-mark) in /modlist, Mod Menu, the Fabric Loader log, etc.
+
 ## What's new in v1.80.7
 
 - **CI fix:** three more Yarn signature drifts blocked the SMP build — `ServerPlayerEntity.teleport` had different arg counts across matrix entries (8-arg with ServerWorld+Set+yaw+pitch+resetCamera vs 7-arg without the boolean vs 6-arg without the Set), `ServerPlayerEntity.damage` flipped between `(world, source, amount)` and `(source, amount)`, and `LivingEntity.kill` between `(ServerWorld)` and no-args. Pulled all three into a new `VersionShim` class that walks every known signature via reflection in order. Bytecode in `SmpCommands` / `CombatLogoutHandler` no longer references any of the unstable overloads directly; they call `VersionShim.teleportSafe / damageSafe / killSafe`.
