@@ -6,6 +6,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.79.2
+
+- **CI fix:** Yarn renamed `ServerCommandSource.hasPermissionLevel(int)` to `hasPermission(int)` somewhere in the 1.21.x matrix, and the exact MC version differs by Yarn build, so hardcoding either name fails to compile against the other half of our matrix. `SmpCommands` now does a class-init-time `MethodHandle` lookup that tries both names and caches whichever resolves — the command predicates call through that cached handle. Source compiles cleanly against every Yarn version.
+- **CI speed:** Cached `~/.gradle/caches`, `~/.gradle/wrapper`, `~/.npm`, and `~/.cache/electron`. First run after a build-config change still warm-loads dependencies, but subsequent runs (which is the common case) drop the gradle compile from ~2–3 min to ~30s and the Linux electron-builder npm-install pass from ~1–2 min to a few seconds. Net: the Linux RPM artifact should be downloadable from the workflow page faster than before.
+
 ## What's new in v1.79.1
 
 - **CI fix:** Icey SMP wouldn't compile — `ServerLivingEntityEvents` was imported from the wrong package (`event.lifecycle.v1` instead of the correct `entity.event.v1`). Same class, but the Fabric API splits lifecycle events from entity events into separate sub-packages. Build failed on all 4 matrix entries; now resolved.

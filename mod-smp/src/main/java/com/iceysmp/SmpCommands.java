@@ -6,6 +6,9 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.List;
 
 /**
@@ -21,6 +24,33 @@ import java.util.List;
  */
 public final class SmpCommands {
 
+    /**
+     * Yarn renamed {@code ServerCommandSource.hasPermissionLevel(int)} to
+     * {@code hasPermission(int)} somewhere in the 1.21.x line — and the
+     * exact MC version where it flipped differs by Yarn build. Hard-coding
+     * either name fails to compile against the other half of our matrix
+     * (1.21 / 1.21.5 / 1.21.8 / 1.21.11). We look up the method by name at
+     * class-init time, fall back across the two possibilities, and cache
+     * a MethodHandle for fast invocation in the command predicate.
+     */
+    private static final MethodHandle PERM_CHECK = resolvePermCheck();
+
+    private static MethodHandle resolvePermCheck() {
+        MethodHandles.Lookup l = MethodHandles.lookup();
+        MethodType mt = MethodType.methodType(boolean.class, int.class);
+        for (String name : new String[] {"hasPermissionLevel", "hasPermission"}) {
+            try { return l.findVirtual(ServerCommandSource.class, name, mt); }
+            catch (Throwable ignored) {}
+        }
+        return null;
+    }
+
+    private static boolean hasPermLevel(ServerCommandSource src, int level) {
+        if (PERM_CHECK == null) return false;
+        try { return (boolean) PERM_CHECK.invoke(src, level); }
+        catch (Throwable t) { return false; }
+    }
+
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(CommandManager.literal("icey")
@@ -29,14 +59,14 @@ public final class SmpCommands {
                         .suggests((ctx, b) -> { b.suggest("mining"); b.suggest("pvp"); b.suggest("playtime"); return b.buildFuture(); })
                         .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))))
                 .then(CommandManager.literal("reload")
-                    .requires(s -> s.hasPermissionLevel(3))
+                    .requires(s -> hasPermLevel(s, 3))
                     .executes(ctx -> {
                         IceySmp.config = SmpConfig.loadOrDefault();
                         ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §aConfig reloaded"), true);
                         return 1;
                     }))
                 .then(CommandManager.literal("reset")
-                    .requires(s -> s.hasPermissionLevel(4))
+                    .requires(s -> hasPermLevel(s, 4))
                     .executes(ctx -> {
                         int n = IceySmp.stats.size();
                         IceySmp.stats.clear();

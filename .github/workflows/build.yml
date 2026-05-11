@@ -15,6 +15,14 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+      - name: Cache Gradle deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-iceymod-${{ hashFiles('mod/build.gradle', 'mod/gradle.properties', 'mod/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-iceymod-
       - name: Build iceymod jar
         run: cd mod && chmod +x gradlew && ./gradlew build --no-daemon
       - uses: actions/upload-artifact@v4
@@ -152,6 +160,14 @@ jobs:
         with:
           name: mod-jar
           path: mod/build/libs
+      - name: Cache npm + Electron cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/electron
+          key: linux-npm-electron-${{ hashFiles('package-lock.json', 'package.json') }}
+          restore-keys: linux-npm-electron-
       - name: npm install (with retry)
         run: |
           for i in 1 2 3 4; do
@@ -217,6 +233,14 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+      - name: Cache Gradle deps (per MC version)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-iceysmp-${{ matrix.mc }}-${{ hashFiles('mod-smp/build.gradle', 'mod-smp/gradle.properties', 'mod-smp/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-iceysmp-${{ matrix.mc }}-
       - name: Build iceysmp jar (MC ${{ matrix.mc }})
         run: |
           cd mod-smp
