@@ -72,7 +72,8 @@ public class IceyMod implements ClientModInitializer {
         perspectiveKey  = registerKey("key.iceymod.perspective",  GLFW.GLFW_KEY_R);
         waypointKey     = registerKey("key.iceymod.waypoint",     GLFW.GLFW_KEY_B);
         hideHudKey      = registerKey("key.iceymod.hidehud",      GLFW.GLFW_KEY_H);
-        toggleSprintKey = registerKey("key.iceymod.togglesprint", GLFW.GLFW_KEY_N);
+        // N moved to leaderboard; user can rebind autosprint via Controls if they want.
+        toggleSprintKey = registerKey("key.iceymod.togglesprint", InputUtil.UNKNOWN_KEY.getCode());
         toggleBrightKey = registerKey("key.iceymod.togglebright", GLFW.GLFW_KEY_G);
         toggleTotemKey  = registerKey("key.iceymod.toggletotem",  GLFW.GLFW_KEY_T);
         freelookKey     = registerKey("key.iceymod.freelook",     GLFW.GLFW_KEY_LEFT_ALT);
@@ -80,7 +81,7 @@ public class IceyMod implements ClientModInitializer {
         structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
         freecamKey      = registerKey("key.iceymod.freecam",      GLFW.GLFW_KEY_F4);
         biomeKey        = registerKey("key.iceymod.biome",        GLFW.GLFW_KEY_K);
-        leaderboardKey  = registerKey("key.iceymod.leaderboard",  GLFW.GLFW_KEY_SEMICOLON);
+        leaderboardKey  = registerKey("key.iceymod.leaderboard",  GLFW.GLFW_KEY_N);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {

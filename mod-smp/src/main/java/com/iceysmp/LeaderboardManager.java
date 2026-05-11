@@ -1,12 +1,15 @@
 package com.iceysmp;
 
+import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -14,11 +17,17 @@ import java.util.UUID;
 import java.util.function.ToLongFunction;
 
 /**
- * Drives the periodic work: tick playtime, recompute leaderboard rankings,
- * apply auto-buffs, save stats to disk, prune combat tracker state.
+ * Recompute leaderboards every {@code config.recomputeSeconds}, apply
+ * per-player effects based on each player's stat count (count-based
+ * scaling — top of leaderboard gets fame via chat but every player's own
+ * count determines their personal amp).
  *
- * All called from {@code ServerTickEvents.END_SERVER_TICK} so everything is
- * on the server thread — safe to touch ServerPlayerEntity state.
+ * <p>Scaling: amp 0 at count 1, +1 each at 2 and 3, then +1 each 5 counts
+ * up to count 28 (amp 7), then +1 each 15 counts past that. Capped per
+ * effect (Strength=5, Resistance=3, Speed=4, JumpBoost=5, others=9).
+ *
+ * <p>"Top of category" announcement fires bold in chat when the leader
+ * changes — easy to miss in regular text-color.
  */
 public final class LeaderboardManager {
 
@@ -26,11 +35,8 @@ public final class LeaderboardManager {
     private final CombatTracker combat;
     private final SmpConfig config;
 
-    private MinecraftServer server;
     private long tickCounter = 0;
-    private long lastAnnounceMining = -1;
-    private long lastAnnouncePvp = -1;
-    private long lastAnnouncePlaytime = -1;
+    private final Map<String, Long> lastAnnouncedTop = new java.util.HashMap<>();
 
     public LeaderboardManager(StatTracker stats, CombatTracker combat, SmpConfig config) {
         this.stats = stats;
@@ -38,84 +44,80 @@ public final class LeaderboardManager {
         this.config = config;
     }
 
-    public void bind(MinecraftServer server) { this.server = server; }
+    public void bind(MinecraftServer server) { /* reserved */ }
 
     public void tick(MinecraftServer server) {
-        this.server = server;
         tickCounter++;
 
-        // 1) Playtime: count one tick per online player per tick.
+        // Playtime tick for online players.
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
             PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());
             ps.playtimeTicks++;
             ps.name = p.getName().getString();
         }
 
-        // 2) Recompute + apply buffs every config.recomputeSeconds.
         long recomputePeriodTicks = Math.max(1, config.recomputeSeconds() * 20L);
-        if (tickCounter % recomputePeriodTicks == 0) {
-            applyAllBuffs(server);
-        }
+        if (tickCounter % recomputePeriodTicks == 0) recompute(server);
 
-        // 3) Auto-save every 5 min.
-        if (tickCounter % (5 * 60 * 20) == 0) {
-            stats.save(server);
-        }
-
-        // 4) Prune combat tracker once a minute.
-        if (tickCounter % (60 * 20) == 0) {
-            combat.prune();
-        }
+        if (tickCounter % (5 * 60 * 20) == 0) stats.save(server);
+        if (tickCounter % (60 * 20) == 0) combat.prune();
     }
 
-    private void applyAllBuffs(MinecraftServer server) {
-        List<Ranked> miningTop = rank(p -> p.mining);
-        List<Ranked> pvpTop = rank(p -> p.pvpKills);
-        List<Ranked> playTop = rank(p -> p.playtimeTicks);
-
-        // Announce new #1 in chat (skip on initial boot when lastAnnounceX == -1).
-        announceIfChanged(server, "Mining", miningTop, lastAnnounceMining);
-        announceIfChanged(server, "PvP",    pvpTop,    lastAnnouncePvp);
-        announceIfChanged(server, "Playtime", playTop, lastAnnouncePlaytime);
-        if (!miningTop.isEmpty()) lastAnnounceMining = miningTop.get(0).value;
-        if (!pvpTop.isEmpty())    lastAnnouncePvp    = pvpTop.get(0).value;
-        if (!playTop.isEmpty())   lastAnnouncePlaytime = playTop.get(0).value;
-
+    private void recompute(MinecraftServer server) {
         int duration = config.effectDurationSeconds() * 20;
 
-        // Mining → Haste (#1 = II, #2 = I)
-        applyEffect(server, miningTop, 0, StatusEffects.HASTE, 1, duration);
-        applyEffect(server, miningTop, 1, StatusEffects.HASTE, 0, duration);
-        // PvP → Strength
-        applyEffect(server, pvpTop, 0, StatusEffects.STRENGTH, 1, duration);
-        applyEffect(server, pvpTop, 1, StatusEffects.STRENGTH, 0, duration);
-        // Playtime → Saturation (passive, less powerful, only #1)
-        applyEffect(server, playTop, 0, StatusEffects.SATURATION, 0, duration);
+        // For every category, broadcast leader-change + apply per-player effect
+        for (Category cat : Category.values()) {
+            // Sort to find #1 — used for chat announce only.
+            List<Ranked> rk = rank(cat.field);
+            if (!rk.isEmpty() && rk.get(0).value > 0) {
+                Long prev = lastAnnouncedTop.get(cat.id);
+                if (prev == null || prev != rk.get(0).value) {
+                    server.getPlayerManager().broadcast(
+                            Text.literal("§b§l[Icey SMP] §a§l" + rk.get(0).name
+                                    + " §r§7is now top of §b§l" + cat.label
+                                    + " §7(" + rk.get(0).value + ")"),
+                            false);
+                    lastAnnouncedTop.put(cat.id, rk.get(0).value);
+                }
+            }
+
+            // Per-player amp from count
+            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+                PlayerStats ps = stats.peek(p.getUuid());
+                if (ps == null) continue;
+                long count = cat.field.applyAsLong(ps) / cat.divisor;
+                int amp = ampForCount(count, cat.effect);
+                if (amp < 0) continue;
+                try {
+                    p.addStatusEffect(new StatusEffectInstance(cat.effect, duration, amp, false, false, true));
+                } catch (Throwable ignored) {}
+            }
+        }
     }
 
-    private void announceIfChanged(MinecraftServer server, String label, List<Ranked> top, long prevTopValue) {
-        if (top.isEmpty()) return;
-        Ranked first = top.get(0);
-        if (first.value == 0) return;
-        if (first.value == prevTopValue || prevTopValue < 0) return; // unchanged, or first run
-        ServerPlayerEntity p = server.getPlayerManager().getPlayer(first.uuid);
-        String name = (p != null ? p.getName().getString() : first.name);
-        server.getPlayerManager().broadcast(
-                Text.literal("§b[Icey SMP] §a" + name + " §7is now top of §b" + label + " §7(" + first.value + ")"),
-                false);
+    /** Count-based amplifier scaling. */
+    static int ampForCount(long count, RegistryEntry<StatusEffect> effect) {
+        if (count <= 0) return -1;
+        int amp;
+        if (count <= 3)        amp = (int) (count - 1);              // 1→0, 2→1, 3→2
+        else if (count <= 28)  amp = 2 + (int) ((count - 3) / 5);     // each +5 = +1 up to amp 7 at count 28
+        else                   amp = 7 + (int) ((count - 28) / 15);   // each +15 = +1 thereafter
+        return Math.min(amp, capFor(effect));
     }
 
-    private void applyEffect(MinecraftServer server, List<Ranked> rankList, int idx,
-                             net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.effect.StatusEffect> effect,
-                             int amplifier, int durationTicks) {
-        if (idx >= rankList.size()) return;
-        Ranked r = rankList.get(idx);
-        if (r.value == 0) return; // Don't reward zero-score positions
-        ServerPlayerEntity p = server.getPlayerManager().getPlayer(r.uuid);
-        if (p == null) return; // offline — only buff online players
+    /** Per-effect amplifier cap so resistance can't exceed god-mode, etc. */
+    static int capFor(RegistryEntry<StatusEffect> e) {
         try {
-            p.addStatusEffect(new StatusEffectInstance(effect, durationTicks, amplifier, false, false, true));
+            if (e == StatusEffects.STRENGTH)   return 5;
+            if (e == StatusEffects.RESISTANCE) return 3;
+            if (e == StatusEffects.SPEED)      return 4;
+            if (e == StatusEffects.JUMP_BOOST) return 5;
+            if (e == StatusEffects.HASTE)      return 9;
+            if (e == StatusEffects.SATURATION) return 4;
+            if (e == StatusEffects.REGENERATION) return 3;
         } catch (Throwable ignored) {}
+        return 9;
     }
 
     private List<Ranked> rank(ToLongFunction<PlayerStats> field) {
@@ -128,12 +130,14 @@ public final class LeaderboardManager {
     }
 
     public List<Ranked> top(String category) {
-        return switch (category) {
-            case "mining" -> rank(p -> p.mining);
-            case "pvp"    -> rank(p -> p.pvpKills);
-            case "playtime" -> rank(p -> p.playtimeTicks);
-            default -> List.of();
-        };
+        for (Category c : Category.values()) {
+            if (c.id.equals(category)) return rank(c.field);
+        }
+        return List.of();
+    }
+
+    public static List<String> categoryIds() {
+        return Arrays.stream(Category.values()).map(c -> c.id).toList();
     }
 
     public static final class Ranked {
@@ -142,6 +146,38 @@ public final class LeaderboardManager {
         public final long value;
         public Ranked(UUID uuid, String name, long value) {
             this.uuid = uuid; this.name = name; this.value = value;
+        }
+    }
+
+    /** Category descriptors — each one has a stat-field accessor, an effect,
+     *  and a divisor (lets us put huge raw counts like playtime ticks or
+     *  damage-x10 onto the same amp scaling as small counts like kills). */
+    enum Category {
+        MINING       ("mining",      "Mining",        ps -> ps.mining,        StatusEffects.HASTE,        1),
+        PVP          ("pvp",         "PvP",           ps -> ps.pvpKills,      StatusEffects.STRENGTH,     1),
+        PLAYTIME     ("playtime",    "Playtime",      ps -> ps.playtimeTicks, StatusEffects.SATURATION,   72000L), // 1 hour = 1 unit
+        MOB_KILLS    ("mobkills",    "Mob Kills",     ps -> ps.mobKills,      StatusEffects.RESISTANCE,   1),
+        ANIMAL_KILLS ("animalkills", "Animal Kills",  ps -> ps.animalKills,   StatusEffects.NIGHT_VISION, 1),
+        CROPS        ("crops",       "Farming",       ps -> ps.crops,         StatusEffects.HASTE,        5),
+        DIAMONDS     ("diamonds",    "Diamonds",      ps -> ps.diamonds,      StatusEffects.SPEED,        1),
+        WOOD         ("wood",        "Wood Chopped",  ps -> ps.woodChopped,   StatusEffects.HASTE,        5),
+        DAMAGE_DEALT ("dmgdealt",    "Damage Dealt",  ps -> ps.damageDealt,   StatusEffects.STRENGTH,     200L),  // 200 = 20HP × 10
+        DAMAGE_TAKEN ("dmgtaken",    "Damage Taken",  ps -> ps.damageTaken,   StatusEffects.RESISTANCE,   200L),
+        DEATHS       ("deaths",      "Deaths",        ps -> ps.deaths,        StatusEffects.REGENERATION, 1);
+
+        final String id;
+        final String label;
+        final ToLongFunction<PlayerStats> field;
+        final RegistryEntry<StatusEffect> effect;
+        final long divisor;
+
+        Category(String id, String label, ToLongFunction<PlayerStats> field,
+                 RegistryEntry<StatusEffect> effect, long divisor) {
+            this.id = id;
+            this.label = label;
+            this.field = field;
+            this.effect = effect;
+            this.divisor = divisor;
         }
     }
 }

@@ -2,37 +2,25 @@ package com.iceysmp;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
+import java.util.Set;
 
-/**
- * Slash commands for users + admins. Top-level command is {@code /icey} so
- * it doesn't collide with vanilla {@code /stats} or {@code /leaderboard}
- * (some servers define those).
- *
- *   /icey top mining       - top 10 miners
- *   /icey top pvp          - top 10 pvp kills
- *   /icey top playtime     - top 10 playtime (formatted h:m)
- *   /icey reload           - reload config (admin)
- *   /icey reset            - wipe all stats (admin, op level 4)
- */
 public final class SmpCommands {
 
-    /**
-     * Yarn renamed {@code ServerCommandSource.hasPermissionLevel(int)} to
-     * {@code hasPermission(int)} somewhere in the 1.21.x line — and the
-     * exact MC version where it flipped differs by Yarn build. Hard-coding
-     * either name fails to compile against the other half of our matrix
-     * (1.21 / 1.21.5 / 1.21.8 / 1.21.11). We look up the method by name at
-     * class-init time, fall back across the two possibilities, and cache
-     * a MethodHandle for fast invocation in the command predicate.
-     */
+    /** Yarn renamed hasPermissionLevel → hasPermission somewhere in 1.21.x;
+     *  we look up whichever exists at class init and cache. */
     private static final MethodHandle PERM_CHECK = resolvePermCheck();
 
     private static MethodHandle resolvePermCheck() {
@@ -56,7 +44,7 @@ public final class SmpCommands {
             dispatcher.register(CommandManager.literal("icey")
                 .then(CommandManager.literal("top")
                     .then(CommandManager.argument("category", StringArgumentType.word())
-                        .suggests((ctx, b) -> { b.suggest("mining"); b.suggest("pvp"); b.suggest("playtime"); return b.buildFuture(); })
+                        .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
                         .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))))
                 .then(CommandManager.literal("reload")
                     .requires(s -> hasPermLevel(s, 3))
@@ -75,13 +63,43 @@ public final class SmpCommands {
                         return 1;
                     }))
                 .executes(ctx -> {
+                    String cats = String.join("|", LeaderboardManager.categoryIds());
                     ctx.getSource().sendFeedback(() -> Text.literal(
-                            "§b[Icey SMP] §7commands: §f/icey top <mining|pvp|playtime>§7, §f/icey reload§7, §f/icey reset"),
-                            false);
+                            "§b[Icey SMP] §7/icey top <" + cats + ">, /icey reload, /icey reset"), false);
                     return 1;
                 })
             );
+
+            // /spawn — teleport to world spawn, blocked while combat-tagged.
+            dispatcher.register(CommandManager.literal("spawn")
+                .executes(ctx -> doSpawn(ctx.getSource())));
         });
+    }
+
+    private static int doSpawn(ServerCommandSource src) {
+        ServerPlayerEntity p = src.getPlayer();
+        if (p == null) {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] /spawn must be run by a player"), false);
+            return 0;
+        }
+        if (IceySmp.combat != null && IceySmp.combat.isInCombat(p.getUuid())) {
+            p.sendMessage(Text.literal("§c§l[Icey SMP] §rCan't /spawn while combat-tagged."), false);
+            return 0;
+        }
+        MinecraftServer server = src.getServer();
+        if (server == null) return 0;
+        ServerWorld overworld = server.getOverworld();
+        BlockPos spawn = overworld.getSpawnPos();
+        try {
+            p.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
+                       Set.of(), p.getYaw(), p.getPitch(), false);
+        } catch (Throwable t) {
+            // Older signature on some Yarn versions
+            try { p.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, p.getYaw(), p.getPitch()); }
+            catch (Throwable ignored) {}
+        }
+        p.sendMessage(Text.literal("§b§l[Icey SMP] §aTeleported to spawn."), false);
+        return 1;
     }
 
     private static int showTop(ServerCommandSource src, String category) {
@@ -94,22 +112,23 @@ public final class SmpCommands {
             src.sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + category), false);
             return 0;
         }
-        src.sendFeedback(() -> Text.literal("§b[Icey SMP] §7Top §b" + category + "§7:"), false);
+        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §7Top §b" + category + "§7:"), false);
         int show = Math.min(10, ranked.size());
+        boolean any = false;
         for (int i = 0; i < show; i++) {
             LeaderboardManager.Ranked r = ranked.get(i);
             if (r.value == 0) break;
+            any = true;
             String medal = switch (i) {
-                case 0 -> "§e1.";
-                case 1 -> "§71.";
-                case 2 -> "§61.";
+                case 0 -> "§e§l1.";
+                case 1 -> "§7§l2.";
+                case 2 -> "§6§l3.";
                 default -> "§7" + (i + 1) + ".";
             };
             String displayValue = "playtime".equals(category) ? formatTicks(r.value) : String.valueOf(r.value);
-            final int rank = i;
-            src.sendFeedback(() -> Text.literal(
-                    medal + " §f" + r.name + " §8— §b" + displayValue), false);
+            src.sendFeedback(() -> Text.literal(medal + " §f" + r.name + " §8— §b" + displayValue), false);
         }
+        if (!any) src.sendFeedback(() -> Text.literal("§7  (no entries yet)"), false);
         return 1;
     }
 

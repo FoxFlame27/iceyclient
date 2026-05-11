@@ -3,25 +3,18 @@ package com.iceysmp;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.server.MinecraftServer;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 /**
- * Icey SMP — server-side leaderboard + auto-buff system.
+ * Icey SMP — server-side leaderboard + auto-buff + PvP guardrails.
  *
- * Three categories ship in v1: Mining (Haste), PvP (Strength), Playtime
- * (Saturation). All tracked server-side, persisted to JSON, recomputed every
- * 30 seconds. The top 1–2 players in each category get the corresponding
- * effect refreshed for ~60 seconds — so it stays applied while they hold the
- * rank, fades automatically when they drop.
+ * Stats tracked + applied as MC status effects: see {@link LeaderboardManager.Category}.
+ * Effect amplifier scales with each player's count via a non-linear curve
+ * (fast at low counts, slow at high counts) capped per-effect.
  *
- * Anti-farm:
- *   - PvP victim cooldown: 10 minutes per attacker→victim pair
- *   - Combat tag: both players must have hit each other within 10 seconds
- *     for the kill to count
- *   - Mining only counts the curated ore set (see {@link StatTracker})
- *
- * Works on 1.21.0 – 1.21.11 — the API surfaces we use are stable and we
- * ship a per-version jar built by CI.
+ * PvP guardrails: combat tag, /spawn block during combat, kill on logout
+ * during combat, full-stat-steal on legitimate kill, 10-minute noob
+ * protection from first join, iron starter kit on first join.
  */
 public final class IceySmp implements ModInitializer {
     public static final String MOD_ID = "iceysmp";
@@ -49,16 +42,32 @@ public final class IceySmp implements ModInitializer {
                 System.out.println("[IceySMP] Saved player stats");
             });
 
-            // Tick: 20 per second. We do periodic work (playtime increment,
-            // leaderboard recompute, save) gated by mod counters in the
-            // leaderboard manager so the hot path stays cheap.
             ServerTickEvents.END_SERVER_TICK.register(server -> {
                 try { leaderboard.tick(server); } catch (Throwable t) {
                     System.out.println("[IceySMP] tick error: " + t);
                 }
             });
 
+            // Player join: create stats row if absent (sets firstJoinTimestamp),
+            // then grant starter kit if their stats entry is brand new.
+            ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+                try {
+                    var p = handler.player;
+                    if (p == null) return;
+                    PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());
+                    StarterKit.giveIfFirstJoin(p, ps, config);
+                    if (NoobProtection.isProtected(ps, config)) {
+                        p.sendMessage(net.minecraft.text.Text.literal(
+                                "§b§l[Icey SMP] §aYou have §l" + NoobProtection.remainingMinutes(ps, config)
+                                + " min§r§a of noob protection — no PvP damage to or from you."), false);
+                    }
+                } catch (Throwable t) {
+                    System.out.println("[IceySMP] JOIN handler failed: " + t);
+                }
+            });
+
             StatTracker.registerEvents(stats, combat, config);
+            CombatLogoutHandler.register(combat, config);
             SmpCommands.register();
 
             System.out.println("[IceySMP] Initialized");

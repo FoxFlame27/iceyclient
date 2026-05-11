@@ -1,40 +1,53 @@
 package com.iceysmp;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Combat-tag state machine. Two purposes:
- *   1. Reject kill credits when the attacker / victim weren't actively
- *      fighting each other (anti-farm: prevent giving someone XP for
- *      smashing an AFK target).
- *   2. Reject repeat kills of the same victim within a cooldown window
- *      (anti-farm: prevent a duo farming each other for top of the
- *      leaderboard).
+ * Combat-tag state machine. Three jobs:
+ *   1. Reject kill credits when attacker / victim weren't actively fighting
+ *      each other (anti-farm).
+ *   2. Reject repeat kills of the same victim. Default is "never count
+ *      twice" (sameVictimCooldownSeconds=0) — once you've killed someone,
+ *      that pairing is dead forever.
+ *   3. Expose combat-tag state for /spawn gating and logout-kill handling.
  *
- * State is in-memory only — combat tags reset on server restart, which is
- * the conservative thing. The kill-cooldown map is also in-memory; small
- * enough that a server with a thousand kills/day is fine.
+ * State is in-memory: combat tags reset on server restart (conservative —
+ * you can't combat-log via restart). The pairwise kill record is also
+ * in-memory; small enough not to matter on a server with thousands of
+ * kills/day.
  */
 public final class CombatTracker {
 
     private final long tagDurationMs;
-    // Key: "attackerUuid:victimUuid"  Value: tag timestamp (ms)
     private final Map<String, Long> tags = new ConcurrentHashMap<>();
-    // Key: "attackerUuid:victimUuid"  Value: last counted-kill timestamp (ms)
     private final Map<String, Long> lastKill = new ConcurrentHashMap<>();
+    // Single-player combat tag (used for /spawn gating + logout death):
+    // any time someone was hit by ANY damage source within the tag window.
+    private final Map<UUID, Long> playerInCombat = new ConcurrentHashMap<>();
 
     public CombatTracker(int tagSeconds) {
         this.tagDurationMs = tagSeconds * 1000L;
     }
 
-    /** Tag both directions when player A hits player B. */
+    /** Tag both directions when player A hits player B. Also marks each
+     *  individually as "in combat" for /spawn / logout-death purposes. */
     public void tag(UUID a, UUID b) {
         long now = System.currentTimeMillis();
         tags.put(pairKey(a, b), now);
         tags.put(pairKey(b, a), now);
+        playerInCombat.put(a, now);
+        playerInCombat.put(b, now);
+    }
+
+    public void tagOne(UUID who) {
+        playerInCombat.put(who, System.currentTimeMillis());
+    }
+
+    public boolean isInCombat(UUID who) {
+        Long t = playerInCombat.get(who);
+        return t != null && (System.currentTimeMillis() - t) <= tagDurationMs;
     }
 
     public boolean bothTagged(UUID attacker, UUID victim) {
@@ -46,30 +59,31 @@ public final class CombatTracker {
                 && (now - t2) <= tagDurationMs;
     }
 
+    /** Can this pair count a kill?
+     *  cooldownSeconds = 0 means same victim NEVER counts a 2nd time. */
     public boolean canCountKill(UUID attacker, UUID victim, int cooldownSeconds) {
         Long last = lastKill.get(pairKey(attacker, victim));
         if (last == null) return true;
+        if (cooldownSeconds <= 0) return false; // never again
         return (System.currentTimeMillis() - last) >= cooldownSeconds * 1000L;
     }
 
     public void recordKill(UUID attacker, UUID victim) {
         lastKill.put(pairKey(attacker, victim), System.currentTimeMillis());
-        // Clear combat tags so the survivor isn't still "in combat"
         tags.remove(pairKey(attacker, victim));
         tags.remove(pairKey(victim, attacker));
+        playerInCombat.remove(attacker);
+        playerInCombat.remove(victim);
     }
 
-    /** Optional housekeeping if the in-memory tag map ever grew unbounded.
-     *  Currently called once a minute by {@link LeaderboardManager}. */
+    public void clearCombat(UUID who) { playerInCombat.remove(who); }
+
     public void prune() {
         long cutoffTag = System.currentTimeMillis() - tagDurationMs * 4;
         tags.entrySet().removeIf(e -> e.getValue() < cutoffTag);
-        // Keep kill records longer since cooldown is measured against them
-        long cutoffKill = System.currentTimeMillis() - 24L * 3600 * 1000;
-        lastKill.entrySet().removeIf(e -> e.getValue() < cutoffKill);
+        playerInCombat.entrySet().removeIf(e -> e.getValue() < cutoffTag);
+        // Kill records stay forever by default (cooldown=0 semantics).
     }
 
-    private static String pairKey(UUID a, UUID b) {
-        return a + ":" + b;
-    }
+    private static String pairKey(UUID a, UUID b) { return a + ":" + b; }
 }

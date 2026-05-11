@@ -4,11 +4,13 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.mob.HostileEntity;
+import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.PersistentStateManager;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,42 +23,60 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Owns the per-player counter table + JSON persistence. Increment methods
- * are called from Fabric event callbacks on the server tick thread, so the
- * map is a ConcurrentHashMap purely so commands (chat thread) can safely
- * iterate it.
+ * Per-player counter table + JSON persistence + event wiring.
+ *
+ * <p>All increment paths run on the server thread via Fabric event callbacks.
+ * The map is ConcurrentHashMap purely so command-thread reads are safe.
+ *
+ * <p>Categories tracked: mining, pvpKills, playtimeTicks (existing) +
+ * mobKills, animalKills, crops, diamonds, woodChopped, damageDealt,
+ * damageTaken, deaths (new in v1.81). Everything is stealable on PvP kill.
  */
 public final class StatTracker {
 
     private final Map<UUID, PlayerStats> map = new ConcurrentHashMap<>();
 
-    /** Ores that count toward the Mining leaderboard. Curated to skip
-     *  trivially-farmable / common blocks (stone, dirt) and keep the
-     *  signal-to-noise high. Wrapped in try/catch via {@link #safeAdd} so
-     *  a missing block on some MC version doesn't blow up class init. */
-    private static final Set<Block> MINING_BLOCKS = buildMiningBlocks();
+    // Block category sets — wrapped in safeAdd so a missing block on some MC
+    // version doesn't blow up class init; we just lose that one binding.
+    private static final Set<Block> MINING_BLOCKS = buildMiningSet();
+    private static final Set<Block> CROP_BLOCKS   = buildCropSet();
+    private static final Set<Block> WOOD_BLOCKS   = buildWoodSet();
+    private static final Set<Block> DIAMOND_BLOCKS= buildDiamondSet();
 
-    private static Set<Block> buildMiningBlocks() {
+    private static Set<Block> buildMiningSet() {
+        Set<Block> s = new HashSet<>();
+        safeAdd(s, () -> Blocks.DIAMOND_ORE);     safeAdd(s, () -> Blocks.DEEPSLATE_DIAMOND_ORE);
+        safeAdd(s, () -> Blocks.EMERALD_ORE);     safeAdd(s, () -> Blocks.DEEPSLATE_EMERALD_ORE);
+        safeAdd(s, () -> Blocks.GOLD_ORE);        safeAdd(s, () -> Blocks.DEEPSLATE_GOLD_ORE);
+        safeAdd(s, () -> Blocks.NETHER_GOLD_ORE);
+        safeAdd(s, () -> Blocks.IRON_ORE);        safeAdd(s, () -> Blocks.DEEPSLATE_IRON_ORE);
+        safeAdd(s, () -> Blocks.COPPER_ORE);      safeAdd(s, () -> Blocks.DEEPSLATE_COPPER_ORE);
+        safeAdd(s, () -> Blocks.LAPIS_ORE);       safeAdd(s, () -> Blocks.DEEPSLATE_LAPIS_ORE);
+        safeAdd(s, () -> Blocks.REDSTONE_ORE);    safeAdd(s, () -> Blocks.DEEPSLATE_REDSTONE_ORE);
+        safeAdd(s, () -> Blocks.COAL_ORE);        safeAdd(s, () -> Blocks.DEEPSLATE_COAL_ORE);
+        safeAdd(s, () -> Blocks.NETHER_QUARTZ_ORE);
+        safeAdd(s, () -> Blocks.ANCIENT_DEBRIS);
+        return s;
+    }
+    private static Set<Block> buildCropSet() {
+        Set<Block> s = new HashSet<>();
+        safeAdd(s, () -> Blocks.WHEAT);     safeAdd(s, () -> Blocks.CARROTS);  safeAdd(s, () -> Blocks.POTATOES);
+        safeAdd(s, () -> Blocks.BEETROOTS); safeAdd(s, () -> Blocks.MELON);    safeAdd(s, () -> Blocks.PUMPKIN);
+        safeAdd(s, () -> Blocks.NETHER_WART);
+        return s;
+    }
+    private static Set<Block> buildWoodSet() {
+        Set<Block> s = new HashSet<>();
+        safeAdd(s, () -> Blocks.OAK_LOG);    safeAdd(s, () -> Blocks.BIRCH_LOG); safeAdd(s, () -> Blocks.SPRUCE_LOG);
+        safeAdd(s, () -> Blocks.JUNGLE_LOG); safeAdd(s, () -> Blocks.ACACIA_LOG);safeAdd(s, () -> Blocks.DARK_OAK_LOG);
+        safeAdd(s, () -> Blocks.MANGROVE_LOG); safeAdd(s, () -> Blocks.CHERRY_LOG);
+        safeAdd(s, () -> Blocks.CRIMSON_STEM); safeAdd(s, () -> Blocks.WARPED_STEM);
+        return s;
+    }
+    private static Set<Block> buildDiamondSet() {
         Set<Block> s = new HashSet<>();
         safeAdd(s, () -> Blocks.DIAMOND_ORE);
         safeAdd(s, () -> Blocks.DEEPSLATE_DIAMOND_ORE);
-        safeAdd(s, () -> Blocks.EMERALD_ORE);
-        safeAdd(s, () -> Blocks.DEEPSLATE_EMERALD_ORE);
-        safeAdd(s, () -> Blocks.GOLD_ORE);
-        safeAdd(s, () -> Blocks.DEEPSLATE_GOLD_ORE);
-        safeAdd(s, () -> Blocks.NETHER_GOLD_ORE);
-        safeAdd(s, () -> Blocks.IRON_ORE);
-        safeAdd(s, () -> Blocks.DEEPSLATE_IRON_ORE);
-        safeAdd(s, () -> Blocks.COPPER_ORE);
-        safeAdd(s, () -> Blocks.DEEPSLATE_COPPER_ORE);
-        safeAdd(s, () -> Blocks.LAPIS_ORE);
-        safeAdd(s, () -> Blocks.DEEPSLATE_LAPIS_ORE);
-        safeAdd(s, () -> Blocks.REDSTONE_ORE);
-        safeAdd(s, () -> Blocks.DEEPSLATE_REDSTONE_ORE);
-        safeAdd(s, () -> Blocks.COAL_ORE);
-        safeAdd(s, () -> Blocks.DEEPSLATE_COAL_ORE);
-        safeAdd(s, () -> Blocks.NETHER_QUARTZ_ORE);
-        safeAdd(s, () -> Blocks.ANCIENT_DEBRIS);
         return s;
     }
 
@@ -65,15 +85,11 @@ public final class StatTracker {
     }
 
     public PlayerStats get(UUID uuid, String name) {
-        return map.computeIfAbsent(uuid, u -> new PlayerStats(name));
+        return map.computeIfAbsent(uuid, u -> { PlayerStats p = new PlayerStats(name); p.firstJoinTimestamp = System.currentTimeMillis(); return p; });
     }
-
     public PlayerStats peek(UUID uuid) { return map.get(uuid); }
-
     public Map<UUID, PlayerStats> all() { return map; }
-
     public int size() { return map.size(); }
-
     public void clear() { map.clear(); }
 
     public void load(MinecraftServer server) {
@@ -81,9 +97,6 @@ public final class StatTracker {
             Path file = statsPath(server);
             if (!Files.exists(file)) return;
             String raw = Files.readString(file, StandardCharsets.UTF_8);
-            // Tiny manual JSON parse — no Gson dep needed on the server.
-            // Format: {"<uuid>": {"name":"X","mining":N,"pvp":N,"playtime":N}, ...}
-            // Keeps dependencies zero so the mod jar stays tiny.
             for (String line : raw.split("\n")) {
                 String l = line.trim();
                 if (!l.startsWith("\"")) continue;
@@ -95,9 +108,19 @@ public final class StatTracker {
                 if (objStart < 0 || objEnd < 0) continue;
                 String body = l.substring(objStart + 1, objEnd);
                 PlayerStats st = new PlayerStats(extractString(body, "name", "?"));
-                st.mining = extractLong(body, "mining");
-                st.pvpKills = extractLong(body, "pvp");
+                st.firstJoinTimestamp = extractLong(body, "firstJoin");
+                if (st.firstJoinTimestamp == 0) st.firstJoinTimestamp = System.currentTimeMillis();
+                st.mining        = extractLong(body, "mining");
+                st.pvpKills      = extractLong(body, "pvp");
                 st.playtimeTicks = extractLong(body, "playtime");
+                st.mobKills      = extractLong(body, "mobKills");
+                st.animalKills   = extractLong(body, "animalKills");
+                st.crops         = extractLong(body, "crops");
+                st.diamonds      = extractLong(body, "diamonds");
+                st.woodChopped   = extractLong(body, "wood");
+                st.damageDealt   = extractLong(body, "dmgDealt");
+                st.damageTaken   = extractLong(body, "dmgTaken");
+                st.deaths        = extractLong(body, "deaths");
                 try { map.put(UUID.fromString(uuidStr), st); } catch (Exception ignored) {}
             }
         } catch (IOException ignored) {}
@@ -115,9 +138,18 @@ public final class StatTracker {
                 PlayerStats s = e.getValue();
                 sb.append("  \"").append(e.getKey()).append("\": {");
                 sb.append("\"name\":\"").append(escape(s.name)).append("\",");
+                sb.append("\"firstJoin\":").append(s.firstJoinTimestamp).append(",");
                 sb.append("\"mining\":").append(s.mining).append(",");
                 sb.append("\"pvp\":").append(s.pvpKills).append(",");
-                sb.append("\"playtime\":").append(s.playtimeTicks);
+                sb.append("\"playtime\":").append(s.playtimeTicks).append(",");
+                sb.append("\"mobKills\":").append(s.mobKills).append(",");
+                sb.append("\"animalKills\":").append(s.animalKills).append(",");
+                sb.append("\"crops\":").append(s.crops).append(",");
+                sb.append("\"diamonds\":").append(s.diamonds).append(",");
+                sb.append("\"wood\":").append(s.woodChopped).append(",");
+                sb.append("\"dmgDealt\":").append(s.damageDealt).append(",");
+                sb.append("\"dmgTaken\":").append(s.damageTaken).append(",");
+                sb.append("\"deaths\":").append(s.deaths);
                 sb.append("}");
             }
             sb.append("\n}\n");
@@ -126,9 +158,6 @@ public final class StatTracker {
     }
 
     private static Path statsPath(MinecraftServer server) {
-        // Server-side world save dir → world/iceysmp/stats.json. Survives
-        // restarts, doesn't leak between server worlds (e.g. multiple SMPs
-        // on the same host).
         Path world = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT);
         return world.resolve("iceysmp").resolve("stats.json");
     }
@@ -158,64 +187,101 @@ public final class StatTracker {
     // ── Event wiring ───────────────────────────────────────────────────
 
     public static void registerEvents(StatTracker stats, CombatTracker combat, SmpConfig config) {
-        // Mining: count when an ore is broken in survival/adventure
+        // Block breaks: mining + crops + wood + diamonds (all from one hook)
         PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
             try {
                 if (!(player instanceof ServerPlayerEntity sp)) return;
                 if (sp.isCreative() || sp.isSpectator()) return;
-                if (!MINING_BLOCKS.contains(state.getBlock())) return;
+                Block b = state.getBlock();
                 PlayerStats ps = stats.get(sp.getUuid(), sp.getName().getString());
-                ps.mining++;
                 ps.name = sp.getName().getString();
+                if (MINING_BLOCKS.contains(b)) ps.mining++;
+                if (DIAMOND_BLOCKS.contains(b)) ps.diamonds++;
+                if (WOOD_BLOCKS.contains(b)) ps.woodChopped++;
+                if (CROP_BLOCKS.contains(b)) ps.crops++;
             } catch (Throwable ignored) {}
         });
 
-        // PvP: hook AFTER_DEATH so we see the kill with the proper damage source
+        // Deaths: PvP kill steal, mob kill bucket, animal kill bucket, own death
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             try {
-                if (!(entity instanceof ServerPlayerEntity victim)) return;
                 PlayerEntity attacker = resolveAttacker(source);
-                if (!(attacker instanceof ServerPlayerEntity sp)) return;
-                if (sp.getUuid().equals(victim.getUuid())) return; // suicide
 
-                // Anti-farm: both must be combat-tagged on each other
-                if (!combat.bothTagged(sp.getUuid(), victim.getUuid())) return;
-                // Anti-farm: same victim cooldown
-                if (!combat.canCountKill(sp.getUuid(), victim.getUuid(), config.sameVictimCooldownSeconds())) return;
+                if (entity instanceof ServerPlayerEntity victim) {
+                    // Victim's own death counter
+                    PlayerStats vs = stats.get(victim.getUuid(), victim.getName().getString());
+                    vs.deaths++;
+                    vs.name = victim.getName().getString();
 
-                PlayerStats ps = stats.get(sp.getUuid(), sp.getName().getString());
-                ps.pvpKills++;
-                ps.name = sp.getName().getString();
-                combat.recordKill(sp.getUuid(), victim.getUuid());
+                    if (attacker instanceof ServerPlayerEntity sp && !sp.getUuid().equals(victim.getUuid())) {
+                        // PvP kill anti-farm gates
+                        if (NoobProtection.isProtected(stats.get(sp.getUuid(), sp.getName().getString()), config)
+                                || NoobProtection.isProtected(vs, config)) {
+                            // Protected players don't earn/give credit
+                        } else if (!combat.bothTagged(sp.getUuid(), victim.getUuid())) {
+                            // not actively fighting → no credit, no steal
+                        } else if (!combat.canCountKill(sp.getUuid(), victim.getUuid(), config.sameVictimCooldownSeconds())) {
+                            // already-killed-this-player → no credit, no steal
+                        } else {
+                            PlayerStats attackerStats = stats.get(sp.getUuid(), sp.getName().getString());
+                            attackerStats.pvpKills++;
+                            attackerStats.name = sp.getName().getString();
+                            if (config.killStealsStats()) attackerStats.absorbFrom(vs);
+                            combat.recordKill(sp.getUuid(), victim.getUuid());
+                        }
+                    }
+                    combat.clearCombat(victim.getUuid());
+                } else if (entity instanceof LivingEntity le) {
+                    // Mob/animal kill credit for the attacker
+                    if (attacker instanceof ServerPlayerEntity sp) {
+                        PlayerStats ps = stats.get(sp.getUuid(), sp.getName().getString());
+                        ps.name = sp.getName().getString();
+                        if (le instanceof HostileEntity) ps.mobKills++;
+                        else if (le instanceof PassiveEntity) ps.animalKills++;
+                    }
+                }
             } catch (Throwable ignored) {}
         });
 
-        // Combat tag: when one player damages another, tag both
+        // Damage: combat tag, damage dealt, damage taken, noob protection cancel
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
             try {
-                if (!(entity instanceof ServerPlayerEntity victim)) return true;
                 PlayerEntity attacker = resolveAttacker(source);
-                if (!(attacker instanceof ServerPlayerEntity sp)) return true;
-                if (sp.getUuid().equals(victim.getUuid())) return true;
-                combat.tag(sp.getUuid(), victim.getUuid());
+
+                // Noob protection: cancel any PvP damage to/from protected players
+                if (entity instanceof ServerPlayerEntity victim
+                        && attacker instanceof ServerPlayerEntity sp
+                        && !sp.getUuid().equals(victim.getUuid())) {
+                    PlayerStats vs = stats.get(victim.getUuid(), victim.getName().getString());
+                    PlayerStats as = stats.get(sp.getUuid(), sp.getName().getString());
+                    if (NoobProtection.isProtected(vs, config) || NoobProtection.isProtected(as, config)) {
+                        return false; // cancel damage
+                    }
+                    combat.tag(sp.getUuid(), victim.getUuid());
+                    as.damageDealt += (long) (amount * 10);
+                    vs.damageTaken += (long) (amount * 10);
+                } else if (entity instanceof ServerPlayerEntity victim) {
+                    // Damage from non-player source: just mark victim in combat for /spawn gating
+                    combat.tagOne(victim.getUuid());
+                    PlayerStats vs = stats.get(victim.getUuid(), victim.getName().getString());
+                    vs.damageTaken += (long) (amount * 10);
+                } else if (attacker instanceof ServerPlayerEntity sp) {
+                    // Player hitting mob: counts toward damage-dealt + their combat tag
+                    PlayerStats as = stats.get(sp.getUuid(), sp.getName().getString());
+                    as.damageDealt += (long) (amount * 10);
+                    combat.tagOne(sp.getUuid());
+                }
             } catch (Throwable ignored) {}
-            return true; // never cancel damage
+            return true;
         });
     }
 
     private static PlayerEntity resolveAttacker(DamageSource source) {
         try {
             if (source == null) return null;
-            // getAttacker vs getSource — getAttacker is the entity holding the
-            // weapon; getSource is the projectile/etc. We want the holder.
             if (source.getAttacker() instanceof PlayerEntity p) return p;
             if (source.getSource() instanceof PlayerEntity p) return p;
         } catch (Throwable ignored) {}
         return null;
     }
-
-    // Note: PersistentStateManager import unused at the moment but kept for v2
-    // when we move stats into the world's persistent-state machinery.
-    @SuppressWarnings("unused")
-    private static final Class<?> _keepImport = PersistentStateManager.class;
 }

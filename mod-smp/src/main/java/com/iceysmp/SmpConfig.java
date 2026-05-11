@@ -8,32 +8,34 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Plain-text config in {@code config/iceysmp.properties}. Tiny — no toml/
- * gson dependency needed. Reload-able via the {@code /icey reload} command.
- *
- * Keep the field set small so a server admin opening this file isn't lost.
- * If we add more knobs later, keep them grouped by category.
+ * Plain-text config in {@code config/iceysmp.properties}. No toml/gson
+ * dependency. Reload-able via {@code /icey reload}.
  */
 public final class SmpConfig {
 
     private int recomputeSeconds = 30;
-    private int combatTagSeconds = 10;
-    private int sameVictimCooldownSeconds = 600; // 10 minutes
-    private int effectDurationSeconds = 60;      // refreshed on each recompute
+    private int combatTagSeconds = 25;          // bumped from 10 → 25
+    private int sameVictimCooldownSeconds = 0;   // 0 = never count same victim twice
+    private int effectDurationSeconds = 60;
+    private int noobProtectionMinutes = 10;
+    private boolean starterKit = true;
+    private boolean killStealsStats = true;
+    private boolean killOnCombatLogout = true;
 
     public int recomputeSeconds() { return recomputeSeconds; }
     public int combatTagSeconds() { return combatTagSeconds; }
     public int sameVictimCooldownSeconds() { return sameVictimCooldownSeconds; }
     public int effectDurationSeconds() { return effectDurationSeconds; }
+    public int noobProtectionMinutes() { return noobProtectionMinutes; }
+    public boolean starterKit() { return starterKit; }
+    public boolean killStealsStats() { return killStealsStats; }
+    public boolean killOnCombatLogout() { return killOnCombatLogout; }
 
     public static SmpConfig loadOrDefault() {
         SmpConfig c = new SmpConfig();
         try {
             Path file = configPath();
-            if (!Files.exists(file)) {
-                writeDefault(c, file);
-                return c;
-            }
+            if (!Files.exists(file)) { writeDefault(c, file); return c; }
             for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
                 String l = line.trim();
                 if (l.isEmpty() || l.startsWith("#")) continue;
@@ -46,7 +48,11 @@ public final class SmpConfig {
                         case "recomputeSeconds"          -> c.recomputeSeconds          = clamp(Integer.parseInt(v), 5, 3600);
                         case "combatTagSeconds"          -> c.combatTagSeconds          = clamp(Integer.parseInt(v), 1, 120);
                         case "sameVictimCooldownSeconds" -> c.sameVictimCooldownSeconds = clamp(Integer.parseInt(v), 0, 86400);
-                        case "effectDurationSeconds"    -> c.effectDurationSeconds    = clamp(Integer.parseInt(v), 5, 3600);
+                        case "effectDurationSeconds"     -> c.effectDurationSeconds     = clamp(Integer.parseInt(v), 5, 3600);
+                        case "noobProtectionMinutes"     -> c.noobProtectionMinutes     = clamp(Integer.parseInt(v), 0, 1440);
+                        case "starterKit"                -> c.starterKit                = Boolean.parseBoolean(v);
+                        case "killStealsStats"           -> c.killStealsStats           = Boolean.parseBoolean(v);
+                        case "killOnCombatLogout"        -> c.killOnCombatLogout        = Boolean.parseBoolean(v);
                     }
                 } catch (NumberFormatException ignored) {}
             }
@@ -60,22 +66,29 @@ public final class SmpConfig {
                 # Icey SMP — server-side leaderboard config
                 # How often the leaderboard is recomputed and buffs reassigned.
                 recomputeSeconds=%d
-                # How long a player stays "in combat" after damaging another.
+                # Combat tag duration. While tagged you can't /spawn, and logging
+                # out kills you (if killOnCombatLogout=true).
                 combatTagSeconds=%d
                 # Cooldown per attacker→victim pair before a kill counts again.
+                # 0 = same victim NEVER counts a second time (recommended).
                 sameVictimCooldownSeconds=%d
                 # Length of the buff effect applied each recompute cycle.
-                # Should be ≥ recomputeSeconds so the effect never visibly fades.
                 effectDurationSeconds=%d
-                """.formatted(c.recomputeSeconds, c.combatTagSeconds, c.sameVictimCooldownSeconds, c.effectDurationSeconds);
+                # Noob protection: from first join, this many minutes of no-PvP.
+                noobProtectionMinutes=%d
+                # Give iron armor + iron sword/pick/axe on first join.
+                starterKit=%b
+                # On a PvP kill, transfer all of the victim's stats to the killer.
+                killStealsStats=%b
+                # If a player disconnects while combat-tagged, kill them.
+                killOnCombatLogout=%b
+                """.formatted(
+                        c.recomputeSeconds, c.combatTagSeconds, c.sameVictimCooldownSeconds,
+                        c.effectDurationSeconds, c.noobProtectionMinutes,
+                        c.starterKit, c.killStealsStats, c.killOnCombatLogout);
         Files.writeString(file, body, StandardCharsets.UTF_8);
     }
 
-    private static int clamp(int v, int lo, int hi) {
-        return Math.max(lo, Math.min(hi, v));
-    }
-
-    private static Path configPath() {
-        return FabricLoader.getInstance().getConfigDir().resolve("iceysmp.properties");
-    }
+    private static int clamp(int v, int lo, int hi) { return Math.max(lo, Math.min(hi, v)); }
+    private static Path configPath() { return FabricLoader.getInstance().getConfigDir().resolve("iceysmp.properties"); }
 }

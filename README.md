@@ -6,6 +6,46 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.81.0
+
+iceymod+ overhaul. Server mod gets PvP guardrails + more stats + count-based effect scaling, client mod moves the leaderboard key.
+
+**New categories** (8 new on top of Mining/PvP/Playtime — 11 total):
+- Mob Kills → Resistance
+- Animal Kills → Night Vision
+- Farming (crops harvested) → Haste
+- Diamonds Mined → Speed
+- Wood Chopped → Haste
+- Damage Dealt → Strength
+- Damage Taken → Resistance
+- Deaths → Regeneration
+
+All stats are **stealable** — when player A kills player B in legitimate combat, all of B's counters transfer to A and B's reset to 0.
+
+**Effect amp scaling** (per category, per player, based on own count):
+- Counts 1/2/3 → amp 0/1/2 (Level I/II/III)
+- Each +5 counts past 3 → +1 amp (up to amp 7 at count 28)
+- Each +15 counts past 28 → +1 amp thereafter
+- Per-effect caps: Strength=5, Resistance=3, Speed=4, JumpBoost=5, others=9
+
+So your first 3 of anything gives you 1-by-1 boosts, then progression slows down. Top player gets a fame announcement (bold!) in chat: `[Icey SMP] PlayerX is now top of Mining (1247)`.
+
+**PvP guardrails:**
+- **Noob protection:** new players get 10 min from first join — no PvP damage to or from them
+- **Starter kit:** iron armor (helm/chest/legs/boots) + iron sword/pickaxe/axe/shovel + 16 cooked beef on first join
+- **Combat tag:** 25 sec (bumped from 10). Both players must hit each other in this window for a kill to count
+- **Combat logout = death:** disconnect while combat-tagged → killed automatically on next connect attempt (drops inventory normally)
+- **Same victim never counts twice** by default (`sameVictimCooldownSeconds=0` means lifetime cooldown — kill someone once, that pairing is dead for stat purposes)
+- **/spawn** command teleports to world spawn. Blocked while combat-tagged
+- All `/icey` and `/spawn` commands work from server console (op-level checks bypassed there) and on dedicated multiplayer servers
+
+**Client:**
+- Leaderboard keybind moved from `;` to `N` (per the request)
+- Auto-sprint keybind unbound from N (was a collision) — rebind via Controls if you want
+- Top-of-category chat announcements are bold so you can't miss them
+
+**Config knobs** in `config/iceysmp.properties`: `recomputeSeconds`, `combatTagSeconds`, `sameVictimCooldownSeconds`, `effectDurationSeconds`, `noobProtectionMinutes`, `starterKit`, `killStealsStats`, `killOnCombatLogout`.
+
 ## What's new in v1.80.0
 
 - **`;` opens an iceymod+ leaderboard picker** in-game. Three buttons (Mining / PvP / Playtime); click one and the client sends `/icey top <category>` for you, response renders in chat. Works on any server (or singleplayer world) that has iceymod+ installed. New keybind `key.iceymod.leaderboard` default `SEMICOLON` — rebindable like every other Icey keybind.
