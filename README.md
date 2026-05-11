@@ -1,22 +1,43 @@
 llb ty for downloading 
 get .exe for windows
 
-## Download iceymod+ (server mod)
+## Download iceymod+
 
-Drop the jar directly into your server's `mods/` folder (or your singleplayer client's mods folder — it works in both). Direct downloads per MC version, no launcher needed:
+Two flavors. Both downloadable directly from the latest GitHub release — no launcher required.
 
-- **MC 1.21** → [iceymodplus-mc1.21-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-mc1.21-1.0.0.jar)
-- **MC 1.21.5** → [iceymodplus-mc1.21.5-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-mc1.21.5-1.0.0.jar)
-- **MC 1.21.8** → [iceymodplus-mc1.21.8-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-mc1.21.8-1.0.0.jar)
-- **MC 1.21.11** → [iceymodplus-mc1.21.11-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-mc1.21.11-1.0.0.jar)
+### Server mod (Fabric)
+Full feature set — steal-on-kill, combat tag, /icey commands, /spawn, noob protection, starter kit. **Requires Fabric Loader on the server** (or use it on singleplayer via your client's mods/ folder).
 
-`latest/download/` always resolves to the most recent release tag. Pick the build that matches (or is older than) your server's MC version.
+- **MC 1.21** → [iceymodplus-server-mod-mc1.21-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21-1.0.0.jar)
+- **MC 1.21.5** → [iceymodplus-server-mod-mc1.21.5-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.5-1.0.0.jar)
+- **MC 1.21.8** → [iceymodplus-server-mod-mc1.21.8-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.8-1.0.0.jar)
+- **MC 1.21.11** → [iceymodplus-server-mod-mc1.21.11-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.11-1.0.0.jar)
+
+Drop into `mods/`, restart.
+
+### Server pack (datapack)
+Vanilla-compatible — works on any 1.21+ server with **no mods needed**. Auto-buffs from MC's builtin scoreboard objectives. No PvP guardrails / no /icey commands — feature subset.
+
+- [iceymodplus-server-pack-1.0.0.zip](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-pack-1.0.0.zip) (same zip for every MC version in the 1.21+ range)
+
+Drop into `<world>/datapacks/` and run `/reload`.
+
+`latest/download/` always resolves to the most recent release tag.
 
 
 get arm 64x .dmg for mac but make sure to run this command if the app says iceyclient is damaged and cant be opened: 
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.80.12
+
+Artifact rename for clarity — both downloadable directly from `releases/latest/`:
+
+- **Server mod** (Fabric jar): `iceymodplus-server-mod-mc<MCVER>-1.0.0.jar` (was `iceymodplus-mc<MCVER>-1.0.0.jar`)
+- **Server pack** (datapack zip): `iceymodplus-server-pack-1.0.0.zip` (was `iceymodplus-datapack-1.0.0.zip`)
+
+Updated everywhere it's referenced — `mod-smp/gradle.properties` `archives_base_name`, CI artifact paths, launcher download URLs, launcher chooser-modal labels ("Server Mod (Fabric)" / "Server Pack (datapack)"), README direct-download section.
 
 ## What's new in v1.80.11
 

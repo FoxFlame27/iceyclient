@@ -462,12 +462,12 @@ async function _optDownloadIceySmp() {
       </p>
       <div style="display:flex;gap:8px;flex-direction:column;">
         <button class="import-pick-item" id="smp-mod-btn">
-          <div class="import-pick-name">Mod (Fabric)</div>
-          <div class="import-pick-meta">Installs into your selected installation's mods/. Singleplayer ✓ · Fabric server ✓</div>
+          <div class="import-pick-name">Server Mod (Fabric)</div>
+          <div class="import-pick-meta">Installs into your selected installation's mods/. Singleplayer ✓ · Fabric server ✓ · Full features</div>
         </button>
         <button class="import-pick-item" id="smp-datapack-btn">
-          <div class="import-pick-name">Datapack</div>
-          <div class="import-pick-meta">Downloads a zip. Drop into &lt;world&gt;/datapacks/. Vanilla server ✓ · No Fabric needed</div>
+          <div class="import-pick-name">Server Pack (datapack)</div>
+          <div class="import-pick-meta">Downloads a zip. Drop into &lt;world&gt;/datapacks/. Vanilla server ✓ · No Fabric needed · Buffs only</div>
         </button>
       </div>
     </div>
@@ -484,7 +484,7 @@ async function _optInstallIceySmpMod() {
     if (selected.platform !== 'fabric') { Toast.error('The Mod option requires a Fabric installation. Use the Datapack option for vanilla.'); return; }
     Toast.info('Downloading iceymod+ mod jar…');
     const mcVer = _smpResolveBuildVersion(selected.version);
-    const filename = `iceymodplus-mc${mcVer}-1.0.0.jar`;
+    const filename = `iceymodplus-server-mod-mc${mcVer}-1.0.0.jar`;
     const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/${filename}`;
     const gameDir = await window.icey.getInstallGameDir(selected.id);
     const dest = gameDir + '/mods/' + filename;
@@ -498,8 +498,8 @@ async function _optInstallIceySmpMod() {
 
 async function _optInstallIceySmpDatapack() {
   try {
-    Toast.info('Downloading iceymod+ datapack…');
-    const filename = 'iceymodplus-datapack-1.0.0.zip';
+    Toast.info('Downloading iceymod+ server pack…');
+    const filename = 'iceymodplus-server-pack-1.0.0.zip';
     const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/${filename}`;
     const dataDir = await window.icey.getDataDir();
     const dest = dataDir + '/downloads/' + filename;
