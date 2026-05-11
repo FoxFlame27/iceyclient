@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "iceysmp",
+  "version": "${version}",
+  "name": "Icey SMP",
+  "description": "Server-side leaderboard + auto-buff system. Top players in Mining / PvP / Playtime get Haste, Strength, and Saturation. Anti-farm via combat tag + victim cooldown.",
+  "authors": ["Icey Client"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "main": ["com.iceysmp.IceySmp"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": ">=${mcversion}",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

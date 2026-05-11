@@ -371,6 +371,21 @@ function _renderAdvancedOptions(page, settings) {
           </div>
         </div>
       </div>
+
+      <div class="options-section">
+        <div class="options-section-title">Server Plugins</div>
+        <div class="options-card">
+          <div class="options-row">
+            <div class="options-row-label">
+              <span class="options-row-name">Icey SMP</span>
+              <span class="options-row-desc">Server-side Fabric mod. Tracks Mining, PvP, and Playtime; the top players get Haste, Strength, and Saturation automatically. Anti-farm via combat tag + victim cooldown. Drop into your server's <code>mods/</code> folder.</span>
+            </div>
+            <div class="options-row-control">
+              <button class="options-btn" id="opt-smp-download-btn" onclick="_optDownloadIceySmp()">Download This Mod</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   `;
   _optLoadAccount();
@@ -427,6 +442,62 @@ async function _optLogout() {
   Toast.info('Logged out');
   loadNavProfile();
   _optLoadAccount();
+}
+
+/**
+ * Download the Icey SMP server mod jar matched to the user's currently-
+ * selected installation's MC version. We ship 4 jars (built per-MC-version
+ * by CI): 1.21, 1.21.5, 1.21.8, 1.21.11. Any user MC version between those
+ * rounds DOWN to the nearest one that's compatible.
+ */
+async function _optDownloadIceySmp() {
+  const btn = document.getElementById('opt-smp-download-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Downloading...'; }
+  try {
+    const installations = await window.icey.getInstallations();
+    const selected = installations.find(i => i.selected) || installations[0];
+    if (!selected) {
+      Toast.error('Create an installation first so we know which MC version to download');
+      return;
+    }
+    const mcVer = _smpResolveBuildVersion(selected.version);
+    const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceysmp-mc${mcVer}-1.0.0.jar`;
+    const dataDir = await window.icey.getDataDir();
+    const dest = dataDir + '/downloads/iceysmp-mc' + mcVer + '-1.0.0.jar';
+    const result = await window.icey.downloadFile(url, dest);
+    if (result && result.error) {
+      Toast.error('Download failed: ' + result.error + ' (build may not be on the latest release yet)');
+      return;
+    }
+    Toast.success('Downloaded iceysmp-mc' + mcVer + '.jar');
+    window.icey.openFolder(dataDir + '/downloads');
+  } catch (e) {
+    Toast.error('Download failed: ' + (e && e.message ? e.message : e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Download This Mod'; }
+  }
+}
+
+/** Map a user MC version (e.g. "1.21.7") to the build target we shipped
+ *  (1.21, 1.21.5, 1.21.8, 1.21.11). Same-or-newer-patch within the same
+ *  minor is compatible; we round down. */
+function _smpResolveBuildVersion(userVersion) {
+  const buildTargets = ['1.21', '1.21.5', '1.21.8', '1.21.11'];
+  const targetOrder = buildTargets.map(v => v.split('.').map(Number));
+  const userParts = String(userVersion || '').split('.').map(n => parseInt(n, 10) || 0);
+  // Walk from highest to lowest target; pick first one ≤ user version.
+  for (let i = targetOrder.length - 1; i >= 0; i--) {
+    const t = targetOrder[i];
+    if (_smpCmpVer(userParts, t) >= 0) return buildTargets[i];
+  }
+  return buildTargets[0]; // user is on something older than 1.21, fall back
+}
+function _smpCmpVer(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] || 0, y = b[i] || 0;
+    if (x !== y) return x - y;
+  }
+  return 0;
 }
 
 async function _optSet(key, value) { await SettingsManager.set(key, value); }

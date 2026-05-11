@@ -6,6 +6,12 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.79.0
+
+- **Icey SMP — new server-side Fabric mod.** Drop the jar in your server's `mods/` folder. Tracks Mining (top players get Haste II / Haste I), PvP (Strength II / Strength I), and Playtime (top player gets Saturation). Anti-farm: combat tag (10s, both must be tagged), same-victim kill cooldown (10min), ore-block whitelist. Recomputes every 30s; effects refresh on each cycle so they auto-fade when you drop off the top. Stats persist to `world/iceysmp/stats.json`. Commands: `/icey top mining|pvp|playtime`, `/icey reload` (op-3), `/icey reset` (op-4). Config file at `config/iceysmp.properties` (intervals, cooldowns, effect duration). Works on Minecraft 1.21 through 1.21.11 via per-version CI builds.
+- **Settings → Advanced → "Download This Mod" button** for Icey SMP. Auto-detects your currently-selected installation's MC version and pulls the matching jar from the latest GitHub release. User MC versions are rounded down to the nearest build target (1.21 / 1.21.5 / 1.21.8 / 1.21.11) — e.g. MC 1.21.7 gets the `mc1.21.5` jar. Downloaded to `~/.iceyclient/downloads/` and the folder opens automatically so you can move the jar to your server.
+- **CI: per-version `iceysmp` jar matrix.** New `build-smp` job builds 4 jars in parallel (one per supported MC version) and attaches them all to the release. The release job depends on the matrix so partial-failure of one version doesn't block the launcher build.
+
 ## What's new in v1.78.2
 
 - **Fix: HUDs only showed in edit mode, blank in actual gameplay.** Root cause was an old defensive pattern in `HudManager.render` / `tick`: any module that threw a single exception was permanently disabled and its `enabled=false` saved to `iceymod.json`. The HUD edit screen has its own render path that silently catches exceptions and keeps drawing — that's why moving HUDs around showed them but normal play didn't. On new MC versions where multiple modules can throw on first render call, this auto-disable cascade left users with a nearly-empty HUD bar that didn't recover even after the underlying compat bug was fixed. Now: render/tick errors are silently caught, the module is *not* disabled, and we log the error once per module per session (not once per frame) so stdout doesn't get flooded.
