@@ -377,11 +377,10 @@ function _renderAdvancedOptions(page, settings) {
         <div class="options-card">
           <div class="options-row">
             <div class="options-row-label">
-              <span class="options-row-name">Icey SMP</span>
-              <span class="options-row-desc">Server-side Fabric mod. Tracks Mining, PvP, and Playtime; the top players get Haste, Strength, and Saturation automatically. Anti-farm via combat tag + victim cooldown. Drop into your server's <code>mods/</code> folder.</span>
+              <span class="options-row-name">iceymod+</span>
             </div>
             <div class="options-row-control">
-              <button class="options-btn" id="opt-smp-download-btn" onclick="_optDownloadIceySmp()">Download This Mod</button>
+              <button class="options-btn" id="opt-smp-download-btn" onclick="_optDownloadIceySmp()">Download iceymod+</button>
             </div>
           </div>
         </div>
@@ -445,36 +444,43 @@ async function _optLogout() {
 }
 
 /**
- * Download the Icey SMP server mod jar matched to the user's currently-
- * selected installation's MC version. We ship 4 jars (built per-MC-version
- * by CI): 1.21, 1.21.5, 1.21.8, 1.21.11. Any user MC version between those
- * rounds DOWN to the nearest one that's compatible.
+ * Install iceymod+ directly into the selected installation's mods folder.
+ * Picks the per-MC-version jar from the latest GitHub release that matches
+ * the installation's MC version (rounded down to the nearest build target:
+ * 1.21, 1.21.5, 1.21.8, 1.21.11). Works in singleplayer (the integrated
+ * server picks it up) and on dedicated Fabric servers (drop the same jar
+ * in the server's mods/ folder — for that the user can grab it from
+ * ~/.iceyclient/installations/<id>/game/mods/).
  */
 async function _optDownloadIceySmp() {
   const btn = document.getElementById('opt-smp-download-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Downloading...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Installing...'; }
   try {
     const installations = await window.icey.getInstallations();
     const selected = installations.find(i => i.selected) || installations[0];
     if (!selected) {
-      Toast.error('Create an installation first so we know which MC version to download');
+      Toast.error('Create an installation first');
+      return;
+    }
+    if (selected.platform !== 'fabric') {
+      Toast.error('iceymod+ requires a Fabric installation');
       return;
     }
     const mcVer = _smpResolveBuildVersion(selected.version);
-    const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceysmp-mc${mcVer}-1.0.0.jar`;
-    const dataDir = await window.icey.getDataDir();
-    const dest = dataDir + '/downloads/iceysmp-mc' + mcVer + '-1.0.0.jar';
+    const filename = `iceysmp-mc${mcVer}-1.0.0.jar`;
+    const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/${filename}`;
+    const gameDir = await window.icey.getInstallGameDir(selected.id);
+    const dest = gameDir + '/mods/' + filename;
     const result = await window.icey.downloadFile(url, dest);
     if (result && result.error) {
-      Toast.error('Download failed: ' + result.error + ' (build may not be on the latest release yet)');
+      Toast.error('Install failed: ' + result.error + ' (build may not be on the latest release yet)');
       return;
     }
-    Toast.success('Downloaded iceysmp-mc' + mcVer + '.jar');
-    window.icey.openFolder(dataDir + '/downloads');
+    Toast.success('Installed iceymod+ — restart MC to enable');
   } catch (e) {
-    Toast.error('Download failed: ' + (e && e.message ? e.message : e));
+    Toast.error('Install failed: ' + (e && e.message ? e.message : e));
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Download This Mod'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Download iceymod+'; }
   }
 }
 

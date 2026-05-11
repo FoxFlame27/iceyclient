@@ -9,6 +9,7 @@ import com.iceymod.hud.modules.WaypointManager;
 import com.iceymod.hud.modules.WaypointsModule;
 import com.iceymod.hud.modules.ZoomModule;
 import com.iceymod.screen.IceyModScreen;
+import com.iceymod.screen.LeaderboardScreen;
 import com.iceymod.screen.StructureMenuScreen;
 import com.iceymod.screen.WaypointMenuScreen;
 import com.iceymod.structure.StructureTracker;
@@ -50,6 +51,7 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding structureKey;
     private static KeyBinding freecamKey;
     private static KeyBinding biomeKey;
+    private static KeyBinding leaderboardKey;
 
     @Override
     public void onInitializeClient() {
@@ -78,6 +80,7 @@ public class IceyMod implements ClientModInitializer {
         structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
         freecamKey      = registerKey("key.iceymod.freecam",      GLFW.GLFW_KEY_F4);
         biomeKey        = registerKey("key.iceymod.biome",        GLFW.GLFW_KEY_K);
+        leaderboardKey  = registerKey("key.iceymod.leaderboard",  GLFW.GLFW_KEY_SEMICOLON);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -104,6 +107,11 @@ public class IceyMod implements ClientModInitializer {
             while (wasPressed(biomeKey)) {
                 if (client.currentScreen == null) {
                     client.setScreen(new BiomeMenuScreen());
+                }
+            }
+            while (wasPressed(leaderboardKey)) {
+                if (client.currentScreen == null) {
+                    client.setScreen(new LeaderboardScreen());
                 }
             }
             while (wasPressed(freecamKey)) {

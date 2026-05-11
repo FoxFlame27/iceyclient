@@ -6,6 +6,12 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.0
+
+- **`;` opens an iceymod+ leaderboard picker** in-game. Three buttons (Mining / PvP / Playtime); click one and the client sends `/icey top <category>` for you, response renders in chat. Works on any server (or singleplayer world) that has iceymod+ installed. New keybind `key.iceymod.leaderboard` default `SEMICOLON` — rebindable like every other Icey keybind.
+- **iceymod+ now works in singleplayer.** Changed the mod's `environment` from `server` to `*` so it loads in the integrated server that singleplayer starts. Drop the jar into your client installation's `mods/` folder (or use the launcher button) and `/icey top mining` works in-world.
+- **Launcher download flow is install, not download.** The Settings → Advanced "Download iceymod+" button no longer dumps the jar into `~/.iceyclient/downloads/`. It places the jar directly into the currently-selected installation's `mods/` folder (same logic the auto-fabric-api install uses). Toast says "Installed iceymod+ — restart MC to enable". Refuses to install on Vanilla installations with a clear error. The card itself is reduced to one line: just the button.
+
 ## What's new in v1.79.2
 
 - **CI fix:** Yarn renamed `ServerCommandSource.hasPermissionLevel(int)` to `hasPermission(int)` somewhere in the 1.21.x matrix, and the exact MC version differs by Yarn build, so hardcoding either name fails to compile against the other half of our matrix. `SmpCommands` now does a class-init-time `MethodHandle` lookup that tries both names and caches whichever resolves — the command predicates call through that cached handle. Source compiles cleanly against every Yarn version.
