@@ -65,6 +65,13 @@ public final class IceySmp implements ModInitializer {
                 if (stats != null) stats.load(server);
                 if (leaderboard != null) leaderboard.bind(server);
                 System.out.println("[IceySMP] SERVER_STARTED: " + (stats == null ? 0 : stats.size()) + " players in stats");
+                // Visible confirmation to players that the mod is actually loaded.
+                // Sent on a tick delay so it lands after any join messages.
+                try {
+                    server.execute(() -> server.getPlayerManager().broadcast(
+                            net.minecraft.text.Text.literal("§b§l[iceymod+] §aLoaded! §7Type §f/icey§7 or press §fN§7 to see commands."),
+                            false));
+                } catch (Throwable ignored) {}
             });
             ServerLifecycleEvents.SERVER_STOPPING.register(server -> { if (stats != null) stats.save(server); });
             ServerTickEvents.END_SERVER_TICK.register(server -> {

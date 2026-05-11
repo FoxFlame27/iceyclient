@@ -18,6 +18,21 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.11
+
+The crash log made it obvious: `/icey` doesn't work because the iceymod+ jar isn't actually loading. The launcher's download button URL was 404'ing (CI hadn't successfully built+attached the SMP jar to the latest release).
+
+**Datapack version** as a vanilla-server-friendly alternative — no Fabric required:
+- `mod-smp/datapack/` with `pack.mcmeta`, `data/iceymodplus/function/load.mcfunction`, `data/iceymodplus/function/tick.mcfunction`, and the `minecraft:load` + `minecraft:tick` function tags
+- CI's new `build-datapack` job zips the tree into `iceymodplus-datapack-1.0.0.zip` and attaches it to the release
+- Implements simpler tier-based auto-buffs (Mining: Haste I at 10 ores, II at 50, III at 200, etc.) using MC's builtin scoreboard objectives (`minecraft.mined:diamond_ore`, `minecraft.killed:player`, etc.). No steal-on-kill, no combat tag, no /icey commands — but works on any 1.21+ vanilla server.
+
+**Launcher Mod/Datapack picker:** clicking Download iceymod+ now opens a chooser. "Mod" installs the Fabric jar into the selected installation's mods/ folder (singleplayer / Fabric servers). "Datapack" downloads the zip to `~/.iceyclient/downloads/` for vanilla servers.
+
+**Visible mod-loaded confirmation:** server now broadcasts `[iceymod+] Loaded! Type /icey or press N` on every SERVER_STARTED. If you don't see this message, the jar isn't loading.
+
+**Removed wood + farming categories** as requested. Stays cleaner (14 categories now).
+
 ## What's new in v1.80.10
 
 - **`/icey` registers now even if other init breaks.** Restructured `IceySmp.onInitialize` so `SmpCommands.register()` runs FIRST, before any state setup (`SmpConfig.loadOrDefault`, `new StatTracker`, `new CombatTracker`, `new LeaderboardManager`). Each of those is wrapped in its own try/catch and logs progress to stdout (`[IceySMP] config loaded`, `[IceySMP] stats tracker ready`, etc.). Previously a single throwable anywhere in the init chain would skip command registration entirely — `/icey` simply wouldn't exist even though the mod claimed to be loaded. Now it always exists; commands null-check downstream state and report "not ready" if construction failed.

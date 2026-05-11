@@ -39,8 +39,6 @@ public final class StatTracker {
     // Block category sets — wrapped in safeAdd so a missing block on some MC
     // version doesn't blow up class init; we just lose that one binding.
     private static final Set<Block> MINING_BLOCKS = buildMiningSet();
-    private static final Set<Block> CROP_BLOCKS   = buildCropSet();
-    private static final Set<Block> WOOD_BLOCKS   = buildWoodSet();
     private static final Set<Block> DIAMOND_BLOCKS= buildDiamondSet();
 
     private static Set<Block> buildMiningSet() {
@@ -56,21 +54,6 @@ public final class StatTracker {
         safeAdd(s, () -> Blocks.COAL_ORE);        safeAdd(s, () -> Blocks.DEEPSLATE_COAL_ORE);
         safeAdd(s, () -> Blocks.NETHER_QUARTZ_ORE);
         safeAdd(s, () -> Blocks.ANCIENT_DEBRIS);
-        return s;
-    }
-    private static Set<Block> buildCropSet() {
-        Set<Block> s = new HashSet<>();
-        safeAdd(s, () -> Blocks.WHEAT);     safeAdd(s, () -> Blocks.CARROTS);  safeAdd(s, () -> Blocks.POTATOES);
-        safeAdd(s, () -> Blocks.BEETROOTS); safeAdd(s, () -> Blocks.MELON);    safeAdd(s, () -> Blocks.PUMPKIN);
-        safeAdd(s, () -> Blocks.NETHER_WART);
-        return s;
-    }
-    private static Set<Block> buildWoodSet() {
-        Set<Block> s = new HashSet<>();
-        safeAdd(s, () -> Blocks.OAK_LOG);    safeAdd(s, () -> Blocks.BIRCH_LOG); safeAdd(s, () -> Blocks.SPRUCE_LOG);
-        safeAdd(s, () -> Blocks.JUNGLE_LOG); safeAdd(s, () -> Blocks.ACACIA_LOG);safeAdd(s, () -> Blocks.DARK_OAK_LOG);
-        safeAdd(s, () -> Blocks.MANGROVE_LOG); safeAdd(s, () -> Blocks.CHERRY_LOG);
-        safeAdd(s, () -> Blocks.CRIMSON_STEM); safeAdd(s, () -> Blocks.WARPED_STEM);
         return s;
     }
     private static Set<Block> buildDiamondSet() {
@@ -207,8 +190,6 @@ public final class StatTracker {
                 ps.name = sp.getName().getString();
                 if (MINING_BLOCKS.contains(b)) ps.mining++;
                 if (DIAMOND_BLOCKS.contains(b)) ps.diamonds++;
-                if (WOOD_BLOCKS.contains(b)) ps.woodChopped++;
-                if (CROP_BLOCKS.contains(b)) ps.crops++;
             } catch (Throwable ignored) {}
         });
 
@@ -236,8 +217,22 @@ public final class StatTracker {
                             PlayerStats attackerStats = stats.get(sp.getUuid(), sp.getName().getString());
                             attackerStats.pvpKills++;
                             attackerStats.name = sp.getName().getString();
-                            if (config.killStealsStats()) attackerStats.absorbFrom(vs);
+                            long stolen = 0;
+                            if (config.killStealsStats()) {
+                                stolen = stealTotal(vs);
+                                attackerStats.absorbFrom(vs);
+                            }
                             combat.recordKill(sp.getUuid(), victim.getUuid());
+                            // Server-wide broadcast — bold so it doesn't get missed.
+                            try {
+                                String msg = "§b§l[Icey SMP] §c§l" + sp.getName().getString()
+                                        + " §rkilled §c§l" + victim.getName().getString()
+                                        + (stolen > 0 ? " §7and stole §b§l" + stolen + "§r§7 stats!" : "§7!");
+                                if (sp.getServer() != null) {
+                                    sp.getServer().getPlayerManager().broadcast(
+                                            net.minecraft.text.Text.literal(msg), false);
+                                }
+                            } catch (Throwable ignored) {}
                         }
                     }
                     combat.clearCombat(victim.getUuid());

@@ -254,8 +254,25 @@ jobs:
           name: smp-jar-mc${{ matrix.mc }}
           path: mod-smp/build/libs/iceymodplus-mc${{ matrix.mc }}-*.jar
 
+  build-datapack:
+    # Zip the mod-smp/datapack tree into iceymodplus-datapack-1.0.0.zip
+    # for vanilla servers that can't run Fabric mods. Single artifact —
+    # the datapack is version-agnostic across MC 1.21+ (pack.mcmeta uses
+    # supported_formats range).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zip datapack
+        run: |
+          cd mod-smp/datapack
+          zip -r ../../iceymodplus-datapack-1.0.0.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smp-datapack
+          path: iceymodplus-datapack-1.0.0.zip
+
   release:
-    needs: [build-windows, build-mac, build-linux-arm64, build-smp]
+    needs: [build-windows, build-mac, build-linux-arm64, build-smp, build-datapack]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:

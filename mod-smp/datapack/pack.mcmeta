@@ -1,0 +1,7 @@
+{
+  "pack": {
+    "pack_format": 48,
+    "supported_formats": {"min_inclusive": 41, "max_inclusive": 99},
+    "description": "iceymod+ datapack — auto-buffs from your own stats. No Fabric required. Drop in <world>/datapacks/."
+  }
+}

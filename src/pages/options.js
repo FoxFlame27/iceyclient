@@ -444,43 +444,71 @@ async function _optLogout() {
 }
 
 /**
- * Install iceymod+ directly into the selected installation's mods folder.
- * Picks the per-MC-version jar from the latest GitHub release that matches
- * the installation's MC version (rounded down to the nearest build target:
- * 1.21, 1.21.5, 1.21.8, 1.21.11). Works in singleplayer (the integrated
- * server picks it up) and on dedicated Fabric servers (drop the same jar
- * in the server's mods/ folder — for that the user can grab it from
- * ~/.iceyclient/installations/<id>/game/mods/).
+ * Open a chooser modal: Mod (Fabric jar, singleplayer integrated server +
+ * dedicated Fabric servers) or Datapack (vanilla server / any world with
+ * cheats — works without Fabric).
  */
 async function _optDownloadIceySmp() {
-  const btn = document.getElementById('opt-smp-download-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Installing...'; }
+  showModal(`
+    <div class="import-pick-modal" style="width:420px;">
+      <div class="import-pick-header">
+        <h2 class="import-pick-title">iceymod+ install</h2>
+        <button class="modal-close" onclick="closeModal()">
+          <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+      </div>
+      <p style="color:var(--text-secondary,#94a3b8);font-size:13px;line-height:1.5;margin:0 0 12px;">
+        Pick how you're using iceymod+. The mod has full features (steal-on-kill, combat tag, /icey commands). The datapack works on any vanilla server but only has count-tier auto-buffs.
+      </p>
+      <div style="display:flex;gap:8px;flex-direction:column;">
+        <button class="import-pick-item" id="smp-mod-btn">
+          <div class="import-pick-name">Mod (Fabric)</div>
+          <div class="import-pick-meta">Installs into your selected installation's mods/. Singleplayer ✓ · Fabric server ✓</div>
+        </button>
+        <button class="import-pick-item" id="smp-datapack-btn">
+          <div class="import-pick-name">Datapack</div>
+          <div class="import-pick-meta">Downloads a zip. Drop into &lt;world&gt;/datapacks/. Vanilla server ✓ · No Fabric needed</div>
+        </button>
+      </div>
+    </div>
+  `);
+  document.getElementById('smp-mod-btn').addEventListener('click', () => { closeModal(); _optInstallIceySmpMod(); });
+  document.getElementById('smp-datapack-btn').addEventListener('click', () => { closeModal(); _optInstallIceySmpDatapack(); });
+}
+
+async function _optInstallIceySmpMod() {
   try {
     const installations = await window.icey.getInstallations();
     const selected = installations.find(i => i.selected) || installations[0];
-    if (!selected) {
-      Toast.error('Create an installation first');
-      return;
-    }
-    if (selected.platform !== 'fabric') {
-      Toast.error('iceymod+ requires a Fabric installation');
-      return;
-    }
+    if (!selected) { Toast.error('Create an installation first'); return; }
+    if (selected.platform !== 'fabric') { Toast.error('The Mod option requires a Fabric installation. Use the Datapack option for vanilla.'); return; }
+    Toast.info('Downloading iceymod+ mod jar…');
     const mcVer = _smpResolveBuildVersion(selected.version);
     const filename = `iceymodplus-mc${mcVer}-1.0.0.jar`;
     const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/${filename}`;
     const gameDir = await window.icey.getInstallGameDir(selected.id);
     const dest = gameDir + '/mods/' + filename;
     const result = await window.icey.downloadFile(url, dest);
-    if (result && result.error) {
-      Toast.error('Install failed: ' + result.error + ' (build may not be on the latest release yet)');
-      return;
-    }
-    Toast.success('Installed iceymod+ — restart MC to enable');
+    if (result && result.error) { Toast.error('Install failed: ' + result.error + ' — build may not be on the latest release yet'); return; }
+    Toast.success('Installed iceymod+ mod — restart MC to enable');
   } catch (e) {
     Toast.error('Install failed: ' + (e && e.message ? e.message : e));
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Download iceymod+'; }
+  }
+}
+
+async function _optInstallIceySmpDatapack() {
+  try {
+    Toast.info('Downloading iceymod+ datapack…');
+    const filename = 'iceymodplus-datapack-1.0.0.zip';
+    const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/${filename}`;
+    const dataDir = await window.icey.getDataDir();
+    const dest = dataDir + '/downloads/' + filename;
+    const result = await window.icey.downloadFile(url, dest);
+    if (result && result.error) { Toast.error('Download failed: ' + result.error); return; }
+    Toast.success('Datapack downloaded — drop the zip into <world>/datapacks/');
+    window.icey.openFolder(dataDir + '/downloads');
+  } catch (e) {
+    Toast.error('Download failed: ' + (e && e.message ? e.message : e));
   }
 }
 

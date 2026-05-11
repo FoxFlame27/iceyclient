@@ -9,18 +9,17 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.UUID;
 
 public final class SmpCommands {
 
-    /** Yarn renamed hasPermissionLevel → hasPermission somewhere in 1.21.x;
-     *  we look up whichever exists at class init and cache. */
+    /** Yarn renamed hasPermissionLevel ↔ hasPermission across 1.21.x; resolve once. */
     private static final MethodHandle PERM_CHECK = resolvePermCheck();
 
     private static MethodHandle resolvePermCheck() {
@@ -46,6 +45,16 @@ public final class SmpCommands {
                     .then(CommandManager.argument("category", StringArgumentType.word())
                         .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
                         .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))))
+                .then(CommandManager.literal("me")
+                    .executes(ctx -> showSelf(ctx.getSource())))
+                .then(CommandManager.literal("stats")
+                    .then(CommandManager.argument("player", StringArgumentType.word())
+                        .suggests((ctx, b) -> {
+                            MinecraftServer s = ctx.getSource().getServer();
+                            if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
+                            return b.buildFuture();
+                        })
+                        .executes(ctx -> showStats(ctx.getSource(), StringArgumentType.getString(ctx, "player")))))
                 .then(CommandManager.literal("reload")
                     .requires(s -> hasPermLevel(s, 3))
                     .executes(ctx -> {
@@ -56,6 +65,7 @@ public final class SmpCommands {
                 .then(CommandManager.literal("reset")
                     .requires(s -> hasPermLevel(s, 4))
                     .executes(ctx -> {
+                        if (IceySmp.stats == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] not ready"), false); return 0; }
                         int n = IceySmp.stats.size();
                         IceySmp.stats.clear();
                         if (ctx.getSource().getServer() != null) IceySmp.stats.save(ctx.getSource().getServer());
@@ -63,14 +73,16 @@ public final class SmpCommands {
                         return 1;
                     }))
                 .executes(ctx -> {
-                    String cats = String.join("|", LeaderboardManager.categoryIds());
-                    ctx.getSource().sendFeedback(() -> Text.literal(
-                            "§b[Icey SMP] §7/icey top <" + cats + ">, /icey reload, /icey reset"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rcommands:"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey top <category> §8— leaderboard for a category"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey me §8— your stats + rank across all categories"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey stats <player> §8— another player's stats"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reload §8— reload config §7(op-3)"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reset §8— wipe all stats §7(op-4)"), false);
                     return 1;
                 })
             );
 
-            // /spawn — teleport to world spawn, blocked while combat-tagged.
             dispatcher.register(CommandManager.literal("spawn")
                 .executes(ctx -> doSpawn(ctx.getSource())));
         });
@@ -78,10 +90,7 @@ public final class SmpCommands {
 
     private static int doSpawn(ServerCommandSource src) {
         ServerPlayerEntity p = src.getPlayer();
-        if (p == null) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] /spawn must be run by a player"), false);
-            return 0;
-        }
+        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /spawn must be run by a player"), false); return 0; }
         if (IceySmp.combat != null && IceySmp.combat.isInCombat(p.getUuid())) {
             p.sendMessage(Text.literal("§c§l[Icey SMP] §rCan't /spawn while combat-tagged."), false);
             return 0;
@@ -90,18 +99,132 @@ public final class SmpCommands {
         if (server == null) return 0;
         ServerWorld overworld = server.getOverworld();
         BlockPos spawn = resolveWorldSpawn(overworld);
-        VersionShim.teleportSafe(p, overworld,
-                spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
+        VersionShim.teleportSafe(p, overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
                 p.getYaw(), p.getPitch());
         p.sendMessage(Text.literal("§b§l[Icey SMP] §aTeleported to spawn."), false);
         return 1;
     }
 
-    /** Yarn moved {@code getSpawnPos} between {@code ServerWorld},
-     *  {@code WorldProperties} (via {@code getLevelProperties}), and a few
-     *  intermediary aliases across 1.21.x. Walk a list of candidate paths
-     *  via reflection so the source compiles cleanly against every matrix
-     *  entry. Falls back to (0,64,0) if nothing resolves. */
+    private static int showTop(ServerCommandSource src, String category) {
+        if (IceySmp.leaderboard == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false); return 0; }
+        List<LeaderboardManager.Ranked> ranked = IceySmp.leaderboard.top(category);
+        if (ranked.isEmpty()) {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + category + " §8(use Tab to autocomplete)"), false);
+            return 0;
+        }
+        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §7Top §b" + category + "§7:"), false);
+        int show = Math.min(10, ranked.size());
+        boolean any = false;
+        for (int i = 0; i < show; i++) {
+            LeaderboardManager.Ranked r = ranked.get(i);
+            if (r.value == 0) break;
+            any = true;
+            final int rank = i;
+            src.sendFeedback(() -> Text.literal(medalFor(rank) + " §f" + r.name + " §8— §b" + formatValue(category, r.value)), false);
+        }
+        if (!any) { src.sendFeedback(() -> Text.literal("§7  (no entries yet)"), false); return 1; }
+        // Show requester's rank at the bottom if they're not already in the visible top
+        ServerPlayerEntity me = src.getPlayer();
+        if (me != null) {
+            int myRank = -1;
+            long myValue = 0;
+            for (int i = 0; i < ranked.size(); i++) {
+                if (ranked.get(i).uuid.equals(me.getUuid())) { myRank = i; myValue = ranked.get(i).value; break; }
+            }
+            if (myRank >= 0 && myRank >= show) {
+                src.sendFeedback(() -> Text.literal("§8──────────────"), false);
+                final int rIdx = myRank; final long v = myValue;
+                src.sendFeedback(() -> Text.literal("§7You: §6#" + (rIdx + 1) + " §8— §f" + formatValue(category, v)), false);
+            }
+        }
+        return 1;
+    }
+
+    private static int showSelf(ServerCommandSource src) {
+        ServerPlayerEntity p = src.getPlayer();
+        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /icey me must be run by a player"), false); return 0; }
+        return showStatsFor(src, p.getUuid(), p.getName().getString());
+    }
+
+    private static int showStats(ServerCommandSource src, String playerName) {
+        MinecraftServer server = src.getServer();
+        if (server == null) return 0;
+        ServerPlayerEntity target = server.getPlayerManager().getPlayer(playerName);
+        UUID uuid = (target != null) ? target.getUuid() : findUuidByName(playerName);
+        if (uuid == null) {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] no player named " + playerName + " on record"), false);
+            return 0;
+        }
+        return showStatsFor(src, uuid, playerName);
+    }
+
+    private static UUID findUuidByName(String name) {
+        if (IceySmp.stats == null) return null;
+        for (Map.Entry<UUID, PlayerStats> e : IceySmp.stats.all().entrySet()) {
+            if (name.equalsIgnoreCase(e.getValue().name)) return e.getKey();
+        }
+        return null;
+    }
+
+    private static int showStatsFor(ServerCommandSource src, UUID uuid, String displayName) {
+        if (IceySmp.leaderboard == null || IceySmp.stats == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false); return 0; }
+        PlayerStats ps = IceySmp.stats.peek(uuid);
+        if (ps == null) { src.sendFeedback(() -> Text.literal("§7No stats yet for §f" + displayName), false); return 0; }
+        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rStats for §f§l" + displayName + "§r:"), false);
+        for (String catId : LeaderboardManager.categoryIds()) {
+            List<LeaderboardManager.Ranked> ranked = IceySmp.leaderboard.top(catId);
+            int rank = -1;
+            long value = 0;
+            for (int i = 0; i < ranked.size(); i++) {
+                if (ranked.get(i).uuid.equals(uuid)) { rank = i; value = ranked.get(i).value; break; }
+            }
+            if (value == 0) continue; // skip categories with no progress
+            final int rIdx = rank; final long v = value;
+            src.sendFeedback(() -> Text.literal(
+                    "§7" + padLabel(catId) + " §f" + formatValue(catId, v) + " §8— §6#" + (rIdx + 1)), false);
+        }
+        return 1;
+    }
+
+    private static String padLabel(String catId) {
+        String label = (catId + ":").toLowerCase();
+        while (label.length() < 13) label += " ";
+        return label;
+    }
+
+    private static String medalFor(int rank) {
+        return switch (rank) {
+            case 0 -> "§e§l1.";
+            case 1 -> "§7§l2.";
+            case 2 -> "§6§l3.";
+            default -> "§7" + (rank + 1) + ".";
+        };
+    }
+
+    /** Format the value for display, picking a per-category format. */
+    private static String formatValue(String category, long value) {
+        return switch (category) {
+            case "playtime" -> formatTicks(value);
+            case "walking"  -> String.format("%.1f km", value / 100_000.0);
+            case "dmgdealt", "dmgtaken" -> String.format("%.1f HP", value / 10.0);
+            case "sneak"    -> formatTicks(value); // sneak time also in ticks
+            default -> formatWithCommas(value);
+        };
+    }
+
+    private static String formatTicks(long ticks) {
+        long sec = ticks / 20;
+        long h = sec / 3600;
+        long m = (sec % 3600) / 60;
+        if (h > 0) return h + "h " + m + "m";
+        if (m > 0) return m + "m";
+        return sec + "s";
+    }
+
+    private static String formatWithCommas(long n) {
+        return String.format("%,d", n);
+    }
+
     private static BlockPos resolveWorldSpawn(ServerWorld world) {
         Object viaDirect = tryInvoke(world, "getSpawnPos");
         if (viaDirect instanceof BlockPos bp) return bp;
@@ -118,43 +241,5 @@ public final class SmpCommands {
         if (target == null) return null;
         try { return target.getClass().getMethod(method).invoke(target); }
         catch (Throwable ignored) { return null; }
-    }
-
-    private static int showTop(ServerCommandSource src, String category) {
-        if (IceySmp.leaderboard == null) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false);
-            return 0;
-        }
-        List<LeaderboardManager.Ranked> ranked = IceySmp.leaderboard.top(category);
-        if (ranked.isEmpty()) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + category), false);
-            return 0;
-        }
-        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §7Top §b" + category + "§7:"), false);
-        int show = Math.min(10, ranked.size());
-        boolean any = false;
-        for (int i = 0; i < show; i++) {
-            LeaderboardManager.Ranked r = ranked.get(i);
-            if (r.value == 0) break;
-            any = true;
-            String medal = switch (i) {
-                case 0 -> "§e§l1.";
-                case 1 -> "§7§l2.";
-                case 2 -> "§6§l3.";
-                default -> "§7" + (i + 1) + ".";
-            };
-            String displayValue = "playtime".equals(category) ? formatTicks(r.value) : String.valueOf(r.value);
-            src.sendFeedback(() -> Text.literal(medal + " §f" + r.name + " §8— §b" + displayValue), false);
-        }
-        if (!any) src.sendFeedback(() -> Text.literal("§7  (no entries yet)"), false);
-        return 1;
-    }
-
-    private static String formatTicks(long ticks) {
-        long sec = ticks / 20;
-        long h = sec / 3600;
-        long m = (sec % 3600) / 60;
-        if (h > 0) return h + "h " + m + "m";
-        return m + "m";
     }
 }
