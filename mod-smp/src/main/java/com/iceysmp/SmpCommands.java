@@ -89,17 +89,39 @@ public final class SmpCommands {
         MinecraftServer server = src.getServer();
         if (server == null) return 0;
         ServerWorld overworld = server.getOverworld();
-        BlockPos spawn = overworld.getSpawnPos();
+        BlockPos spawn = resolveWorldSpawn(overworld);
         try {
+            // 1.21+ signature: (ServerWorld, x, y, z, Set<PositionFlag>, yaw, pitch, resetCamera)
             p.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
                        Set.of(), p.getYaw(), p.getPitch(), false);
         } catch (Throwable t) {
-            // Older signature on some Yarn versions
-            try { p.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, p.getYaw(), p.getPitch()); }
-            catch (Throwable ignored) {}
+            System.out.println("[IceySMP] /spawn teleport failed: " + t);
         }
         p.sendMessage(Text.literal("§b§l[Icey SMP] §aTeleported to spawn."), false);
         return 1;
+    }
+
+    /** Yarn moved {@code getSpawnPos} between {@code ServerWorld},
+     *  {@code WorldProperties} (via {@code getLevelProperties}), and a few
+     *  intermediary aliases across 1.21.x. Walk a list of candidate paths
+     *  via reflection so the source compiles cleanly against every matrix
+     *  entry. Falls back to (0,64,0) if nothing resolves. */
+    private static BlockPos resolveWorldSpawn(ServerWorld world) {
+        Object viaDirect = tryInvoke(world, "getSpawnPos");
+        if (viaDirect instanceof BlockPos bp) return bp;
+        for (String containerMethod : new String[] {"getLevelProperties", "getProperties", "getLevelData"}) {
+            Object container = tryInvoke(world, containerMethod);
+            if (container == null) continue;
+            Object pos = tryInvoke(container, "getSpawnPos");
+            if (pos instanceof BlockPos bp) return bp;
+        }
+        return new BlockPos(0, 64, 0);
+    }
+
+    private static Object tryInvoke(Object target, String method) {
+        if (target == null) return null;
+        try { return target.getClass().getMethod(method).invoke(target); }
+        catch (Throwable ignored) { return null; }
     }
 
     private static int showTop(ServerCommandSource src, String category) {

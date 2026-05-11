@@ -18,6 +18,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.6
+
+- **CI fix:** Yarn renamed `getSpawnPos` between `ServerWorld` and `WorldProperties` (via `getLevelProperties`) across the 1.21.x matrix — and the 6-arg teleport overload my `/spawn` fallback called doesn't exist (only the 4-arg `LivingEntity` and 8-arg `ServerPlayerEntity` versions do). Replaced the `getSpawnPos` call with a reflection-based `resolveWorldSpawn(world)` that tries `world.getSpawnPos()`, then `world.getLevelProperties().getSpawnPos()`, then `getProperties()` and `getLevelData()` variants, falling back to `(0,64,0)` if all fail. Removed the broken 6-arg teleport fallback. Source now compiles against every Yarn version in the matrix.
+
 ## What's new in v1.80.5
 
 - **5 new leaderboard categories** (16 total). Pulled from MC's built-in `StatHandler` via per-second delta snapshots — no mixins needed:
