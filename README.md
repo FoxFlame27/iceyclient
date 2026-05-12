@@ -30,6 +30,17 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.15
+
+**Root cause of "iceymod+ gets auto-removed every launch":** the iceymod auto-install loop in `main.js:932` used a regex `/^iceymod.*\.jar$/i` to find stale client mod jars to delete. That regex *greedily matched* `iceymodplus-server-mod-mc1.21.8-1.0.0.jar` too (since the filename starts with `iceymod`). So every time the user clicked Launch:
+
+1. Auto-install scans `mods/` for "iceymod jars"
+2. Sees `iceymodplus-server-mod-mc...jar`, decides it's not the canonical `iceymod-1.0.0.jar`, deletes it
+3. Reinstalls fresh `iceymod-1.0.0.jar`
+4. MC starts → no iceymodplus → `/icey` fails → user thinks Download is broken
+
+This was eating the user's downloaded server mod on **every single launch**. Now: regex requires `^iceymod-` (with the hyphen — `iceymodplus` has `p` at that position, so it doesn't match). Stale iceymod versions still get cleaned, iceymodplus stays intact.
+
 ## What's new in v1.80.14
 
 CI compile fix for v1.80.13's death-broadcast addition:

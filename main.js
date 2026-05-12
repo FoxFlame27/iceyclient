@@ -928,8 +928,13 @@ function launchMinecraft(installationId) {
       const modJarName = 'iceymod-1.0.0.jar';
       const destJar = path.join(modsDir, modJarName);
       try {
+        // Match ONLY iceymod-VERSION.jar (the client mod). The previous
+        // `^iceymod.*\.jar` regex was greedy and matched `iceymodplus-...jar`
+        // too, so every launch silently deleted the user's freshly-installed
+        // server mod. Require `iceymod-` (with the hyphen) so `iceymodplus`
+        // (with a letter after `iceymod`) is excluded.
         for (const f of fs.readdirSync(modsDir)) {
-          if (/^iceymod.*\.jar$/i.test(f) && f !== modJarName) {
+          if (/^iceymod-.*\.jar$/i.test(f) && f !== modJarName) {
             fs.unlinkSync(path.join(modsDir, f));
             log('info', 'Removed stale Icey mod jar: ' + f);
           }
