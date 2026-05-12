@@ -482,6 +482,15 @@ async function _optInstallIceySmpMod() {
     const selected = installations.find(i => i.selected) || installations[0];
     if (!selected) { Toast.error('Create an installation first'); return; }
     if (selected.platform !== 'fabric') { Toast.error('The Mod option requires a Fabric installation. Use the Datapack option for vanilla.'); return; }
+
+    // Cleanup: nuke any stale iceysmp / iceymodplus jars first. Old
+    // failed-CI 404s saved as junk .jars block Fabric from picking up the
+    // real one, and old naming variants linger forever.
+    const cleanup = await window.icey.cleanupSmpMods(selected.id);
+    if (cleanup && cleanup.removed > 0) {
+      Toast.info('Removed ' + cleanup.removed + ' stale jar(s) before fresh install');
+    }
+
     Toast.info('Downloading iceymod+ mod jar…');
     const mcVer = _smpResolveBuildVersion(selected.version);
     const filename = `iceymodplus-server-mod-mc${mcVer}-1.0.0.jar`;
@@ -489,8 +498,15 @@ async function _optInstallIceySmpMod() {
     const gameDir = await window.icey.getInstallGameDir(selected.id);
     const dest = gameDir + '/mods/' + filename;
     const result = await window.icey.downloadFile(url, dest);
-    if (result && result.error) { Toast.error('Install failed: ' + result.error + ' — build may not be on the latest release yet'); return; }
-    Toast.success('Installed iceymod+ mod — restart MC to enable');
+    if (result && result.error) { Toast.error('Download failed: ' + result.error + ' — try the Server Pack (datapack) instead'); return; }
+
+    // Verify the download is a real jar, not a 404 HTML page silently saved.
+    const verify = await window.icey.verifyJar(dest, 5000);
+    if (verify && !verify.ok) {
+      Toast.error('Download returned a corrupt file (' + (verify.size || 0) + ' bytes) — the build may have failed for MC ' + mcVer + '. Try the Server Pack option.');
+      return;
+    }
+    Toast.success('Installed iceymod+ (' + (verify.size / 1024 | 0) + 'KB) — restart MC to enable');
   } catch (e) {
     Toast.error('Install failed: ' + (e && e.message ? e.message : e));
   }

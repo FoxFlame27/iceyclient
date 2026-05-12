@@ -20,10 +20,13 @@ import com.iceymod.render.WaypointBeamRenderer;
 import com.iceymod.render.HitboxRenderer;
 import com.iceymod.compat.KeyBindingCompat;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.screen.TitleScreen;
@@ -81,7 +84,9 @@ public class IceyMod implements ClientModInitializer {
         structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
         freecamKey      = registerKey("key.iceymod.freecam",      GLFW.GLFW_KEY_F4);
         biomeKey        = registerKey("key.iceymod.biome",        GLFW.GLFW_KEY_K);
-        leaderboardKey  = registerKey("key.iceymod.leaderboard",  GLFW.GLFW_KEY_N);
+        // Fresh keybind id ("openboard" instead of "leaderboard") so MC
+        // doesn't fall back to a stale `;` binding saved in older options.txt.
+        leaderboardKey  = registerKey("key.iceymod.openboard",    GLFW.GLFW_KEY_N);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -184,6 +189,22 @@ public class IceyMod implements ClientModInitializer {
                 HudManager.render(drawContext);
             }
         });
+
+        // Client-side /lb command — always opens the leaderboard menu,
+        // independent of keybind state. Useful when MC's saved options.txt
+        // has stale keybind entries that override the mod's default N.
+        try {
+            ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+                dispatcher.register(ClientCommandManager.literal("lb")
+                    .executes(ctx -> {
+                        MinecraftClient mc = MinecraftClient.getInstance();
+                        if (mc != null) mc.setScreen(new LeaderboardScreen());
+                        return 1;
+                    }));
+            });
+        } catch (Throwable t) {
+            System.out.println("[IceyMod] Client command /lb registration failed: " + t);
+        }
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             // Title screen: no extra corner logo — the Icey Client logo is already drawn

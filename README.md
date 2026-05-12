@@ -30,6 +30,23 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.13
+
+Two annoying bugs fixed:
+
+**1. Pressing N didn't open the leaderboard — `;` did.** MC saves keybind preferences in `options.txt`. When older versions of iceymod shipped with `;` as the leaderboard default, MC wrote `key.iceymod.leaderboard: semicolon` to the user's options.txt. Later versions changing the default to N had no effect because MC reads saved values first and ignores the new default. No way for a mod to force-overwrite that.
+
+Fix: renamed the keybind ID from `key.iceymod.leaderboard` to `key.iceymod.openboard`. New ID has no entry in anyone's options.txt → MC uses the default (N) → pressing N opens the menu. Existing `;` bindings are now orphaned and silently ignored.
+
+Also added a **client-side `/lb` chat command** as a third independent way to open the menu — works regardless of keybind state. So users have three options: press N, press whatever they have bound, or type `/lb`.
+
+**2. `/icey` doesn't work even after clicking Download.** The launcher's download was succeeding with HTTP 404 status — saving the GitHub 404 HTML page as a `.jar`. Fabric Loader silently rejects malformed jars, so the user sees nothing in mods/ but the launcher reports "installed". Compounded by stale jars from earlier naming variants (iceysmp-* vs iceymodplus-*) sitting in the folder forever.
+
+Fix:
+- **Cleanup before install:** new `cleanup-smp-mods` IPC scans the installation's mods/ and removes anything matching `^(iceysmp|iceymodplus).*\.jar$`. Stale junk + corrupt 404 dumps go away before the fresh download.
+- **Post-download verification:** new `verify-jar` IPC stats the file. Anything below 5KB is treated as a corrupt download — the file is deleted and the toast says clearly "Download returned a corrupt file (X bytes) — try the Server Pack option".
+- Toast on success now shows the actual file size so you can sanity-check ("Installed iceymod+ (78KB) — restart MC to enable").
+
 ## What's new in v1.80.12
 
 Artifact rename for clarity — both downloadable directly from `releases/latest/`:

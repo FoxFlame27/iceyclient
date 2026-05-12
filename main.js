@@ -2167,6 +2167,42 @@ app.whenReady().then(() => {
     return deleted ? { success: true } : { error: 'File not found' };
   });
 
+  // Cleanup stale iceymod+ / iceysmp jars before a fresh install. Pattern
+  // matches both naming variants (server-mod-mc / mc- / iceysmp-mc-)
+  // because the artifact name has changed across releases and stale
+  // 404-HTML-saved-as-jar files would otherwise block a working install.
+  ipcMain.handle('cleanup-smp-mods', (_, installationId) => {
+    try {
+      const gameDir = getInstallGameDir(installationId);
+      const modsDir = path.join(gameDir, 'mods');
+      if (!fs.existsSync(modsDir)) return { removed: 0 };
+      const re = /^(iceysmp|iceymodplus).*\.jar$/i;
+      let removed = 0;
+      for (const f of fs.readdirSync(modsDir)) {
+        if (re.test(f)) {
+          try { fs.unlinkSync(path.join(modsDir, f)); removed++; log('info', 'cleaned stale SMP jar: ' + f); }
+          catch (e) { log('warn', 'failed to remove ' + f + ': ' + e.message); }
+        }
+      }
+      return { removed };
+    } catch (e) { return { error: e.message }; }
+  });
+
+  // Verify a downloaded jar is real. HTML 404 pages are ~1KB; real
+  // Fabric mod jars are 5KB+. Anything below the threshold gets nuked
+  // so Fabric doesn't try to load it as a mod and silently fail.
+  ipcMain.handle('verify-jar', (_, filePath, minBytes) => {
+    try {
+      if (!fs.existsSync(filePath)) return { ok: false, reason: 'missing' };
+      const sz = fs.statSync(filePath).size;
+      if (sz < (minBytes || 5000)) {
+        try { fs.unlinkSync(filePath); } catch (_) {}
+        return { ok: false, reason: 'too_small', size: sz };
+      }
+      return { ok: true, size: sz };
+    } catch (e) { return { ok: false, reason: 'error', error: e.message }; }
+  });
+
   ipcMain.handle('toggle-mod', (_, installationId, filename) => {
     const gameDir = getInstallGameDir(installationId);
     const modsDir = path.join(gameDir, 'mods');

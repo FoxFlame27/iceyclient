@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('icey', {
   copyFile: (src, dest) => ipcRenderer.invoke('copy-file', src, dest),
   getInstalledMods: (installationId) => ipcRenderer.invoke('get-installed-mods', installationId),
   deleteMod: (installationId, filename) => ipcRenderer.invoke('delete-mod', installationId, filename),
+  cleanupSmpMods: (installationId) => ipcRenderer.invoke('cleanup-smp-mods', installationId),
+  verifyJar: (filePath, minBytes) => ipcRenderer.invoke('verify-jar', filePath, minBytes),
   toggleMod: (installationId, filename) => ipcRenderer.invoke('toggle-mod', installationId, filename),
   registerResourcepack: (installationId, filename) => ipcRenderer.invoke('register-resourcepack', installationId, filename),
   importWorld: (installationId, zipPath) => ipcRenderer.invoke('import-world', installationId, zipPath),
