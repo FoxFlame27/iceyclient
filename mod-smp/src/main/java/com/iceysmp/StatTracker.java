@@ -228,8 +228,8 @@ public final class StatTracker {
                                 String msg = "§b§l[Icey SMP] §c§l" + sp.getName().getString()
                                         + " §rkilled §c§l" + victim.getName().getString()
                                         + (stolen > 0 ? " §7and stole §b§l" + stolen + "§r§7 stats!" : "§7!");
-                                if (sp.getServer() != null) {
-                                    sp.getServer().getPlayerManager().broadcast(
+                                if (IceySmp.server != null) {
+                                    IceySmp.server.getPlayerManager().broadcast(
                                             net.minecraft.text.Text.literal(msg), false);
                                 }
                             } catch (Throwable ignored) {}
@@ -279,6 +279,18 @@ public final class StatTracker {
             } catch (Throwable ignored) {}
             return true;
         });
+    }
+
+    /** Sum of all stealable counters on a victim — used for the kill
+     *  broadcast (`stole 47 stats!`). Includes legacy fields (crops,
+     *  woodChopped) for completeness even though they're not tracked
+     *  any more — old save data may still have non-zero values that
+     *  transfer on kill. */
+    private static long stealTotal(PlayerStats vs) {
+        return vs.mining + vs.pvpKills + vs.playtimeTicks + vs.mobKills + vs.animalKills
+             + vs.diamonds + vs.damageDealt + vs.damageTaken + vs.deaths
+             + vs.fishCaught + vs.distanceWalkedCm + vs.jumps + vs.xpLevelsGained + vs.sneakTimeTicks
+             + vs.crops + vs.woodChopped;
     }
 
     private static PlayerEntity resolveAttacker(DamageSource source) {

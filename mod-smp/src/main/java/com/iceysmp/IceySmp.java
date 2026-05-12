@@ -21,6 +21,10 @@ public final class IceySmp implements ModInitializer {
     public static StatTracker stats;
     public static CombatTracker combat;
     public static LeaderboardManager leaderboard;
+    /** Set in SERVER_STARTED, cleared in SERVER_STOPPING. Lets non-event
+     *  code (e.g. StatTracker's death broadcast) reach the server without
+     *  passing it through every call site. */
+    public static net.minecraft.server.MinecraftServer server;
 
     @Override
     public void onInitialize() {
@@ -62,6 +66,7 @@ public final class IceySmp implements ModInitializer {
         // 4. Server-lifecycle hooks
         try {
             ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+                IceySmp.server = server;
                 if (stats != null) stats.load(server);
                 if (leaderboard != null) leaderboard.bind(server);
                 System.out.println("[IceySMP] SERVER_STARTED: " + (stats == null ? 0 : stats.size()) + " players in stats");
@@ -73,7 +78,10 @@ public final class IceySmp implements ModInitializer {
                             false));
                 } catch (Throwable ignored) {}
             });
-            ServerLifecycleEvents.SERVER_STOPPING.register(server -> { if (stats != null) stats.save(server); });
+            ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+                if (stats != null) stats.save(server);
+                IceySmp.server = null;
+            });
             ServerTickEvents.END_SERVER_TICK.register(server -> {
                 if (leaderboard == null) return;
                 try { leaderboard.tick(server); } catch (Throwable t) { System.out.println("[IceySMP] tick error: " + t); }

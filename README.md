@@ -30,6 +30,14 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.14
+
+CI compile fix for v1.80.13's death-broadcast addition:
+
+1. `stealTotal(PlayerStats)` was referenced but never defined — leftover from a refactor where I described the function in a comment but didn't implement it. Added: sums every stealable counter on the victim so the chat broadcast can show "stole 47 stats!". Includes legacy `crops` and `woodChopped` fields for completeness.
+
+2. `ServerPlayerEntity.getServer()` doesn't resolve on the matrix's yarn versions. Added `IceySmp.server` static field set in `SERVER_STARTED` and nulled in `SERVER_STOPPING` so non-event code can reach the server without trying to walk a yarn-renamed accessor chain.
+
 ## What's new in v1.80.13
 
 Two annoying bugs fixed:
