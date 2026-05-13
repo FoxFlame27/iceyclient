@@ -1,8 +1,16 @@
 package com.iceysmp;
 
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.LoreComponent;
+import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.text.Style;
+import net.minecraft.util.Formatting;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Max-level rewards — one themed weapon/armor piece per category. All
@@ -134,76 +142,32 @@ public final class WeaponDrops {
         MinecraftServer server = IceySmp.server;
         if (server == null) return false;
         try {
-            // SNBT-compound form for text components. The previous
-            // JSON-string form ({@code custom_name='{"text":"X"}'}) was
-            // being treated by MC as "a Text component whose content is
-            // the literal JSON string" — the in-game item showed up with
-            // its name as raw JSON ({"text":"Stonewall","color":"dark_red"
-            // ,"bold":true}). Dropping the outer quotes makes MC parse
-            // the inner {...} as an SNBT compound representing the Text
-            // component directly, which renders correctly.
-            StringBuilder lore = new StringBuilder();
-            for (int i = 0; i < r.lore.length; i++) {
-                if (i > 0) lore.append(",");
-                lore.append("{\"text\":\"").append(escapeJson(r.lore[i]))
-                        .append("\",\"italic\":false,\"color\":\"")
-                        .append(i == 0 ? "gray" : "dark_aqua").append("\"}");
-            }
-            lore.append(",{\"text\":\"Max-level reward — ").append(escapeJson(reasonLabel))
-                    .append("\",\"italic\":false,\"color\":\"dark_gray\"}");
-
-            // 1.21.5+ removed the {levels:{...}} wrapper from the
-            // minecraft:enchantments component — now it's just the map
-            // directly. 1.21.0-1.21.4 needs the wrapper. Try the modern
-            // form first, fall back to the legacy form on syntax error.
-            String namePart = "custom_name={\"text\":\"" + escapeJson(r.name)
-                    + "\",\"italic\":false,\"color\":\"" + r.nameColor + "\",\"bold\":true}";
-            // Legacy JSON-string form, used only as a last-resort fallback
-            // for the older yarn variants that don't accept SNBT compounds
-            // in this slot. On 1.21.8+ the SNBT form parses cleanly.
-            String legacyNamePart = "custom_name='{\"text\":\"" + escapeJson(r.name)
-                    + "\",\"italic\":false,\"color\":\"" + r.nameColor + "\",\"bold\":true}'";
-            String lorePart = "lore=[" + lore + "]";
-            String rarityPart = "rarity=epic";
+            // Two-stage delivery. The /give command's SNBT parser keeps
+            // mis-rendering text-component values (item names showed up
+            // as the literal JSON string instead of formatted text). So:
+            //
+            //   1. /give the bare item with enchants + rarity only (no
+            //      custom_name, no lore). The /give path handles enchants
+            //      and rarity cleanly across yarn versions — we've never
+            //      seen those mis-parse.
+            //   2. Walk the player's inventory, find the just-given stack
+            //      (matches r.item, no custom_name yet, full count of 1),
+            //      and patch custom_name + lore via the components API.
+            //      SkillsScreen uses the same DataComponentTypes.X path
+            //      successfully, so we know it works on every yarn build
+            //      that has the components system at all.
             String playerName = player.getName().getString();
-
-            // Layered fallbacks — if the rich form fails to parse on a
-            // weird yarn variant, keep shedding components until SOMETHING
-            // lands. User-facing rule: a /icey reward call should always
-            // produce an item, even if the lore / enchants / rarity don't
-            // attach.
-            String[] formats = {
-                    // 1.21.5+: enchantments takes the map directly
-                    "give " + playerName + " " + r.item + "["
-                            + namePart + "," + lorePart + ","
-                            + "enchantments=" + r.enchants + ","
-                            + rarityPart + "] 1",
-                    // 1.21.0-1.21.4: enchantments wrapped in {levels:{...}}
-                    "give " + playerName + " " + r.item + "["
-                            + namePart + "," + lorePart + ","
-                            + "enchantments={levels:" + r.enchants + "},"
-                            + rarityPart + "] 1",
-                    // No enchants — keep name + lore + epic rarity
-                    "give " + playerName + " " + r.item + "[" + namePart + "," + lorePart + "," + rarityPart + "] 1",
-                    // No lore — keep name + epic rarity
-                    "give " + playerName + " " + r.item + "[" + namePart + "," + rarityPart + "] 1",
-                    // No rarity — keep just the name
-                    "give " + playerName + " " + r.item + "[" + namePart + "] 1",
-                    // Yarn variants that don't parse SNBT-compound text
-                    // components in component args fall through to the
-                    // legacy JSON-string form.
-                    "give " + playerName + " " + r.item + "[" + legacyNamePart + "," + rarityPart + "] 1",
-                    "give " + playerName + " " + r.item + "[" + legacyNamePart + "] 1",
-                    // Last resort: bare vanilla item
-                    "give " + playerName + " " + r.item + " 1"
+            String[] giveFormats = {
+                    "give " + playerName + " " + r.item + "[enchantments=" + r.enchants + ",rarity=epic] 1",
+                    "give " + playerName + " " + r.item + "[enchantments={levels:" + r.enchants + "},rarity=epic] 1",
+                    "give " + playerName + " " + r.item + "[enchantments=" + r.enchants + "] 1",
+                    "give " + playerName + " " + r.item + " 1",
             };
             boolean delivered = false;
-            for (int i = 0; i < formats.length; i++) {
-                if (VersionShim.executeServerCommand(server, formats[i])) {
+            for (int i = 0; i < giveFormats.length; i++) {
+                if (VersionShim.executeServerCommand(server, giveFormats[i])) {
                     delivered = true;
-                    if (i > 0) {
-                        System.out.println("[IceySMP] /give fell back to format #" + i + " for " + r.name);
-                    }
+                    if (i > 0) System.out.println("[IceySMP] /give fell back to format #" + i + " for " + r.name);
                     break;
                 }
             }
@@ -211,6 +175,9 @@ public final class WeaponDrops {
                 System.out.println("[IceySMP] every /give format failed — nothing delivered");
                 return false;
             }
+
+            // Patch custom_name + lore on the just-given stack.
+            patchComponents(player, r, reasonLabel);
 
             // Big banner.
             try {
@@ -253,5 +220,95 @@ public final class WeaponDrops {
     private static String escapeJson(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    /** Find the bare-named stack just dropped in by /give and overwrite
+     *  its custom_name + lore via the components API. The SkillsScreen
+     *  uses the same DataComponentTypes path and renders correctly, so
+     *  this avoids every /give SNBT-parsing quirk that was making item
+     *  names show up as the literal JSON string. */
+    private static void patchComponents(ServerPlayerEntity player, Reward r, String reasonLabel) {
+        try {
+            var inv = player.getInventory();
+            int size;
+            try { size = inv.size(); } catch (Throwable t) { size = 41; }
+
+            for (int i = 0; i < size; i++) {
+                ItemStack stack;
+                try { stack = inv.getStack(i); } catch (Throwable t) { continue; }
+                if (stack == null || stack.isEmpty()) continue;
+                if (!stackMatchesId(stack, r.item)) continue;
+                // Skip if a name is already present — covers manual /give'd
+                // items the player happens to be carrying.
+                try { if (stack.contains(DataComponentTypes.CUSTOM_NAME)) continue; } catch (Throwable ignored) {}
+
+                Text name = Text.literal(r.name)
+                        .setStyle(Style.EMPTY.withColor(parseFormatting(r.nameColor)).withBold(true).withItalic(false));
+                try { stack.set(DataComponentTypes.CUSTOM_NAME, name); } catch (Throwable ignored) {}
+
+                List<Text> loreLines = new ArrayList<>();
+                for (int j = 0; j < r.lore.length; j++) {
+                    Formatting color = (j == 0) ? Formatting.GRAY : Formatting.DARK_AQUA;
+                    loreLines.add(Text.literal(r.lore[j])
+                            .setStyle(Style.EMPTY.withColor(color).withItalic(false)));
+                }
+                loreLines.add(Text.literal("Max-level reward — " + reasonLabel)
+                        .setStyle(Style.EMPTY.withColor(Formatting.DARK_GRAY).withItalic(false)));
+                try { stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines)); } catch (Throwable ignored) {}
+                return;
+            }
+        } catch (Throwable t) {
+            System.out.println("[IceySMP] patchComponents failed: " + t);
+        }
+    }
+
+    /** Resolve the stack's registry-ID string ("minecraft:diamond_sword")
+     *  via reflection so we don't bind to a specific Registries class
+     *  shape across the yarn matrix. */
+    private static boolean stackMatchesId(ItemStack stack, String expectedId) {
+        try {
+            Object item = stack.getItem();
+            for (String regClass : new String[] {
+                    "net.minecraft.registry.Registries",
+                    "net.minecraft.util.registry.Registries",
+                    "net.minecraft.util.registry.Registry"}) {
+                try {
+                    Class<?> c = Class.forName(regClass);
+                    Object reg = c.getField("ITEM").get(null);
+                    Object idObj = reg.getClass().getMethod("getId", item.getClass().getInterfaces().length > 0
+                            ? item.getClass().getInterfaces()[0] : item.getClass()).invoke(reg, item);
+                    if (idObj != null && expectedId.equals(idObj.toString())) return true;
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
+        // Last-resort fuzzy match — try any string getter that returns the
+        // item's translation/registry key. Different yarn versions name
+        // these getTranslationKey / getId / asString.
+        try {
+            String path = expectedId.substring(expectedId.indexOf(':') + 1);
+            Object item = stack.getItem();
+            for (String mName : new String[] {"getTranslationKey", "getRegistryEntry", "getId", "toString"}) {
+                try {
+                    Object v = item.getClass().getMethod(mName).invoke(item);
+                    if (v != null && v.toString().contains(path)) return true;
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private static Formatting parseFormatting(String c) {
+        return switch (c) {
+            case "aqua"         -> Formatting.AQUA;
+            case "gold"         -> Formatting.GOLD;
+            case "green"        -> Formatting.GREEN;
+            case "yellow"       -> Formatting.YELLOW;
+            case "dark_red"     -> Formatting.DARK_RED;
+            case "red"          -> Formatting.RED;
+            case "blue"         -> Formatting.BLUE;
+            case "light_purple" -> Formatting.LIGHT_PURPLE;
+            case "dark_aqua"    -> Formatting.DARK_AQUA;
+            default             -> Formatting.WHITE;
+        };
     }
 }

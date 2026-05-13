@@ -30,6 +30,15 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.84.4
+
+**Custom weapon names finally render properly + new `/admin <password>` command.**
+
+- **Item names fixed for real.** v1.84.2 changed the `/give` syntax from JSON-string to SNBT-compound form, but item names were still showing as raw JSON on the user's server. Root cause: MC's `/give` SNBT parser keeps treating text-component values as literal strings on some yarn/version combos — quoting subtleties we can't pin down. New approach in [WeaponDrops.java](mod-smp/src/main/java/com/iceysmp/WeaponDrops.java): two-stage delivery.
+  1. `/give` the bare item with **enchants + rarity only** (no `custom_name`, no `lore`). The enchants and rarity paths have never mis-parsed.
+  2. Walk the player's inventory, find the just-given stack (matches `r.item`, no `custom_name` yet), and patch `custom_name` + `lore` via the Java API — `stack.set(DataComponentTypes.CUSTOM_NAME, Text...)` and `stack.set(DataComponentTypes.LORE, new LoreComponent(...))`. Same API path `SkillsScreen` uses successfully, so this works on every yarn build that has the components system. Stack matching uses a reflection-based registry lookup so it portably resolves the item's `"minecraft:xyz"` ID across yarn variants.
+- **`/admin <password>`** — anyone can run it, but only `2705` works. On success, the server runs `/op <playername>` so the player gets full operator perms (which unlocks `/reward`, `/crate`, `/setspawn`, `/noobprotect`, `/reloadcfg`, `/resetstats`). If the player is already op, it just confirms. A wrong password prints "Wrong admin password" and returns 0. The password is baked into the mod ([SmpCommands.java](mod-smp/src/main/java/com/iceysmp/SmpCommands.java) `ADMIN_PASSWORD`) — this is a friends-server convenience, not real security. A server-wide broadcast announces the successful elevation so other players can see it.
+
 ## What's new in v1.84.3
 
 **Water movement category + Dolphin's Grace** — caught a missed item from the original spec. New 8th category `water` tracks `SWIM_ONE_CM + WALK_UNDER_WATER_ONE_CM + WALK_ON_WATER_ONE_CM` (all three vanilla water-travel stats summed in cm). Divisor 100,000 cm = Level 1 at 1 km swum; weapon threshold 500,000 cm = 5 km. Status effect: `DOLPHINS_GRACE`. Max-level reward: **Wavebreaker** — netherite-blue Trident with Loyalty III, Impaling V, Channeling, Unbreaking III, Mending. (Riptide intentionally omitted because it conflicts with Loyalty/Channeling in vanilla; we want the throw-and-return combat trident.)

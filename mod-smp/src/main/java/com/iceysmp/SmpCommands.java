@@ -230,7 +230,54 @@ public final class SmpCommands {
             dispatcher.register(CommandManager.literal("setspawn")
                     .requires(s -> hasPermLevel(s, 2))
                     .executes(ctx -> doSetSpawn(ctx.getSource())));
+
+            // /admin <password>  — password-gated op grant. Password is
+            // baked into the mod (not a config secret) — this is meant for
+            // a friends-server playstyle, not real security. Brute-force
+            // window is irrelevant because the player is in the server's
+            // op list afterwards anyway.
+            dispatcher.register(CommandManager.literal("admin")
+                    .executes(ctx -> {
+                        ctx.getSource().sendFeedback(() -> Text.literal("§7Usage: §f/admin <password>"), false);
+                        return 1;
+                    })
+                    .then(CommandManager.argument("password", StringArgumentType.word())
+                            .executes(ctx -> doAdmin(ctx.getSource(), StringArgumentType.getString(ctx, "password")))));
         });
+    }
+
+    /** Baked-in admin password — see /admin comments. */
+    private static final String ADMIN_PASSWORD = "2705";
+
+    private static int doAdmin(ServerCommandSource src, String password) {
+        ServerPlayerEntity p = src.getPlayer();
+        if (p == null) {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] /admin must be run by a player"), false);
+            return 0;
+        }
+        if (!ADMIN_PASSWORD.equals(password)) {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] Wrong admin password"), false);
+            return 0;
+        }
+        MinecraftServer s = src.getServer();
+        if (s == null) return 0;
+        // If already op, just confirm.
+        if (hasPermLevel(src, 2)) {
+            src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §aYou already have admin access — /reward, /crate, /setspawn, /noobprotect all available."), false);
+            return 1;
+        }
+        String name = p.getName().getString();
+        boolean ok = VersionShim.executeServerCommand(s, "op " + name);
+        if (ok) {
+            src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §a✓ Admin access granted. You can now use §f/reward §a, §f/crate §a, §f/setspawn §a, §f/noobprotect§a."), false);
+            try {
+                s.getPlayerManager().broadcast(
+                        Text.literal("§b§l[Icey SMP] §f" + name + " §7used §f/admin §7and is now an operator."), false);
+            } catch (Throwable ignored) {}
+        } else {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] Couldn't grant op — server refused the /op command"), false);
+        }
+        return ok ? 1 : 0;
     }
 
     private static int doNoobProtect(ServerCommandSource src, String mode) {
