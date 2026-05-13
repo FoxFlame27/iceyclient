@@ -30,6 +30,40 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.84.0
+
+**Big iceymod+ refactor — top-level commands, fixed weapon thresholds, chest-GUI skills browser, toggleable noob protection.** Per user request: "remove /icey just make it /daily … make a gui and you can press mining and it shows a bar in the gui 50% for eg if you're 50% and how many blocks are still needed … only get the custom weapons if you reach a amount like 500 or 1000 depending on what … keep newbie protection but you can turn it off with a command but no /icey anything."
+
+- **No more `/icey X` subcommand tree.** Every function is now its own top-level command:
+  - `/skills` — opens the new chest GUI (primary entry point — replaces the old text-based `/icey help`).
+  - `/leaderboard <category>` (alias `/lb`) — top 10 + your rank for a category.
+  - `/mystats` — your stats summary across all categories.
+  - `/playerstats <player>` — view another player's stats.
+  - `/daily` — claim daily reward (14h cooldown).
+  - `/bounty <player> <xp>` — pay XP to put a bounty on someone.
+  - `/crate [common|rare|epic]` (op-2) — spawn a loot crate at your position.
+  - `/reward <category> <player>` (op-2) — hand-give the max-level themed reward.
+  - `/noobprotect <on|off|toggle>` (op-2) — runtime master switch for noob protection (`/noobprotect off` to disable PvP-grace for new joiners without editing the config file).
+  - `/setspawn` (op-2), `/reloadcfg` (op-3), `/resetstats` (op-4) — same behavior as before, new names.
+- **`/skills` chest GUI** ([SkillsScreen.java](mod-smp/src/main/java/com/iceysmp/SkillsScreen.java)) — opens a 9×3 chest with one item per category in the middle row (iron pick for Mining, diamond sword for PvP, clock for Playtime, fishing rod for Fishing, iron boots for Walking, rabbit foot for Jumps, shield for Damage Taken). Each item's lore shows:
+  - Current count formatted per-category (e.g. `5h 23m`, `847.2 m`, `42.0 HP`, `1,247` ores)
+  - Current level
+  - Progress to next level with a 20-char colored bar like `§a██████████§7░░░░░░░░░░ §a50%`
+  - Status effect granted
+  - Custom-weapon progress: `Custom reward: Frostpick | 847/1,000` or `✓ Earned — Frostpick`
+- **Custom weapons are now gated by fixed per-category counts** instead of the old max-amp-level rule (which was different per category and hard to predict). New thresholds:
+  - **Frostpick** (mining pickaxe) — **1,000 blocks**
+  - **Frostfang** (PvP sword) — **25 kills**
+  - **Crown of Hours** (playtime helmet) — **50 hours**
+  - **Tidecaller** (fishing rod) — **100 fish**
+  - **Wanderer's Treads** (walking boots) — **10 km**
+  - **Springheel Greaves** (jumps leggings) — **1,000 jumps**
+  - **Stonewall** (damage-taken chestplate) — **500 HP taken**
+- **Combat-log handler simplified to `/kill <name>`.** When a combat-tagged player disconnects, the server runs `/kill <playername>` through `VersionShim.executeServerCommand`. Vanilla `/kill` handles inventory drop, death stats, and `AFTER_DEATH` (which routes PvP credit to the last damager if it was a player) for free. DISCONNECT fires before the player is removed from the player manager, so the command target resolves correctly. Replaces the v1.83.1 two-phase approach (drop inventory in-world at disconnect + flag UUID + kill on rejoin).
+- **Client mod**: the leaderboard screen now sends `/leaderboard <id>` instead of `/icey top <id>` to match the new server commands. `/lb` (client keybind N) still opens the picker screen.
+
+`/skills` is the new "what does this mod do?" landing. No version-display command — the GUI is canonical.
+
 ## What's new in v1.83.2
 
 **Hotfix on top of v1.83.1.** CI's 1.21.5 yarn build failed compile:

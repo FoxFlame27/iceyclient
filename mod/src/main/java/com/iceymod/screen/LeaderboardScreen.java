@@ -9,7 +9,7 @@ import net.minecraft.text.Text;
 /**
  * iceymod+ leaderboard picker — one button per server-side category,
  * paginated (8 per page) so 16 entries don't crowd a single screen. Each
- * button dispatches {@code /icey top <id>} via the chat-command sender
+ * button dispatches {@code /leaderboard <id>} via the chat-command sender
  * and closes.
  *
  * <p>The category list is hardcoded against the server's known IDs so we
@@ -66,7 +66,7 @@ public final class LeaderboardScreen extends Screen {
                     b -> {
                         try {
                             if (client != null && client.player != null) {
-                                client.player.networkHandler.sendChatCommand("icey top " + e.id);
+                                client.player.networkHandler.sendChatCommand("leaderboard " + e.id);
                             }
                         } catch (Throwable ignored) {}
                         this.close();

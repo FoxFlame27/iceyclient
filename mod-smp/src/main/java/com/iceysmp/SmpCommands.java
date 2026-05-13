@@ -14,16 +14,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * v1.84.0 — top-level commands. No more {@code /icey X} subcommand tree;
+ * each function is its own command so tab-complete is one keystroke
+ * shorter and the help GUI is the canonical browse surface.
+ *
+ * <pre>
+ * /skills                    chest GUI with progress bars per category
+ * /leaderboard &lt;cat&gt;        top 10 + your rank for a category   (alias /lb)
+ * /mystats                   your stats summary
+ * /playerstats &lt;player&gt;     another player's stats
+ * /daily                     claim daily reward (14h cooldown)
+ * /bounty &lt;player&gt; &lt;xp&gt;     pay XP to bounty someone
+ * /crate [common|rare|epic]  spawn a loot crate                   (op-2)
+ * /reward &lt;cat&gt; &lt;player&gt;    hand-give a max-level reward         (op-2)
+ * /noobprotect &lt;on|off&gt;     master switch for noob protection   (op-2)
+ * /setspawn                  set world spawn here                 (op-2)
+ * /reloadcfg                 reload config from disk              (op-3)
+ * /resetstats                wipe all stats                       (op-4)
+ * </pre>
+ */
 public final class SmpCommands {
 
     /** Yarn shuffles {@code hasPermissionLevel} ↔ {@code hasPermission}
-     *  across 1.21.x — and on some variants MethodHandles.findVirtual fails
-     *  on access checks even when the method exists. Do a runtime reflection
-     *  walk every call. Caller frequency is low (only when `.requires(...)`
-     *  re-evaluates), so the lookup cost is negligible. */
+     *  across 1.21.x and findVirtual can fail access checks. Resolve via
+     *  runtime reflection with a PlayerManager.isOperator fallback. */
     private static boolean hasPermLevel(ServerCommandSource src, int level) {
         if (src == null) return false;
-        // Try by exact name first
         for (String name : new String[] {"hasPermissionLevel", "hasPermission"}) {
             try {
                 java.lang.reflect.Method m = src.getClass().getMethod(name, int.class);
@@ -32,8 +49,6 @@ public final class SmpCommands {
             } catch (NoSuchMethodException ignored) {}
             catch (Throwable ignored) {}
         }
-        // Fallback: walk all public methods for any (int)->boolean named
-        // *permission* — catches obfuscated remaps too.
         try {
             for (java.lang.reflect.Method m : src.getClass().getMethods()) {
                 if (m.getReturnType() != boolean.class) continue;
@@ -47,14 +62,9 @@ public final class SmpCommands {
                 } catch (Throwable ignored) {}
             }
         } catch (Throwable ignored) {}
-        // Last resort: ask PlayerManager.isOperator via reflection. Yarn
-        // mappings flip the parameter type between GameProfile and
-        // PlayerConfigEntry (op-list entry wrapper) across 1.21.x, so we
-        // can't reference either at compile time.
         try {
             ServerPlayerEntity p = src.getPlayer();
             MinecraftServer s = src.getServer();
-            // Console source (no player) — always allow.
             if (p == null && s != null) return true;
             if (p != null && s != null) {
                 Object pm = s.getPlayerManager();
@@ -65,11 +75,8 @@ public final class SmpCommands {
                     Class<?> pt = m.getParameterTypes()[0];
                     Object arg = pt.isInstance(profile) ? profile : null;
                     if (arg == null) {
-                        // Try to wrap GameProfile into an op-list-entry-style
-                        // object by scanning the op list for a matching UUID.
                         try {
                             Object ops = pm.getClass().getMethod("getOpList").invoke(pm);
-                            // OperatorList.get(GameProfile) returns the entry
                             Object entry = ops.getClass().getMethod("get", Object.class).invoke(ops, profile);
                             if (entry != null && pt.isInstance(entry)) arg = entry;
                         } catch (Throwable ignored) {}
@@ -87,116 +94,128 @@ public final class SmpCommands {
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-            dispatcher.register(CommandManager.literal("icey")
-                .then(CommandManager.literal("top")
-                    .then(CommandManager.argument("category", StringArgumentType.word())
-                        .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
-                        .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))))
-                .then(CommandManager.literal("me")
-                    .executes(ctx -> showSelf(ctx.getSource())))
-                .then(CommandManager.literal("help")
-                    .executes(ctx -> showHelp(ctx.getSource())))
-                .then(CommandManager.literal("version")
+
+            // /skills — chest GUI primary entrypoint
+            dispatcher.register(CommandManager.literal("skills")
                     .executes(ctx -> {
-                        // Hardcoded version string — bumped manually each release.
-                        // If a user reports "/icey doesn't have feature X", first
-                        // ask them to run this so we know what build they're on.
-                        ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.83.2"), false);
+                        ServerPlayerEntity p = ctx.getSource().getPlayer();
+                        if (p == null) {
+                            ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] /skills must be run by a player"), false);
+                            return 0;
+                        }
+                        SkillsScreen.open(p);
                         return 1;
-                    }))
-                .then(CommandManager.literal("stats")
-                    .then(CommandManager.argument("player", StringArgumentType.word())
-                        .suggests((ctx, b) -> {
-                            MinecraftServer s = ctx.getSource().getServer();
-                            if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
-                            return b.buildFuture();
-                        })
-                        .executes(ctx -> showStats(ctx.getSource(), StringArgumentType.getString(ctx, "player")))))
-                .then(CommandManager.literal("reload")
-                    .requires(s -> hasPermLevel(s, 3))
-                    .executes(ctx -> {
-                        IceySmp.config = SmpConfig.loadOrDefault();
-                        ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §aConfig reloaded"), true);
-                        return 1;
-                    }))
-                .then(CommandManager.literal("daily")
-                    .executes(ctx -> doDaily(ctx.getSource())))
-                .then(CommandManager.literal("crate")
-                    .requires(s -> hasPermLevel(s, 2))
-                    .executes(ctx -> {
-                        boolean ok = LootCrate.spawnNearCaller(ctx.getSource(), LootCrate.Tier.pickRandom());
-                        return ok ? 1 : 0;
-                    })
-                    .then(CommandManager.argument("tier", StringArgumentType.word())
-                        .suggests((ctx, b) -> { b.suggest("common"); b.suggest("rare"); b.suggest("epic"); return b.buildFuture(); })
-                        .executes(ctx -> {
-                            String t = StringArgumentType.getString(ctx, "tier").toUpperCase();
-                            LootCrate.Tier tier;
-                            try { tier = LootCrate.Tier.valueOf(t); }
-                            catch (IllegalArgumentException e) {
-                                ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown tier: " + t.toLowerCase() + " — use common, rare, or epic"), false);
-                                return 0;
-                            }
-                            boolean ok = LootCrate.spawnNearCaller(ctx.getSource(), tier);
-                            return ok ? 1 : 0;
-                        })))
-                .then(CommandManager.literal("bounty")
-                    .then(CommandManager.argument("player", StringArgumentType.word())
-                        .suggests((ctx, b) -> {
-                            MinecraftServer s = ctx.getSource().getServer();
-                            if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
-                            return b.buildFuture();
-                        })
-                        .then(CommandManager.argument("xp", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 1000))
-                            .executes(ctx -> doBounty(ctx.getSource(),
-                                    StringArgumentType.getString(ctx, "player"),
-                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "xp"))))))
-                .then(CommandManager.literal("reward")
-                    .requires(s -> hasPermLevel(s, 2))
+                    }));
+
+            // /leaderboard <cat>  (alias /lb)
+            dispatcher.register(CommandManager.literal("leaderboard")
                     .then(CommandManager.argument("category", StringArgumentType.word())
-                        .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
-                        .then(CommandManager.argument("player", StringArgumentType.word())
+                            .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
+                            .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))));
+            dispatcher.register(CommandManager.literal("lb")
+                    .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("§7Usage: §f/lb <category>"), false); return 1; })
+                    .then(CommandManager.argument("category", StringArgumentType.word())
+                            .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
+                            .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))));
+
+            // /mystats
+            dispatcher.register(CommandManager.literal("mystats")
+                    .executes(ctx -> showSelf(ctx.getSource())));
+
+            // /playerstats <player>
+            dispatcher.register(CommandManager.literal("playerstats")
+                    .then(CommandManager.argument("player", StringArgumentType.word())
                             .suggests((ctx, b) -> {
                                 MinecraftServer s = ctx.getSource().getServer();
                                 if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
                                 return b.buildFuture();
                             })
-                            .executes(ctx -> {
-                                String catId = StringArgumentType.getString(ctx, "category");
-                                String name = StringArgumentType.getString(ctx, "player");
-                                MinecraftServer s = ctx.getSource().getServer();
-                                ServerPlayerEntity target = (s != null) ? s.getPlayerManager().getPlayer(name) : null;
-                                if (target == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + name), false); return 0; }
-                                LeaderboardManager.Category cat = (IceySmp.leaderboard != null) ? IceySmp.leaderboard.categoryById(catId) : null;
-                                if (cat == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + catId), false); return 0; }
-                                boolean ok = WeaponDrops.giveReward(target, cat.id(), cat.label());
-                                ctx.getSource().sendFeedback(() -> Text.literal(ok
-                                        ? "§b[Icey SMP] §aReward (" + cat.label() + ") given to §f" + name
-                                        : "§c[Icey SMP] failed to give reward (server not ready)"), true);
-                                return ok ? 1 : 0;
-                            }))))
-                // Back-compat alias for the old command name.
-                .then(CommandManager.literal("givefrostfang")
-                    .requires(s -> hasPermLevel(s, 2))
+                            .executes(ctx -> showStats(ctx.getSource(), StringArgumentType.getString(ctx, "player")))));
+
+            // /daily
+            dispatcher.register(CommandManager.literal("daily")
+                    .executes(ctx -> doDaily(ctx.getSource())));
+
+            // /bounty <player> <xp>
+            dispatcher.register(CommandManager.literal("bounty")
                     .then(CommandManager.argument("player", StringArgumentType.word())
-                        .suggests((ctx, b) -> {
-                            MinecraftServer s = ctx.getSource().getServer();
-                            if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
-                            return b.buildFuture();
-                        })
-                        .executes(ctx -> {
-                            String name = StringArgumentType.getString(ctx, "player");
-                            MinecraftServer s = ctx.getSource().getServer();
-                            ServerPlayerEntity target = (s != null) ? s.getPlayerManager().getPlayer(name) : null;
-                            if (target == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + name), false); return 0; }
-                            boolean ok = WeaponDrops.giveReward(target, "pvp", "PvP");
-                            ctx.getSource().sendFeedback(() -> Text.literal(ok
-                                    ? "§b[Icey SMP] §aFrostfang given to §f" + name
-                                    : "§c[Icey SMP] failed to give Frostfang (server not ready)"), true);
-                            return ok ? 1 : 0;
-                        })))
-                .then(CommandManager.literal("reset")
+                            .suggests((ctx, b) -> {
+                                MinecraftServer s = ctx.getSource().getServer();
+                                if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
+                                return b.buildFuture();
+                            })
+                            .then(CommandManager.argument("xp", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 1000))
+                                    .executes(ctx -> doBounty(ctx.getSource(),
+                                            StringArgumentType.getString(ctx, "player"),
+                                            com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "xp"))))));
+
+            // /crate [tier]   (op-2)
+            dispatcher.register(CommandManager.literal("crate")
+                    .requires(s -> hasPermLevel(s, 2))
+                    .executes(ctx -> LootCrate.spawnNearCaller(ctx.getSource(), LootCrate.Tier.pickRandom()) ? 1 : 0)
+                    .then(CommandManager.argument("tier", StringArgumentType.word())
+                            .suggests((ctx, b) -> { b.suggest("common"); b.suggest("rare"); b.suggest("epic"); return b.buildFuture(); })
+                            .executes(ctx -> {
+                                String t = StringArgumentType.getString(ctx, "tier").toUpperCase();
+                                LootCrate.Tier tier;
+                                try { tier = LootCrate.Tier.valueOf(t); }
+                                catch (IllegalArgumentException e) {
+                                    ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown tier — use common, rare, or epic"), false);
+                                    return 0;
+                                }
+                                return LootCrate.spawnNearCaller(ctx.getSource(), tier) ? 1 : 0;
+                            })));
+
+            // /reward <category> <player>   (op-2)
+            dispatcher.register(CommandManager.literal("reward")
+                    .requires(s -> hasPermLevel(s, 2))
+                    .then(CommandManager.argument("category", StringArgumentType.word())
+                            .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
+                            .then(CommandManager.argument("player", StringArgumentType.word())
+                                    .suggests((ctx, b) -> {
+                                        MinecraftServer s = ctx.getSource().getServer();
+                                        if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
+                                        return b.buildFuture();
+                                    })
+                                    .executes(ctx -> {
+                                        String catId = StringArgumentType.getString(ctx, "category");
+                                        String name = StringArgumentType.getString(ctx, "player");
+                                        MinecraftServer s = ctx.getSource().getServer();
+                                        ServerPlayerEntity target = (s != null) ? s.getPlayerManager().getPlayer(name) : null;
+                                        if (target == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + name), false); return 0; }
+                                        LeaderboardManager.Category cat = (IceySmp.leaderboard != null) ? IceySmp.leaderboard.categoryById(catId) : null;
+                                        if (cat == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + catId), false); return 0; }
+                                        boolean ok = WeaponDrops.giveReward(target, cat.id(), cat.label());
+                                        ctx.getSource().sendFeedback(() -> Text.literal(ok
+                                                ? "§b[Icey SMP] §aReward (" + cat.label() + ") given to §f" + name
+                                                : "§c[Icey SMP] failed to give reward"), true);
+                                        return ok ? 1 : 0;
+                                    }))));
+
+            // /noobprotect <on|off|toggle>   (op-2)
+            dispatcher.register(CommandManager.literal("noobprotect")
+                    .requires(s -> hasPermLevel(s, 2))
+                    .executes(ctx -> {
+                        boolean on = IceySmp.config != null && IceySmp.config.noobProtectionEnabled();
+                        ctx.getSource().sendFeedback(() -> Text.literal("§7[Icey SMP] Noob protection: §" + (on ? "a" : "c") + (on ? "ON" : "OFF")
+                                + " §8(/noobprotect on|off|toggle)"), false);
+                        return 1;
+                    })
+                    .then(CommandManager.argument("mode", StringArgumentType.word())
+                            .suggests((ctx, b) -> { b.suggest("on"); b.suggest("off"); b.suggest("toggle"); return b.buildFuture(); })
+                            .executes(ctx -> doNoobProtect(ctx.getSource(), StringArgumentType.getString(ctx, "mode")))));
+
+            // /reloadcfg   (op-3)
+            dispatcher.register(CommandManager.literal("reloadcfg")
+                    .requires(s -> hasPermLevel(s, 3))
+                    .executes(ctx -> {
+                        IceySmp.config = SmpConfig.loadOrDefault();
+                        ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §aConfig reloaded"), true);
+                        return 1;
+                    }));
+
+            // /resetstats   (op-4)
+            dispatcher.register(CommandManager.literal("resetstats")
                     .requires(s -> hasPermLevel(s, 4))
                     .executes(ctx -> {
                         if (IceySmp.stats == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] not ready"), false); return 0; }
@@ -205,41 +224,34 @@ public final class SmpCommands {
                         if (ctx.getSource().getServer() != null) IceySmp.stats.save(ctx.getSource().getServer());
                         ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §cWiped " + n + " player stats"), true);
                         return 1;
-                    }))
-                .executes(ctx -> {
-                    ctx.getSource().sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rcommands:"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey help §8— effect each category gives + your progress"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey top <category> §8— leaderboard for a category"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey me §8— your stats + rank across all categories"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey stats <player> §8— another player's stats"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey daily §8— roll for a random item (14h cooldown)"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey bounty <player> <xp> §8— pay XP to put a bounty on someone"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey crate [common|rare|epic] §8— spawn a loot crate near you §7(op-2)"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reward <category> <player> §8— hand-give a max-level reward §7(op-2)"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /setspawn §8— set world spawn here §7(op-2)"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reload §8— reload config §7(op-3)"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reset §8— wipe all stats §7(op-4)"), false);
-                    return 1;
-                })
-            );
+                    }));
 
-            // /spawn removed per user request — vanilla servers already
-            // have /spawnpoint, and the in-combat block / out-of-overworld
-            // fallback wasn't worth the maintenance.
-
-            // Set world spawn to current position — admin (op-2) only.
-            // Just a thin wrapper around setSpawnPos with proper perm gating.
+            // /setspawn   (op-2) — top-level, was always top-level before too.
             dispatcher.register(CommandManager.literal("setspawn")
-                .requires(s -> hasPermLevel(s, 2))
-                .executes(ctx -> doSetSpawn(ctx.getSource())));
-
-            // Server-side /lb fallback. Users with an old iceymod client
-            // (or no iceymod at all) won't have the client-side /lb that
-            // opens the leaderboard screen — this catches the typo and
-            // routes them to /icey help so they at least see something.
-            dispatcher.register(CommandManager.literal("lb")
-                .executes(ctx -> showHelp(ctx.getSource())));
+                    .requires(s -> hasPermLevel(s, 2))
+                    .executes(ctx -> doSetSpawn(ctx.getSource())));
         });
+    }
+
+    private static int doNoobProtect(ServerCommandSource src, String mode) {
+        if (IceySmp.config == null) {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] config not loaded"), false);
+            return 0;
+        }
+        boolean newVal;
+        switch (mode.toLowerCase()) {
+            case "on"     -> newVal = true;
+            case "off"    -> newVal = false;
+            case "toggle" -> newVal = !IceySmp.config.noobProtectionEnabled();
+            default -> {
+                src.sendFeedback(() -> Text.literal("§c[Icey SMP] usage: /noobprotect on|off|toggle"), false);
+                return 0;
+            }
+        }
+        IceySmp.config.setNoobProtectionEnabled(newVal);
+        final boolean state = newVal;
+        src.sendFeedback(() -> Text.literal("§b[Icey SMP] §aNoob protection §" + (state ? "a" : "c") + (state ? "ENABLED" : "DISABLED")), true);
+        return 1;
     }
 
     private static int doSetSpawn(ServerCommandSource src) {
@@ -247,12 +259,7 @@ public final class SmpCommands {
         MinecraftServer server = src.getServer();
         if (server == null) return 0;
         ServerWorld overworld = server.getOverworld();
-        // Use the player's x/y/z (works even if they're cross-dimension —
-        // we apply those coords to overworld spawn). For console, fall
-        // back to current world spawn.
         BlockPos pos = (p != null) ? p.getBlockPos() : resolveWorldSpawn(overworld);
-        // Yarn variation: setSpawnPos(BlockPos, float) vs setSpawnPos(BlockPos, float, boolean, boolean).
-        // Try via reflection so this compiles cleanly across the matrix.
         try {
             for (java.lang.reflect.Method m : overworld.getClass().getMethods()) {
                 if (!m.getName().equals("setSpawnPos")) continue;
@@ -280,36 +287,6 @@ public final class SmpCommands {
         return 0;
     }
 
-    private static int showHelp(ServerCommandSource src) {
-        if (IceySmp.leaderboard == null) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false);
-            return 0;
-        }
-        ServerPlayerEntity me = src.getPlayer();
-        PlayerStats ps = (me != null && IceySmp.stats != null) ? IceySmp.stats.peek(me.getUuid()) : null;
-        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rCategories — §7each level doubles the previous threshold"), false);
-        for (LeaderboardManager.Category cat : IceySmp.leaderboard.allCategories()) {
-            long count = (ps != null) ? cat.field().applyAsLong(ps) : 0;
-            String effectName = effectDisplayName(cat);
-            String progress;
-            if (ps == null) {
-                progress = "§8need " + formatForCategory(cat.id(), cat.divisor()) + " for Lv 1";
-            } else {
-                double normalized = count / (double) cat.divisor();
-                int level = normalized < 1.0 ? 0 : (int)(Math.log(normalized) / Math.log(2)) + 1;
-                long next = LeaderboardManager.nextLevelThreshold(count, cat.divisor());
-                progress = "§7Lv §b" + level + "§7 — §f" + formatForCategory(cat.id(), count)
-                        + "§7/§f" + formatForCategory(cat.id(), next);
-            }
-            final String line = "  §f" + cat.label() + " §8→ §a" + effectName + " §8| " + progress;
-            src.sendFeedback(() -> Text.literal(line), false);
-        }
-        return 1;
-    }
-
-    /** Display a raw count in human-friendly units per category.
-     *  Playtime: ticks → minutes/hours. Walking: cm → m/km.
-     *  Damage taken: ×10 stored → divide by 10 to show HP. Else raw. */
     private static String formatForCategory(String catId, long count) {
         return switch (catId) {
             case "playtime" -> formatTicksHuman(count);
@@ -330,30 +307,14 @@ public final class SmpCommands {
     }
 
     private static String formatCmHuman(long cm) {
-        // Always meters per user request. Below 1 km show one decimal, above
-        // use comma-separated integers so the number stays readable
-        // (e.g. 12,345 m instead of 12345 m).
         double m = cm / 100.0;
         if (m < 1000) return String.format("%.1f m", m);
         return String.format("%,.0f m", m);
     }
 
-    private static String effectDisplayName(LeaderboardManager.Category cat) {
-        return switch (cat.id()) {
-            case "mining" -> "Haste";
-            case "pvp" -> "Strength";
-            case "playtime" -> "Saturation";
-            case "fishing" -> "Luck";
-            case "walking" -> "Speed";
-            case "jumps" -> "Jump Boost";
-            case "dmgtaken" -> "Resistance";
-            default -> "?";
-        };
-    }
-
     private static int doDaily(ServerCommandSource src) {
         ServerPlayerEntity p = src.getPlayer();
-        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /icey daily must be run by a player"), false); return 0; }
+        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /daily must be run by a player"), false); return 0; }
         if (IceySmp.stats == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false); return 0; }
         PlayerStats ps = IceySmp.stats.get(p.getUuid(), p.getName().getString());
         long remain = DailyRewards.cooldownRemainingMs(ps);
@@ -369,7 +330,7 @@ public final class SmpCommands {
 
     private static int doBounty(ServerCommandSource src, String targetName, int xp) {
         ServerPlayerEntity p = src.getPlayer();
-        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /icey bounty must be run by a player"), false); return 0; }
+        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /bounty must be run by a player"), false); return 0; }
         MinecraftServer server = src.getServer();
         if (server == null || IceySmp.stats == null) return 0;
         if (p.getName().getString().equalsIgnoreCase(targetName)) {
@@ -382,12 +343,9 @@ public final class SmpCommands {
         }
         ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
         if (target == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + targetName), false); return 0; }
-        // Deduct XP from caller
         p.addExperienceLevels(-xp);
-        // Add to target's bounty pool
         PlayerStats tps = IceySmp.stats.get(target.getUuid(), target.getName().getString());
         tps.bountyXp += xp;
-        // Broadcast — bounties should be public knowledge
         server.getPlayerManager().broadcast(
                 Text.literal("§b§l[Icey SMP] §c§l" + p.getName().getString()
                         + " §r§7put a §6§l" + xp + " XP§r§7 bounty on §c§l" + target.getName().getString()
@@ -414,7 +372,6 @@ public final class SmpCommands {
             src.sendFeedback(() -> Text.literal(medalFor(rank) + " §f" + r.name + " §8— §b" + formatValue(category, r.value)), false);
         }
         if (!any) { src.sendFeedback(() -> Text.literal("§7  (no entries yet)"), false); return 1; }
-        // Show requester's rank at the bottom if they're not already in the visible top
         ServerPlayerEntity me = src.getPlayer();
         if (me != null) {
             int myRank = -1;
@@ -433,7 +390,7 @@ public final class SmpCommands {
 
     private static int showSelf(ServerCommandSource src) {
         ServerPlayerEntity p = src.getPlayer();
-        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /icey me must be run by a player"), false); return 0; }
+        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /mystats must be run by a player"), false); return 0; }
         return showStatsFor(src, p.getUuid(), p.getName().getString());
     }
 
@@ -469,7 +426,7 @@ public final class SmpCommands {
             for (int i = 0; i < ranked.size(); i++) {
                 if (ranked.get(i).uuid.equals(uuid)) { rank = i; value = ranked.get(i).value; break; }
             }
-            if (value == 0) continue; // skip categories with no progress
+            if (value == 0) continue;
             final int rIdx = rank; final long v = value;
             src.sendFeedback(() -> Text.literal(
                     "§7" + padLabel(catId) + " §f" + formatValue(catId, v) + " §8— §6#" + (rIdx + 1)), false);
@@ -492,15 +449,11 @@ public final class SmpCommands {
         };
     }
 
-    /** Format the value for display, picking a per-category format.
-     *  Reuses the per-category formatters from {@link #formatForCategory}
-     *  so /icey top and /icey help stay consistent. */
     private static String formatValue(String category, long value) {
         return switch (category) {
             case "playtime" -> formatTicks(value);
             case "walking"  -> formatCmHuman(value);
             case "dmgtaken" -> String.format("%.1f HP", value / 10.0);
-            case "sneak"    -> formatTicks(value);
             default -> formatWithCommas(value);
         };
     }

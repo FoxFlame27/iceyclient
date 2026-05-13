@@ -18,6 +18,7 @@ public final class SmpConfig {
     private int sameVictimCooldownSeconds = 0;   // 0 = never count same victim twice
     private int effectDurationSeconds = 60;
     private int noobProtectionMinutes = 10;
+    private boolean noobProtectionEnabled = true;
     private boolean starterKit = true;
     private boolean killStealsStats = true;
     private boolean killOnCombatLogout = true;
@@ -27,9 +28,15 @@ public final class SmpConfig {
     public int sameVictimCooldownSeconds() { return sameVictimCooldownSeconds; }
     public int effectDurationSeconds() { return effectDurationSeconds; }
     public int noobProtectionMinutes() { return noobProtectionMinutes; }
+    public boolean noobProtectionEnabled() { return noobProtectionEnabled; }
     public boolean starterKit() { return starterKit; }
     public boolean killStealsStats() { return killStealsStats; }
     public boolean killOnCombatLogout() { return killOnCombatLogout; }
+
+    /** Runtime toggle for /noobprotect. Persisted on next loadOrDefault
+     *  write — we don't auto-save the toggle to disk, but the next time
+     *  the file is regenerated it'll pick up the current value. */
+    public void setNoobProtectionEnabled(boolean enabled) { this.noobProtectionEnabled = enabled; }
 
     public static SmpConfig loadOrDefault() {
         SmpConfig c = new SmpConfig();
@@ -50,6 +57,7 @@ public final class SmpConfig {
                         case "sameVictimCooldownSeconds" -> c.sameVictimCooldownSeconds = clamp(Integer.parseInt(v), 0, 86400);
                         case "effectDurationSeconds"     -> c.effectDurationSeconds     = clamp(Integer.parseInt(v), 5, 3600);
                         case "noobProtectionMinutes"     -> c.noobProtectionMinutes     = clamp(Integer.parseInt(v), 0, 1440);
+                        case "noobProtectionEnabled"     -> c.noobProtectionEnabled     = Boolean.parseBoolean(v);
                         case "starterKit"                -> c.starterKit                = Boolean.parseBoolean(v);
                         case "killStealsStats"           -> c.killStealsStats           = Boolean.parseBoolean(v);
                         case "killOnCombatLogout"        -> c.killOnCombatLogout        = Boolean.parseBoolean(v);
@@ -76,6 +84,8 @@ public final class SmpConfig {
                 effectDurationSeconds=%d
                 # Noob protection: from first join, this many minutes of no-PvP.
                 noobProtectionMinutes=%d
+                # Master switch for noob protection — flip via /noobprotect on|off.
+                noobProtectionEnabled=%b
                 # Give iron armor + iron sword/pick/axe on first join.
                 starterKit=%b
                 # On a PvP kill, transfer all of the victim's stats to the killer.
@@ -84,7 +94,7 @@ public final class SmpConfig {
                 killOnCombatLogout=%b
                 """.formatted(
                         c.recomputeSeconds, c.combatTagSeconds, c.sameVictimCooldownSeconds,
-                        c.effectDurationSeconds, c.noobProtectionMinutes,
+                        c.effectDurationSeconds, c.noobProtectionMinutes, c.noobProtectionEnabled,
                         c.starterKit, c.killStealsStats, c.killOnCombatLogout);
         Files.writeString(file, body, StandardCharsets.UTF_8);
     }

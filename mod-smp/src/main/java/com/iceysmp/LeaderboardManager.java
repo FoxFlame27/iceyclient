@@ -132,18 +132,19 @@ public final class LeaderboardManager {
                                 Text.literal("§aLevel " + newLevel + " §rin §b§l" + cat.label)));
                     } catch (Throwable ignored) {}
 
-                    // Max level reward: themed item per category. Cap =
-                    // max amp for the effect; max level = cap + 1 (amp 0
-                    // = Level I).
-                    if (effect != null) {
-                        int maxLevel = capFor(effect) + 1;
-                        if (newLevel >= maxLevel && !ps.wasAwardedFrostfangFor(cat.id)) {
-                            WeaponDrops.giveReward(p, cat.id, cat.label);
-                            ps.markFrostfangAwardedFor(cat.id);
-                        }
-                    }
                 }
                 playerLevels.put(cat.id, newLevel);
+
+                // Weapon-threshold reward: per-category fixed count
+                // (1000 mining, 25 PvP, 50h playtime, etc.). One-shot per
+                // (player, category). Checked every recompute, not just
+                // on level-up, so the reward fires the cycle AFTER the
+                // threshold is crossed even if no level boundary moved.
+                long currentCount = cat.field.applyAsLong(ps);
+                if (currentCount >= cat.weaponThreshold && !ps.wasAwardedFrostfangFor(cat.id)) {
+                    WeaponDrops.giveReward(p, cat.id, cat.label);
+                    ps.markFrostfangAwardedFor(cat.id);
+                }
 
                 if (amp >= 0) {
                     try {
@@ -274,15 +275,18 @@ public final class LeaderboardManager {
      * etc. — exponential.
      */
     enum Category {
-        MINING       ("mining",      "Mining",        "ores",         ps -> ps.mining,           () -> StatusEffects.HASTE,        200L),
-        PVP          ("pvp",         "PvP",           "kills",        ps -> ps.pvpKills,         () -> StatusEffects.STRENGTH,     2L),
-        PLAYTIME     ("playtime",    "Playtime",      "hours",        ps -> ps.playtimeTicks,    () -> StatusEffects.SATURATION,   72000L),
-        FISHING      ("fishing",     "Fishing",       "fish",         ps -> ps.fishCaught,       () -> StatusEffects.LUCK,         30L),
-        WALKING      ("walking",     "Distance",      "km × 6",       ps -> ps.distanceWalkedCm, () -> StatusEffects.SPEED,        600_000L),
-        JUMPS        ("jumps",       "Jumps",         "jumps",        ps -> ps.jumps,            () -> StatusEffects.JUMP_BOOST,   500L),
-        // damageTaken is stored ×10 in PlayerStats (since damage is float).
-        // Divisor 500 = 50 HP taken per "hour-unit" — typical active play.
-        DMG_TAKEN    ("dmgtaken",    "Damage Taken",  "HP × 10",       ps -> ps.damageTaken,      () -> StatusEffects.RESISTANCE,   500L);
+        // Last column = weaponThreshold: raw count at which the themed
+        // custom weapon is awarded (one-shot per player). Tuned so they
+        // come earlier than the old "max-amp-level" gate did and at
+        // round numbers (per user request — "500 or 1000 depending").
+        MINING       ("mining",      "Mining",        "ores",         ps -> ps.mining,           () -> StatusEffects.HASTE,        200L,    1_000L),
+        PVP          ("pvp",         "PvP",           "kills",        ps -> ps.pvpKills,         () -> StatusEffects.STRENGTH,     2L,         25L),
+        PLAYTIME     ("playtime",    "Playtime",      "hours",        ps -> ps.playtimeTicks,    () -> StatusEffects.SATURATION,   72000L, 3_600_000L), // 50h in ticks
+        FISHING      ("fishing",     "Fishing",       "fish",         ps -> ps.fishCaught,       () -> StatusEffects.LUCK,         30L,       100L),
+        WALKING      ("walking",     "Distance",      "km × 6",       ps -> ps.distanceWalkedCm, () -> StatusEffects.SPEED,        600_000L, 1_000_000L), // 10 km in cm
+        JUMPS        ("jumps",       "Jumps",         "jumps",        ps -> ps.jumps,            () -> StatusEffects.JUMP_BOOST,   500L,    1_000L),
+        // damageTaken is stored ×10 in PlayerStats. Threshold 5000 = 500 HP.
+        DMG_TAKEN    ("dmgtaken",    "Damage Taken",  "HP × 10",       ps -> ps.damageTaken,      () -> StatusEffects.RESISTANCE,   500L,    5_000L);
 
         final String id;
         final String label;
@@ -290,18 +294,20 @@ public final class LeaderboardManager {
         final ToLongFunction<PlayerStats> field;
         final Supplier<RegistryEntry<StatusEffect>> effectSupplier;
         final long divisor;
+        final long weaponThreshold;
 
         private RegistryEntry<StatusEffect> cached;
         private boolean resolved;
 
         Category(String id, String label, String unit, ToLongFunction<PlayerStats> field,
-                 Supplier<RegistryEntry<StatusEffect>> effectSupplier, long divisor) {
+                 Supplier<RegistryEntry<StatusEffect>> effectSupplier, long divisor, long weaponThreshold) {
             this.id = id;
             this.label = label;
             this.unit = unit;
             this.field = field;
             this.effectSupplier = effectSupplier;
             this.divisor = divisor;
+            this.weaponThreshold = weaponThreshold;
         }
 
         public String id() { return id; }
@@ -309,6 +315,7 @@ public final class LeaderboardManager {
         public String unit() { return unit; }
         public ToLongFunction<PlayerStats> field() { return field; }
         public long divisor() { return divisor; }
+        public long weaponThreshold() { return weaponThreshold; }
 
         RegistryEntry<StatusEffect> effect() {
             if (!resolved) {

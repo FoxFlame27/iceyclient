@@ -13,6 +13,7 @@ public final class NoobProtection {
 
     public static boolean isProtected(PlayerStats ps, SmpConfig config) {
         if (ps == null) return false;
+        if (!config.noobProtectionEnabled()) return false;
         if (config.noobProtectionMinutes() <= 0) return false;
         long elapsedMs = System.currentTimeMillis() - ps.firstJoinTimestamp;
         return elapsedMs < config.noobProtectionMinutes() * 60_000L;
