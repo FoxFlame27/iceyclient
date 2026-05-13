@@ -30,6 +30,22 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.25
+
+**Frostfang — max-level reward weapon.** Auto-given the first time a player hits the max level in any category (cap + 1 levels for that effect: e.g. mining maxes at Lv 6 for Haste, PvP at Lv 3 for Strength). It's a vanilla diamond sword with:
+- Custom name `Frostfang` (aqua + bold)
+- Three-line lore: "*A blade forged in the cold north.* / *Slows on hit · Bonus reach* / *Max-level reward — <category>*"
+- Enchantments: Sharpness V + Knockback II + Fire Aspect II + Unbreaking III
+- Rarity: Epic (purple name floating above it)
+
+**Op-only `/icey givefrostfang <player>`** for handing out the sword manually (testing or as an event prize). Requires op-2.
+
+**Tracking:** `PlayerStats.frostfangAwardedFor` is a `;`-separated list of category ids the player has already received the reward for. Persists to JSON. Means hitting max → reset → max again only gives one Frostfang per category, ever (unless an admin uses the give command).
+
+**Server-wide announcement** on each Frostfang drop: `[Icey SMP] PlayerX earned a Frostfang for maxing Mining!` — and the leveling player gets a big `FROSTFANG / Max-level reward · Mining` title pop on their screen.
+
+**Custom 16×16 PNG texture + model JSON shipped** in `assets/iceymodplus/` for a future revision that wires up custom_model_data overrides for the diamond_sword model. For this release the sword renders with the vanilla diamond-sword model — the custom name + epic-rarity glow make it obvious in inventories.
+
 ## What's new in v1.80.24
 
 - **Removed Diamonds and Mob Kills.** Diamonds overlapped with Speed (Walking already gives Speed) and Mob Kills wasn't fun. 7 categories now: Mining, PvP, Playtime, Fishing, Walking, Jumps, Damage Taken.

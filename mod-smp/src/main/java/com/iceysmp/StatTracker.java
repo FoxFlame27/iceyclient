@@ -109,6 +109,7 @@ public final class StatTracker {
                 st.jumps            = extractLong(body, "jumps");
                 st.xpLevelsGained   = extractLong(body, "xpLevels");
                 st.sneakTimeTicks   = extractLong(body, "sneak");
+                st.frostfangAwardedFor = extractString(body, "ffAwarded", "");
                 try { map.put(UUID.fromString(uuidStr), st); } catch (Exception ignored) {}
             }
         } catch (IOException ignored) {}
@@ -142,7 +143,8 @@ public final class StatTracker {
                 sb.append("\"walkCm\":").append(s.distanceWalkedCm).append(",");
                 sb.append("\"jumps\":").append(s.jumps).append(",");
                 sb.append("\"xpLevels\":").append(s.xpLevelsGained).append(",");
-                sb.append("\"sneak\":").append(s.sneakTimeTicks);
+                sb.append("\"sneak\":").append(s.sneakTimeTicks).append(",");
+                sb.append("\"ffAwarded\":\"").append(escape(s.frostfangAwardedFor == null ? "" : s.frostfangAwardedFor)).append("\"");
                 sb.append("}");
             }
             sb.append("\n}\n");

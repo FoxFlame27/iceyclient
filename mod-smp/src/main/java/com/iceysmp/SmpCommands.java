@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.24"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.25"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
@@ -73,6 +73,25 @@ public final class SmpCommands {
                         ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §aConfig reloaded"), true);
                         return 1;
                     }))
+                .then(CommandManager.literal("givefrostfang")
+                    .requires(s -> hasPermLevel(s, 2))
+                    .then(CommandManager.argument("player", StringArgumentType.word())
+                        .suggests((ctx, b) -> {
+                            MinecraftServer s = ctx.getSource().getServer();
+                            if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
+                            return b.buildFuture();
+                        })
+                        .executes(ctx -> {
+                            String name = StringArgumentType.getString(ctx, "player");
+                            MinecraftServer s = ctx.getSource().getServer();
+                            ServerPlayerEntity target = (s != null) ? s.getPlayerManager().getPlayer(name) : null;
+                            if (target == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + name), false); return 0; }
+                            boolean ok = WeaponDrops.giveFrostfang(target, "admin gift");
+                            ctx.getSource().sendFeedback(() -> Text.literal(ok
+                                    ? "§b[Icey SMP] §aFrostfang given to §f" + name
+                                    : "§c[Icey SMP] failed to give Frostfang (server not ready)"), true);
+                            return ok ? 1 : 0;
+                        })))
                 .then(CommandManager.literal("reset")
                     .requires(s -> hasPermLevel(s, 4))
                     .executes(ctx -> {

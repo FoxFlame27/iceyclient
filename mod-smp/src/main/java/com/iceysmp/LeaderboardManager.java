@@ -116,9 +116,6 @@ public final class LeaderboardManager {
                                     + " §r§7is now §b§lLevel " + newLevel
                                     + " §r§7in §b§l" + cat.label + "§7!"),
                             false);
-                    // Pop a big "LEVEL UP" title on the leveling player's screen.
-                    // Wrapped in try/catch because TitleS2CPacket lives at a path
-                    // that's stable since 1.17 but yarn could in theory rename.
                     try {
                         p.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket(10, 50, 20));
                         p.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.TitleS2CPacket(
@@ -126,6 +123,16 @@ public final class LeaderboardManager {
                         p.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.SubtitleS2CPacket(
                                 Text.literal("§aLevel " + newLevel + " §rin §b§l" + cat.label)));
                     } catch (Throwable ignored) {}
+
+                    // Max level reward: Frostfang. Cap = max amp for the
+                    // effect; max level = cap + 1 (amp 0 = Level I).
+                    if (effect != null) {
+                        int maxLevel = capFor(effect) + 1;
+                        if (newLevel >= maxLevel && !ps.wasAwardedFrostfangFor(cat.id)) {
+                            WeaponDrops.giveFrostfang(p, cat.label);
+                            ps.markFrostfangAwardedFor(cat.id);
+                        }
+                    }
                 }
                 playerLevels.put(cat.id, newLevel);
 

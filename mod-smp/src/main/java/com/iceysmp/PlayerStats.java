@@ -31,8 +31,25 @@ public final class PlayerStats {
     public long xpLevelsGained;
     public long sneakTimeTicks;
 
+    /** Semicolon-separated set of category IDs the player has already
+     *  received a max-level reward (Frostfang) for. So if they hit Lv max
+     *  in Mining twice (e.g. through a reset), they don't get two swords. */
+    public String frostfangAwardedFor = "";
+
     public PlayerStats(String name) {
         this.name = name;
+    }
+
+    public boolean wasAwardedFrostfangFor(String categoryId) {
+        if (frostfangAwardedFor == null || frostfangAwardedFor.isEmpty()) return false;
+        for (String s : frostfangAwardedFor.split(";")) if (s.equals(categoryId)) return true;
+        return false;
+    }
+
+    public void markFrostfangAwardedFor(String categoryId) {
+        if (wasAwardedFrostfangFor(categoryId)) return;
+        if (frostfangAwardedFor == null || frostfangAwardedFor.isEmpty()) frostfangAwardedFor = categoryId;
+        else frostfangAwardedFor = frostfangAwardedFor + ";" + categoryId;
     }
 
     /** Stealable categories — fields the killer absorbs on PvP kill. */
