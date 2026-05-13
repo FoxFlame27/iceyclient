@@ -30,6 +30,19 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.84.1
+
+**Singleplayer fix — the launcher now installs iceymod+ (server mod) for every Fabric installation, not just iceymod (client).** Root cause: when MC runs in singleplayer, the integrated server loads mods from the same `mods/` folder as the client. The launcher's auto-install step was only dropping in the client jar, so all server-side commands (`/skills`, `/leaderboard`, `/daily`, `/crate`, `/bounty`, etc.) silently didn't exist in singleplayer. User report: "NONE OF THE COMMANDS WORK THEY DONT SHOW UP (IN SINGLEPLAYER AT LEAST)".
+
+Fix: new block in [main.js:976](main.js#L976) that mirrors the client-mod install logic for iceymod+:
+
+- Resolves the expected jar name `iceymodplus-server-mod-mc<MC_VER>-1.0.0.jar` per installation.
+- Cleans up stale iceymodplus jars from other MC versions before installing.
+- Searches `mod-smp/build/libs/` (dev), `resources/` (packaged), then `DATA_DIR` (downloaded) — first match wins.
+- Toggling Icey-mods off in settings removes the server jar too.
+
+CI workflow updated — `build-windows` / `build-mac` / `build-linux-arm64` now depend on `build-smp` and download all four matrix jars into `mod-smp/build/libs/` before electron-builder runs. electron-builder's `files` glob now bundles `mod-smp/build/libs/iceymodplus-server-mod-*.jar` and `resources/iceymodplus-server-mod-*.jar` so the jars ship with every launcher binary.
+
 ## What's new in v1.84.0
 
 **Big iceymod+ refactor — top-level commands, fixed weapon thresholds, chest-GUI skills browser, toggleable noob protection.** Per user request: "remove /icey just make it /daily … make a gui and you can press mining and it shows a bar in the gui 50% for eg if you're 50% and how many blocks are still needed … only get the custom weapons if you reach a amount like 500 or 1000 depending on what … keep newbie protection but you can turn it off with a command but no /icey anything."

@@ -973,6 +973,62 @@ function launchMinecraft(installationId) {
         } catch (_) {}
       }
 
+      // 1b) Install iceymod+ (server-side mod) — per-MC-version jar. In
+      // singleplayer Minecraft's integrated server reads mods from the
+      // same mods/ folder as the client, so server-side commands
+      // (/skills, /leaderboard, /daily, /crate, etc.) only show up if
+      // iceymodplus is present. Without this block, singleplayer launches
+      // with iceymod (client) but no server mod → no commands.
+      try {
+        const smpJarName = `iceymodplus-server-mod-mc${installation.version}-1.0.0.jar`;
+        const smpDest = path.join(modsDir, smpJarName);
+
+        // Clean up stale iceymodplus jars (wrong MC version).
+        const smpPattern = /^(iceysmp|iceymodplus).*\.jar$/i;
+        for (const f of fs.readdirSync(modsDir)) {
+          if (smpPattern.test(f) && f !== smpJarName) {
+            try {
+              fs.unlinkSync(path.join(modsDir, f));
+              log('info', 'Removed stale iceymod+ jar: ' + f);
+            } catch (_) {}
+          }
+        }
+
+        if (iceyModsEnabled) {
+          const smpSearchPaths = [
+            path.join(__dirname, 'mod-smp', 'build', 'libs', smpJarName),
+            path.join(__dirname, 'resources', smpJarName),
+            path.join(DATA_DIR, smpJarName),
+          ];
+          let installed = false;
+          for (const src of smpSearchPaths) {
+            if (fs.existsSync(src)) {
+              try {
+                const srcStat = fs.statSync(src);
+                const destStat = fs.existsSync(smpDest) ? fs.statSync(smpDest) : null;
+                if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+                  fs.copyFileSync(src, smpDest);
+                  log('info', 'Installed iceymod+ to ' + smpDest);
+                  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'iceymod+ installed for ' + installation.version, level: 'info' });
+                }
+                installed = true;
+              } catch (e) {
+                log('warn', 'Failed to install iceymod+: ' + e.message);
+              }
+              break;
+            }
+          }
+          if (!installed) {
+            log('warn', `iceymod+ jar not bundled for MC ${installation.version} — commands won't be available in singleplayer`);
+            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: `iceymod+ not bundled for MC ${installation.version} — server commands unavailable`, level: 'warn' });
+          }
+        } else if (fs.existsSync(smpDest)) {
+          try { fs.unlinkSync(smpDest); log('info', 'Icey mods disabled — removed ' + smpJarName); } catch (_) {}
+        }
+      } catch (e) {
+        log('warn', 'iceymod+ install block failed: ' + e.message);
+      }
+
       // 2) Install correct Fabric API for THIS MC version. Hardcoded version
       // maps drift fast and skip MC versions silently — query Modrinth for the
       // latest fabric-api version compatible with the installation's MC version

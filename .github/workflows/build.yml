@@ -31,7 +31,7 @@ jobs:
           path: mod/build/libs/iceymod-*.jar
 
   build-windows:
-    needs: build-mod
+    needs: [build-mod, build-smp]
     runs-on: windows-latest
     permissions:
       contents: write
@@ -45,6 +45,12 @@ jobs:
         with:
           name: mod-jar
           path: mod/build/libs
+      - name: Download all iceymodplus jars
+        uses: actions/download-artifact@v4
+        with:
+          pattern: smp-jar-mc*
+          merge-multiple: true
+          path: mod-smp/build/libs
       - name: npm install (with retry)
         shell: pwsh
         run: |
@@ -99,7 +105,7 @@ jobs:
           path: dist/*.exe
 
   build-mac:
-    needs: build-mod
+    needs: [build-mod, build-smp]
     runs-on: macos-latest
     permissions:
       contents: write
@@ -113,6 +119,12 @@ jobs:
         with:
           name: mod-jar
           path: mod/build/libs
+      - name: Download all iceymodplus jars
+        uses: actions/download-artifact@v4
+        with:
+          pattern: smp-jar-mc*
+          merge-multiple: true
+          path: mod-smp/build/libs
       - name: npm install (with retry)
         run: |
           for i in 1 2 3 4; do
@@ -146,7 +158,7 @@ jobs:
           path: dist/*.dmg
 
   build-linux-arm64:
-    needs: build-mod
+    needs: [build-mod, build-smp]
     runs-on: ubuntu-latest
     # Bail fast instead of hanging at the default 6-hour timeout. Cold
     # arm64-electron build is ~6 min; 20 minutes is generous.
@@ -163,6 +175,12 @@ jobs:
         with:
           name: mod-jar
           path: mod/build/libs
+      - name: Download all iceymodplus jars
+        uses: actions/download-artifact@v4
+        with:
+          pattern: smp-jar-mc*
+          merge-multiple: true
+          path: mod-smp/build/libs
       - name: Cache npm + Electron cache
         uses: actions/cache@v4
         with:
