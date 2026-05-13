@@ -121,21 +121,34 @@ public final class WeaponDrops {
         MinecraftServer server = IceySmp.server;
         if (server == null) return false;
         try {
+            // SNBT-compound form for text components. The previous
+            // JSON-string form ({@code custom_name='{"text":"X"}'}) was
+            // being treated by MC as "a Text component whose content is
+            // the literal JSON string" — the in-game item showed up with
+            // its name as raw JSON ({"text":"Stonewall","color":"dark_red"
+            // ,"bold":true}). Dropping the outer quotes makes MC parse
+            // the inner {...} as an SNBT compound representing the Text
+            // component directly, which renders correctly.
             StringBuilder lore = new StringBuilder();
             for (int i = 0; i < r.lore.length; i++) {
                 if (i > 0) lore.append(",");
-                lore.append("'{\"text\":\"").append(escapeJson(r.lore[i]))
+                lore.append("{\"text\":\"").append(escapeJson(r.lore[i]))
                         .append("\",\"italic\":false,\"color\":\"")
-                        .append(i == 0 ? "gray" : "dark_aqua").append("\"}'");
+                        .append(i == 0 ? "gray" : "dark_aqua").append("\"}");
             }
-            lore.append(",'{\"text\":\"Max-level reward — ").append(escapeJson(reasonLabel))
-                    .append("\",\"italic\":false,\"color\":\"dark_gray\"}'");
+            lore.append(",{\"text\":\"Max-level reward — ").append(escapeJson(reasonLabel))
+                    .append("\",\"italic\":false,\"color\":\"dark_gray\"}");
 
             // 1.21.5+ removed the {levels:{...}} wrapper from the
             // minecraft:enchantments component — now it's just the map
             // directly. 1.21.0-1.21.4 needs the wrapper. Try the modern
             // form first, fall back to the legacy form on syntax error.
-            String namePart = "custom_name='{\"text\":\"" + escapeJson(r.name)
+            String namePart = "custom_name={\"text\":\"" + escapeJson(r.name)
+                    + "\",\"italic\":false,\"color\":\"" + r.nameColor + "\",\"bold\":true}";
+            // Legacy JSON-string form, used only as a last-resort fallback
+            // for the older yarn variants that don't accept SNBT compounds
+            // in this slot. On 1.21.8+ the SNBT form parses cleanly.
+            String legacyNamePart = "custom_name='{\"text\":\"" + escapeJson(r.name)
                     + "\",\"italic\":false,\"color\":\"" + r.nameColor + "\",\"bold\":true}'";
             String lorePart = "lore=[" + lore + "]";
             String rarityPart = "rarity=epic";
@@ -163,6 +176,11 @@ public final class WeaponDrops {
                     "give " + playerName + " " + r.item + "[" + namePart + "," + rarityPart + "] 1",
                     // No rarity — keep just the name
                     "give " + playerName + " " + r.item + "[" + namePart + "] 1",
+                    // Yarn variants that don't parse SNBT-compound text
+                    // components in component args fall through to the
+                    // legacy JSON-string form.
+                    "give " + playerName + " " + r.item + "[" + legacyNamePart + "," + rarityPart + "] 1",
+                    "give " + playerName + " " + r.item + "[" + legacyNamePart + "] 1",
                     // Last resort: bare vanilla item
                     "give " + playerName + " " + r.item + " 1"
             };

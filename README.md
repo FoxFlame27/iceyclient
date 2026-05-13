@@ -30,6 +30,14 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.84.2
+
+**Custom weapon names render as text instead of raw JSON.** User-reported with a screenshot — every reward item (Stonewall, Frostfang, Frostpick, etc.) was showing its name as the literal JSON string `{"text":"Stonewall","italic":false,"color":"dark_red","bold":true}` instead of "Stonewall" in dark-red bold. Lore lines had the same problem.
+
+Root cause: the `/give` component arg syntax `custom_name='{"text":"X","color":"aqua"}'` (single-quoted around JSON) is parsed by MC's SNBT as "a string whose content is `{"text":"X","color":"aqua"}`" — so the component value becomes a Text component holding that literal JSON string. The correct form is the SNBT compound `custom_name={"text":"X","color":"aqua"}` (no outer quotes) — that makes MC parse the inner `{...}` as a compound representing the Text component directly.
+
+Fix in [WeaponDrops.java:run](mod-smp/src/main/java/com/iceysmp/WeaponDrops.java): dropped the outer single-quotes from `namePart` and every lore entry. Format chain now tries SNBT-compound form first (5 attempts with progressively fewer components) and only falls through to the legacy JSON-string form as a last resort for yarn variants that might not accept SNBT compounds in component args. Bare-item is the final fallback.
+
 ## What's new in v1.84.1
 
 **Singleplayer fix — the launcher now installs iceymod+ (server mod) for every Fabric installation, not just iceymod (client).** Root cause: when MC runs in singleplayer, the integrated server loads mods from the same `mods/` folder as the client. The launcher's auto-install step was only dropping in the client jar, so all server-side commands (`/skills`, `/leaderboard`, `/daily`, `/crate`, `/bounty`, etc.) silently didn't exist in singleplayer. User report: "NONE OF THE COMMANDS WORK THEY DONT SHOW UP (IN SINGLEPLAYER AT LEAST)".
