@@ -30,6 +30,28 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.26
+
+**Seven max-level rewards, one per category:**
+
+| Category | Reward | Item | Enchants |
+|---|---|---|---|
+| Mining | **Frostpick** | netherite_pickaxe | Eff V · Fortune III · Unbr III · Mending |
+| PvP | **Frostfang** | diamond_sword | Sharp V · KB II · Fire Aspect II · Unbr III |
+| Playtime | **Crown of Hours** | netherite_helmet | Prot IV · Resp III · Aqua Aff · Unbr III · Mending |
+| Fishing | **Tidecaller** | fishing_rod | Luck of Sea III · Lure III · Unbr III · Mending |
+| Walking | **Wanderer's Treads** | netherite_boots | Soul Speed III · Depth Strider III · Feather Falling IV · Unbr III · Mending |
+| Jumps | **Springheel Greaves** | netherite_leggings | Prot IV · Swift Sneak III · Unbr III · Mending |
+| Damage Taken | **Stonewall** | netherite_chestplate | Prot IV · Thorns III · Unbr III · Mending |
+
+Each ships with a themed custom name (aqua/gold/green/red depending on category), 3-line lore, and `minecraft:rarity = "epic"` so the name glows purple. Awarded once per (player, category) — tracked in `PlayerStats.frostfangAwardedFor`.
+
+**New admin command: `/icey reward <category> <player>` (op-2)** — hand-grant the reward for any category to any online player. Tab-completes both category id and player name. Doesn't mark the awarded set, so admins can hand out as many as they want.
+
+The old `/icey givefrostfang <player>` stays as a back-compat alias (calls `reward pvp <player>`).
+
+`/icey version` bumped to 1.80.26.
+
 ## What's new in v1.80.25
 
 **Frostfang — max-level reward weapon.** Auto-given the first time a player hits the max level in any category (cap + 1 levels for that effect: e.g. mining maxes at Lv 6 for Haste, PvP at Lv 3 for Strength). It's a vanilla diamond sword with:

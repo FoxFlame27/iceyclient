@@ -124,12 +124,13 @@ public final class LeaderboardManager {
                                 Text.literal("§aLevel " + newLevel + " §rin §b§l" + cat.label)));
                     } catch (Throwable ignored) {}
 
-                    // Max level reward: Frostfang. Cap = max amp for the
-                    // effect; max level = cap + 1 (amp 0 = Level I).
+                    // Max level reward: themed item per category. Cap =
+                    // max amp for the effect; max level = cap + 1 (amp 0
+                    // = Level I).
                     if (effect != null) {
                         int maxLevel = capFor(effect) + 1;
                         if (newLevel >= maxLevel && !ps.wasAwardedFrostfangFor(cat.id)) {
-                            WeaponDrops.giveFrostfang(p, cat.label);
+                            WeaponDrops.giveReward(p, cat.id, cat.label);
                             ps.markFrostfangAwardedFor(cat.id);
                         }
                     }

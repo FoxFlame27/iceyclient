@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.25"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.26"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
@@ -73,6 +73,31 @@ public final class SmpCommands {
                         ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §aConfig reloaded"), true);
                         return 1;
                     }))
+                .then(CommandManager.literal("reward")
+                    .requires(s -> hasPermLevel(s, 2))
+                    .then(CommandManager.argument("category", StringArgumentType.word())
+                        .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
+                        .then(CommandManager.argument("player", StringArgumentType.word())
+                            .suggests((ctx, b) -> {
+                                MinecraftServer s = ctx.getSource().getServer();
+                                if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
+                                return b.buildFuture();
+                            })
+                            .executes(ctx -> {
+                                String catId = StringArgumentType.getString(ctx, "category");
+                                String name = StringArgumentType.getString(ctx, "player");
+                                MinecraftServer s = ctx.getSource().getServer();
+                                ServerPlayerEntity target = (s != null) ? s.getPlayerManager().getPlayer(name) : null;
+                                if (target == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + name), false); return 0; }
+                                LeaderboardManager.Category cat = (IceySmp.leaderboard != null) ? IceySmp.leaderboard.categoryById(catId) : null;
+                                if (cat == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + catId), false); return 0; }
+                                boolean ok = WeaponDrops.giveReward(target, cat.id(), cat.label());
+                                ctx.getSource().sendFeedback(() -> Text.literal(ok
+                                        ? "§b[Icey SMP] §aReward (" + cat.label() + ") given to §f" + name
+                                        : "§c[Icey SMP] failed to give reward (server not ready)"), true);
+                                return ok ? 1 : 0;
+                            }))))
+                // Back-compat alias for the old command name.
                 .then(CommandManager.literal("givefrostfang")
                     .requires(s -> hasPermLevel(s, 2))
                     .then(CommandManager.argument("player", StringArgumentType.word())
@@ -86,7 +111,7 @@ public final class SmpCommands {
                             MinecraftServer s = ctx.getSource().getServer();
                             ServerPlayerEntity target = (s != null) ? s.getPlayerManager().getPlayer(name) : null;
                             if (target == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + name), false); return 0; }
-                            boolean ok = WeaponDrops.giveFrostfang(target, "admin gift");
+                            boolean ok = WeaponDrops.giveReward(target, "pvp", "PvP");
                             ctx.getSource().sendFeedback(() -> Text.literal(ok
                                     ? "§b[Icey SMP] §aFrostfang given to §f" + name
                                     : "§c[Icey SMP] failed to give Frostfang (server not ready)"), true);
@@ -108,6 +133,7 @@ public final class SmpCommands {
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey top <category> §8— leaderboard for a category"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey me §8— your stats + rank across all categories"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey stats <player> §8— another player's stats"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reward <category> <player> §8— hand-give a max-level reward §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /setspawn §8— set world spawn here §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reload §8— reload config §7(op-3)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reset §8— wipe all stats §7(op-4)"), false);
