@@ -50,6 +50,16 @@ public final class CombatTracker {
         return t != null && (System.currentTimeMillis() - t) <= tagDurationMs;
     }
 
+    /** Milliseconds remaining on the combat tag (0 if not tagged). */
+    public long timeRemainingMs(UUID who) {
+        Long t = playerInCombat.get(who);
+        if (t == null) return 0;
+        long elapsed = System.currentTimeMillis() - t;
+        return Math.max(0, tagDurationMs - elapsed);
+    }
+
+    public long tagDurationMs() { return tagDurationMs; }
+
     public boolean bothTagged(UUID attacker, UUID victim) {
         long now = System.currentTimeMillis();
         Long t1 = tags.get(pairKey(attacker, victim));

@@ -36,6 +36,13 @@ public final class PlayerStats {
      *  in Mining twice (e.g. through a reset), they don't get two swords. */
     public String frostfangAwardedFor = "";
 
+    /** Sum of XP-level bounties placed on this player by others. Paid out
+     *  (and zeroed) to whoever kills them in legitimate PvP. */
+    public int bountyXp = 0;
+
+    /** Epoch-millis of the last /icey daily roll. Cooldown is 14h. */
+    public long lastDailyMs = 0L;
+
     public PlayerStats(String name) {
         this.name = name;
     }

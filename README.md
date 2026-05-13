@@ -30,6 +30,22 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.82.0
+
+Big PvP-flavor pass. Four new features.
+
+**Combat boss bar** — red boss bar appears at the top of your screen the moment you're combat-tagged. Drains over the 25-sec window with a live countdown ("§cCombat — 12s"). New `CombatBossBar` class is ticked once a second from `LeaderboardManager.tick`. Removed when the tag expires or the player disconnects.
+
+**Death cam title** — when killed by another player, you get a big red `§4§lYOU DIED` title with subtitle `Killed by <Player>`, fades after 5 sec. (Not a true spectator-camera swap — that would require gamemode interception which is fragile across the yarn matrix. The title gives you the same information without the implementation risk.)
+
+**`/icey bounty <player> <xp>`** — pay your XP levels to put a bounty on another player. Whoever kills them next collects the bounty as XP levels. Bounty is broadcast server-wide on placement. Bounties stack — multiple players can pile on the same target. Stored in `PlayerStats.bountyXp` (persisted in JSON). Kill broadcast includes the bounty payout: `[Icey SMP] PlayerA killed PlayerB + 12 XP bounty!`
+
+**`/icey daily`** — 14-hour cooldown for a random item roll from a curated 33-item pool (no blocks/stairs/walls — only "ok-good-great" items: ores, ingots, golden apples, totems, beacon, elytra, music discs, etc.). Weighted distribution: common items (cooked beef, iron ingots) drop ~50% of the time, rare items (elytra, nether star, dragon head) drop ~1% each.
+
+  **Rolling animation** on roll: title rapidly cycles through 8 fake-item names ("§eROLLING… / Cooked Beef" → "Diamonds" → "Saddle" → …) over 1.6 seconds, then settles on the real reward with a `§a§l✦ DAILY REWARD ✦ / Elytra ×1` banner and a Player-Levelup sound effect. Rare drops also broadcast to chat. New `Scheduler` class handles the tick-precise animation via a tiny single-threaded queue pumped from `LeaderboardManager.tick`.
+
+`/icey help` now lists `/icey daily` and `/icey bounty <player> <xp>` alongside the existing commands. `/icey version` reports 1.82.0.
+
 ## What's new in v1.80.29
 
 - **Walking shows meters, not km.** `0.0 km` was the persistent symptom — formatter was switching to km at 100,000 cm but most players have under 100 km walked, so it always rounded to `0.0 km`. New: always meters with one decimal below 1000 m, comma-separated integer above (e.g. `12,345 m`). Applied to both `/icey help` and `/icey top walking` output.

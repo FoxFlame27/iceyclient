@@ -68,6 +68,14 @@ public final class LeaderboardManager {
     public void tick(MinecraftServer server) {
         tickCounter++;
 
+        // Pump the global tick scheduler (daily-roll animations, etc.) and
+        // the combat boss bar updater — both run at every tick because
+        // they need 50ms-precision updates.
+        Scheduler.tick(server);
+        if (IceySmp.combatBossBar != null && tickCounter % 5 == 0) {
+            IceySmp.combatBossBar.tick(server);
+        }
+
         // Playtime tick for online players.
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
             PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());

@@ -21,6 +21,7 @@ public final class IceySmp implements ModInitializer {
     public static StatTracker stats;
     public static CombatTracker combat;
     public static LeaderboardManager leaderboard;
+    public static CombatBossBar combatBossBar;
     /** Set in SERVER_STARTED, cleared in SERVER_STOPPING. Lets non-event
      *  code (e.g. StatTracker's death broadcast) reach the server without
      *  passing it through every call site. */
@@ -54,7 +55,8 @@ public final class IceySmp implements ModInitializer {
         try {
             int tagSec = (config != null) ? config.combatTagSeconds() : 25;
             combat = new CombatTracker(tagSec);
-            System.out.println("[IceySMP] combat tracker ready");
+            combatBossBar = new CombatBossBar(combat);
+            System.out.println("[IceySMP] combat tracker + boss bar ready");
         } catch (Throwable t) { System.out.println("[IceySMP] combat init failed: " + t); }
         try {
             if (stats != null && combat != null) {

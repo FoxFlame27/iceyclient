@@ -110,6 +110,8 @@ public final class StatTracker {
                 st.xpLevelsGained   = extractLong(body, "xpLevels");
                 st.sneakTimeTicks   = extractLong(body, "sneak");
                 st.frostfangAwardedFor = extractString(body, "ffAwarded", "");
+                st.bountyXp = (int) extractLong(body, "bounty");
+                st.lastDailyMs = extractLong(body, "lastDaily");
                 try { map.put(UUID.fromString(uuidStr), st); } catch (Exception ignored) {}
             }
         } catch (IOException ignored) {}
@@ -144,7 +146,9 @@ public final class StatTracker {
                 sb.append("\"jumps\":").append(s.jumps).append(",");
                 sb.append("\"xpLevels\":").append(s.xpLevelsGained).append(",");
                 sb.append("\"sneak\":").append(s.sneakTimeTicks).append(",");
-                sb.append("\"ffAwarded\":\"").append(escape(s.frostfangAwardedFor == null ? "" : s.frostfangAwardedFor)).append("\"");
+                sb.append("\"ffAwarded\":\"").append(escape(s.frostfangAwardedFor == null ? "" : s.frostfangAwardedFor)).append("\",");
+                sb.append("\"bounty\":").append(s.bountyXp).append(",");
+                sb.append("\"lastDaily\":").append(s.lastDailyMs);
                 sb.append("}");
             }
             sb.append("\n}\n");
@@ -225,15 +229,38 @@ public final class StatTracker {
                                 attackerStats.absorbFrom(vs);
                             }
                             combat.recordKill(sp.getUuid(), victim.getUuid());
+
+                            // Bounty payout — if the victim had a bounty,
+                            // transfer it to the killer as XP levels.
+                            int bountyClaimed = vs.bountyXp;
+                            if (bountyClaimed > 0) {
+                                vs.bountyXp = 0;
+                                try { sp.addExperienceLevels(bountyClaimed); } catch (Throwable ignored) {}
+                            }
+
                             // Server-wide broadcast — bold so it doesn't get missed.
                             try {
-                                String msg = "§b§l[Icey SMP] §c§l" + sp.getName().getString()
-                                        + " §rkilled §c§l" + victim.getName().getString()
-                                        + (stolen > 0 ? " §7and stole §b§l" + stolen + "§r§7 stats!" : "§7!");
+                                StringBuilder msg = new StringBuilder("§b§l[Icey SMP] §c§l");
+                                msg.append(sp.getName().getString()).append(" §rkilled §c§l").append(victim.getName().getString());
+                                if (stolen > 0) msg.append(" §7and stole §b§l").append(stolen).append("§r§7 stats");
+                                if (bountyClaimed > 0) msg.append(" §7+ §6§l").append(bountyClaimed).append(" XP §rbounty");
+                                msg.append("§7!");
                                 if (IceySmp.server != null) {
                                     IceySmp.server.getPlayerManager().broadcast(
-                                            net.minecraft.text.Text.literal(msg), false);
+                                            net.minecraft.text.Text.literal(msg.toString()), false);
                                 }
+                            } catch (Throwable ignored) {}
+
+                            // Death-cam title for the victim — shows the killer's
+                            // name in a big red banner for 5 sec while they're on
+                            // the death screen. Not a true camera switch (that
+                            // requires invasive gamemode swaps); just the title.
+                            try {
+                                victim.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket(5, 100, 20));
+                                victim.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.TitleS2CPacket(
+                                        net.minecraft.text.Text.literal("§4§lYOU DIED")));
+                                victim.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.SubtitleS2CPacket(
+                                        net.minecraft.text.Text.literal("§7Killed by §c§l" + sp.getName().getString())));
                             } catch (Throwable ignored) {}
                         }
                     }

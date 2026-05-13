@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.29"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.82.0"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
@@ -73,6 +73,19 @@ public final class SmpCommands {
                         ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §aConfig reloaded"), true);
                         return 1;
                     }))
+                .then(CommandManager.literal("daily")
+                    .executes(ctx -> doDaily(ctx.getSource())))
+                .then(CommandManager.literal("bounty")
+                    .then(CommandManager.argument("player", StringArgumentType.word())
+                        .suggests((ctx, b) -> {
+                            MinecraftServer s = ctx.getSource().getServer();
+                            if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
+                            return b.buildFuture();
+                        })
+                        .then(CommandManager.argument("xp", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 1000))
+                            .executes(ctx -> doBounty(ctx.getSource(),
+                                    StringArgumentType.getString(ctx, "player"),
+                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "xp"))))))
                 .then(CommandManager.literal("reward")
                     .requires(s -> hasPermLevel(s, 2))
                     .then(CommandManager.argument("category", StringArgumentType.word())
@@ -133,6 +146,8 @@ public final class SmpCommands {
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey top <category> §8— leaderboard for a category"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey me §8— your stats + rank across all categories"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey stats <player> §8— another player's stats"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey daily §8— roll for a random item (14h cooldown)"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey bounty <player> <xp> §8— pay XP to put a bounty on someone"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reward <category> <player> §8— hand-give a max-level reward §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /setspawn §8— set world spawn here §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reload §8— reload config §7(op-3)"), false);
@@ -267,6 +282,51 @@ public final class SmpCommands {
             case "dmgtaken" -> "Resistance";
             default -> "?";
         };
+    }
+
+    private static int doDaily(ServerCommandSource src) {
+        ServerPlayerEntity p = src.getPlayer();
+        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /icey daily must be run by a player"), false); return 0; }
+        if (IceySmp.stats == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false); return 0; }
+        PlayerStats ps = IceySmp.stats.get(p.getUuid(), p.getName().getString());
+        long remain = DailyRewards.cooldownRemainingMs(ps);
+        if (remain > 0) {
+            long h = remain / 3_600_000L;
+            long m = (remain % 3_600_000L) / 60_000L;
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] Daily already rolled — next in §f" + h + "h " + m + "m"), false);
+            return 0;
+        }
+        DailyRewards.roll(p, ps);
+        return 1;
+    }
+
+    private static int doBounty(ServerCommandSource src, String targetName, int xp) {
+        ServerPlayerEntity p = src.getPlayer();
+        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /icey bounty must be run by a player"), false); return 0; }
+        MinecraftServer server = src.getServer();
+        if (server == null || IceySmp.stats == null) return 0;
+        if (p.getName().getString().equalsIgnoreCase(targetName)) {
+            p.sendMessage(Text.literal("§c[Icey SMP] Can't bounty yourself"), false);
+            return 0;
+        }
+        if (p.experienceLevel < xp) {
+            p.sendMessage(Text.literal("§c[Icey SMP] You only have " + p.experienceLevel + " XP levels"), false);
+            return 0;
+        }
+        ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
+        if (target == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + targetName), false); return 0; }
+        // Deduct XP from caller
+        p.addExperienceLevels(-xp);
+        // Add to target's bounty pool
+        PlayerStats tps = IceySmp.stats.get(target.getUuid(), target.getName().getString());
+        tps.bountyXp += xp;
+        // Broadcast — bounties should be public knowledge
+        server.getPlayerManager().broadcast(
+                Text.literal("§b§l[Icey SMP] §c§l" + p.getName().getString()
+                        + " §r§7put a §6§l" + xp + " XP§r§7 bounty on §c§l" + target.getName().getString()
+                        + " §7(total: §6§l" + tps.bountyXp + "§r§7)"),
+                false);
+        return 1;
     }
 
     private static int showTop(ServerCommandSource src, String category) {
