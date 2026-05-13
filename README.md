@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.20
+
+- **CI: Linux ARM64 build no longer hangs forever.** Added `timeout-minutes: 20` to the `build-linux-arm64` job (was inheriting the GitHub-default 6-hour timeout) and wrapped the `electron-builder` call in a `timeout 12m` + 3-attempt retry loop. Most hangs in this job come from `fpm` (the RPM builder) interacting with system-rpm packages — killing the process and retrying on a fresh dist/ usually clears it. If all three attempts genuinely fail, the job exits with status 1 inside 20 minutes instead of squatting for hours.
+
 ## What's new in v1.80.19
 
 - **`/icey version`** — prints the server mod version. Use this to confirm whether the jar in your mods/ folder is actually the latest one. If it says anything below 1.80.19, your install is stale; re-download via the launcher or grab the latest from the [releases page](https://github.com/FoxFlame27/iceyclient/releases/latest).

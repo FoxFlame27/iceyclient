@@ -148,6 +148,9 @@ jobs:
   build-linux-arm64:
     needs: build-mod
     runs-on: ubuntu-latest
+    # Bail fast instead of hanging at the default 6-hour timeout. Cold
+    # arm64-electron build is ~6 min; 20 minutes is generous.
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:
@@ -196,7 +199,23 @@ jobs:
             echo "Attempt $i failed, retrying in 10s..."
             sleep 10
           done
-      - run: npx electron-builder --linux rpm --arm64 --publish never
+      - name: electron-builder (with timeout + retry)
+        run: |
+          # Wrap in `timeout 12m` per attempt — if electron-builder or fpm
+          # hangs (most often fpm interacting with system-rpm), kill it
+          # and retry on a fresh process. 3 attempts × 12min = 36min cap
+          # but the job-level timeout-minutes already bounds the whole job.
+          for i in 1 2 3; do
+            echo "electron-builder attempt $i"
+            if timeout 12m npx electron-builder --linux rpm --arm64 --publish never; then
+              echo "OK"
+              exit 0
+            fi
+            echo "Attempt $i timed out or failed; cleaning dist/ and retrying in 15s..."
+            rm -rf dist/
+            sleep 15
+          done
+          exit 1
         env:
           ELECTRON_CACHE: ~/.cache/electron
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
