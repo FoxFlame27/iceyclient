@@ -30,6 +30,19 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.83.2
+
+**Hotfix on top of v1.83.1.** CI's 1.21.5 yarn build failed compile:
+
+```
+error: incompatible types: GameProfile cannot be converted to PlayerConfigEntry
+    return s.getPlayerManager().isOperator(p.getGameProfile());
+```
+
+`PlayerManager.isOperator` takes a `GameProfile` on some 1.21.x yarn variants and a `PlayerConfigEntry` (op-list-entry wrapper) on others. Replaced the direct call with reflection that scans for any `isOperator(*)` method, accepts whichever parameter type matches `GameProfile` directly, and if not, looks up the op-list entry via `getOpList().get(profile)` and passes that instead. Same op-detection behavior, compiles cleanly across the full 1.21 / 1.21.5 / 1.21.8 / 1.21.11 matrix.
+
+`/icey version` reports 1.83.2.
+
 ## What's new in v1.83.1
 
 **Yarn-portability fixes + combat-log on rejoin.**

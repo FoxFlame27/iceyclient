@@ -47,15 +47,40 @@ public final class SmpCommands {
                 } catch (Throwable ignored) {}
             }
         } catch (Throwable ignored) {}
-        // Last resort: assume op if source is a player and server says so
+        // Last resort: ask PlayerManager.isOperator via reflection. Yarn
+        // mappings flip the parameter type between GameProfile and
+        // PlayerConfigEntry (op-list entry wrapper) across 1.21.x, so we
+        // can't reference either at compile time.
         try {
             ServerPlayerEntity p = src.getPlayer();
             MinecraftServer s = src.getServer();
+            // Console source (no player) — always allow.
+            if (p == null && s != null) return true;
             if (p != null && s != null) {
-                return s.getPlayerManager().isOperator(p.getGameProfile());
+                Object pm = s.getPlayerManager();
+                Object profile = p.getGameProfile();
+                for (java.lang.reflect.Method m : pm.getClass().getMethods()) {
+                    if (!"isOperator".equals(m.getName())) continue;
+                    if (m.getParameterCount() != 1) continue;
+                    Class<?> pt = m.getParameterTypes()[0];
+                    Object arg = pt.isInstance(profile) ? profile : null;
+                    if (arg == null) {
+                        // Try to wrap GameProfile into an op-list-entry-style
+                        // object by scanning the op list for a matching UUID.
+                        try {
+                            Object ops = pm.getClass().getMethod("getOpList").invoke(pm);
+                            // OperatorList.get(GameProfile) returns the entry
+                            Object entry = ops.getClass().getMethod("get", Object.class).invoke(ops, profile);
+                            if (entry != null && pt.isInstance(entry)) arg = entry;
+                        } catch (Throwable ignored) {}
+                    }
+                    if (arg == null) continue;
+                    try {
+                        Object r = m.invoke(pm, arg);
+                        if (r instanceof Boolean b) return b;
+                    } catch (Throwable ignored) {}
+                }
             }
-            // Console source — always allow
-            if (p == null) return true;
         } catch (Throwable ignored) {}
         return false;
     }
@@ -77,7 +102,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.83.1"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.83.2"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
