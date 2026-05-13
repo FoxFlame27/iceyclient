@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.27"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.28"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")

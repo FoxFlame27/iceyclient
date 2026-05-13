@@ -59,35 +59,33 @@ public final class VersionShim {
                 new Object[]   {src, amount});
     }
 
-    /** Execute a server command as the server itself. Yarn renames the
-     *  method between {@code executeWithPrefix} and {@code execute};
-     *  newer Mojang names also exist. Walks the candidates, falls back
-     *  to the Brigadier dispatcher's own {@code execute(String, S)}
-     *  which lives in the (stable) Mojang-shipped brigadier lib. */
+    /** Execute a server command via Brigadier directly. Goes through
+     *  {@code CommandManager.getDispatcher().execute(String, S)} — the
+     *  brigadier API itself is stable across yarn versions (it's a
+     *  Mojang-shipped lib, not subject to mapping renames). Returns
+     *  TRUE only if Brigadier parsed and ran the command without a
+     *  CommandSyntaxException — meaning callers can use the result to
+     *  decide whether to retry with a fallback syntax. */
     public static boolean executeServerCommand(MinecraftServer server, String cmd) {
         if (server == null || cmd == null) return false;
-        Object cm = server.getCommandManager();
-        ServerCommandSource src = server.getCommandSource();
-        for (String name : new String[] {"executeWithPrefix", "execute"}) {
-            try {
-                Method m = cm.getClass().getMethod(name, ServerCommandSource.class, String.class);
-                m.invoke(cm, src, cmd);
-                return true;
-            } catch (NoSuchMethodException ignored) {}
-            catch (Throwable t) { /* method exists but threw — bail to fallback */ }
-        }
-        // Brigadier-level fallback: CommandDispatcher.execute(String, S).
         try {
+            Object cm = server.getCommandManager();
             Object disp = cm.getClass().getMethod("getDispatcher").invoke(cm);
+            ServerCommandSource src = server.getCommandSource();
             for (Method m : disp.getClass().getMethods()) {
-                if ("execute".equals(m.getName())
-                        && m.getParameterCount() == 2
-                        && m.getParameterTypes()[0] == String.class) {
+                if (!"execute".equals(m.getName())) continue;
+                if (m.getParameterCount() != 2) continue;
+                if (m.getParameterTypes()[0] != String.class) continue;
+                try {
                     m.invoke(disp, cmd, src);
                     return true;
+                } catch (Throwable t) {
+                    return false;
                 }
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            System.out.println("[IceySMP] executeServerCommand setup failed: " + t);
+        }
         return false;
     }
 

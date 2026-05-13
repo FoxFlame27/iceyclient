@@ -131,15 +131,34 @@ public final class WeaponDrops {
             lore.append(",'{\"text\":\"Max-level reward — ").append(escapeJson(reasonLabel))
                     .append("\",\"italic\":false,\"color\":\"dark_gray\"}'");
 
-            String cmd = "give " + player.getName().getString() + " " + r.item + "["
-                    + "minecraft:custom_name='{\"text\":\"" + escapeJson(r.name)
-                    + "\",\"italic\":false,\"color\":\"" + r.nameColor + "\",\"bold\":true}',"
-                    + "minecraft:lore=[" + lore + "],"
-                    + "minecraft:enchantments={levels:" + r.enchants + "},"
-                    + "minecraft:rarity=\"epic\""
-                    + "] 1";
-            if (!VersionShim.executeServerCommand(server, cmd)) {
-                System.out.println("[IceySMP] no server-command executor found — couldn't /give reward");
+            // 1.21.5+ removed the {levels:{...}} wrapper from the
+            // minecraft:enchantments component — now it's just the map
+            // directly. 1.21.0-1.21.4 needs the wrapper. Try the modern
+            // form first, fall back to the legacy form on syntax error.
+            String namePart = "custom_name='{\"text\":\"" + escapeJson(r.name)
+                    + "\",\"italic\":false,\"color\":\"" + r.nameColor + "\",\"bold\":true}'";
+            String lorePart = "lore=[" + lore + "]";
+            String rarityPart = "rarity=epic";
+            String playerName = player.getName().getString();
+
+            String[] formats = {
+                    // 1.21.5+: enchantments takes the map directly
+                    "give " + playerName + " " + r.item + "["
+                            + namePart + "," + lorePart + ","
+                            + "enchantments=" + r.enchants + ","
+                            + rarityPart + "] 1",
+                    // 1.21.0-1.21.4: enchantments wrapped in {levels:{...}}
+                    "give " + playerName + " " + r.item + "["
+                            + namePart + "," + lorePart + ","
+                            + "enchantments={levels:" + r.enchants + "},"
+                            + rarityPart + "] 1"
+            };
+            boolean delivered = false;
+            for (String cmd : formats) {
+                if (VersionShim.executeServerCommand(server, cmd)) { delivered = true; break; }
+            }
+            if (!delivered) {
+                System.out.println("[IceySMP] /give failed in both component-syntax variants");
                 return false;
             }
 

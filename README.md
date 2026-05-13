@@ -30,6 +30,14 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.28
+
+**Fix: `/icey reward` (and the automatic max-level grants) produced no item.** MC 1.21.5 removed the `{levels:{...}}` wrapper from the `minecraft:enchantments` component — it's now just the map directly. My `/give` syntax was building the legacy 1.21.0-1.21.4 form (`enchantments={levels:{...}}`), which fails to parse on 1.21.5/1.21.8/1.21.11 servers, so the whole command rejected silently.
+
+`WeaponDrops.run` now tries the **modern** form (`enchantments={"minecraft:sharpness":5,...}`) first, falls back to the **legacy** form (`{levels:{...}}`) if the modern one syntax-errors. Covers every MC version in the matrix without baking the version in.
+
+To make the fallback actually work, `VersionShim.executeServerCommand` now dispatches via the Brigadier `CommandDispatcher.execute(String, S)` path only — `CommandManager.executeWithPrefix` catches CommandSyntaxException internally and "succeeds" even on broken commands, which made the fallback unreachable. Brigadier's `execute` throws on syntax error, so we can detect failure and retry.
+
 ## What's new in v1.80.27
 
 - **CI fix:** `CommandManager.executeWithPrefix(ServerCommandSource, String)` doesn't exist on at least one yarn matrix entry. Added `VersionShim.executeServerCommand(server, cmd)` that walks `executeWithPrefix` → `execute` via reflection on `getCommandManager()`, then falls back to the Brigadier dispatcher's own `execute(String, S)` (the brigadier API itself is stable — it's a Mojang lib not affected by yarn renames). `WeaponDrops` now calls through that helper.
