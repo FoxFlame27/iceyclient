@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.27
+
+- **CI fix:** `CommandManager.executeWithPrefix(ServerCommandSource, String)` doesn't exist on at least one yarn matrix entry. Added `VersionShim.executeServerCommand(server, cmd)` that walks `executeWithPrefix` → `execute` via reflection on `getCommandManager()`, then falls back to the Brigadier dispatcher's own `execute(String, S)` (the brigadier API itself is stable — it's a Mojang lib not affected by yarn renames). `WeaponDrops` now calls through that helper.
+
 ## What's new in v1.80.26
 
 **Seven max-level rewards, one per category:**

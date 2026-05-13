@@ -138,7 +138,10 @@ public final class WeaponDrops {
                     + "minecraft:enchantments={levels:" + r.enchants + "},"
                     + "minecraft:rarity=\"epic\""
                     + "] 1";
-            server.getCommandManager().executeWithPrefix(server.getCommandSource(), cmd);
+            if (!VersionShim.executeServerCommand(server, cmd)) {
+                System.out.println("[IceySMP] no server-command executor found — couldn't /give reward");
+                return false;
+            }
 
             // Big banner.
             try {

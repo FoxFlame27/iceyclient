@@ -1,6 +1,8 @@
 package com.iceysmp;
 
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 
@@ -55,6 +57,38 @@ public final class VersionShim {
         invokeQuietly(p, "damage",
                 new Class<?>[] {DamageSource.class, float.class},
                 new Object[]   {src, amount});
+    }
+
+    /** Execute a server command as the server itself. Yarn renames the
+     *  method between {@code executeWithPrefix} and {@code execute};
+     *  newer Mojang names also exist. Walks the candidates, falls back
+     *  to the Brigadier dispatcher's own {@code execute(String, S)}
+     *  which lives in the (stable) Mojang-shipped brigadier lib. */
+    public static boolean executeServerCommand(MinecraftServer server, String cmd) {
+        if (server == null || cmd == null) return false;
+        Object cm = server.getCommandManager();
+        ServerCommandSource src = server.getCommandSource();
+        for (String name : new String[] {"executeWithPrefix", "execute"}) {
+            try {
+                Method m = cm.getClass().getMethod(name, ServerCommandSource.class, String.class);
+                m.invoke(cm, src, cmd);
+                return true;
+            } catch (NoSuchMethodException ignored) {}
+            catch (Throwable t) { /* method exists but threw — bail to fallback */ }
+        }
+        // Brigadier-level fallback: CommandDispatcher.execute(String, S).
+        try {
+            Object disp = cm.getClass().getMethod("getDispatcher").invoke(cm);
+            for (Method m : disp.getClass().getMethods()) {
+                if ("execute".equals(m.getName())
+                        && m.getParameterCount() == 2
+                        && m.getParameterTypes()[0] == String.class) {
+                    m.invoke(disp, cmd, src);
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return false;
     }
 
     /** Kill. Tries 1-arg (ServerWorld) → 0-arg. */
