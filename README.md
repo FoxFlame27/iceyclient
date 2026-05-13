@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.17
+
+- **Swapped Animal Kills out, Jumps back in.** Animal Kills (Night Vision) gone; Jumps (Jump Boost) back, divisor=500 (≈1h of normal jumping = Lv 1). Effect display name updated in `/icey help`. Client `LeaderboardScreen` entries match.
+
 ## What's new in v1.80.16
 
 Big SMP polish pass per user requests.

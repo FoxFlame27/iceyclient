@@ -24,10 +24,10 @@ public final class LeaderboardScreen extends Screen {
             new Entry("pvp",         "§c⚔ PvP",            "Strength"),
             new Entry("playtime",    "§e⏱ Playtime",       "Saturation"),
             new Entry("mobkills",    "§4☠ Mob Kills",      "Resistance"),
-            new Entry("animalkills", "§a🐄 Animal Kills",  "Night Vision"),
             new Entry("diamonds",    "§b💎 Diamonds",      "Speed"),
             new Entry("fishing",     "§b🎣 Fishing",       "Luck"),
             new Entry("walking",     "§a👟 Distance",      "Speed"),
+            new Entry("jumps",       "§e⤴ Jumps",          "Jump Boost"),
     };
 
     private static final int PER_PAGE = 8;

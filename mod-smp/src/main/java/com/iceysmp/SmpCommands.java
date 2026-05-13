@@ -171,10 +171,10 @@ public final class SmpCommands {
             case "pvp" -> "Strength";
             case "playtime" -> "Saturation";
             case "mobkills" -> "Resistance";
-            case "animalkills" -> "Night Vision";
             case "diamonds" -> "Speed";
             case "fishing" -> "Luck";
             case "walking" -> "Speed";
+            case "jumps" -> "Jump Boost";
             default -> "?";
         };
     }
