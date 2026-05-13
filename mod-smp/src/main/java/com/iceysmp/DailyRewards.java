@@ -160,12 +160,14 @@ public final class DailyRewards {
                         Text.literal("§a§l✦ DAILY REWARD ✦")));
                 player.networkHandler.sendPacket(new SubtitleS2CPacket(
                         Text.literal("§f§l" + win.label + " §7×" + win.count)));
-                // Levelup sound to celebrate the drop
-                player.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket(
-                        net.minecraft.registry.entry.RegistryEntry.of(net.minecraft.sound.SoundEvents.ENTITY_PLAYER_LEVELUP.value()),
-                        net.minecraft.sound.SoundCategory.PLAYERS,
-                        player.getX(), player.getY(), player.getZ(),
-                        1.0f, 1.0f, RNG.nextLong()));
+                // Levelup sound — Yarn drift between SoundEvents.X being a
+                // RegistryEntry vs a raw SoundEvent across the matrix, so
+                // we dispatch via the vanilla /playsound command instead
+                // of crafting a PlaySoundS2CPacket. /playsound is stable
+                // across versions.
+                VersionShim.executeServerCommand(server,
+                        "playsound minecraft:entity.player.levelup player " + player.getName().getString()
+                                + " " + player.getX() + " " + player.getY() + " " + player.getZ() + " 1 1");
             } catch (Throwable ignored) {}
         });
     }

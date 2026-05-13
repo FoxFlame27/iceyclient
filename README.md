@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.82.1
+
+CI fix: `SoundEvents.ENTITY_PLAYER_LEVELUP` is a raw `SoundEvent` on at least one yarn matrix entry, not a `RegistryEntry<SoundEvent>` — so `.value()` didn't resolve, and my `PlaySoundS2CPacket` construction failed to compile. Dropped the direct packet construction; now dispatching the vanilla `/playsound` command via `VersionShim.executeServerCommand`. Cross-version stable (the `/playsound` command syntax hasn't changed in years).
+
 ## What's new in v1.82.0
 
 Big PvP-flavor pass. Four new features.
