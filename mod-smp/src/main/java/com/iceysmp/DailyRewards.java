@@ -89,30 +89,32 @@ public final class DailyRewards {
         if (server == null) return false;
         Reward win = pickWeighted();
 
-        // Update cooldown FIRST so even if delivery fails we don't double-roll
+        // Deliver FIRST — only set cooldown if /give actually landed.
+        // Try with explicit count, then fall back to count=1 (in case the
+        // count token parses weird on some version), then bare item.
+        String name = player.getName().getString();
+        boolean delivered =
+                   VersionShim.executeServerCommand(server, "give " + name + " " + win.item + " " + win.count)
+                || VersionShim.executeServerCommand(server, "give " + name + " " + win.item + " 1")
+                || VersionShim.executeServerCommand(server, "give " + name + " " + win.item);
+        if (!delivered) {
+            System.out.println("[IceySMP] daily /give failed for " + name + ": item=" + win.item);
+            player.sendMessage(net.minecraft.text.Text.literal(
+                    "§c[Icey SMP] Daily roll failed to deliver §f" + win.label + "§c — try again, no cooldown applied"), false);
+            return false;
+        }
         ps.lastDailyMs = System.currentTimeMillis();
 
-        // Animation: send a sequence of titles cycling through random pool
-        // items, then settle on the winner. Each step ~150 ms apart. We
-        // can't sleep on the server thread; schedule via server.execute
-        // tasks chained through a tick handler. Simpler approach: use
-        // server.send tasks queued onto the main thread at increasing
-        // tick offsets via a ScheduledExecutorService-style hack.
-        //
-        // We just send all 8 titles immediately with increasing fade-in
-        // durations so they show in sequence on the client.
+        // Animation + confirmation
         scheduleAnimation(player, win);
-
-        // Actually give the item via /give. Use simple syntax — daily
-        // rewards don't need enchants/custom name (it's a normal MC item).
-        String cmd = "give " + player.getName().getString() + " " + win.item + " " + win.count;
-        VersionShim.executeServerCommand(server, cmd);
+        player.sendMessage(net.minecraft.text.Text.literal(
+                "§b§l[Icey SMP] §a§l✦ Daily reward: §f§l" + win.label + " §7×" + win.count + " §a§ldelivered to your inventory"), false);
 
         // Server-wide chat — rare drops get announced, common drops stay quiet
         if (win.weight <= 5) {
             try {
                 server.getPlayerManager().broadcast(
-                        Text.literal("§b§l[Icey SMP] §a§l" + player.getName().getString()
+                        Text.literal("§b§l[Icey SMP] §a§l" + name
                                 + " §r§7rolled §b§l" + win.label + "§r§7 on their daily!"),
                         false);
             } catch (Throwable ignored) {}

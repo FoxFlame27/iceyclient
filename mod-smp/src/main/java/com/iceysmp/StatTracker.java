@@ -277,33 +277,50 @@ public final class StatTracker {
             } catch (Throwable ignored) {}
         });
 
-        // Damage: combat tag, damage dealt, damage taken, noob protection cancel
+        // Damage: combat tag, damage dealt, damage taken, noob protection cancel.
+        // Combat tag fires ONLY when the damage source is another living
+        // entity (player or mob) — environmental damage (fall, fire, lava,
+        // drowning, cactus, magma block, etc.) doesn't trigger the tag or
+        // the boss bar.
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
             try {
                 PlayerEntity attacker = resolveAttacker(source);
+                net.minecraft.entity.LivingEntity livingAttacker = resolveLivingAttacker(source);
 
-                // Noob protection: cancel any PvP damage to/from protected players
+                // PvP — both are players
                 if (entity instanceof ServerPlayerEntity victim
                         && attacker instanceof ServerPlayerEntity sp
                         && !sp.getUuid().equals(victim.getUuid())) {
                     PlayerStats vs = stats.get(victim.getUuid(), victim.getName().getString());
                     PlayerStats as = stats.get(sp.getUuid(), sp.getName().getString());
                     if (NoobProtection.isProtected(vs, config) || NoobProtection.isProtected(as, config)) {
-                        return false; // cancel damage
+                        return false; // cancel damage entirely
                     }
                     combat.tag(sp.getUuid(), victim.getUuid());
                     as.damageDealt += (long) (amount * 10);
                     vs.damageTaken += (long) (amount * 10);
-                } else if (entity instanceof ServerPlayerEntity victim) {
-                    // Damage from non-player source: just mark victim in combat for /spawn gating
+                }
+                // Mob hits player — tag victim only (no attacker stat credit)
+                else if (entity instanceof ServerPlayerEntity victim
+                        && livingAttacker != null
+                        && !(livingAttacker instanceof PlayerEntity)
+                        && !livingAttacker.getUuid().equals(victim.getUuid())) {
                     combat.tagOne(victim.getUuid());
                     PlayerStats vs = stats.get(victim.getUuid(), victim.getName().getString());
                     vs.damageTaken += (long) (amount * 10);
-                } else if (attacker instanceof ServerPlayerEntity sp) {
-                    // Player hitting mob: counts toward damage-dealt + their combat tag
+                }
+                // Player hits mob — tag attacker only
+                else if (attacker instanceof ServerPlayerEntity sp
+                        && !(entity instanceof ServerPlayerEntity)) {
                     PlayerStats as = stats.get(sp.getUuid(), sp.getName().getString());
                     as.damageDealt += (long) (amount * 10);
                     combat.tagOne(sp.getUuid());
+                }
+                // Environmental damage on a player (fall, lava, fire, etc.)
+                // — only track damage-taken counter, no combat tag.
+                else if (entity instanceof ServerPlayerEntity victim) {
+                    PlayerStats vs = stats.get(victim.getUuid(), victim.getName().getString());
+                    vs.damageTaken += (long) (amount * 10);
                 }
             } catch (Throwable ignored) {}
             return true;
@@ -327,6 +344,18 @@ public final class StatTracker {
             if (source == null) return null;
             if (source.getAttacker() instanceof PlayerEntity p) return p;
             if (source.getSource() instanceof PlayerEntity p) return p;
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    /** Resolve the LivingEntity attacker (player or mob) from a damage
+     *  source — returns null for environmental damage (fall, fire, lava,
+     *  drowning, etc.). Used to gate combat-tag triggering. */
+    private static net.minecraft.entity.LivingEntity resolveLivingAttacker(DamageSource source) {
+        try {
+            if (source == null) return null;
+            if (source.getAttacker() instanceof net.minecraft.entity.LivingEntity le) return le;
+            if (source.getSource() instanceof net.minecraft.entity.LivingEntity le) return le;
         } catch (Throwable ignored) {}
         return null;
     }

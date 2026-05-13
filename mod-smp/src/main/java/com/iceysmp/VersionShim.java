@@ -77,7 +77,13 @@ public final class VersionShim {
                 if (m.getParameterCount() != 2) continue;
                 if (m.getParameterTypes()[0] != String.class) continue;
                 try {
-                    m.invoke(disp, cmd, src);
+                    Object r = m.invoke(disp, cmd, src);
+                    // Brigadier returns int: >0 success, 0 "no result"
+                    // (command parsed but didn't do anything useful, e.g.
+                    // unknown player). Caller wants to know if something
+                    // actually happened — return false on 0 so fallbacks
+                    // can try a different syntax.
+                    if (r instanceof Integer i) return i > 0;
                     return true;
                 } catch (Throwable t) {
                     return false;

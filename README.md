@@ -30,6 +30,18 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.82.2
+
+**Daily reward fix:** user reported "rolled and it said I got it but I didn't actually get it." Root cause: `VersionShim.executeServerCommand` was returning true whenever Brigadier's `dispatcher.execute` didn't throw — but Brigadier returns `int 0` when a command parses successfully but does nothing useful (e.g. unknown player target), which my code was treating as success. So the daily animation fired, cooldown got set, but the `/give` did nothing.
+
+Two fixes:
+1. `executeServerCommand` now inspects the int return value and returns `false` on 0 (so the fallback chain actually triggers).
+2. `DailyRewards.roll` only sets cooldown AFTER `/give` confirms success. Tries three formats: with explicit count, with `1`, bare. If all three return 0, sends the player a chat message ("Daily roll failed to deliver X — try again, no cooldown applied") and aborts without setting the cooldown.
+
+Plus: rolled daily now sends a chat confirmation "✦ Daily reward: <item> ×N delivered to your inventory" so the user can see what they actually got, even if they missed the animation.
+
+**Combat tag fix:** user reported combat tag triggering on environmental damage. Tightened the gate in `StatTracker`'s `ALLOW_DAMAGE` handler: combat tag now ONLY fires when the damage source is a living entity (player or mob). Fall damage / lava / fire / suffocation / drowning / cactus etc. still update the `damageTaken` counter but no longer trigger the combat boss bar or the kill-on-logout flag. New `resolveLivingAttacker` helper returns null for environmental sources.
+
 ## What's new in v1.82.1
 
 CI fix: `SoundEvents.ENTITY_PLAYER_LEVELUP` is a raw `SoundEvent` on at least one yarn matrix entry, not a `RegistryEntry<SoundEvent>` — so `.value()` didn't resolve, and my `PlaySoundS2CPacket` construction failed to compile. Dropped the direct packet construction; now dispatching the vanilla `/playsound` command via `VersionShim.executeServerCommand`. Cross-version stable (the `/playsound` command syntax hasn't changed in years).
