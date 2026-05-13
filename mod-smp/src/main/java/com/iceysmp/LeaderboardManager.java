@@ -40,7 +40,12 @@ public final class LeaderboardManager {
     private final SmpConfig config;
 
     private long tickCounter = 0;
-    private final Map<String, Long> lastAnnouncedTop = new HashMap<>();
+    // Per-player last-seen level per category. Used to detect level-ups so
+    // we only broadcast "X is now Level N in Mining" when the level actually
+    // increases (previously we broadcasted any change in the leaderboard
+    // #1 score, which fired noisily every 30 seconds with raw count
+    // numbers instead of meaningful level transitions).
+    private final Map<UUID, Map<String, Integer>> lastPlayerLevels = new HashMap<>();
     // Per-player snapshot of MC StatHandler readings for delta tracking.
     // index: 0=FISH_CAUGHT, 1=WALK_ONE_CM, 2=JUMP, 3=SNEAK_TIME, 4=experienceLevel
     private final Map<UUID, int[]> statSnapshots = new HashMap<>();
@@ -90,35 +95,45 @@ public final class LeaderboardManager {
     private void recompute(MinecraftServer server) {
         int duration = config.effectDurationSeconds() * 20;
 
-        // For every category, broadcast leader-change + apply per-player effect
         for (Category cat : Category.values()) {
-            // Sort to find #1 — used for chat announce only.
-            List<Ranked> rk = rank(cat.field);
-            if (!rk.isEmpty() && rk.get(0).value > 0) {
-                Long prev = lastAnnouncedTop.get(cat.id);
-                if (prev == null || prev != rk.get(0).value) {
-                    server.getPlayerManager().broadcast(
-                            Text.literal("§b§l[Icey SMP] §a§l" + rk.get(0).name
-                                    + " §r§7is now top of §b§l" + cat.label
-                                    + " §7(" + rk.get(0).value + ")"),
-                            false);
-                    lastAnnouncedTop.put(cat.id, rk.get(0).value);
-                }
-            }
-
             RegistryEntry<StatusEffect> effect = cat.effect();
             if (effect == null) continue; // effect ref unavailable on this MC version
 
-            // Per-player amp from normalized count (count / divisor → hours of activity)
             for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
                 PlayerStats ps = stats.peek(p.getUuid());
                 if (ps == null) continue;
                 double normalized = cat.field.applyAsLong(ps) / (double) cat.divisor;
                 int amp = ampForNormalized(normalized, effect);
-                if (amp < 0) continue;
-                try {
-                    p.addStatusEffect(new StatusEffectInstance(effect, duration, amp, false, false, true));
-                } catch (Throwable ignored) {}
+                // newLevel: 0 = no buff, 1 = Lv I (amp 0), 2 = Lv II (amp 1), etc.
+                int newLevel = (amp < 0) ? 0 : amp + 1;
+
+                // Broadcast on level-up only — not every recompute.
+                Map<String, Integer> playerLevels = lastPlayerLevels.computeIfAbsent(p.getUuid(), u -> new HashMap<>());
+                Integer prev = playerLevels.get(cat.id);
+                if (prev != null && newLevel > prev) {
+                    server.getPlayerManager().broadcast(
+                            Text.literal("§b§l[Icey SMP] §a§l" + p.getName().getString()
+                                    + " §r§7is now §b§lLevel " + newLevel
+                                    + " §r§7in §b§l" + cat.label + "§7!"),
+                            false);
+                    // Pop a big "LEVEL UP" title on the leveling player's screen.
+                    // Wrapped in try/catch because TitleS2CPacket lives at a path
+                    // that's stable since 1.17 but yarn could in theory rename.
+                    try {
+                        p.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket(10, 50, 20));
+                        p.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.TitleS2CPacket(
+                                Text.literal("§e§lLEVEL UP")));
+                        p.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.SubtitleS2CPacket(
+                                Text.literal("§aLevel " + newLevel + " §rin §b§l" + cat.label)));
+                    } catch (Throwable ignored) {}
+                }
+                playerLevels.put(cat.id, newLevel);
+
+                if (amp >= 0) {
+                    try {
+                        p.addStatusEffect(new StatusEffectInstance(effect, duration, amp, false, false, true));
+                    } catch (Throwable ignored) {}
+                }
             }
         }
     }

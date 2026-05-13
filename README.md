@@ -30,6 +30,12 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.23
+
+- **Broadcasts on level-up, not on every leader-change.** The old behavior fired `[Icey SMP] PlayerX is now top of Walking (202)` every recompute cycle whenever the top score changed — noisy, useless raw-number announcement. New behavior: track each player's level per category in `lastPlayerLevels`, and only broadcast when a player's level actually goes UP. Message format: `[Icey SMP] PlayerX is now Level 2 in Walking!`. One broadcast per real progression event, no spam.
+- **Big LEVEL UP title** pops on your screen the moment you level up — `LEVEL UP` as the title text and `Level 2 in Mining` as the subtitle. Fade-in 10 ticks, stay 50 ticks (2.5s), fade-out 20 ticks. Sent via `TitleS2CPacket` / `SubtitleS2CPacket` / `TitleFadeS2CPacket` directly to the leveling player only, wrapped in try/catch in case a yarn variant renames the packet classes.
+- **`/spawn` removed.** Vanilla servers have `/spawnpoint` and the in-combat block plus the cross-dimension fallback weren't worth maintaining. `/setspawn` (op-2) stays for setting world spawn.
+
 ## What's new in v1.80.22
 
 Two related issues from "playtime EVERYTHING doesn't update":

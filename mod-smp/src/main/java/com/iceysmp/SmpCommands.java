@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.22"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.23"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
@@ -89,7 +89,6 @@ public final class SmpCommands {
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey top <category> §8— leaderboard for a category"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey me §8— your stats + rank across all categories"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey stats <player> §8— another player's stats"), false);
-                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /spawn §8— teleport to world spawn"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /setspawn §8— set world spawn here §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reload §8— reload config §7(op-3)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reset §8— wipe all stats §7(op-4)"), false);
@@ -97,8 +96,9 @@ public final class SmpCommands {
                 })
             );
 
-            dispatcher.register(CommandManager.literal("spawn")
-                .executes(ctx -> doSpawn(ctx.getSource())));
+            // /spawn removed per user request — vanilla servers already
+            // have /spawnpoint, and the in-combat block / out-of-overworld
+            // fallback wasn't worth the maintenance.
 
             // Set world spawn to current position — admin (op-2) only.
             // Just a thin wrapper around setSpawnPos with proper perm gating.
@@ -217,23 +217,6 @@ public final class SmpCommands {
             case "jumps" -> "Jump Boost";
             default -> "?";
         };
-    }
-
-    private static int doSpawn(ServerCommandSource src) {
-        ServerPlayerEntity p = src.getPlayer();
-        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /spawn must be run by a player"), false); return 0; }
-        if (IceySmp.combat != null && IceySmp.combat.isInCombat(p.getUuid())) {
-            p.sendMessage(Text.literal("§c§l[Icey SMP] §rCan't /spawn while combat-tagged."), false);
-            return 0;
-        }
-        MinecraftServer server = src.getServer();
-        if (server == null) return 0;
-        ServerWorld overworld = server.getOverworld();
-        BlockPos spawn = resolveWorldSpawn(overworld);
-        VersionShim.teleportSafe(p, overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5,
-                p.getYaw(), p.getPitch());
-        p.sendMessage(Text.literal("§b§l[Icey SMP] §aTeleported to spawn."), false);
-        return 1;
     }
 
     private static int showTop(ServerCommandSource src, String category) {
