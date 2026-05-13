@@ -30,6 +30,22 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.83.0
+
+**Loot crates** — admin-spawned event chests with tiered loot.
+
+- **`/icey crate [common|rare|epic]`** (op-2 required). Without a tier argument, randomly picks one weighted 60/30/10. The chest spawns at the caller's exact block position (so an admin stands wherever they want the crate to land).
+- **Lightning bolt visual** strikes the spawn point so it's spottable from afar (cosmetic only — the lightning damage flag is off because it's the entity-only summon).
+- **Server-wide chat broadcast** announces tier + coords + distance from caller: `[Icey SMP] A §5§lEPIC §rLoot Crate has spawned at (245, 64, -120) — 87m from _Icey27_!`
+- **Loot per tier:**
+  - **Common** (60% weight): 16 cooked beef, 8 iron, 4 gold, 32 arrows, 1 saddle, 8 XP bottles
+  - **Rare** (30%): 8 diamonds, 1 totem, 4 golden apples, 1 beacon, 8 ender pearls, 16 XP bottles
+  - **Epic** (10%): **16 diamonds, 1 netherite ingot**, 4 shulker shells, 1 nether star, 1 enchanted golden apple, 2 totems, 32 XP bottles (per user request — more diamonds, netherite, no elytra)
+- **Chest placement** uses `/setblock minecraft:chest[block_entity_data={Items:...}]` (1.21.5+ syntax) with a legacy `{Items:...}` NBT fallback for 1.21.0-1.21.4, plus a bare-chest fallback if both fail (so SOMETHING always lands, even if the loot doesn't).
+- No automatic timer — purely event-driven per user request.
+
+`/icey help` now lists `/icey crate`. `/icey version` reports 1.83.0.
+
 ## What's new in v1.82.2
 
 **Daily reward fix:** user reported "rolled and it said I got it but I didn't actually get it." Root cause: `VersionShim.executeServerCommand` was returning true whenever Brigadier's `dispatcher.execute` didn't throw — but Brigadier returns `int 0` when a command parses successfully but does nothing useful (e.g. unknown player target), which my code was treating as success. So the daily animation fired, cooldown got set, but the `/give` did nothing.

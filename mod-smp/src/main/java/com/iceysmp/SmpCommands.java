@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.82.2"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.83.0"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
@@ -75,6 +75,25 @@ public final class SmpCommands {
                     }))
                 .then(CommandManager.literal("daily")
                     .executes(ctx -> doDaily(ctx.getSource())))
+                .then(CommandManager.literal("crate")
+                    .requires(s -> hasPermLevel(s, 2))
+                    .executes(ctx -> {
+                        boolean ok = LootCrate.spawnNearCaller(ctx.getSource(), LootCrate.Tier.pickRandom());
+                        return ok ? 1 : 0;
+                    })
+                    .then(CommandManager.argument("tier", StringArgumentType.word())
+                        .suggests((ctx, b) -> { b.suggest("common"); b.suggest("rare"); b.suggest("epic"); return b.buildFuture(); })
+                        .executes(ctx -> {
+                            String t = StringArgumentType.getString(ctx, "tier").toUpperCase();
+                            LootCrate.Tier tier;
+                            try { tier = LootCrate.Tier.valueOf(t); }
+                            catch (IllegalArgumentException e) {
+                                ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown tier: " + t.toLowerCase() + " — use common, rare, or epic"), false);
+                                return 0;
+                            }
+                            boolean ok = LootCrate.spawnNearCaller(ctx.getSource(), tier);
+                            return ok ? 1 : 0;
+                        })))
                 .then(CommandManager.literal("bounty")
                     .then(CommandManager.argument("player", StringArgumentType.word())
                         .suggests((ctx, b) -> {
@@ -148,6 +167,7 @@ public final class SmpCommands {
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey stats <player> §8— another player's stats"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey daily §8— roll for a random item (14h cooldown)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey bounty <player> <xp> §8— pay XP to put a bounty on someone"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey crate [common|rare|epic] §8— spawn a loot crate near you §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reward <category> <player> §8— hand-give a max-level reward §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /setspawn §8— set world spawn here §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reload §8— reload config §7(op-3)"), false);
