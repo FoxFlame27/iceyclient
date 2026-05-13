@@ -141,6 +141,11 @@ public final class WeaponDrops {
             String rarityPart = "rarity=epic";
             String playerName = player.getName().getString();
 
+            // Layered fallbacks — if the rich form fails to parse on a
+            // weird yarn variant, keep shedding components until SOMETHING
+            // lands. User-facing rule: a /icey reward call should always
+            // produce an item, even if the lore / enchants / rarity don't
+            // attach.
             String[] formats = {
                     // 1.21.5+: enchantments takes the map directly
                     "give " + playerName + " " + r.item + "["
@@ -151,14 +156,28 @@ public final class WeaponDrops {
                     "give " + playerName + " " + r.item + "["
                             + namePart + "," + lorePart + ","
                             + "enchantments={levels:" + r.enchants + "},"
-                            + rarityPart + "] 1"
+                            + rarityPart + "] 1",
+                    // No enchants — keep name + lore + epic rarity
+                    "give " + playerName + " " + r.item + "[" + namePart + "," + lorePart + "," + rarityPart + "] 1",
+                    // No lore — keep name + epic rarity
+                    "give " + playerName + " " + r.item + "[" + namePart + "," + rarityPart + "] 1",
+                    // No rarity — keep just the name
+                    "give " + playerName + " " + r.item + "[" + namePart + "] 1",
+                    // Last resort: bare vanilla item
+                    "give " + playerName + " " + r.item + " 1"
             };
             boolean delivered = false;
-            for (String cmd : formats) {
-                if (VersionShim.executeServerCommand(server, cmd)) { delivered = true; break; }
+            for (int i = 0; i < formats.length; i++) {
+                if (VersionShim.executeServerCommand(server, formats[i])) {
+                    delivered = true;
+                    if (i > 0) {
+                        System.out.println("[IceySMP] /give fell back to format #" + i + " for " + r.name);
+                    }
+                    break;
+                }
             }
             if (!delivered) {
-                System.out.println("[IceySMP] /give failed in both component-syntax variants");
+                System.out.println("[IceySMP] every /give format failed — nothing delivered");
                 return false;
             }
 

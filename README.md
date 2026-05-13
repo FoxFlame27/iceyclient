@@ -30,6 +30,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.29
+
+- **Walking shows meters, not km.** `0.0 km` was the persistent symptom — formatter was switching to km at 100,000 cm but most players have under 100 km walked, so it always rounded to `0.0 km`. New: always meters with one decimal below 1000 m, comma-separated integer above (e.g. `12,345 m`). Applied to both `/icey help` and `/icey top walking` output.
+- **`/icey reward` is guaranteed to drop *something*.** Added a six-stage layered fallback chain in `WeaponDrops.run`: modern-syntax → legacy-syntax → no enchants → no lore → no rarity → bare vanilla item. If any one stage's syntax parses, that's what gets delivered. Players always end up with at least the named item, even on weird MC variants.
+
 ## What's new in v1.80.28
 
 **Fix: `/icey reward` (and the automatic max-level grants) produced no item.** MC 1.21.5 removed the `{levels:{...}}` wrapper from the `minecraft:enchantments` component — it's now just the map directly. My `/give` syntax was building the legacy 1.21.0-1.21.4 form (`enchantments={levels:{...}}`), which fails to parse on 1.21.5/1.21.8/1.21.11 servers, so the whole command rejected silently.

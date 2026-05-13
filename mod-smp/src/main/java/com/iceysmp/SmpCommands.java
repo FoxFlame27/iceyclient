@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.28"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.29"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
@@ -248,8 +248,12 @@ public final class SmpCommands {
     }
 
     private static String formatCmHuman(long cm) {
-        if (cm < 100_000) return String.format("%.1fm", cm / 100.0);
-        return String.format("%.2fkm", cm / 100_000.0);
+        // Always meters per user request. Below 1 km show one decimal, above
+        // use comma-separated integers so the number stays readable
+        // (e.g. 12,345 m instead of 12345 m).
+        double m = cm / 100.0;
+        if (m < 1000) return String.format("%.1f m", m);
+        return String.format("%,.0f m", m);
     }
 
     private static String effectDisplayName(LeaderboardManager.Category cat) {
@@ -361,13 +365,15 @@ public final class SmpCommands {
         };
     }
 
-    /** Format the value for display, picking a per-category format. */
+    /** Format the value for display, picking a per-category format.
+     *  Reuses the per-category formatters from {@link #formatForCategory}
+     *  so /icey top and /icey help stay consistent. */
     private static String formatValue(String category, long value) {
         return switch (category) {
             case "playtime" -> formatTicks(value);
-            case "walking"  -> String.format("%.1f km", value / 100_000.0);
-            case "dmgdealt", "dmgtaken" -> String.format("%.1f HP", value / 10.0);
-            case "sneak"    -> formatTicks(value); // sneak time also in ticks
+            case "walking"  -> formatCmHuman(value);
+            case "dmgtaken" -> String.format("%.1f HP", value / 10.0);
+            case "sneak"    -> formatTicks(value);
             default -> formatWithCommas(value);
         };
     }
