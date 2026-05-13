@@ -10,32 +10,54 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public final class SmpCommands {
 
-    /** Yarn renamed hasPermissionLevel ↔ hasPermission across 1.21.x; resolve once. */
-    private static final MethodHandle PERM_CHECK = resolvePermCheck();
-
-    private static MethodHandle resolvePermCheck() {
-        MethodHandles.Lookup l = MethodHandles.lookup();
-        MethodType mt = MethodType.methodType(boolean.class, int.class);
+    /** Yarn shuffles {@code hasPermissionLevel} ↔ {@code hasPermission}
+     *  across 1.21.x — and on some variants MethodHandles.findVirtual fails
+     *  on access checks even when the method exists. Do a runtime reflection
+     *  walk every call. Caller frequency is low (only when `.requires(...)`
+     *  re-evaluates), so the lookup cost is negligible. */
+    private static boolean hasPermLevel(ServerCommandSource src, int level) {
+        if (src == null) return false;
+        // Try by exact name first
         for (String name : new String[] {"hasPermissionLevel", "hasPermission"}) {
-            try { return l.findVirtual(ServerCommandSource.class, name, mt); }
+            try {
+                java.lang.reflect.Method m = src.getClass().getMethod(name, int.class);
+                Object r = m.invoke(src, level);
+                if (r instanceof Boolean b) return b;
+            } catch (NoSuchMethodException ignored) {}
             catch (Throwable ignored) {}
         }
-        return null;
-    }
-
-    private static boolean hasPermLevel(ServerCommandSource src, int level) {
-        if (PERM_CHECK == null) return false;
-        try { return (boolean) PERM_CHECK.invoke(src, level); }
-        catch (Throwable t) { return false; }
+        // Fallback: walk all public methods for any (int)->boolean named
+        // *permission* — catches obfuscated remaps too.
+        try {
+            for (java.lang.reflect.Method m : src.getClass().getMethods()) {
+                if (m.getReturnType() != boolean.class) continue;
+                if (m.getParameterCount() != 1) continue;
+                if (m.getParameterTypes()[0] != int.class) continue;
+                String n = m.getName().toLowerCase();
+                if (!n.contains("permission")) continue;
+                try {
+                    Object r = m.invoke(src, level);
+                    if (r instanceof Boolean b) return b;
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
+        // Last resort: assume op if source is a player and server says so
+        try {
+            ServerPlayerEntity p = src.getPlayer();
+            MinecraftServer s = src.getServer();
+            if (p != null && s != null) {
+                return s.getPlayerManager().isOperator(p.getGameProfile());
+            }
+            // Console source — always allow
+            if (p == null) return true;
+        } catch (Throwable ignored) {}
+        return false;
     }
 
     public static void register() {
@@ -55,7 +77,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.83.0"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.83.1"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")

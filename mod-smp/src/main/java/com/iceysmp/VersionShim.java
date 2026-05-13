@@ -59,40 +59,91 @@ public final class VersionShim {
                 new Object[]   {src, amount});
     }
 
-    /** Execute a server command via Brigadier directly. Goes through
-     *  {@code CommandManager.getDispatcher().execute(String, S)} — the
-     *  brigadier API itself is stable across yarn versions (it's a
-     *  Mojang-shipped lib, not subject to mapping renames). Returns
-     *  TRUE only if Brigadier parsed and ran the command without a
-     *  CommandSyntaxException — meaning callers can use the result to
-     *  decide whether to retry with a fallback syntax. */
+    /** Execute a server command. Tries three paths in order:
+     *
+     *  <ol>
+     *   <li>{@code CommandManager.executeWithPrefix(ServerCommandSource, String)}
+     *       — the yarn-canonical method on most variants. Returns void; we
+     *       assume success if it doesn't throw.
+     *   <li>{@code CommandManager.execute(ServerCommandSource, String)}
+     *       — alternate name in some yarn variants.
+     *   <li>Brigadier dispatcher path: find the {@code CommandDispatcher}
+     *       on the command manager (via getter method, field, or
+     *       field-by-type scan), then call its {@code execute(String, S)}.
+     *       This path surfaces parse errors as exceptions so the caller
+     *       can detect failure and retry with a fallback syntax.
+     *  </ol>
+     *
+     *  Returns true if any path ran the command without exception.
+     *  Brigadier {@code execute} returns {@code int} — caller can read the
+     *  return as a hint, but the contract is just "ran/didn't run".
+     */
     public static boolean executeServerCommand(MinecraftServer server, String cmd) {
         if (server == null || cmd == null) return false;
+        Object cm = server.getCommandManager();
+        ServerCommandSource src = server.getCommandSource();
+
+        // Path 1: executeWithPrefix(ServerCommandSource, String) — most common
         try {
-            Object cm = server.getCommandManager();
-            Object disp = cm.getClass().getMethod("getDispatcher").invoke(cm);
-            ServerCommandSource src = server.getCommandSource();
+            Method m = cm.getClass().getMethod("executeWithPrefix", ServerCommandSource.class, String.class);
+            m.invoke(cm, src, cmd);
+            return true;
+        } catch (NoSuchMethodException ignored) {
+        } catch (Throwable ignored) { /* try next */ }
+
+        // Path 2: execute(ServerCommandSource, String)
+        try {
+            Method m = cm.getClass().getMethod("execute", ServerCommandSource.class, String.class);
+            m.invoke(cm, src, cmd);
+            return true;
+        } catch (NoSuchMethodException ignored) {
+        } catch (Throwable ignored) { /* try next */ }
+
+        // Path 3: find dispatcher → execute(String, S)
+        Object disp = findDispatcher(cm);
+        if (disp != null) {
             for (Method m : disp.getClass().getMethods()) {
                 if (!"execute".equals(m.getName())) continue;
                 if (m.getParameterCount() != 2) continue;
                 if (m.getParameterTypes()[0] != String.class) continue;
                 try {
                     Object r = m.invoke(disp, cmd, src);
-                    // Brigadier returns int: >0 success, 0 "no result"
-                    // (command parsed but didn't do anything useful, e.g.
-                    // unknown player). Caller wants to know if something
-                    // actually happened — return false on 0 so fallbacks
-                    // can try a different syntax.
                     if (r instanceof Integer i) return i > 0;
                     return true;
-                } catch (Throwable t) {
-                    return false;
+                } catch (Throwable t) { return false; }
+            }
+        }
+        System.out.println("[IceySMP] executeServerCommand: no execution path worked for: " + cmd);
+        return false;
+    }
+
+    /** Walk method names, then field names, then any field of type
+     *  {@code CommandDispatcher} to extract the dispatcher from a
+     *  {@code CommandManager} instance. */
+    private static Object findDispatcher(Object cm) {
+        for (String name : new String[] {"getDispatcher", "getCommandDispatcher"}) {
+            try { return cm.getClass().getMethod(name).invoke(cm); }
+            catch (NoSuchMethodException ignored) {}
+            catch (Throwable ignored) {}
+        }
+        for (String name : new String[] {"dispatcher", "commandDispatcher"}) {
+            try {
+                java.lang.reflect.Field f = cm.getClass().getDeclaredField(name);
+                f.setAccessible(true);
+                return f.get(cm);
+            } catch (NoSuchFieldException ignored) {}
+            catch (Throwable ignored) {}
+        }
+        // Last resort: any field whose declared type is CommandDispatcher
+        try {
+            for (java.lang.reflect.Field f : cm.getClass().getDeclaredFields()) {
+                if (f.getType().getSimpleName().equals("CommandDispatcher")) {
+                    f.setAccessible(true);
+                    return f.get(cm);
                 }
             }
-        } catch (Throwable t) {
-            System.out.println("[IceySMP] executeServerCommand setup failed: " + t);
-        }
-        return false;
+        } catch (Throwable ignored) {}
+        return null;
     }
 
     /** Kill. Tries 1-arg (ServerWorld) → 0-arg. */

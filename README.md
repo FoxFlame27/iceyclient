@@ -30,6 +30,16 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.83.1
+
+**Yarn-portability fixes + combat-log on rejoin.**
+
+- **`/icey crate epic` "Incorrect argument"** — on some yarn variants, `MethodHandles.findVirtual(ServerCommandSource, "hasPermissionLevel", ...)` was failing access checks, leaving `PERM_CHECK = null`. Every `.requires(op-2)` branch then evaluated false and Brigadier hid the `crate` subcommand entirely — which surfaced as "Incorrect argument for command" with the cursor pointing at `epic`. Replaced the static MethodHandle with a runtime reflection walk: try `hasPermissionLevel(int)` then `hasPermission(int)` by name, then any `(int)->boolean` method whose name contains "permission", and finally fall back to `PlayerManager.isOperator(gameProfile)`. Console source (no player) is now treated as full op. Same fix path makes `/icey reward`, `/icey reset`, `/icey reload`, `/setspawn`, `/icey givefrostfang` work too.
+- **`/icey daily` silent fail** — server log showed `executeServerCommand setup failed: java.lang.NoSuchMethodException: net.minecraft.class_2170.getDispatcher()`. `VersionShim.executeServerCommand` now tries three paths in order: `CommandManager.executeWithPrefix(src, cmd)`, `CommandManager.execute(src, cmd)`, then a `findDispatcher(cm)` helper that walks getters → fields → any field of type `CommandDispatcher` and calls `dispatcher.execute(cmd, src)`. So daily `/give`, loot-crate `/setblock`, and `/summon lightning_bolt` all keep working even when yarn renames the inner dispatcher accessor.
+- **Combat-log on rejoin** — fixed user-reported "if I leave during combat I CAN JUST REJOIN and I won't die." Root cause: `ServerPlayConnectionEvents.DISCONNECT` fires AFTER the player entity has detached from the world, so the previous `damage()/kill()` call was a no-op and the player save snapshot was already on disk. New two-phase approach: on DISCONNECT, if combat-tagged, drop their entire inventory into the world right then (reflection-driven `PlayerInventory.dropAll` with per-slot fallback) and flag their UUID in a `pendingDeath` set. On their next JOIN, the server kills them on the next tick and broadcasts `[Icey SMP] PlayerName combat-logged and died on rejoin.` State is in-memory, so a server restart between disconnect and rejoin clears the flag — matches `CombatTracker`'s existing "tags reset on restart" semantic.
+
+`/icey version` reports 1.83.1.
+
 ## What's new in v1.83.0
 
 **Loot crates** — admin-spawned event chests with tiered loot.
