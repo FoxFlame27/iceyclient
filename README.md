@@ -30,6 +30,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.24
+
+- **Removed Diamonds and Mob Kills.** Diamonds overlapped with Speed (Walking already gives Speed) and Mob Kills wasn't fun. 7 categories now: Mining, PvP, Playtime, Fishing, Walking, Jumps, Damage Taken.
+- **Added Damage Taken → Resistance.** Tracks total HP soaked. Divisor 500 (= 50 HP per "hour" of progression — typical active play). Display in `/icey help` shows it as `12.4 HP / 50.0 HP × 10` so you can see it making sense even though it's stored × 10 internally for sub-half-HP precision.
+
 ## What's new in v1.80.23
 
 - **Broadcasts on level-up, not on every leader-change.** The old behavior fired `[Icey SMP] PlayerX is now top of Walking (202)` every recompute cycle whenever the top score changed — noisy, useless raw-number announcement. New behavior: track each player's level per category in `lastPlayerLevels`, and only broadcast when a player's level actually goes UP. Message format: `[Icey SMP] PlayerX is now Level 2 in Walking!`. One broadcast per real progression event, no spam.

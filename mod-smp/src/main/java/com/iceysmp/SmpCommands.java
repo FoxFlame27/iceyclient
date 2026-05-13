@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.23"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.24"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
@@ -181,11 +181,13 @@ public final class SmpCommands {
     }
 
     /** Display a raw count in human-friendly units per category.
-     *  Playtime: ticks → minutes/hours. Walking: cm → m/km. Else raw. */
+     *  Playtime: ticks → minutes/hours. Walking: cm → m/km.
+     *  Damage taken: ×10 stored → divide by 10 to show HP. Else raw. */
     private static String formatForCategory(String catId, long count) {
         return switch (catId) {
             case "playtime" -> formatTicksHuman(count);
             case "walking"  -> formatCmHuman(count);
+            case "dmgtaken" -> String.format("%.1f HP", count / 10.0);
             default         -> String.format("%,d", count);
         };
     }
@@ -210,11 +212,10 @@ public final class SmpCommands {
             case "mining" -> "Haste";
             case "pvp" -> "Strength";
             case "playtime" -> "Saturation";
-            case "mobkills" -> "Resistance";
-            case "diamonds" -> "Speed";
             case "fishing" -> "Luck";
             case "walking" -> "Speed";
             case "jumps" -> "Jump Boost";
+            case "dmgtaken" -> "Resistance";
             default -> "?";
         };
     }

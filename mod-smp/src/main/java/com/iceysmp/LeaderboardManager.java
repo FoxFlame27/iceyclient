@@ -261,11 +261,12 @@ public final class LeaderboardManager {
         MINING       ("mining",      "Mining",        "ores",         ps -> ps.mining,           () -> StatusEffects.HASTE,        200L),
         PVP          ("pvp",         "PvP",           "kills",        ps -> ps.pvpKills,         () -> StatusEffects.STRENGTH,     2L),
         PLAYTIME     ("playtime",    "Playtime",      "hours",        ps -> ps.playtimeTicks,    () -> StatusEffects.SATURATION,   72000L),
-        MOB_KILLS    ("mobkills",    "Mob Kills",     "kills",        ps -> ps.mobKills,         () -> StatusEffects.RESISTANCE,   50L),
-        DIAMONDS     ("diamonds",    "Diamonds",      "ores",         ps -> ps.diamonds,         () -> StatusEffects.SPEED,        8L),
         FISHING      ("fishing",     "Fishing",       "fish",         ps -> ps.fishCaught,       () -> StatusEffects.LUCK,         30L),
         WALKING      ("walking",     "Distance",      "km × 6",       ps -> ps.distanceWalkedCm, () -> StatusEffects.SPEED,        600_000L),
-        JUMPS        ("jumps",       "Jumps",         "jumps",        ps -> ps.jumps,            () -> StatusEffects.JUMP_BOOST,   500L);
+        JUMPS        ("jumps",       "Jumps",         "jumps",        ps -> ps.jumps,            () -> StatusEffects.JUMP_BOOST,   500L),
+        // damageTaken is stored ×10 in PlayerStats (since damage is float).
+        // Divisor 500 = 50 HP taken per "hour-unit" — typical active play.
+        DMG_TAKEN    ("dmgtaken",    "Damage Taken",  "HP × 10",       ps -> ps.damageTaken,      () -> StatusEffects.RESISTANCE,   500L);
 
         final String id;
         final String label;
