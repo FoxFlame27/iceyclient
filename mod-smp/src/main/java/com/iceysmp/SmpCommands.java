@@ -49,6 +49,15 @@ public final class SmpCommands {
                     .executes(ctx -> showSelf(ctx.getSource())))
                 .then(CommandManager.literal("help")
                     .executes(ctx -> showHelp(ctx.getSource())))
+                .then(CommandManager.literal("version")
+                    .executes(ctx -> {
+                        // Hardcoded version string — bumped manually each release.
+                        // If a user reports "/icey doesn't have feature X", first
+                        // ask them to run this so we know what build they're on.
+                        ctx.getSource().sendFeedback(() -> Text.literal(
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.19"), false);
+                        return 1;
+                    }))
                 .then(CommandManager.literal("stats")
                     .then(CommandManager.argument("player", StringArgumentType.word())
                         .suggests((ctx, b) -> {
@@ -96,6 +105,13 @@ public final class SmpCommands {
             dispatcher.register(CommandManager.literal("setspawn")
                 .requires(s -> hasPermLevel(s, 2))
                 .executes(ctx -> doSetSpawn(ctx.getSource())));
+
+            // Server-side /lb fallback. Users with an old iceymod client
+            // (or no iceymod at all) won't have the client-side /lb that
+            // opens the leaderboard screen — this catches the typo and
+            // routes them to /icey help so they at least see something.
+            dispatcher.register(CommandManager.literal("lb")
+                .executes(ctx -> showHelp(ctx.getSource())));
         });
     }
 

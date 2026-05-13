@@ -30,6 +30,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.19
+
+- **`/icey version`** — prints the server mod version. Use this to confirm whether the jar in your mods/ folder is actually the latest one. If it says anything below 1.80.19, your install is stale; re-download via the launcher or grab the latest from the [releases page](https://github.com/FoxFlame27/iceyclient/releases/latest).
+- **Server-side `/lb` fallback** — if your client doesn't have the iceymod client mod (or has an old version without the `/lb` chat command), typing `/lb` now hits the server and runs `/icey help` instead of returning "unknown command". So `/lb` always does *something* useful as long as iceymod+ is on the server.
+
 ## What's new in v1.80.18
 
 - **CI fix:** `ServerPlayerEntity.getWorld()` doesn't resolve on the matrix's yarn versions. The dimension-equality check in `/setspawn` (which only blocked running it from the Nether) wasn't worth the yarn-rename risk — dropped the check entirely. `/setspawn` now always uses the player's `getBlockPos()` regardless of which dimension they're in; the coords get applied to the overworld spawn. Reasonable behavior + clean compile.
