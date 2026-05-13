@@ -102,6 +102,19 @@ public final class WeaponDrops {
                     },
                     "{\"minecraft:protection\":4,\"minecraft:swift_sneak\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"
             );
+            case "water" -> new Reward(
+                    "minecraft:trident",
+                    "Wavebreaker",
+                    "blue",
+                    new String[] {
+                            "A trident chiseled from the deep.",
+                            "Returns to hand · Calls the storm"
+                    },
+                    // Riptide intentionally omitted — it conflicts with
+                    // loyalty/channeling and we want the throw-and-return
+                    // combat trident.
+                    "{\"minecraft:loyalty\":3,\"minecraft:impaling\":5,\"minecraft:channeling\":1,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"
+            );
             case "dmgtaken" -> new Reward(
                     "minecraft:netherite_chestplate",
                     "Stonewall",

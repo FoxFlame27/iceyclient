@@ -26,7 +26,7 @@ public final class SkillsScreen {
 
     private SkillsScreen() {}
 
-    private static final int[] CATEGORY_SLOTS = {10, 11, 12, 13, 14, 15, 16};
+    private static final int[] CATEGORY_SLOTS = {10, 11, 12, 13, 14, 15, 16, 17};
     /** Bar character count — 20 makes the percentage easy to read. */
     private static final int BAR_LEN = 20;
 
@@ -105,6 +105,7 @@ public final class SkillsScreen {
             case "fishing"  -> "§3";
             case "walking"  -> "§a";
             case "jumps"    -> "§d";
+            case "water"    -> "§9";
             case "dmgtaken" -> "§4";
             default         -> "§f";
         };
@@ -119,6 +120,7 @@ public final class SkillsScreen {
             case "fishing"  -> Items.FISHING_ROD;
             case "walking"  -> Items.IRON_BOOTS;
             case "jumps"    -> Items.RABBIT_FOOT;
+            case "water"    -> Items.HEART_OF_THE_SEA;
             case "dmgtaken" -> Items.SHIELD;
             default         -> Items.PAPER;
         };
@@ -132,6 +134,7 @@ public final class SkillsScreen {
             case "fishing"  -> "Luck";
             case "walking"  -> "Speed";
             case "jumps"    -> "Jump Boost";
+            case "water"    -> "Dolphin's Grace";
             case "dmgtaken" -> "Resistance";
             default         -> "?";
         };
@@ -145,6 +148,7 @@ public final class SkillsScreen {
             case "fishing"  -> "Tidecaller";
             case "walking"  -> "Wanderer's Treads";
             case "jumps"    -> "Springheel Greaves";
+            case "water"    -> "Wavebreaker";
             case "dmgtaken" -> "Stonewall";
             default         -> "?";
         };
@@ -169,7 +173,7 @@ public final class SkillsScreen {
                 if (m > 0) yield m + "m";
                 yield sec + "s";
             }
-            case "walking"  -> {
+            case "walking", "water" -> {
                 double m = count / 100.0;
                 if (m < 1000) yield String.format("%.1f m", m);
                 yield String.format("%,.0f m", m);

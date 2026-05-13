@@ -47,7 +47,8 @@ public final class LeaderboardManager {
     // numbers instead of meaningful level transitions).
     private final Map<UUID, Map<String, Integer>> lastPlayerLevels = new HashMap<>();
     // Per-player snapshot of MC StatHandler readings for delta tracking.
-    // index: 0=FISH_CAUGHT, 1=WALK_ONE_CM, 2=JUMP, 3=SNEAK_TIME, 4=experienceLevel
+    // index: 0=FISH_CAUGHT, 1=WALK_ONE_CM, 2=JUMP, 3=SNEAK_TIME,
+    //        4=experienceLevel, 5=WATER (swim+walk_under_water+walk_on_water)
     private final Map<UUID, int[]> statSnapshots = new HashMap<>();
     // Players whose snapshot has been seeded at least once. Without this
     // we used `last[i] > 0` as the gate, which drops the FIRST 0→1
@@ -162,9 +163,15 @@ public final class LeaderboardManager {
             int curJump  = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.JUMP));
             int curSneak = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.SNEAK_TIME));
             int curXp    = p.experienceLevel;
+            int curWater = 0;
+            // Sum of SWIM + WALK_UNDER_WATER + WALK_ON_WATER (frost walker etc.)
+            // Each in cm. Try/catch each: yarn variants sometimes drop one.
+            try { curWater += p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.SWIM_ONE_CM)); } catch (Throwable ignored) {}
+            try { curWater += p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.WALK_UNDER_WATER_ONE_CM)); } catch (Throwable ignored) {}
+            try { curWater += p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.WALK_ON_WATER_ONE_CM)); } catch (Throwable ignored) {}
 
             UUID uid = p.getUuid();
-            int[] last = statSnapshots.computeIfAbsent(uid, u -> new int[5]);
+            int[] last = statSnapshots.computeIfAbsent(uid, u -> new int[6]);
             PlayerStats ps = stats.get(uid, p.getName().getString());
             // Gate on "have we seen this player at least once in this
             // session" — the FIRST tick after a player connects just
@@ -180,10 +187,11 @@ public final class LeaderboardManager {
                 ps.jumps            += Math.max(0, curJump  - last[2]);
                 ps.sneakTimeTicks   += Math.max(0, curSneak - last[3]);
                 if (curXp > last[4]) ps.xpLevelsGained += (curXp - last[4]);
+                ps.distanceInWaterCm += Math.max(0, curWater - last[5]);
             } else {
                 snapshotSeeded.add(uid);
             }
-            last[0] = curFish; last[1] = curWalk; last[2] = curJump; last[3] = curSneak; last[4] = curXp;
+            last[0] = curFish; last[1] = curWalk; last[2] = curJump; last[3] = curSneak; last[4] = curXp; last[5] = curWater;
         } catch (Throwable ignored) {}
     }
 
@@ -285,6 +293,10 @@ public final class LeaderboardManager {
         FISHING      ("fishing",     "Fishing",       "fish",         ps -> ps.fishCaught,       () -> StatusEffects.LUCK,         30L,       100L),
         WALKING      ("walking",     "Distance",      "km × 6",       ps -> ps.distanceWalkedCm, () -> StatusEffects.SPEED,        600_000L, 1_000_000L), // 10 km in cm
         JUMPS        ("jumps",       "Jumps",         "jumps",        ps -> ps.jumps,            () -> StatusEffects.JUMP_BOOST,   500L,    1_000L),
+        // Sum of swim + walk-under-water + walk-on-water in cm. Divisor
+        // 100_000 cm = 1 km of underwater travel for Level 1.
+        // Weapon threshold 500_000 cm = 5 km swum.
+        WATER        ("water",       "Water Movement","m underwater", ps -> ps.distanceInWaterCm,() -> StatusEffects.DOLPHINS_GRACE, 100_000L, 500_000L),
         // damageTaken is stored ×10 in PlayerStats. Threshold 5000 = 500 HP.
         DMG_TAKEN    ("dmgtaken",    "Damage Taken",  "HP × 10",       ps -> ps.damageTaken,      () -> StatusEffects.RESISTANCE,   500L,    5_000L);
 

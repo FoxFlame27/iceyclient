@@ -30,6 +30,16 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.84.3
+
+**Water movement category + Dolphin's Grace** — caught a missed item from the original spec. New 8th category `water` tracks `SWIM_ONE_CM + WALK_UNDER_WATER_ONE_CM + WALK_ON_WATER_ONE_CM` (all three vanilla water-travel stats summed in cm). Divisor 100,000 cm = Level 1 at 1 km swum; weapon threshold 500,000 cm = 5 km. Status effect: `DOLPHINS_GRACE`. Max-level reward: **Wavebreaker** — netherite-blue Trident with Loyalty III, Impaling V, Channeling, Unbreaking III, Mending. (Riptide intentionally omitted because it conflicts with Loyalty/Channeling in vanilla; we want the throw-and-return combat trident.)
+
+- [PlayerStats.java](mod-smp/src/main/java/com/iceysmp/PlayerStats.java): new `distanceInWaterCm` field; added to `absorbFrom` so it transfers on PvP kill like every other stealable counter.
+- [LeaderboardManager.java](mod-smp/src/main/java/com/iceysmp/LeaderboardManager.java): expanded the per-player snapshot from 5 ints to 6, with `index 5 = water`. Each of the three water stat reads is wrapped in its own try/catch — some yarn variants drop one or two of them.
+- [SkillsScreen.java](mod-smp/src/main/java/com/iceysmp/SkillsScreen.java): `CATEGORY_SLOTS` extended to `{10..17}` so all 8 categories fit in the middle row. Icon for water = `HEART_OF_THE_SEA`. `formatValue` now treats `water` like `walking` (cm → m).
+- [WeaponDrops.java](mod-smp/src/main/java/com/iceysmp/WeaponDrops.java): new `water` reward entry — Wavebreaker trident.
+- [LeaderboardScreen.java](mod/src/main/java/com/iceymod/screen/LeaderboardScreen.java) (client): added the new entry to the picker between Jumps and Damage Taken so the keybind-N screen offers all 8 categories.
+
 ## What's new in v1.84.2
 
 **Custom weapon names render as text instead of raw JSON.** User-reported with a screenshot — every reward item (Stonewall, Frostfang, Frostpick, etc.) was showing its name as the literal JSON string `{"text":"Stonewall","italic":false,"color":"dark_red","bold":true}` instead of "Stonewall" in dark-red bold. Lore lines had the same problem.

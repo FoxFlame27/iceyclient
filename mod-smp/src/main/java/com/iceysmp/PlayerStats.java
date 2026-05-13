@@ -30,6 +30,8 @@ public final class PlayerStats {
     public long jumps;
     public long xpLevelsGained;
     public long sneakTimeTicks;
+    /** Sum of SWIM + WALK_UNDER_WATER + WALK_ON_WATER from MC stats, cm. */
+    public long distanceInWaterCm;
 
     /** Semicolon-separated set of category IDs the player has already
      *  received a max-level reward (Frostfang) for. So if they hit Lv max
@@ -85,5 +87,6 @@ public final class PlayerStats {
         this.jumps            += victim.jumps;            victim.jumps            = 0;
         this.xpLevelsGained   += victim.xpLevelsGained;   victim.xpLevelsGained   = 0;
         this.sneakTimeTicks   += victim.sneakTimeTicks;   victim.sneakTimeTicks   = 0;
+        this.distanceInWaterCm+= victim.distanceInWaterCm;victim.distanceInWaterCm= 0;
     }
 }

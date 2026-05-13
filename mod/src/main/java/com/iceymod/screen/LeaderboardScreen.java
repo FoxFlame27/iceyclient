@@ -26,6 +26,7 @@ public final class LeaderboardScreen extends Screen {
             new Entry("fishing",     "§b🎣 Fishing",       "Luck"),
             new Entry("walking",     "§a👟 Distance",      "Speed"),
             new Entry("jumps",       "§e⤴ Jumps",          "Jump Boost"),
+            new Entry("water",       "§9~ Water Movement", "Dolphin's Grace"),
             new Entry("dmgtaken",    "§4❤ Damage Taken",   "Resistance"),
     };
 
