@@ -30,6 +30,16 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.22
+
+Two related issues from "playtime EVERYTHING doesn't update":
+
+**1. Some event hooks were silently skipping.** `IceySmp.onInitialize` had all the server-event registrations in ONE big try/catch. If any single Fabric API call threw (yarn rename, missing module), every registration AFTER it got skipped — including the one for `StatTracker.registerEvents` which wires up mining / pvp / mob-kills / damage tracking. That gave the "everything shows 0" symptom: counts only tracked for categories whose event hook happened to register before the failure. Each registration now in its own try/catch with a `[IceySMP] ... installed` / `... failed` log line so a future regression is visible in the server console.
+
+**2. `/icey help` showed raw ticks/cm for playtime + walking.** "Playtime: 0/72000 hours" wasn't telling anyone anything useful. Added `formatForCategory`: playtime renders as `2m / 1h`, walking renders as `45.3m / 6.00km`, the others stay as comma-separated counts. Both the current value AND the next-level threshold use the human-friendly format.
+
+`/icey version` bumped to 1.80.22 — quick check if the fix actually reached your jar.
+
 ## What's new in v1.80.21
 
 - **Fix: Fishing / Distance / Jumps counters showed 0/30 even after activity.** The MC-StatHandler-delta mechanism gated increments behind `if (last[i] > 0)`, intending "only count delta once we have a baseline snapshot". But that gate silently swallowed the **first** 0→1 transition — your first fish ever / first kilometre walked / first jump tracked never landed in the counter because `last[i]` was still at 0 during that tick. Switched to a per-player `snapshotSeeded` Set: the first tick seeds the snapshot to whatever MC has, every subsequent tick computes a real delta. Now fish #1 increments correctly.

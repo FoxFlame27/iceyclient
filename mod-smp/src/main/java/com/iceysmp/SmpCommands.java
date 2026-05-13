@@ -55,7 +55,7 @@ public final class SmpCommands {
                         // If a user reports "/icey doesn't have feature X", first
                         // ask them to run this so we know what build they're on.
                         ctx.getSource().sendFeedback(() -> Text.literal(
-                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.21"), false);
+                                "§b§l[Icey SMP] §rserver mod version §a§l1.80.22"), false);
                         return 1;
                     }))
                 .then(CommandManager.literal("stats")
@@ -160,23 +160,49 @@ public final class SmpCommands {
         }
         ServerPlayerEntity me = src.getPlayer();
         PlayerStats ps = (me != null && IceySmp.stats != null) ? IceySmp.stats.peek(me.getUuid()) : null;
-        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rCategories — §7Lv 1 unlocks at the divisor, each next level needs double the count"), false);
+        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rCategories — §7each level doubles the previous threshold"), false);
         for (LeaderboardManager.Category cat : IceySmp.leaderboard.allCategories()) {
             long count = (ps != null) ? cat.field().applyAsLong(ps) : 0;
             String effectName = effectDisplayName(cat);
             String progress;
             if (ps == null) {
-                progress = "§8need " + cat.divisor() + " " + cat.unit() + " for Lv 1";
+                progress = "§8need " + formatForCategory(cat.id(), cat.divisor()) + " for Lv 1";
             } else {
                 double normalized = count / (double) cat.divisor();
                 int level = normalized < 1.0 ? 0 : (int)(Math.log(normalized) / Math.log(2)) + 1;
                 long next = LeaderboardManager.nextLevelThreshold(count, cat.divisor());
-                progress = "§7Lv §b" + level + "§7 — §f" + count + "§7/§f" + next + " §8" + cat.unit();
+                progress = "§7Lv §b" + level + "§7 — §f" + formatForCategory(cat.id(), count)
+                        + "§7/§f" + formatForCategory(cat.id(), next);
             }
             final String line = "  §f" + cat.label() + " §8→ §a" + effectName + " §8| " + progress;
             src.sendFeedback(() -> Text.literal(line), false);
         }
         return 1;
+    }
+
+    /** Display a raw count in human-friendly units per category.
+     *  Playtime: ticks → minutes/hours. Walking: cm → m/km. Else raw. */
+    private static String formatForCategory(String catId, long count) {
+        return switch (catId) {
+            case "playtime" -> formatTicksHuman(count);
+            case "walking"  -> formatCmHuman(count);
+            default         -> String.format("%,d", count);
+        };
+    }
+
+    private static String formatTicksHuman(long ticks) {
+        long sec = ticks / 20;
+        if (sec < 60) return sec + "s";
+        long m = sec / 60;
+        if (m < 60) return m + "m";
+        long h = m / 60;
+        long mm = m % 60;
+        return mm == 0 ? h + "h" : h + "h" + mm + "m";
+    }
+
+    private static String formatCmHuman(long cm) {
+        if (cm < 100_000) return String.format("%.1fm", cm / 100.0);
+        return String.format("%.2fkm", cm / 100_000.0);
     }
 
     private static String effectDisplayName(LeaderboardManager.Category cat) {

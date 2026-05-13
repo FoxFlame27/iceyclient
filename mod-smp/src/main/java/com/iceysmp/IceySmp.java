@@ -63,48 +63,63 @@ public final class IceySmp implements ModInitializer {
             }
         } catch (Throwable t) { System.out.println("[IceySMP] leaderboard init failed: " + t); }
 
-        // 4. Server-lifecycle hooks
+        // 4. Server-lifecycle hooks — EACH registration in its own try/catch.
+        // If any one fabric event class is missing/renamed on a yarn variant,
+        // the rest still register cleanly. Previously a single throw in this
+        // block could skip StatTracker.registerEvents (i.e. no mining/pvp
+        // tracking would ever happen) which gave the "everything shows 0"
+        // symptom that's been hard to reproduce.
+        try { ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            IceySmp.server = server;
+            if (stats != null) stats.load(server);
+            if (leaderboard != null) leaderboard.bind(server);
+            System.out.println("[IceySMP] SERVER_STARTED: " + (stats == null ? 0 : stats.size()) + " players in stats");
+            try {
+                server.execute(() -> server.getPlayerManager().broadcast(
+                        net.minecraft.text.Text.literal("§b§l[iceymod+] §aLoaded! §7Type §f/icey§7 or press §fN§7 to see commands."),
+                        false));
+            } catch (Throwable ignored) {}
+        }); System.out.println("[IceySMP] SERVER_STARTED hook installed"); }
+        catch (Throwable t) { System.out.println("[IceySMP] SERVER_STARTED hook failed: " + t); }
+
+        try { ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            if (stats != null) stats.save(server);
+            IceySmp.server = null;
+        }); System.out.println("[IceySMP] SERVER_STOPPING hook installed"); }
+        catch (Throwable t) { System.out.println("[IceySMP] SERVER_STOPPING hook failed: " + t); }
+
+        try { ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (leaderboard == null) return;
+            try { leaderboard.tick(server); } catch (Throwable t) { System.out.println("[IceySMP] tick error: " + t); }
+        }); System.out.println("[IceySMP] tick hook installed"); }
+        catch (Throwable t) { System.out.println("[IceySMP] tick hook failed: " + t); }
+
+        try { ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            try {
+                var p = handler.player;
+                if (p == null || stats == null) return;
+                PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());
+                StarterKit.giveIfFirstJoin(p, ps, config);
+                if (NoobProtection.isProtected(ps, config)) {
+                    p.sendMessage(net.minecraft.text.Text.literal(
+                            "§b§l[Icey SMP] §aYou have §l" + NoobProtection.remainingMinutes(ps, config)
+                            + " min§r§a of noob protection — no PvP damage to or from you."), false);
+                }
+            } catch (Throwable t) { System.out.println("[IceySMP] JOIN handler failed: " + t); }
+        }); System.out.println("[IceySMP] JOIN hook installed"); }
+        catch (Throwable t) { System.out.println("[IceySMP] JOIN hook failed: " + t); }
+
         try {
-            ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-                IceySmp.server = server;
-                if (stats != null) stats.load(server);
-                if (leaderboard != null) leaderboard.bind(server);
-                System.out.println("[IceySMP] SERVER_STARTED: " + (stats == null ? 0 : stats.size()) + " players in stats");
-                // Visible confirmation to players that the mod is actually loaded.
-                // Sent on a tick delay so it lands after any join messages.
-                try {
-                    server.execute(() -> server.getPlayerManager().broadcast(
-                            net.minecraft.text.Text.literal("§b§l[iceymod+] §aLoaded! §7Type §f/icey§7 or press §fN§7 to see commands."),
-                            false));
-                } catch (Throwable ignored) {}
-            });
-            ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-                if (stats != null) stats.save(server);
-                IceySmp.server = null;
-            });
-            ServerTickEvents.END_SERVER_TICK.register(server -> {
-                if (leaderboard == null) return;
-                try { leaderboard.tick(server); } catch (Throwable t) { System.out.println("[IceySMP] tick error: " + t); }
-            });
-            ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-                try {
-                    var p = handler.player;
-                    if (p == null || stats == null) return;
-                    PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());
-                    StarterKit.giveIfFirstJoin(p, ps, config);
-                    if (NoobProtection.isProtected(ps, config)) {
-                        p.sendMessage(net.minecraft.text.Text.literal(
-                                "§b§l[Icey SMP] §aYou have §l" + NoobProtection.remainingMinutes(ps, config)
-                                + " min§r§a of noob protection — no PvP damage to or from you."), false);
-                    }
-                } catch (Throwable t) { System.out.println("[IceySMP] JOIN handler failed: " + t); }
-            });
-            if (stats != null && combat != null) StatTracker.registerEvents(stats, combat, config);
-            if (combat != null) CombatLogoutHandler.register(combat, config);
-            System.out.println("[IceySMP] event hooks installed");
-        } catch (Throwable t) {
-            System.out.println("[IceySMP] event-hook setup failed: " + t);
-        }
+            if (stats != null && combat != null) {
+                StatTracker.registerEvents(stats, combat, config);
+                System.out.println("[IceySMP] stat-tracker event hooks installed (mining, pvp, mob kills, damage)");
+            } else {
+                System.out.println("[IceySMP] WARN stat-tracker hooks SKIPPED (stats=" + (stats != null) + " combat=" + (combat != null) + ")");
+            }
+        } catch (Throwable t) { System.out.println("[IceySMP] stat-tracker hook setup failed: " + t); }
+
+        try { if (combat != null) CombatLogoutHandler.register(combat, config); }
+        catch (Throwable t) { System.out.println("[IceySMP] CombatLogoutHandler failed: " + t); }
 
         System.out.println("[IceySMP] onInitialize complete");
     }
