@@ -43,8 +43,14 @@ public final class LeaderboardManager {
     private final Map<String, Long> lastAnnouncedTop = new HashMap<>();
     // Per-player snapshot of MC StatHandler readings for delta tracking.
     // index: 0=FISH_CAUGHT, 1=WALK_ONE_CM, 2=JUMP, 3=SNEAK_TIME, 4=experienceLevel
-    // 0 in any slot means "no prior reading" → first read seeds, doesn't add to counter.
     private final Map<UUID, int[]> statSnapshots = new HashMap<>();
+    // Players whose snapshot has been seeded at least once. Without this
+    // we used `last[i] > 0` as the gate, which drops the FIRST 0→1
+    // transition (e.g. player's first fish ever) because last[0] stays
+    // at 0 across that tick. Tracking a "seen at least one tick" flag
+    // makes the gate only fire on truly fresh players, not on every
+    // newly-incremented stat.
+    private final java.util.Set<UUID> snapshotSeeded = new java.util.HashSet<>();
 
     public LeaderboardManager(StatTracker stats, CombatTracker combat, SmpConfig config) {
         this.stats = stats;
@@ -125,16 +131,26 @@ public final class LeaderboardManager {
             int curSneak = p.getStatHandler().getStat(Stats.CUSTOM.getOrCreateStat(Stats.SNEAK_TIME));
             int curXp    = p.experienceLevel;
 
-            int[] last = statSnapshots.computeIfAbsent(p.getUuid(), u -> new int[5]);
-            PlayerStats ps = stats.get(p.getUuid(), p.getName().getString());
-            // Only add delta if we have a prior snapshot (last[*] != 0).
-            // This avoids counting a player's pre-existing MC stats as fresh
-            // gains the moment they connect to a fresh iceysmp install.
-            if (last[0] > 0) ps.fishCaught       += Math.max(0, curFish  - last[0]);
-            if (last[1] > 0) ps.distanceWalkedCm += Math.max(0, curWalk  - last[1]);
-            if (last[2] > 0) ps.jumps            += Math.max(0, curJump  - last[2]);
-            if (last[3] > 0) ps.sneakTimeTicks   += Math.max(0, curSneak - last[3]);
-            if (last[4] > 0 && curXp > last[4]) ps.xpLevelsGained += (curXp - last[4]);
+            UUID uid = p.getUuid();
+            int[] last = statSnapshots.computeIfAbsent(uid, u -> new int[5]);
+            PlayerStats ps = stats.get(uid, p.getName().getString());
+            // Gate on "have we seen this player at least once in this
+            // session" — the FIRST tick after a player connects just
+            // seeds the snapshot to whatever MC has (so pre-existing
+            // stats aren't counted as fresh gains). Every tick after
+            // that, compute the real delta. Without this we used
+            // last[i] > 0 as the gate, which silently dropped the
+            // player's very first fish/jump/km because last[i] stayed
+            // at 0 across the 0→1 transition.
+            if (snapshotSeeded.contains(uid)) {
+                ps.fishCaught       += Math.max(0, curFish  - last[0]);
+                ps.distanceWalkedCm += Math.max(0, curWalk  - last[1]);
+                ps.jumps            += Math.max(0, curJump  - last[2]);
+                ps.sneakTimeTicks   += Math.max(0, curSneak - last[3]);
+                if (curXp > last[4]) ps.xpLevelsGained += (curXp - last[4]);
+            } else {
+                snapshotSeeded.add(uid);
+            }
             last[0] = curFish; last[1] = curWalk; last[2] = curJump; last[3] = curSneak; last[4] = curXp;
         } catch (Throwable ignored) {}
     }
