@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.18
+
+- **CI fix:** `ServerPlayerEntity.getWorld()` doesn't resolve on the matrix's yarn versions. The dimension-equality check in `/setspawn` (which only blocked running it from the Nether) wasn't worth the yarn-rename risk — dropped the check entirely. `/setspawn` now always uses the player's `getBlockPos()` regardless of which dimension they're in; the coords get applied to the overworld spawn. Reasonable behavior + clean compile.
+
 ## What's new in v1.80.17
 
 - **Swapped Animal Kills out, Jumps back in.** Animal Kills (Night Vision) gone; Jumps (Jump Boost) back, divisor=500 (≈1h of normal jumping = Lv 1). Effect display name updated in `/icey help`. Client `LeaderboardScreen` entries match.

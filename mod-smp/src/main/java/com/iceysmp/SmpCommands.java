@@ -104,12 +104,10 @@ public final class SmpCommands {
         MinecraftServer server = src.getServer();
         if (server == null) return 0;
         ServerWorld overworld = server.getOverworld();
-        BlockPos pos;
-        if (p != null && p.getWorld() == overworld) {
-            pos = p.getBlockPos();
-        } else {
-            pos = resolveWorldSpawn(overworld); // fallback for console runs
-        }
+        // Use the player's x/y/z (works even if they're cross-dimension —
+        // we apply those coords to overworld spawn). For console, fall
+        // back to current world spawn.
+        BlockPos pos = (p != null) ? p.getBlockPos() : resolveWorldSpawn(overworld);
         // Yarn variation: setSpawnPos(BlockPos, float) vs setSpawnPos(BlockPos, float, boolean, boolean).
         // Try via reflection so this compiles cleanly across the matrix.
         try {
