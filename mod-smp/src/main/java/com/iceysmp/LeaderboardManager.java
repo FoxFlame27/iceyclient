@@ -103,12 +103,12 @@ public final class LeaderboardManager {
             RegistryEntry<StatusEffect> effect = cat.effect();
             if (effect == null) continue; // effect ref unavailable on this MC version
 
-            // Per-player amp from count
+            // Per-player amp from normalized count (count / divisor → hours of activity)
             for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
                 PlayerStats ps = stats.peek(p.getUuid());
                 if (ps == null) continue;
-                long count = cat.field.applyAsLong(ps) / cat.divisor;
-                int amp = ampForCount(count, effect);
+                double normalized = cat.field.applyAsLong(ps) / (double) cat.divisor;
+                int amp = ampForNormalized(normalized, effect);
                 if (amp < 0) continue;
                 try {
                     p.addStatusEffect(new StatusEffectInstance(effect, duration, amp, false, false, true));
@@ -139,28 +139,37 @@ public final class LeaderboardManager {
         } catch (Throwable ignored) {}
     }
 
-    /** Count-based amplifier scaling. */
-    static int ampForCount(long count, RegistryEntry<StatusEffect> effect) {
-        if (count <= 0) return -1;
-        int amp;
-        if (count <= 3)        amp = (int) (count - 1);              // 1→0, 2→1, 3→2
-        else if (count <= 28)  amp = 2 + (int) ((count - 3) / 5);     // each +5 = +1 up to amp 7 at count 28
-        else                   amp = 7 + (int) ((count - 28) / 15);   // each +15 = +1 thereafter
-        return Math.min(amp, capFor(effect));
+    /**
+     * Exponential progression: 1× divisor → Level 1 (amp 0), 2× → Level 2,
+     * 4× → Level 3, 8× → Level 4, … Each level takes double the previous
+     * level's threshold to reach. Per-category divisor is calibrated so
+     * one level ≈ one hour of typical play.
+     */
+    static int ampForNormalized(double normalized, RegistryEntry<StatusEffect> effect) {
+        if (normalized < 1.0) return -1;
+        int amp = (int) (Math.log(normalized) / Math.log(2));
+        return Math.min(Math.max(amp, 0), capFor(effect));
     }
 
-    /** Per-effect amplifier cap so resistance can't exceed god-mode, etc. */
+    /** Count needed for the next level given the current count + divisor. */
+    static long nextLevelThreshold(long count, long divisor) {
+        double normalized = count / (double) divisor;
+        if (normalized < 1.0) return divisor; // first threshold
+        int currentAmp = (int) (Math.log(normalized) / Math.log(2));
+        return (long) (divisor * Math.pow(2, currentAmp + 1));
+    }
+
+    /** Per-effect amplifier cap so resistance / strength don't reach
+     *  god-mode tiers. Caps are in amplifier units (amp 2 = Level III). */
     static int capFor(RegistryEntry<StatusEffect> e) {
         try {
-            if (e == StatusEffects.STRENGTH)   return 5;
-            if (e == StatusEffects.RESISTANCE) return 3;
-            if (e == StatusEffects.SPEED)      return 4;
-            if (e == StatusEffects.JUMP_BOOST) return 5;
-            if (e == StatusEffects.HASTE)      return 9;
-            if (e == StatusEffects.SATURATION) return 4;
-            if (e == StatusEffects.REGENERATION) return 3;
+            if (e == StatusEffects.STRENGTH)   return 2; // Level III max — user-tuned, was super OP higher
+            if (e == StatusEffects.RESISTANCE) return 2; // Level III max
+            if (e == StatusEffects.SPEED)      return 3;
+            if (e == StatusEffects.HASTE)      return 5;
+            if (e == StatusEffects.SATURATION) return 3;
         } catch (Throwable ignored) {}
-        return 9;
+        return 5;
     }
 
     private List<Ranked> rank(ToLongFunction<PlayerStats> field) {
@@ -178,6 +187,13 @@ public final class LeaderboardManager {
         }
         return List.of();
     }
+
+    /** Look up a Category by id. Returns null if no match. Used by /icey help. */
+    public Category categoryById(String id) {
+        for (Category c : Category.values()) if (c.id.equals(id)) return c;
+        return null;
+    }
+    public Category[] allCategories() { return Category.values(); }
 
     public static List<String> categoryIds() {
         return Arrays.stream(Category.values()).map(c -> c.id).toList();
@@ -203,24 +219,26 @@ public final class LeaderboardManager {
      * class itself still class-loads cleanly, so the rest of the mod (stat
      * tracking, command registration, etc.) keeps working.
      */
+    /**
+     * Categories — eight curated stat tracks. Divisor is calibrated so a
+     * normalized value of 1 means "you've done about an hour of this
+     * activity at typical play rate". Level 1 (Haste I etc.) unlocks at
+     * normalized = 1, Level 2 at 2 (≈2h cumulative), Level 3 at 4 (≈4h),
+     * etc. — exponential.
+     */
     enum Category {
-        MINING       ("mining",      "Mining",        ps -> ps.mining,        () -> StatusEffects.HASTE,        1),
-        PVP          ("pvp",         "PvP",           ps -> ps.pvpKills,      () -> StatusEffects.STRENGTH,     1),
-        PLAYTIME     ("playtime",    "Playtime",      ps -> ps.playtimeTicks, () -> StatusEffects.SATURATION,   72000L),
-        MOB_KILLS    ("mobkills",    "Mob Kills",     ps -> ps.mobKills,      () -> StatusEffects.RESISTANCE,   1),
-        ANIMAL_KILLS ("animalkills", "Animal Kills",  ps -> ps.animalKills,   () -> StatusEffects.NIGHT_VISION, 1),
-        DIAMONDS     ("diamonds",    "Diamonds",      ps -> ps.diamonds,      () -> StatusEffects.SPEED,        1),
-        DAMAGE_DEALT ("dmgdealt",    "Damage Dealt",  ps -> ps.damageDealt,   () -> StatusEffects.STRENGTH,     200L),
-        DAMAGE_TAKEN ("dmgtaken",    "Damage Taken",  ps -> ps.damageTaken,   () -> StatusEffects.RESISTANCE,   200L),
-        DEATHS       ("deaths",      "Deaths",        ps -> ps.deaths,        () -> StatusEffects.REGENERATION, 1),
-        FISHING      ("fishing",     "Fishing",       ps -> ps.fishCaught,       () -> StatusEffects.LUCK,                1),
-        WALKING      ("walking",     "Distance",      ps -> ps.distanceWalkedCm, () -> StatusEffects.SPEED,               100_000L),
-        JUMPS        ("jumps",       "Jumps",         ps -> ps.jumps,            () -> StatusEffects.JUMP_BOOST,          50L),
-        XP_LEVELS    ("xplevels",    "XP Levels",     ps -> ps.xpLevelsGained,   () -> StatusEffects.HERO_OF_THE_VILLAGE, 1),
-        SNEAK_TIME   ("sneak",       "Sneak Time",    ps -> ps.sneakTimeTicks,   () -> StatusEffects.SLOW_FALLING,        1200L);
+        MINING       ("mining",      "Mining",        "ores",         ps -> ps.mining,           () -> StatusEffects.HASTE,        200L),
+        PVP          ("pvp",         "PvP",           "kills",        ps -> ps.pvpKills,         () -> StatusEffects.STRENGTH,     2L),
+        PLAYTIME     ("playtime",    "Playtime",      "hours",        ps -> ps.playtimeTicks,    () -> StatusEffects.SATURATION,   72000L),
+        MOB_KILLS    ("mobkills",    "Mob Kills",     "kills",        ps -> ps.mobKills,         () -> StatusEffects.RESISTANCE,   50L),
+        ANIMAL_KILLS ("animalkills", "Animal Kills",  "kills",        ps -> ps.animalKills,      () -> StatusEffects.NIGHT_VISION, 20L),
+        DIAMONDS     ("diamonds",    "Diamonds",      "ores",         ps -> ps.diamonds,         () -> StatusEffects.SPEED,        8L),
+        FISHING      ("fishing",     "Fishing",       "fish",         ps -> ps.fishCaught,       () -> StatusEffects.LUCK,         30L),
+        WALKING      ("walking",     "Distance",      "km × 6",       ps -> ps.distanceWalkedCm, () -> StatusEffects.SPEED,        600_000L);
 
         final String id;
         final String label;
+        final String unit;
         final ToLongFunction<PlayerStats> field;
         final Supplier<RegistryEntry<StatusEffect>> effectSupplier;
         final long divisor;
@@ -228,14 +246,21 @@ public final class LeaderboardManager {
         private RegistryEntry<StatusEffect> cached;
         private boolean resolved;
 
-        Category(String id, String label, ToLongFunction<PlayerStats> field,
+        Category(String id, String label, String unit, ToLongFunction<PlayerStats> field,
                  Supplier<RegistryEntry<StatusEffect>> effectSupplier, long divisor) {
             this.id = id;
             this.label = label;
+            this.unit = unit;
             this.field = field;
             this.effectSupplier = effectSupplier;
             this.divisor = divisor;
         }
+
+        public String id() { return id; }
+        public String label() { return label; }
+        public String unit() { return unit; }
+        public ToLongFunction<PlayerStats> field() { return field; }
+        public long divisor() { return divisor; }
 
         RegistryEntry<StatusEffect> effect() {
             if (!resolved) {

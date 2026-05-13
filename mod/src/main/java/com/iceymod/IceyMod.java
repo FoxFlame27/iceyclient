@@ -26,7 +26,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.screen.TitleScreen;
@@ -190,9 +189,10 @@ public class IceyMod implements ClientModInitializer {
             }
         });
 
-        // Client-side /lb command — always opens the leaderboard menu,
-        // independent of keybind state. Useful when MC's saved options.txt
-        // has stale keybind entries that override the mod's default N.
+        // Client-side commands: /lb opens leaderboard, /iceyhuds resets
+        // the HUD module state (force visible, reset positions, re-enable
+        // modules that the auto-disable-on-error logic killed in older
+        // builds). Both are independent of keybind state.
         try {
             ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
                 dispatcher.register(ClientCommandManager.literal("lb")
@@ -201,9 +201,17 @@ public class IceyMod implements ClientModInitializer {
                         if (mc != null) mc.setScreen(new LeaderboardScreen());
                         return 1;
                     }));
+                dispatcher.register(ClientCommandManager.literal("iceyhuds")
+                    .executes(ctx -> {
+                        if (!HudManager.isHudVisible()) HudManager.toggleHudVisibility();
+                        HudManager.resetAllToDefaults();
+                        ctx.getSource().sendFeedback(net.minecraft.text.Text.literal(
+                                "§b[IceyMod] §aHUDs reset — visible + defaults restored. Open Y menu to reposition."));
+                        return 1;
+                    }));
             });
         } catch (Throwable t) {
-            System.out.println("[IceyMod] Client command /lb registration failed: " + t);
+            System.out.println("[IceyMod] Client command registration failed: " + t);
         }
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {

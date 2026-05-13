@@ -26,14 +26,8 @@ public final class LeaderboardScreen extends Screen {
             new Entry("mobkills",    "§4☠ Mob Kills",      "Resistance"),
             new Entry("animalkills", "§a🐄 Animal Kills",  "Night Vision"),
             new Entry("diamonds",    "§b💎 Diamonds",      "Speed"),
-            new Entry("dmgdealt",    "§c⚔ Damage Dealt",   "Strength"),
-            new Entry("dmgtaken",    "§4❤ Damage Taken",   "Resistance"),
-            new Entry("deaths",      "§7☠ Deaths",         "Regeneration"),
             new Entry("fishing",     "§b🎣 Fishing",       "Luck"),
             new Entry("walking",     "§a👟 Distance",      "Speed"),
-            new Entry("jumps",       "§e⤴ Jumps",          "Jump Boost"),
-            new Entry("xplevels",    "§a⚡ XP Levels",      "Hero of Village"),
-            new Entry("sneak",       "§8👤 Sneak Time",    "Slow Falling"),
     };
 
     private static final int PER_PAGE = 8;

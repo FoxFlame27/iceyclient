@@ -22,6 +22,31 @@ public class HudManager {
     public static boolean isHudVisible() { return hudVisible; }
     public static void toggleHudVisibility() { hudVisible = !hudVisible; }
 
+    /**
+     * Emergency reset — wipes saved enabled/position state for every
+     * module back to its constructor default. Used by /iceyhuds when a
+     * user reports "HUDs not showing": force visible, redo position
+     * defaults, save. Anything they had customized is lost; that's the
+     * price of recovery.
+     */
+    public static void resetAllToDefaults() {
+        hudVisible = true;
+        positionsClamped = false;
+        // The constructor-default enabled state isn't stored anywhere
+        // permanent — we'd have to reconstruct each module to read it.
+        // Cheapest: just reset positions (force-recompute defaults) and
+        // re-enable every module that's currently disabled. Users who
+        // explicitly toggled something off will get it back, but the
+        // alternative is everyone-stays-broken so it's the right call.
+        for (HudModule m : modules) {
+            if (m.getCategory() != HudModule.Category.OPTIMIZATION) m.setEnabled(true);
+            m.setX(-9999); // out-of-screen → applyCenterDefaults re-clamps
+            m.setY(-9999);
+        }
+        applyCenterDefaults();
+        save();
+    }
+
     public static void init() {
         configPath = FabricLoader.getInstance().getConfigDir().resolve("iceymod.json");
 

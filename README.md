@@ -30,6 +30,21 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.80.16
+
+Big SMP polish pass per user requests.
+
+**Removed 6 useless categories** — kept the 8 that matter: Mining, PvP, Playtime, Mob Kills, Animal Kills, Diamonds, Fishing, Distance Walked. Dropped: Damage Dealt, Damage Taken, Deaths, Jumps, XP Levels Gained, Sneak Time.
+
+**Way harder progression curve.** Old: 1/2/3/5/10/15-count steps for amp 0/1/2/.../7. New: exponential — `count / divisor` is the normalized "hours of activity" value. Lv 1 unlocks at normalized=1 (≈1 hour), Lv 2 at 2 (cumulative 2h), Lv 3 at 4 (4h), Lv 4 at 8 (8h), Lv 5 at 16 (16h), each level doubles the prior threshold. Per-category divisor calibrated to typical play rates: Mining 200 ores, PvP 2 kills, Mob Kills 50, Animal Kills 20, Diamonds 8, Fishing 30, Distance 6km, Playtime 1h.
+
+**Strength capped at Level III** (amp 2) per user feedback — was way too OP at Level VI. Resistance capped at Level III, Speed at Level IV. Other caps unchanged.
+
+**New commands:**
+- **`/icey help`** — lists every category with the effect it grants and your live progress: `Mining → Haste | Lv 2 — 145/400 ores`. The current-count/next-threshold display makes the progression visible at all times.
+- **`/setspawn`** — sets world spawn to your current location, op-2 required. Reflection-resolves the right `ServerWorld.setSpawnPos` overload across the yarn matrix.
+- **`/iceyhuds`** (client-side) — emergency reset for stuck iceymod HUDs: force-visible, re-enable every non-optimization module, re-clamp positions to defaults, save. Use this if HUDs don't show after an update.
+
 ## What's new in v1.80.15
 
 **Root cause of "iceymod+ gets auto-removed every launch":** the iceymod auto-install loop in `main.js:932` used a regex `/^iceymod.*\.jar$/i` to find stale client mod jars to delete. That regex *greedily matched* `iceymodplus-server-mod-mc1.21.8-1.0.0.jar` too (since the filename starts with `iceymod`). So every time the user clicked Launch:

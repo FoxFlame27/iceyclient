@@ -47,6 +47,8 @@ public final class SmpCommands {
                         .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))))
                 .then(CommandManager.literal("me")
                     .executes(ctx -> showSelf(ctx.getSource())))
+                .then(CommandManager.literal("help")
+                    .executes(ctx -> showHelp(ctx.getSource())))
                 .then(CommandManager.literal("stats")
                     .then(CommandManager.argument("player", StringArgumentType.word())
                         .suggests((ctx, b) -> {
@@ -74,9 +76,12 @@ public final class SmpCommands {
                     }))
                 .executes(ctx -> {
                     ctx.getSource().sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rcommands:"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey help §8— effect each category gives + your progress"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey top <category> §8— leaderboard for a category"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey me §8— your stats + rank across all categories"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey stats <player> §8— another player's stats"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /spawn §8— teleport to world spawn"), false);
+                    ctx.getSource().sendFeedback(() -> Text.literal("§7  /setspawn §8— set world spawn here §7(op-2)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reload §8— reload config §7(op-3)"), false);
                     ctx.getSource().sendFeedback(() -> Text.literal("§7  /icey reset §8— wipe all stats §7(op-4)"), false);
                     return 1;
@@ -85,7 +90,93 @@ public final class SmpCommands {
 
             dispatcher.register(CommandManager.literal("spawn")
                 .executes(ctx -> doSpawn(ctx.getSource())));
+
+            // Set world spawn to current position — admin (op-2) only.
+            // Just a thin wrapper around setSpawnPos with proper perm gating.
+            dispatcher.register(CommandManager.literal("setspawn")
+                .requires(s -> hasPermLevel(s, 2))
+                .executes(ctx -> doSetSpawn(ctx.getSource())));
         });
+    }
+
+    private static int doSetSpawn(ServerCommandSource src) {
+        ServerPlayerEntity p = src.getPlayer();
+        MinecraftServer server = src.getServer();
+        if (server == null) return 0;
+        ServerWorld overworld = server.getOverworld();
+        BlockPos pos;
+        if (p != null && p.getWorld() == overworld) {
+            pos = p.getBlockPos();
+        } else {
+            pos = resolveWorldSpawn(overworld); // fallback for console runs
+        }
+        // Yarn variation: setSpawnPos(BlockPos, float) vs setSpawnPos(BlockPos, float, boolean, boolean).
+        // Try via reflection so this compiles cleanly across the matrix.
+        try {
+            for (java.lang.reflect.Method m : overworld.getClass().getMethods()) {
+                if (!m.getName().equals("setSpawnPos")) continue;
+                Class<?>[] params = m.getParameterTypes();
+                if (params.length >= 1 && params[0] == BlockPos.class) {
+                    Object[] args = new Object[params.length];
+                    args[0] = pos;
+                    for (int i = 1; i < params.length; i++) {
+                        Class<?> pc = params[i];
+                        if (pc == float.class) args[i] = 0f;
+                        else if (pc == boolean.class) args[i] = false;
+                        else args[i] = null;
+                    }
+                    m.invoke(overworld, args);
+                    final BlockPos pp = pos;
+                    src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §aWorld spawn set to §f"
+                            + pp.getX() + ", " + pp.getY() + ", " + pp.getZ()), true);
+                    return 1;
+                }
+            }
+        } catch (Throwable t) {
+            System.out.println("[IceySMP] /setspawn failed: " + t);
+        }
+        src.sendFeedback(() -> Text.literal("§c[Icey SMP] /setspawn unavailable on this MC version"), false);
+        return 0;
+    }
+
+    private static int showHelp(ServerCommandSource src) {
+        if (IceySmp.leaderboard == null) {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false);
+            return 0;
+        }
+        ServerPlayerEntity me = src.getPlayer();
+        PlayerStats ps = (me != null && IceySmp.stats != null) ? IceySmp.stats.peek(me.getUuid()) : null;
+        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rCategories — §7Lv 1 unlocks at the divisor, each next level needs double the count"), false);
+        for (LeaderboardManager.Category cat : IceySmp.leaderboard.allCategories()) {
+            long count = (ps != null) ? cat.field().applyAsLong(ps) : 0;
+            String effectName = effectDisplayName(cat);
+            String progress;
+            if (ps == null) {
+                progress = "§8need " + cat.divisor() + " " + cat.unit() + " for Lv 1";
+            } else {
+                double normalized = count / (double) cat.divisor();
+                int level = normalized < 1.0 ? 0 : (int)(Math.log(normalized) / Math.log(2)) + 1;
+                long next = LeaderboardManager.nextLevelThreshold(count, cat.divisor());
+                progress = "§7Lv §b" + level + "§7 — §f" + count + "§7/§f" + next + " §8" + cat.unit();
+            }
+            final String line = "  §f" + cat.label() + " §8→ §a" + effectName + " §8| " + progress;
+            src.sendFeedback(() -> Text.literal(line), false);
+        }
+        return 1;
+    }
+
+    private static String effectDisplayName(LeaderboardManager.Category cat) {
+        return switch (cat.id()) {
+            case "mining" -> "Haste";
+            case "pvp" -> "Strength";
+            case "playtime" -> "Saturation";
+            case "mobkills" -> "Resistance";
+            case "animalkills" -> "Night Vision";
+            case "diamonds" -> "Speed";
+            case "fishing" -> "Luck";
+            case "walking" -> "Speed";
+            default -> "?";
+        };
     }
 
     private static int doSpawn(ServerCommandSource src) {
