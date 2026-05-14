@@ -139,6 +139,39 @@ public final class SmpCommands {
                         return 1;
                     }));
 
+            // /kitgive <kit> <player>  — admin: hand out a kit free of
+            // cost, ignoring cooldown.
+            dispatcher.register(CommandManager.literal("kitgive")
+                    .then(CommandManager.argument("kit", StringArgumentType.word())
+                            .suggests((ctx, b) -> { for (var k : Kits.ALL) b.suggest(k.id); return b.buildFuture(); })
+                            .then(CommandManager.argument("player", StringArgumentType.word())
+                                    .suggests((ctx, b) -> {
+                                        MinecraftServer s = ctx.getSource().getServer();
+                                        if (s != null) for (var p : s.getPlayerManager().getPlayerList()) b.suggest(p.getName().getString());
+                                        return b.buildFuture();
+                                    })
+                                    .executes(ctx -> {
+                                        if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
+                                        String kitId = StringArgumentType.getString(ctx, "kit");
+                                        String name = StringArgumentType.getString(ctx, "player");
+                                        Kits.Kit kit = Kits.byId(kitId);
+                                        if (kit == null) {
+                                            ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c unknown kit: " + kitId), false);
+                                            return 0;
+                                        }
+                                        MinecraftServer s = ctx.getSource().getServer();
+                                        ServerPlayerEntity target = (s != null) ? s.getPlayerManager().getPlayer(name) : null;
+                                        if (target == null) {
+                                            ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c no online player named " + name), false);
+                                            return 0;
+                                        }
+                                        boolean ok = Kits.adminGive(target, kit);
+                                        ctx.getSource().sendFeedback(() -> Text.literal(ok
+                                                ? "§5§l[§d§lAttribute§7§lSMP§5§l]§r §aGave " + kit.label + " to §f" + name
+                                                : "§5§l[§d§lAttribute§7§lSMP§5§l]§r§c failed to give kit"), true);
+                                        return ok ? 1 : 0;
+                                    }))));
+
             // /leaderboard [cat]  — no arg opens the chest GUI; with arg
             // sends the legacy chat-text top-10. (/lb removed per user
             // request — only /leaderboard now.)

@@ -79,51 +79,71 @@ public final class Kits {
             "{\"minecraft:loyalty\":3,\"minecraft:channeling\":1,\"minecraft:impaling\":5,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}";
 
     public static final Kit[] ALL = new Kit[] {
+            // ── TIER 1 — STARTER (mining/utility role) ─────────────────
+            // Diamond armor (no longer netherite per user nerf). Full
+            // tool kit so a fresh player can mine + build their way up
+            // without grinding wood/iron tools first.
             new Kit(
-                    "starter", "Starter Kit", "§a", "minecraft:diamond_chestplate",
+                    "starter", "Starter Kit", "§a", "minecraft:diamond_pickaxe",
                     new Cost("minecraft:diamond", 45, "45 Diamonds"),
                     new Item[] {
-                            new Item("minecraft:netherite_helmet",     1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:diamond_sword",        1, "{\"minecraft:sharpness\":3,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:bow",                  1, "{\"minecraft:power\":2}"),
-                            new Item("minecraft:cooked_beef",         16, null),
+                            new Item("minecraft:diamond_helmet",     1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
+                            new Item("minecraft:diamond_chestplate", 1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
+                            new Item("minecraft:diamond_leggings",   1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
+                            new Item("minecraft:diamond_boots",      1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
+                            new Item("minecraft:diamond_sword",      1, "{\"minecraft:sharpness\":3,\"minecraft:unbreaking\":2}"),
+                            new Item("minecraft:diamond_pickaxe",    1, "{\"minecraft:efficiency\":3,\"minecraft:unbreaking\":2,\"minecraft:fortune\":2}"),
+                            new Item("minecraft:diamond_axe",        1, "{\"minecraft:sharpness\":2,\"minecraft:unbreaking\":2}"),
+                            new Item("minecraft:diamond_shovel",     1, "{\"minecraft:efficiency\":3,\"minecraft:unbreaking\":2}"),
+                            new Item("minecraft:cooked_beef",       32, null),
+                            new Item("minecraft:bread",             16, null),
                     },
-                    new String[] {"Entry tier. Full netherite armor with Prot II.", "Diamond sword + bow + food."}
+                    new String[] {"§7Miner/Utility role.", "§7Full diamond armor + tool set. No bow."}
             ),
+            // ── TIER 2 — SOLDIER (defensive PvE/anti-mob) ──────────────
+            // Diamond armor + shield + crossbow. Built to soak hits and
+            // tank PvE. No bow (Hunter does ranged). No tools.
             new Kit(
-                    "soldier", "Soldier Kit", "§b", "minecraft:netherite_chestplate",
+                    "soldier", "Soldier Kit", "§b", "minecraft:shield",
                     new Cost("minecraft:netherite_ingot", 1, "1 Netherite Ingot"),
                     new Item[] {
-                            new Item("minecraft:netherite_helmet",     1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:netherite_sword",      1, "{\"minecraft:sharpness\":4,\"minecraft:knockback\":1,\"minecraft:unbreaking\":3}"),
-                            new Item("minecraft:crossbow",             1, "{\"minecraft:quick_charge\":2,\"minecraft:piercing\":2}"),
-                            new Item("minecraft:shield",               1, null),
-                            new Item("minecraft:golden_apple",         8, null),
+                            new Item("minecraft:diamond_helmet",     1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2,\"minecraft:blast_protection\":3}"),
+                            new Item("minecraft:diamond_chestplate", 1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2,\"minecraft:blast_protection\":3}"),
+                            new Item("minecraft:diamond_leggings",   1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2,\"minecraft:blast_protection\":3}"),
+                            new Item("minecraft:diamond_boots",      1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2,\"minecraft:blast_protection\":3}"),
+                            new Item("minecraft:diamond_sword",      1, "{\"minecraft:sharpness\":4,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:shield",             1, "{\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:crossbow",           1, "{\"minecraft:quick_charge\":2,\"minecraft:piercing\":2,\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:arrow",             32, null),
+                            new Item("minecraft:golden_apple",       8, null),
+                            new Item("minecraft:cooked_beef",       32, null),
                     },
-                    new String[] {"Reliable mid-tier loadout.", "Prot III + Unbreaking II all pieces."}
+                    new String[] {"§7Defensive footman.", "§7Blast Prot III armor + shield. No bow."}
             ),
+            // ── TIER 3 — HUNTER (pure ranged) ──────────────────────────
+            // Diamond armor with Projectile Prot IV. No melee weapon at
+            // all — forces the player to commit to kiting. Ender pearls
+            // for repositioning, soul-speed boots for chase/escape.
             new Kit(
                     "hunter", "Hunter Kit", "§2", "minecraft:bow",
                     new Cost("minecraft:netherite_ingot", 2, "2 Netherite Ingots"),
                     new Item[] {
-                            new Item("minecraft:netherite_helmet",     1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
-                            new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
-                            new Item("minecraft:netherite_leggings",   1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
-                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:soul_speed\":3}"),
-                            new Item("minecraft:bow",                  1, "{\"minecraft:power\":5,\"minecraft:punch\":2,\"minecraft:flame\":1,\"minecraft:infinity\":1,\"minecraft:unbreaking\":3}"),
-                            new Item("minecraft:crossbow",             1, "{\"minecraft:quick_charge\":3,\"minecraft:piercing\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
-                            new Item("minecraft:spectral_arrow",      32, null),
-                            new Item("minecraft:arrow",               64, null),
-                            new Item("minecraft:ender_pearl",          4, null),
+                            new Item("minecraft:diamond_helmet",     1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:diamond_chestplate", 1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:diamond_leggings",   1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:diamond_boots",      1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:soul_speed\":3,\"minecraft:feather_falling\":4}"),
+                            new Item("minecraft:bow",                1, "{\"minecraft:power\":5,\"minecraft:punch\":2,\"minecraft:flame\":1,\"minecraft:infinity\":1,\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:crossbow",           1, "{\"minecraft:quick_charge\":3,\"minecraft:piercing\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:spectral_arrow",    32, null),
+                            new Item("minecraft:tipped_arrow",       8, null),
+                            new Item("minecraft:ender_pearl",       16, null),
                     },
-                    new String[] {"Ranged specialist.", "Projectile Prot IV. Maxed bow + crossbow."}
+                    new String[] {"§7Pure ranged kiter.", "§7Maxed bow + crossbow. Pearls. No melee."}
             ),
+            // ── TIER 4 — VETERAN (balanced PvP) ────────────────────────
+            // First netherite tier. Sword + bow + healing potions for a
+            // generalist combatant. No shield/totems (Champion handles
+            // tank-y stuff).
             new Kit(
                     "veteran", "Veteran Kit", "§e", "minecraft:netherite_sword",
                     new Cost("minecraft:netherite_ingot", 3, "3 Netherite Ingots"),
@@ -131,15 +151,19 @@ public final class Kits {
                             new Item("minecraft:netherite_helmet",     1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3}"),
-                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:feather_falling\":4}"),
                             new Item("minecraft:netherite_sword",      1, "{\"minecraft:sharpness\":5,\"minecraft:sweeping_edge\":3,\"minecraft:fire_aspect\":2,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:bow",                  1, "{\"minecraft:power\":5,\"minecraft:punch\":2,\"minecraft:infinity\":1}"),
-                            new Item("minecraft:shield",               1, null),
+                            new Item("minecraft:splash_potion",        4, null),
                             new Item("minecraft:enchanted_golden_apple", 4, null),
                             new Item("minecraft:totem_of_undying",      1, null),
                     },
-                    new String[] {"Max-prot armor + Sharp V sword.", "Power V + Infinity bow + totem."}
+                    new String[] {"§7Balanced PvP combatant.", "§7Sword + bow + healing potions + totem."}
             ),
+            // ── TIER 5 — CHAMPION (PvP melee master) ──────────────────
+            // Mending+Thorns armor + MAXED sword + MAXED trident. The
+            // trident IS the differentiator — Bruiser uses axe, Attribute
+            // uses mace, Champion uses spear.
             new Kit(
                     "champion", "Champion Kit", "§6", "minecraft:trident",
                     new Cost("minecraft:netherite_ingot", 8, "8 Netherite Ingots"),
@@ -150,29 +174,33 @@ public final class Kits {
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4}"),
                             new Item("minecraft:netherite_sword",      1, MAXED_SWORD),
                             new Item("minecraft:trident",              1, MAXED_TRIDENT),
-                            new Item("minecraft:bow",                  1, "{\"minecraft:power\":5,\"minecraft:punch\":2,\"minecraft:flame\":1,\"minecraft:infinity\":1,\"minecraft:unbreaking\":3}"),
-                            new Item("minecraft:shield",               1, "{\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:enchanted_golden_apple", 8, null),
                             new Item("minecraft:totem_of_undying",      2, null),
                     },
-                    new String[] {"Mending + Thorns III armor.", "MAXED sword + fully-enchanted spear (trident)."}
+                    new String[] {"§7PvP melee master.", "§7MAXED sword + fully-enchanted SPEAR."}
             ),
+            // ── TIER 6 — BRUISER (tank/brawler — axe specialist) ──────
+            // Same armor base as Champion BUT no sword/trident/bow. Just
+            // a MAXED netherite axe and heavy heal stack. The axe stuns
+            // shields and chunks armor — the brawler identity.
             new Kit(
                     "bruiser", "Bruiser Kit", "§c", "minecraft:netherite_axe",
                     new Cost("minecraft:netherite_ingot", 12, "12 Netherite Ingots"),
                     new Item[] {
-                            new Item("minecraft:netherite_helmet",     1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
-                            new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
-                            new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
-                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4}"),
+                            new Item("minecraft:netherite_helmet",     1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:blast_protection\":4}"),
+                            new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:blast_protection\":4}"),
+                            new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:blast_protection\":4}"),
+                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4,\"minecraft:blast_protection\":4}"),
                             new Item("minecraft:netherite_axe",        1, "{\"minecraft:sharpness\":5,\"minecraft:efficiency\":5,\"minecraft:fire_aspect\":2,\"minecraft:looting\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
-                            new Item("minecraft:shield",               1, "{\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:enchanted_golden_apple", 16, null),
                             new Item("minecraft:totem_of_undying",      4, null),
-                            new Item("minecraft:potion",                4, null),
                     },
-                    new String[] {"Axe specialist + heavy healing.", "Sharp V axe. 4 totems. 16 e-gapples."}
+                    new String[] {"§7Tank brawler — axe only.", "§7Blast Prot IV armor. 16 e-gapples, 4 totems."}
             ),
+            // ── TIER 7 — ATTRIBUTE (endgame elite) ────────────────────
+            // MAXED sword + 2 MAXED maces (1 Breach, 1 Density, NO
+            // Sharpness on either per user nerf) + elytra. No bow, no
+            // shield, no extras — pure elite loadout.
             new Kit(
                     "attribute", "Attribute Kit", "§d", "minecraft:elytra",
                     new Cost("minecraft:netherite_ingot", 20, "20 Netherite Ingots"),
@@ -182,15 +210,13 @@ public final class Kits {
                             new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:feather_falling\":4}"),
                             new Item("minecraft:netherite_sword",      1, MAXED_SWORD),
-                            // Breach mace — full Breach IV + every other
-                            // applicable enchant maxed, NO Density.
-                            new Item("minecraft:mace",                 1, "{\"minecraft:breach\":4,\"minecraft:sharpness\":5,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
-                            // Density mace — full Density V + every other
-                            // applicable enchant maxed, NO Breach.
-                            new Item("minecraft:mace",                 1, "{\"minecraft:density\":5,\"minecraft:sharpness\":5,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Breach mace — Sharpness removed per user.
+                            new Item("minecraft:mace",                 1, "{\"minecraft:breach\":4,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Density mace — Sharpness removed per user.
+                            new Item("minecraft:mace",                 1, "{\"minecraft:density\":5,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                             new Item("minecraft:elytra",               1, "{\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                     },
-                    new String[] {"Top tier. MAXED sword + 2 maces + Elytra.", "1 Breach mace + 1 Density mace, both maxed."}
+                    new String[] {"§7Endgame elite loadout.", "§7MAXED sword + 2 maces (Breach + Density) + Elytra."}
             ),
     };
 
@@ -311,8 +337,27 @@ public final class Kits {
         }
         ps.setKitLastMs(kit.id, System.currentTimeMillis());
 
+        deliverItems(player, kit);
+        announceTitle(player, kit, "§7Purchased for §f" + kit.cost.displayLabel);
+        announceBroadcast(player.getName().getString(), kit, "§7bought the", "§7for §f" + kit.cost.displayLabel);
+        return null;
+    }
+
+    /** Admin grant — bypass currency, bypass cooldown, just deliver the
+     *  items and announce. Returns true on success, false if state isn't
+     *  ready. */
+    public static boolean adminGive(ServerPlayerEntity player, Kit kit) {
+        if (player == null || kit == null) return false;
+        if (IceySmp.server == null) return false;
+        deliverItems(player, kit);
+        announceTitle(player, kit, "§7Granted by admin");
+        announceBroadcast(player.getName().getString(), kit, "§7received the", "§7from admin");
+        return true;
+    }
+
+    private static void deliverItems(ServerPlayerEntity player, Kit kit) {
         MinecraftServer server = IceySmp.server;
-        if (server == null) return null; // items not given but currency already gone; logged below
+        if (server == null) return;
         String name = player.getName().getString();
         for (Item it : kit.items) {
             String cmd;
@@ -323,7 +368,6 @@ public final class Kits {
             }
             boolean ok = VersionShim.executeServerCommand(server, cmd);
             if (!ok) {
-                // Legacy fallback for the {levels:{...}} wrapper, then bare item.
                 if (it.enchants != null) {
                     cmd = "give " + name + " " + it.id + "[enchantments={levels:" + it.enchants + "}] " + it.count;
                     ok = VersionShim.executeServerCommand(server, cmd);
@@ -331,22 +375,26 @@ public final class Kits {
                 if (!ok) VersionShim.executeServerCommand(server, "give " + name + " " + it.id + " " + it.count);
             }
         }
+    }
 
-        // Title + broadcast
+    private static void announceTitle(ServerPlayerEntity player, Kit kit, String subtitle) {
         try {
             player.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket(10, 50, 20));
             player.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.TitleS2CPacket(
                     Text.literal(kit.iconColor + "§l" + kit.label.toUpperCase())));
             player.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.SubtitleS2CPacket(
-                    Text.literal("§7Purchased for §f" + kit.cost.displayLabel)));
+                    Text.literal(subtitle)));
         } catch (Throwable ignored) {}
+    }
+
+    private static void announceBroadcast(String playerName, Kit kit, String verb, String trailer) {
         try {
+            MinecraftServer server = IceySmp.server;
+            if (server == null) return;
             server.getPlayerManager().broadcast(
-                    Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a" + name
-                            + " §7bought the " + kit.iconColor + "§l" + kit.label
-                            + " §7for §f" + kit.cost.displayLabel),
+                    Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a" + playerName
+                            + " " + verb + " " + kit.iconColor + "§l" + kit.label + " " + trailer),
                     false);
         } catch (Throwable ignored) {}
-        return null;
     }
 }

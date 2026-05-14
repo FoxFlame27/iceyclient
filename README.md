@@ -30,6 +30,25 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.85.4
+
+**Kit nerfs + role differentiation + `/kitgive` admin command.**
+
+Per user: "lets nerf the kits first of all make te 3 cheapest stes diamond armro not therite also remove sharpness from the mace also all kits rae just like each other make them a lot more unique."
+
+- **3 cheapest kits drop to diamond armor.** Starter / Soldier / Hunter all use diamond pieces now. Netherite starts at Veteran (tier 4).
+- **Sharpness removed from both Attribute maces.** Breach mace now has Breach IV + Wind Burst III + Fire Aspect II + Knockback II + Unb III + Mending. Density mace same loadout but Density V instead of Breach. No more sword-on-mace double-dipping.
+- **Each kit has a distinct role** — no more "armor + sword + bow + apples" identical loadouts:
+  - **Starter** — *Miner/Utility*. Diamond armor + diamond sword + pickaxe + axe + shovel + food. No bow.
+  - **Soldier** — *Defensive PvE*. Diamond armor with **Blast Protection III**, KB II sword, shield, crossbow with Quick Charge. No bow.
+  - **Hunter** — *Pure ranged kiter*. **No melee weapon at all.** Projectile Prot IV + Soul Speed III + Feather Falling boots, maxed bow + crossbow, 32 spectral + 8 tipped arrows, **16 ender pearls**.
+  - **Veteran** — *Balanced PvP*. First netherite tier. Sword + bow + 4 splash potions + 4 e-gapples + 1 totem. No shield.
+  - **Champion** — *PvP melee master*. Mending+Thorns armor + **MAXED sword + fully-enchanted spear (trident)**. The trident is the differentiator.
+  - **Bruiser** — *Tank brawler — axe only*. **Blast Prot IV** Mending+Thorns armor + MAXED netherite axe (no sword/bow/trident). 16 enchanted gapples + 4 totems.
+  - **Attribute** — *Endgame elite*. MAXED sword + 2 maxed maces (Breach + Density, no Sharpness) + Elytra. No bow/shield/extras.
+
+**`/kitgive <kit> <player>`** — admin command to grant a kit free of cost, bypassing the 24h cooldown. Same title banner + broadcast as a normal purchase but says "received the X from admin" instead of "bought the X for Y." Gated on `canAdmin` (real op-2 or `/admin`-unlocked).
+
 ## What's new in v1.85.3
 
 **Two user-reported bugs.**
