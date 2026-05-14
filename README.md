@@ -30,6 +30,16 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.84.7
+
+**Five user asks bundled.**
+
+1. **Rebrand `[Icey SMP]` → `[AttributeSMP]`** per user: "from iceysmp to AttributeSMP in nice color ok? purple and black a nice fade." All chat prefixes now use a purple-toned bracket label `§5§l[§d§lAttribute§7§lSMP§5§l]§r` — dark-purple bracket, light-purple "Attribute", gray "SMP", dark-purple close-bracket. The big chest-GUI titles for `/skills` and `/leaderboard` use a true per-character HEX gradient from `0xC040FF` (bright purple) → `0x44004A` (near-black purple) via the new [Brand.java](mod-smp/src/main/java/com/iceysmp/Brand.java) helper. Fabric mod metadata `fabric.mod.json` renamed from "Icey SMP" to "AttributeSMP" (internal mod_id stays `iceysmp` so existing servers' config / data dirs don't break). SERVER_STARTED banner says `[AttributeSMP] Loaded! Type /skills or press N to see commands.`
+2. **`/lb` removed — only `/leaderboard`** per user request. Server `/lb` command dropped. Client mod removed its `/lb` client-command registration; keybind N now sends `/leaderboard` chat command to the server (opens the new chest GUI). On a vanilla server with no AttributeSMP the chat command silently fails — no client crash.
+3. **Clickable category in `/leaderboard` GUI.** The chest now uses a custom `ClickableScreenHandler` that intercepts slot clicks. Clicking a category opens a per-category "big" view ([LeaderboardGui.openCategory](mod-smp/src/main/java/com/iceysmp/LeaderboardGui.java)) — header item on slot 4 with the category info + reward threshold, top 10 as player heads in slots 9–18 (each head textured to the player's skin via `DataComponentTypes.PROFILE`), viewer's rank on slot 22 if outside the top 10. Closing the per-category screen (ESC) fires `onClosed` → re-opens the picker on the next tick. Per user: "if you press esc you go back ok?"
+4. **Mob hits no longer combat-tag** per user: "only get comabt tagged by players not mobs." Dropped the `combat.tagOne(victim)` call in the mob-hits-player branch. Mobs still credit damage-taken stats (so dmgtaken leaderboard works), but the boss bar / combat-log death only fires on player-vs-player.
+5. **`/reward` effect is infinite + survives death.** Per user: "/reward should be infinte effect to not short." `applyMaxEffectFor` now uses `-1` duration. `applyEffectsFor` (the respawn re-apply path) checks `wasAwardedFrostfangFor(cat)` for each category — if the player was rewarded in that category, apply infinite max-amp; otherwise apply finite count-based amp as before. `/reward` also marks the recipient as awarded so the buff comes back after every death.
+
 ## What's new in v1.84.6
 
 **Six asks bundled.**

@@ -47,7 +47,7 @@ public final class StarterKit {
             player.getInventory().insertStack(new ItemStack(Items.IRON_SHOVEL));
             player.getInventory().insertStack(new ItemStack(Items.COOKED_BEEF, 16));
             player.sendMessage(
-                    Text.literal("§b§l[Icey SMP] §a§lWelcome! §rHere's your starter kit. You have " +
+                    Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a§lWelcome! §rHere's your starter kit. You have " +
                             config.noobProtectionMinutes() + " min of noob protection."),
                     false);
         } catch (Throwable t) {

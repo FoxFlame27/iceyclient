@@ -208,7 +208,7 @@ public final class WeaponDrops {
 
             try {
                 server.getPlayerManager().broadcast(
-                        Text.literal("§b§l[Icey SMP] §a§l" + player.getName().getString()
+                        Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a§l" + player.getName().getString()
                                 + " §r§7earned a §" + colorCode(r.nameColor) + "§l" + r.name
                                 + " §r§7for maxing §b" + reasonLabel + "§7!"),
                         false);

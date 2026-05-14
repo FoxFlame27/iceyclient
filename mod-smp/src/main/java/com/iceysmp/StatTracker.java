@@ -226,7 +226,7 @@ public final class StatTracker {
                             try { sp.addExperienceLevels(bountyClaimed); } catch (Throwable ignored) {}
                             try {
                                 if (IceySmp.server != null) IceySmp.server.getPlayerManager().broadcast(
-                                        net.minecraft.text.Text.literal("§b§l[Icey SMP] §a§l" + sp.getName().getString()
+                                        net.minecraft.text.Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a§l" + sp.getName().getString()
                                                 + " §rclaimed a §6§l" + bountyClaimed + " XP §rbounty on §c§l"
                                                 + victim.getName().getString()), false);
                             } catch (Throwable ignored) {}
@@ -254,7 +254,7 @@ public final class StatTracker {
 
                             // Server-wide broadcast — bold so it doesn't get missed.
                             try {
-                                StringBuilder msg = new StringBuilder("§b§l[Icey SMP] §c§l");
+                                StringBuilder msg = new StringBuilder("§5§l[§d§lAttribute§7§lSMP§5§l]§r §c§l");
                                 msg.append(sp.getName().getString()).append(" §rkilled §c§l").append(victim.getName().getString());
                                 if (stolen > 0) msg.append(" §7and stole §b§l").append(stolen).append("§r§7 stats");
                                 msg.append("§7!");
@@ -313,12 +313,15 @@ public final class StatTracker {
                     as.damageDealt += (long) (amount * 10);
                     vs.damageTaken += (long) (amount * 10);
                 }
-                // Mob hits player — tag victim only (no attacker stat credit)
+                // Mob hits player — credit damage-taken but DON'T combat-tag.
+                // Per user request: "only get comabt tagged by players not
+                // mobs." Removed the combat.tagOne call so zombies, skeletons,
+                // creepers, etc. don't trigger the boss bar / combat-log
+                // death.
                 else if (entity instanceof ServerPlayerEntity victim
                         && livingAttacker != null
                         && !(livingAttacker instanceof PlayerEntity)
                         && !livingAttacker.getUuid().equals(victim.getUuid())) {
-                    combat.tagOne(victim.getUuid());
                     PlayerStats vs = stats.get(victim.getUuid(), victim.getName().getString());
                     vs.damageTaken += (long) (amount * 10);
                 }

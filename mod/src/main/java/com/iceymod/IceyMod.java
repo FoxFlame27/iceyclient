@@ -115,8 +115,15 @@ public class IceyMod implements ClientModInitializer {
                 }
             }
             while (wasPressed(leaderboardKey)) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new LeaderboardScreen());
+                // Send /leaderboard to the server so it opens the
+                // server-side chest GUI (which has live data + clickable
+                // category drill-down). Falls back to the client-side
+                // LeaderboardScreen on vanilla servers without iceymod+
+                // — the client gets "unknown command" but no harm done.
+                if (client.player != null && client.currentScreen == null) {
+                    try {
+                        client.player.networkHandler.sendChatCommand("leaderboard");
+                    } catch (Throwable ignored) {}
                 }
             }
             while (wasPressed(freecamKey)) {
@@ -189,18 +196,14 @@ public class IceyMod implements ClientModInitializer {
             }
         });
 
-        // Client-side commands: /lb opens leaderboard, /iceyhuds resets
-        // the HUD module state (force visible, reset positions, re-enable
-        // modules that the auto-disable-on-error logic killed in older
-        // builds). Both are independent of keybind state.
+        // Client-side commands: /iceyhuds resets the HUD module state
+        // (force visible, reset positions, re-enable modules that the
+        // auto-disable-on-error logic killed in older builds).
+        // (/lb removed in v1.84.7 per user — only /leaderboard now.
+        // Keybind N sends /leaderboard to the server to open the
+        // server-side chest GUI.)
         try {
             ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-                dispatcher.register(ClientCommandManager.literal("lb")
-                    .executes(ctx -> {
-                        MinecraftClient mc = MinecraftClient.getInstance();
-                        if (mc != null) mc.setScreen(new LeaderboardScreen());
-                        return 1;
-                    }));
                 dispatcher.register(ClientCommandManager.literal("iceyhuds")
                     .executes(ctx -> {
                         if (!HudManager.isHudVisible()) HudManager.toggleHudVisibility();

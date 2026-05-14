@@ -198,7 +198,7 @@ public final class LootCrate {
 
         LootItem[] loot = lootFor(theme, tier);
         if (!placeChest(server, x, y, z, loot)) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] Failed to /setblock the crate"), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c Failed to /setblock the crate"), false);
             return false;
         }
 
@@ -209,7 +209,7 @@ public final class LootCrate {
         // Crate label = tier prefix + (theme name if non-general).
         String labelBody = (theme == Theme.GENERAL) ? tier.label : tier.label + " · " + theme.labelBase;
         server.getPlayerManager().broadcast(
-                Text.literal("§b§l[Icey SMP] §rA " + tier.colorPrefix + labelBody
+                Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §rA " + tier.colorPrefix + labelBody
                         + " §rhas spawned at §f§l(" + x + ", " + y + ", " + z + ")"
                         + (caller != null ? " §7— placed by §f" + caller.getName().getString() : "")),
                 false);

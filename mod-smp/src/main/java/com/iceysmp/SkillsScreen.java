@@ -53,11 +53,11 @@ public final class SkillsScreen {
 
             player.openHandledScreen(new SimpleNamedScreenHandlerFactory(
                     (syncId, playerInv, p) -> GenericContainerScreenHandler.createGeneric9x3(syncId, playerInv, inv),
-                    Text.literal("§b§l✦ Icey Skills ✦")
+                    Brand.gradient("✦ Attribute Skills ✦", 0xC040FF, 0x44004A, true)
             ));
         } catch (Throwable t) {
             System.out.println("[IceySMP] SkillsScreen.open failed: " + t);
-            player.sendMessage(Text.literal("§c[Icey SMP] Couldn't open skills GUI: " + t.getMessage()), false);
+            player.sendMessage(Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c Couldn't open skills GUI:" + t.getMessage()), false);
         }
     }
 

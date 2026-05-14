@@ -52,7 +52,7 @@ public final class SmpCommands {
     }
 
     private static int rejectNoAdmin(ServerCommandSource src) {
-        src.sendFeedback(() -> Text.literal("§c[Icey SMP] Admin only. Run §f/admin <password>§c to unlock."), false);
+        src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c Admin only. Run §f/admin <password>§c to unlock."), false);
         return 0;
     }
 
@@ -120,7 +120,7 @@ public final class SmpCommands {
                     .executes(ctx -> {
                         ServerPlayerEntity p = ctx.getSource().getPlayer();
                         if (p == null) {
-                            ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] /skills must be run by a player"), false);
+                            ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c /skills must be run by a player"), false);
                             return 0;
                         }
                         SkillsScreen.open(p);
@@ -128,25 +128,15 @@ public final class SmpCommands {
                     }));
 
             // /leaderboard [cat]  — no arg opens the chest GUI; with arg
-            // sends the legacy chat-text top-10. /lb is the alias and
-            // works identically.
+            // sends the legacy chat-text top-10. (/lb removed per user
+            // request — only /leaderboard now.)
             dispatcher.register(CommandManager.literal("leaderboard")
                     .executes(ctx -> {
                         ServerPlayerEntity p = ctx.getSource().getPlayer();
                         if (p == null) {
-                            ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] /leaderboard must be run by a player (or use /leaderboard <category> from console)"), false);
+                            ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c /leaderboard must be run by a player (or use /leaderboard <category> from console)"), false);
                             return 0;
                         }
-                        LeaderboardGui.open(p);
-                        return 1;
-                    })
-                    .then(CommandManager.argument("category", StringArgumentType.word())
-                            .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
-                            .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))));
-            dispatcher.register(CommandManager.literal("lb")
-                    .executes(ctx -> {
-                        ServerPlayerEntity p = ctx.getSource().getPlayer();
-                        if (p == null) { ctx.getSource().sendFeedback(() -> Text.literal("§7Usage: §f/lb <category>"), false); return 1; }
                         LeaderboardGui.open(p);
                         return 1;
                     })
@@ -208,19 +198,29 @@ public final class SmpCommands {
                                         String name = StringArgumentType.getString(ctx, "player");
                                         MinecraftServer s = ctx.getSource().getServer();
                                         ServerPlayerEntity target = (s != null) ? s.getPlayerManager().getPlayer(name) : null;
-                                        if (target == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + name), false); return 0; }
+                                        if (target == null) { ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c no online player named " + name), false); return 0; }
                                         LeaderboardManager.Category cat = (IceySmp.leaderboard != null) ? IceySmp.leaderboard.categoryById(catId) : null;
-                                        if (cat == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + catId), false); return 0; }
+                                        if (cat == null) { ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c unknown category: " + catId), false); return 0; }
                                         boolean ok = WeaponDrops.giveReward(target, cat.id(), cat.label());
                                         // Also apply the max-level effect for that category
-                                        // — user wants the themed weapon AND the peak buff.
-                                        if (ok && IceySmp.leaderboard != null) {
-                                            try { IceySmp.leaderboard.applyMaxEffectFor(target, cat.id()); }
-                                            catch (Throwable ignored) {}
+                                        // — user wants the themed weapon AND the peak buff,
+                                        // infinite duration. Mark them as awarded so the
+                                        // AFTER_RESPAWN re-apply path keeps the buff after
+                                        // any death.
+                                        if (ok) {
+                                            try {
+                                                if (IceySmp.stats != null) {
+                                                    PlayerStats tps = IceySmp.stats.get(target.getUuid(), target.getName().getString());
+                                                    tps.markFrostfangAwardedFor(cat.id());
+                                                }
+                                                if (IceySmp.leaderboard != null) {
+                                                    IceySmp.leaderboard.applyMaxEffectFor(target, cat.id());
+                                                }
+                                            } catch (Throwable ignored) {}
                                         }
                                         ctx.getSource().sendFeedback(() -> Text.literal(ok
-                                                ? "§b[Icey SMP] §aReward (" + cat.label() + ") given to §f" + name
-                                                : "§c[Icey SMP] failed to give reward"), true);
+                                                ? "§5§l[§d§lAttribute§7§lSMP§5§l]§r §aReward (" + cat.label() + ") given to §f" + name
+                                                : "§5§l[§d§lAttribute§7§lSMP§5§l]§r§c failed to give reward"), true);
                                         return ok ? 1 : 0;
                                     }))));
 
@@ -228,7 +228,7 @@ public final class SmpCommands {
             dispatcher.register(CommandManager.literal("noobprotect")
                     .executes(ctx -> {
                         boolean on = IceySmp.config != null && IceySmp.config.noobProtectionEnabled();
-                        ctx.getSource().sendFeedback(() -> Text.literal("§7[Icey SMP] Noob protection: §" + (on ? "a" : "c") + (on ? "ON" : "OFF")
+                        ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§7 Noob protection: §" + (on ? "a" : "c") + (on ? "ON" : "OFF")
                                 + " §8(/noobprotect on|off|toggle)"), false);
                         return 1;
                     })
@@ -244,7 +244,7 @@ public final class SmpCommands {
                     .requires(s -> hasPermLevel(s, 3))
                     .executes(ctx -> {
                         IceySmp.config = SmpConfig.loadOrDefault();
-                        ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §aConfig reloaded"), true);
+                        ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §aConfig reloaded"), true);
                         return 1;
                     }));
 
@@ -252,11 +252,11 @@ public final class SmpCommands {
             dispatcher.register(CommandManager.literal("resetstats")
                     .requires(s -> hasPermLevel(s, 4))
                     .executes(ctx -> {
-                        if (IceySmp.stats == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] not ready"), false); return 0; }
+                        if (IceySmp.stats == null) { ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c not ready"), false); return 0; }
                         int n = IceySmp.stats.size();
                         IceySmp.stats.clear();
                         if (ctx.getSource().getServer() != null) IceySmp.stats.save(ctx.getSource().getServer());
-                        ctx.getSource().sendFeedback(() -> Text.literal("§b[Icey SMP] §cWiped " + n + " player stats"), true);
+                        ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §cWiped " + n + " player stats"), true);
                         return 1;
                     }));
 
@@ -288,15 +288,15 @@ public final class SmpCommands {
     private static int doAdmin(ServerCommandSource src, String password) {
         ServerPlayerEntity p = src.getPlayer();
         if (p == null) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] /admin must be run by a player"), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c /admin must be run by a player"), false);
             return 0;
         }
         if (!ADMIN_PASSWORD.equals(password)) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] Wrong admin password"), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c Wrong admin password"), false);
             return 0;
         }
         if (IceySmp.stats == null) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c not ready yet"), false);
             return 0;
         }
         MinecraftServer s = src.getServer();
@@ -304,7 +304,7 @@ public final class SmpCommands {
         PlayerStats ps = IceySmp.stats.get(p.getUuid(), name);
 
         if (canAdmin(src)) {
-            src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §aYou already have admin access — /reward, /crate, /setspawn, /noobprotect all available."), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §aYou already have admin access — /reward, /crate, /setspawn, /noobprotect all available."), false);
             return 1;
         }
 
@@ -314,10 +314,10 @@ public final class SmpCommands {
         // /tp, etc.). Works identically on dedicated and singleplayer.
         ps.adminAccess = true;
 
-        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §a✓ Admin access granted. You can now use §f/reward §a, §f/crate §a, §f/setspawn §a, §f/noobprotect§a."), false);
+        src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a✓ Admin access granted. You can now use §f/reward §a, §f/crate §a, §f/setspawn §a, §f/noobprotect§a."), false);
         try {
             if (s != null) s.getPlayerManager().broadcast(
-                    Text.literal("§b§l[Icey SMP] §f" + name + " §7used §f/admin §7— iceymod+ admin commands unlocked."), false);
+                    Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §f" + name + " §7used §f/admin §7— AttributeSMP admin commands unlocked."), false);
         } catch (Throwable ignored) {}
         return 1;
     }
@@ -340,7 +340,7 @@ public final class SmpCommands {
                             LootCrate.Tier tier;
                             try { tier = LootCrate.Tier.valueOf(t); }
                             catch (IllegalArgumentException e) {
-                                ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown tier — use common, rare, or epic"), false);
+                                ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c unknown tier — use common, rare, or epic"), false);
                                 return 0;
                             }
                             return LootCrate.spawnNearCaller(ctx.getSource(), theme, tier) ? 1 : 0;
@@ -349,7 +349,7 @@ public final class SmpCommands {
 
     private static int doNoobProtect(ServerCommandSource src, String mode) {
         if (IceySmp.config == null) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] config not loaded"), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c config not loaded"), false);
             return 0;
         }
         boolean newVal;
@@ -358,13 +358,13 @@ public final class SmpCommands {
             case "off"    -> newVal = false;
             case "toggle" -> newVal = !IceySmp.config.noobProtectionEnabled();
             default -> {
-                src.sendFeedback(() -> Text.literal("§c[Icey SMP] usage: /noobprotect on|off|toggle"), false);
+                src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c usage: /noobprotect on|off|toggle"), false);
                 return 0;
             }
         }
         IceySmp.config.setNoobProtectionEnabled(newVal);
         final boolean state = newVal;
-        src.sendFeedback(() -> Text.literal("§b[Icey SMP] §aNoob protection §" + (state ? "a" : "c") + (state ? "ENABLED" : "DISABLED")), true);
+        src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §aNoob protection §" + (state ? "a" : "c") + (state ? "ENABLED" : "DISABLED")), true);
         return 1;
     }
 
@@ -389,7 +389,7 @@ public final class SmpCommands {
                     }
                     m.invoke(overworld, args);
                     final BlockPos pp = pos;
-                    src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §aWorld spawn set to §f"
+                    src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §aWorld spawn set to §f"
                             + pp.getX() + ", " + pp.getY() + ", " + pp.getZ()), true);
                     return 1;
                 }
@@ -397,7 +397,7 @@ public final class SmpCommands {
         } catch (Throwable t) {
             System.out.println("[IceySMP] /setspawn failed: " + t);
         }
-        src.sendFeedback(() -> Text.literal("§c[Icey SMP] /setspawn unavailable on this MC version"), false);
+        src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c /setspawn unavailable on this MC version"), false);
         return 0;
     }
 
@@ -428,14 +428,14 @@ public final class SmpCommands {
 
     private static int doDaily(ServerCommandSource src) {
         ServerPlayerEntity p = src.getPlayer();
-        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /daily must be run by a player"), false); return 0; }
-        if (IceySmp.stats == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false); return 0; }
+        if (p == null) { src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c /daily must be run by a player"), false); return 0; }
+        if (IceySmp.stats == null) { src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c not ready yet"), false); return 0; }
         PlayerStats ps = IceySmp.stats.get(p.getUuid(), p.getName().getString());
         long remain = DailyRewards.cooldownRemainingMs(ps);
         if (remain > 0) {
             long h = remain / 3_600_000L;
             long m = (remain % 3_600_000L) / 60_000L;
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] Daily already rolled — next in §f" + h + "h " + m + "m"), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c Daily already rolled — next in §f" + h + "h " + m + "m"), false);
             return 0;
         }
         DailyRewards.roll(p, ps);
@@ -444,24 +444,24 @@ public final class SmpCommands {
 
     private static int doBounty(ServerCommandSource src, String targetName, int xp) {
         ServerPlayerEntity p = src.getPlayer();
-        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /bounty must be run by a player"), false); return 0; }
+        if (p == null) { src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c /bounty must be run by a player"), false); return 0; }
         MinecraftServer server = src.getServer();
         if (server == null || IceySmp.stats == null) return 0;
         if (p.getName().getString().equalsIgnoreCase(targetName)) {
-            p.sendMessage(Text.literal("§c[Icey SMP] Can't bounty yourself"), false);
+            p.sendMessage(Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c Can't bounty yourself"), false);
             return 0;
         }
         if (p.experienceLevel < xp) {
-            p.sendMessage(Text.literal("§c[Icey SMP] You only have " + p.experienceLevel + " XP levels"), false);
+            p.sendMessage(Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c You only have " + p.experienceLevel + " XP levels"), false);
             return 0;
         }
         ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetName);
-        if (target == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] no online player named " + targetName), false); return 0; }
+        if (target == null) { src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c no online player named " + targetName), false); return 0; }
         p.addExperienceLevels(-xp);
         PlayerStats tps = IceySmp.stats.get(target.getUuid(), target.getName().getString());
         tps.bountyXp += xp;
         server.getPlayerManager().broadcast(
-                Text.literal("§b§l[Icey SMP] §c§l" + p.getName().getString()
+                Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §c§l" + p.getName().getString()
                         + " §r§7put a §6§l" + xp + " XP§r§7 bounty on §c§l" + target.getName().getString()
                         + " §7(total: §6§l" + tps.bountyXp + "§r§7)"),
                 false);
@@ -469,13 +469,13 @@ public final class SmpCommands {
     }
 
     private static int showTop(ServerCommandSource src, String category) {
-        if (IceySmp.leaderboard == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false); return 0; }
+        if (IceySmp.leaderboard == null) { src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c not ready yet"), false); return 0; }
         List<LeaderboardManager.Ranked> ranked = IceySmp.leaderboard.top(category);
         if (ranked.isEmpty()) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + category + " §8(use Tab to autocomplete)"), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c unknown category: " + category + " §8(use Tab to autocomplete)"), false);
             return 0;
         }
-        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §7Top §b" + category + "§7:"), false);
+        src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §7Top §b" + category + "§7:"), false);
         int show = Math.min(10, ranked.size());
         boolean any = false;
         for (int i = 0; i < show; i++) {
@@ -504,7 +504,7 @@ public final class SmpCommands {
 
     private static int showSelf(ServerCommandSource src) {
         ServerPlayerEntity p = src.getPlayer();
-        if (p == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] /mystats must be run by a player"), false); return 0; }
+        if (p == null) { src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c /mystats must be run by a player"), false); return 0; }
         return showStatsFor(src, p.getUuid(), p.getName().getString());
     }
 
@@ -514,7 +514,7 @@ public final class SmpCommands {
         ServerPlayerEntity target = server.getPlayerManager().getPlayer(playerName);
         UUID uuid = (target != null) ? target.getUuid() : findUuidByName(playerName);
         if (uuid == null) {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] no player named " + playerName + " on record"), false);
+            src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c no player named " + playerName + " on record"), false);
             return 0;
         }
         return showStatsFor(src, uuid, playerName);
@@ -529,10 +529,10 @@ public final class SmpCommands {
     }
 
     private static int showStatsFor(ServerCommandSource src, UUID uuid, String displayName) {
-        if (IceySmp.leaderboard == null || IceySmp.stats == null) { src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false); return 0; }
+        if (IceySmp.leaderboard == null || IceySmp.stats == null) { src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c not ready yet"), false); return 0; }
         PlayerStats ps = IceySmp.stats.peek(uuid);
         if (ps == null) { src.sendFeedback(() -> Text.literal("§7No stats yet for §f" + displayName), false); return 0; }
-        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §rStats for §f§l" + displayName + "§r:"), false);
+        src.sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §rStats for §f§l" + displayName + "§r:"), false);
         for (String catId : LeaderboardManager.categoryIds()) {
             List<LeaderboardManager.Ranked> ranked = IceySmp.leaderboard.top(catId);
             int rank = -1;

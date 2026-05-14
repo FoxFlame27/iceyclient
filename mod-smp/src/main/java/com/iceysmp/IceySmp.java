@@ -78,7 +78,7 @@ public final class IceySmp implements ModInitializer {
             System.out.println("[IceySMP] SERVER_STARTED: " + (stats == null ? 0 : stats.size()) + " players in stats");
             try {
                 server.execute(() -> server.getPlayerManager().broadcast(
-                        net.minecraft.text.Text.literal("§b§l[iceymod+] §aLoaded! §7Type §f/icey§7 or press §fN§7 to see commands."),
+                        net.minecraft.text.Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §aLoaded! §7Type §f/skills§7 or press §fN§7 to see commands."),
                         false));
             } catch (Throwable ignored) {}
         }); System.out.println("[IceySMP] SERVER_STARTED hook installed"); }
@@ -104,7 +104,7 @@ public final class IceySmp implements ModInitializer {
                 StarterKit.giveIfFirstJoin(p, ps, config);
                 if (NoobProtection.isProtected(ps, config)) {
                     p.sendMessage(net.minecraft.text.Text.literal(
-                            "§b§l[Icey SMP] §aYou have §l" + NoobProtection.remainingMinutes(ps, config)
+                            "§5§l[§d§lAttribute§7§lSMP§5§l]§r §aYou have §l" + NoobProtection.remainingMinutes(ps, config)
                             + " min§r§a of noob protection — no PvP damage to or from you."), false);
                 }
                 // 15 hearts (30 HP) base for every player on this server.

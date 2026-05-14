@@ -100,7 +100,7 @@ public final class DailyRewards {
         if (!delivered) {
             System.out.println("[IceySMP] daily /give failed for " + name + ": item=" + win.item);
             player.sendMessage(net.minecraft.text.Text.literal(
-                    "§c[Icey SMP] Daily roll failed to deliver §f" + win.label + "§c — try again, no cooldown applied"), false);
+                    "§5§l[§d§lAttribute§7§lSMP§5§l]§r§c Daily roll failed to deliver §f" + win.label + "§c — try again, no cooldown applied"), false);
             return false;
         }
         ps.lastDailyMs = System.currentTimeMillis();
@@ -108,13 +108,13 @@ public final class DailyRewards {
         // Animation + confirmation
         scheduleAnimation(player, win);
         player.sendMessage(net.minecraft.text.Text.literal(
-                "§b§l[Icey SMP] §a§l✦ Daily reward: §f§l" + win.label + " §7×" + win.count + " §a§ldelivered to your inventory"), false);
+                "§5§l[§d§lAttribute§7§lSMP§5§l]§r §a§l✦ Daily reward: §f§l" + win.label + " §7×" + win.count + " §a§ldelivered to your inventory"), false);
 
         // Server-wide chat — rare drops get announced, common drops stay quiet
         if (win.weight <= 5) {
             try {
                 server.getPlayerManager().broadcast(
-                        Text.literal("§b§l[Icey SMP] §a§l" + name
+                        Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a§l" + name
                                 + " §r§7rolled §b§l" + win.label + "§r§7 on their daily!"),
                         false);
             } catch (Throwable ignored) {}

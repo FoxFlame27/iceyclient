@@ -1,0 +1,14 @@
+{
+  "projectPath": ":",
+  "classpaths": {
+    "test": [
+      "/home/user/icey-client/mod/build/classes/java/test",
+      "/home/user/icey-client/mod/build/resources/test"
+    ],
+    "main": [
+      "/home/user/icey-client/mod/build/classes/java/main",
+      "/home/user/icey-client/mod/build/resources/main",
+      "/home/user/icey-client/mod/build/devlibs/iceymod-1.0.0-dev.jar"
+    ]
+  }
+}

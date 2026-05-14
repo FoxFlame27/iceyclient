@@ -71,7 +71,7 @@ public final class SmpConfig {
     private static void writeDefault(SmpConfig c, Path file) throws IOException {
         Files.createDirectories(file.getParent());
         String body = """
-                # Icey SMP — server-side leaderboard config
+                # AttributeSMP — server-side leaderboard config
                 # How often the leaderboard is recomputed and buffs reassigned.
                 recomputeSeconds=%d
                 # Combat tag duration. While tagged you can't /spawn, and logging

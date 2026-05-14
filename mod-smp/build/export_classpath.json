@@ -1,0 +1,14 @@
+{
+  "projectPath": ":",
+  "classpaths": {
+    "test": [
+      "/home/user/icey-client/mod-smp/build/classes/java/test",
+      "/home/user/icey-client/mod-smp/build/resources/test"
+    ],
+    "main": [
+      "/home/user/icey-client/mod-smp/build/classes/java/main",
+      "/home/user/icey-client/mod-smp/build/resources/main",
+      "/home/user/icey-client/mod-smp/build/devlibs/iceymodplus-server-mod-mc1.21-1.0.0-dev.jar"
+    ]
+  }
+}

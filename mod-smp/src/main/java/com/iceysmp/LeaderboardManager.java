@@ -102,10 +102,10 @@ public final class LeaderboardManager {
     }
 
     /** Apply the MAX-level status effect for a single category — used
-     *  by /reward so the admin handout grants both the themed item AND
-     *  the matching peak buff (Haste V for mining, Strength III for pvp,
-     *  Dolphin's Grace for water, etc.). Bypasses the count-based amp
-     *  calculation so even players with no stats get the full effect. */
+     *  by /reward. Infinite duration (per user: "/reward should be infinte
+     *  effect to not short"). The reward also marks the player as
+     *  wasAwardedFrostfangFor(cat) so {@link #applyEffectsFor} can
+     *  re-apply it after death. */
     public void applyMaxEffectFor(ServerPlayerEntity p, String categoryId) {
         if (p == null) return;
         for (Category cat : Category.values()) {
@@ -114,8 +114,7 @@ public final class LeaderboardManager {
                 RegistryEntry<StatusEffect> effect = cat.effect();
                 if (effect == null) return;
                 int amp = capFor(effect);
-                int duration = config.effectDurationSeconds() * 20;
-                p.addStatusEffect(new StatusEffectInstance(effect, duration, amp, false, false, true));
+                p.addStatusEffect(new StatusEffectInstance(effect, -1, amp, false, false, true));
             } catch (Throwable ignored) {}
             return;
         }
@@ -123,16 +122,22 @@ public final class LeaderboardManager {
 
     /** Per-player effect re-application — called from recompute() AND
      *  from the AFTER_RESPAWN hook so dying never strips a player's
-     *  category-based buffs. Walks every Category, computes the amp
-     *  from the player's count, and re-applies the StatusEffect. */
+     *  category-based buffs. For categories the player was awarded
+     *  the max-level reward in, applies infinite duration at the cap
+     *  amp. Otherwise applies finite count-based amp. */
     public void applyEffectsFor(ServerPlayerEntity p) {
         if (p == null || stats == null) return;
         int duration = config.effectDurationSeconds() * 20;
+        PlayerStats ps = stats.peek(p.getUuid());
         for (Category cat : Category.values()) {
             try {
                 RegistryEntry<StatusEffect> effect = cat.effect();
                 if (effect == null) continue;
-                PlayerStats ps = stats.peek(p.getUuid());
+                // Reward holders → infinite max-amp.
+                if (ps != null && ps.wasAwardedFrostfangFor(cat.id)) {
+                    p.addStatusEffect(new StatusEffectInstance(effect, -1, capFor(effect), false, false, true));
+                    continue;
+                }
                 if (ps == null) continue;
                 double normalized = cat.field.applyAsLong(ps) / (double) cat.divisor;
                 int amp = ampForNormalized(normalized, effect);
@@ -163,7 +168,7 @@ public final class LeaderboardManager {
                 Integer prev = playerLevels.get(cat.id);
                 if (prev != null && newLevel > prev) {
                     server.getPlayerManager().broadcast(
-                            Text.literal("§b§l[Icey SMP] §a§l" + p.getName().getString()
+                            Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a§l" + p.getName().getString()
                                     + " §r§7is now §b§lLevel " + newLevel
                                     + " §r§7in §b§l" + cat.label + "§7!"),
                             false);
