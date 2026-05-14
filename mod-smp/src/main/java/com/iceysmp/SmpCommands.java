@@ -127,13 +127,29 @@ public final class SmpCommands {
                         return 1;
                     }));
 
-            // /leaderboard <cat>  (alias /lb)
+            // /leaderboard [cat]  — no arg opens the chest GUI; with arg
+            // sends the legacy chat-text top-10. /lb is the alias and
+            // works identically.
             dispatcher.register(CommandManager.literal("leaderboard")
+                    .executes(ctx -> {
+                        ServerPlayerEntity p = ctx.getSource().getPlayer();
+                        if (p == null) {
+                            ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] /leaderboard must be run by a player (or use /leaderboard <category> from console)"), false);
+                            return 0;
+                        }
+                        LeaderboardGui.open(p);
+                        return 1;
+                    })
                     .then(CommandManager.argument("category", StringArgumentType.word())
                             .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
                             .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))));
             dispatcher.register(CommandManager.literal("lb")
-                    .executes(ctx -> { ctx.getSource().sendFeedback(() -> Text.literal("§7Usage: §f/lb <category>"), false); return 1; })
+                    .executes(ctx -> {
+                        ServerPlayerEntity p = ctx.getSource().getPlayer();
+                        if (p == null) { ctx.getSource().sendFeedback(() -> Text.literal("§7Usage: §f/lb <category>"), false); return 1; }
+                        LeaderboardGui.open(p);
+                        return 1;
+                    })
                     .then(CommandManager.argument("category", StringArgumentType.word())
                             .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
                             .executes(ctx -> showTop(ctx.getSource(), StringArgumentType.getString(ctx, "category")))));
@@ -169,23 +185,12 @@ public final class SmpCommands {
                                             StringArgumentType.getString(ctx, "player"),
                                             com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "xp"))))));
 
-            // /crate [tier]   (op-2 OR /admin-unlocked)
-            dispatcher.register(CommandManager.literal("crate")
-                    .executes(ctx -> { if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
-                            return LootCrate.spawnNearCaller(ctx.getSource(), LootCrate.Tier.pickRandom()) ? 1 : 0; })
-                    .then(CommandManager.argument("tier", StringArgumentType.word())
-                            .suggests((ctx, b) -> { b.suggest("common"); b.suggest("rare"); b.suggest("epic"); return b.buildFuture(); })
-                            .executes(ctx -> {
-                                if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
-                                String t = StringArgumentType.getString(ctx, "tier").toUpperCase();
-                                LootCrate.Tier tier;
-                                try { tier = LootCrate.Tier.valueOf(t); }
-                                catch (IllegalArgumentException e) {
-                                    ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown tier — use common, rare, or epic"), false);
-                                    return 0;
-                                }
-                                return LootCrate.spawnNearCaller(ctx.getSource(), tier) ? 1 : 0;
-                            })));
+            // /crate, /armorcrate, /gearcrate, /foodcrate — each takes
+            // optional [common|rare|epic]. (op-2 OR /admin-unlocked)
+            registerCrateCommand(dispatcher, "crate",      LootCrate.Theme.GENERAL);
+            registerCrateCommand(dispatcher, "armorcrate", LootCrate.Theme.ARMOR);
+            registerCrateCommand(dispatcher, "gearcrate",  LootCrate.Theme.GEAR);
+            registerCrateCommand(dispatcher, "foodcrate",  LootCrate.Theme.FOOD);
 
             // /reward <category> <player>   (op-2 OR /admin-unlocked)
             dispatcher.register(CommandManager.literal("reward")
@@ -207,6 +212,12 @@ public final class SmpCommands {
                                         LeaderboardManager.Category cat = (IceySmp.leaderboard != null) ? IceySmp.leaderboard.categoryById(catId) : null;
                                         if (cat == null) { ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown category: " + catId), false); return 0; }
                                         boolean ok = WeaponDrops.giveReward(target, cat.id(), cat.label());
+                                        // Also apply the max-level effect for that category
+                                        // — user wants the themed weapon AND the peak buff.
+                                        if (ok && IceySmp.leaderboard != null) {
+                                            try { IceySmp.leaderboard.applyMaxEffectFor(target, cat.id()); }
+                                            catch (Throwable ignored) {}
+                                        }
                                         ctx.getSource().sendFeedback(() -> Text.literal(ok
                                                 ? "§b[Icey SMP] §aReward (" + cat.label() + ") given to §f" + name
                                                 : "§c[Icey SMP] failed to give reward"), true);
@@ -309,6 +320,31 @@ public final class SmpCommands {
                     Text.literal("§b§l[Icey SMP] §f" + name + " §7used §f/admin §7— iceymod+ admin commands unlocked."), false);
         } catch (Throwable ignored) {}
         return 1;
+    }
+
+    /** Wire a /<name> [tier] crate command for one Theme — all four
+     *  themes share identical shape (argless = random tier, optional
+     *  tier word arg with suggestions). */
+    private static void registerCrateCommand(com.mojang.brigadier.CommandDispatcher<ServerCommandSource> dispatcher,
+                                             String name, LootCrate.Theme theme) {
+        dispatcher.register(CommandManager.literal(name)
+                .executes(ctx -> {
+                    if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
+                    return LootCrate.spawnNearCaller(ctx.getSource(), theme, LootCrate.Tier.pickRandom()) ? 1 : 0;
+                })
+                .then(CommandManager.argument("tier", StringArgumentType.word())
+                        .suggests((ctx, b) -> { b.suggest("common"); b.suggest("rare"); b.suggest("epic"); return b.buildFuture(); })
+                        .executes(ctx -> {
+                            if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
+                            String t = StringArgumentType.getString(ctx, "tier").toUpperCase();
+                            LootCrate.Tier tier;
+                            try { tier = LootCrate.Tier.valueOf(t); }
+                            catch (IllegalArgumentException e) {
+                                ctx.getSource().sendFeedback(() -> Text.literal("§c[Icey SMP] unknown tier — use common, rare, or epic"), false);
+                                return 0;
+                            }
+                            return LootCrate.spawnNearCaller(ctx.getSource(), theme, tier) ? 1 : 0;
+                        })));
     }
 
     private static int doNoobProtect(ServerCommandSource src, String mode) {

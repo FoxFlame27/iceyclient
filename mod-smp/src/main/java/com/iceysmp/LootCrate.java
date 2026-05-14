@@ -49,44 +49,140 @@ public final class LootCrate {
         }
     }
 
+    /** Crate "theme" — general / armor / gear / food. Each theme has its
+     *  own per-tier loot table. The general theme is what /crate spawns;
+     *  /armorcrate, /gearcrate, /foodcrate target the other three. */
+    public enum Theme {
+        GENERAL("Loot Crate"),
+        ARMOR  ("Armor Crate"),
+        GEAR   ("Gear Crate"),
+        FOOD   ("Food Crate");
+        final String labelBase;
+        Theme(String labelBase) { this.labelBase = labelBase; }
+    }
+
     private record LootItem(String id, int count) {}
 
-    /** Per-tier loot — slot ids auto-assigned by index. Single-chest =
-     *  27 slots, never overflow. Numbers per user request: epic gets
-     *  more diamonds + 1 netherite ingot, no elytra. */
-    private static LootItem[] lootFor(Tier tier) {
-        return switch (tier) {
-            case COMMON -> new LootItem[] {
-                    new LootItem("minecraft:cooked_beef", 16),
-                    new LootItem("minecraft:iron_ingot", 8),
-                    new LootItem("minecraft:gold_ingot", 4),
-                    new LootItem("minecraft:arrow", 32),
-                    new LootItem("minecraft:saddle", 1),
-                    new LootItem("minecraft:experience_bottle", 8),
+    /** Per-(theme, tier) loot. Slot ids auto-assigned by index — kept
+     *  under 27 items so the single chest never overflows. */
+    private static LootItem[] lootFor(Theme theme, Tier tier) {
+        return switch (theme) {
+            case GENERAL -> switch (tier) {
+                case COMMON -> new LootItem[] {
+                        new LootItem("minecraft:cooked_beef", 16),
+                        new LootItem("minecraft:iron_ingot", 8),
+                        new LootItem("minecraft:gold_ingot", 4),
+                        new LootItem("minecraft:arrow", 32),
+                        new LootItem("minecraft:saddle", 1),
+                        new LootItem("minecraft:experience_bottle", 8),
+                };
+                case RARE -> new LootItem[] {
+                        new LootItem("minecraft:diamond", 8),
+                        new LootItem("minecraft:totem_of_undying", 1),
+                        new LootItem("minecraft:golden_apple", 4),
+                        new LootItem("minecraft:beacon", 1),
+                        new LootItem("minecraft:ender_pearl", 8),
+                        new LootItem("minecraft:experience_bottle", 16),
+                };
+                case EPIC -> new LootItem[] {
+                        new LootItem("minecraft:diamond", 16),
+                        new LootItem("minecraft:netherite_ingot", 1),
+                        new LootItem("minecraft:shulker_shell", 4),
+                        new LootItem("minecraft:nether_star", 1),
+                        new LootItem("minecraft:enchanted_golden_apple", 1),
+                        new LootItem("minecraft:totem_of_undying", 2),
+                        new LootItem("minecraft:experience_bottle", 32),
+                };
             };
-            case RARE -> new LootItem[] {
-                    new LootItem("minecraft:diamond", 8),
-                    new LootItem("minecraft:totem_of_undying", 1),
-                    new LootItem("minecraft:golden_apple", 4),
-                    new LootItem("minecraft:beacon", 1),
-                    new LootItem("minecraft:ender_pearl", 8),
-                    new LootItem("minecraft:experience_bottle", 16),
+            case ARMOR -> switch (tier) {
+                case COMMON -> new LootItem[] {
+                        new LootItem("minecraft:iron_helmet", 1),
+                        new LootItem("minecraft:iron_chestplate", 1),
+                        new LootItem("minecraft:iron_leggings", 1),
+                        new LootItem("minecraft:iron_boots", 1),
+                        new LootItem("minecraft:shield", 1),
+                };
+                case RARE -> new LootItem[] {
+                        new LootItem("minecraft:diamond_helmet", 1),
+                        new LootItem("minecraft:diamond_chestplate", 1),
+                        new LootItem("minecraft:diamond_leggings", 1),
+                        new LootItem("minecraft:diamond_boots", 1),
+                        new LootItem("minecraft:turtle_helmet", 1),
+                        new LootItem("minecraft:shield", 1),
+                };
+                case EPIC -> new LootItem[] {
+                        new LootItem("minecraft:netherite_helmet", 1),
+                        new LootItem("minecraft:netherite_chestplate", 1),
+                        new LootItem("minecraft:netherite_leggings", 1),
+                        new LootItem("minecraft:netherite_boots", 1),
+                        new LootItem("minecraft:elytra", 1),
+                        new LootItem("minecraft:totem_of_undying", 2),
+                };
             };
-            case EPIC -> new LootItem[] {
-                    new LootItem("minecraft:diamond", 16),
-                    new LootItem("minecraft:netherite_ingot", 1),
-                    new LootItem("minecraft:shulker_shell", 4),
-                    new LootItem("minecraft:nether_star", 1),
-                    new LootItem("minecraft:enchanted_golden_apple", 1),
-                    new LootItem("minecraft:totem_of_undying", 2),
-                    new LootItem("minecraft:experience_bottle", 32),
+            case GEAR -> switch (tier) {
+                case COMMON -> new LootItem[] {
+                        new LootItem("minecraft:iron_sword", 1),
+                        new LootItem("minecraft:iron_pickaxe", 1),
+                        new LootItem("minecraft:iron_axe", 1),
+                        new LootItem("minecraft:iron_shovel", 1),
+                        new LootItem("minecraft:bow", 1),
+                        new LootItem("minecraft:arrow", 32),
+                };
+                case RARE -> new LootItem[] {
+                        new LootItem("minecraft:diamond_sword", 1),
+                        new LootItem("minecraft:diamond_pickaxe", 1),
+                        new LootItem("minecraft:diamond_axe", 1),
+                        new LootItem("minecraft:crossbow", 1),
+                        new LootItem("minecraft:enchanted_book", 2),
+                        new LootItem("minecraft:experience_bottle", 16),
+                };
+                case EPIC -> new LootItem[] {
+                        new LootItem("minecraft:netherite_sword", 1),
+                        new LootItem("minecraft:netherite_pickaxe", 1),
+                        new LootItem("minecraft:netherite_axe", 1),
+                        new LootItem("minecraft:trident", 1),
+                        new LootItem("minecraft:mace", 1),
+                        new LootItem("minecraft:enchanted_book", 3),
+                        new LootItem("minecraft:experience_bottle", 32),
+                };
+            };
+            case FOOD -> switch (tier) {
+                case COMMON -> new LootItem[] {
+                        new LootItem("minecraft:cooked_beef", 32),
+                        new LootItem("minecraft:bread", 16),
+                        new LootItem("minecraft:cooked_chicken", 16),
+                        new LootItem("minecraft:carrot", 8),
+                        new LootItem("minecraft:apple", 8),
+                };
+                case RARE -> new LootItem[] {
+                        new LootItem("minecraft:cooked_beef", 64),
+                        new LootItem("minecraft:golden_apple", 4),
+                        new LootItem("minecraft:golden_carrot", 16),
+                        new LootItem("minecraft:cake", 2),
+                        new LootItem("minecraft:honey_bottle", 4),
+                        new LootItem("minecraft:pumpkin_pie", 8),
+                };
+                case EPIC -> new LootItem[] {
+                        new LootItem("minecraft:enchanted_golden_apple", 4),
+                        new LootItem("minecraft:golden_apple", 16),
+                        new LootItem("minecraft:golden_carrot", 32),
+                        new LootItem("minecraft:honey_bottle", 8),
+                        new LootItem("minecraft:cake", 4),
+                        new LootItem("minecraft:suspicious_stew", 8),
+                };
             };
         };
     }
 
-    /** Entrypoint from /icey crate. Spawns the chest at the caller's
-     *  exact block position. Returns success/fail for the command. */
+    /** Back-compat overload — defaults to the GENERAL theme. */
     public static boolean spawnNearCaller(ServerCommandSource src, Tier tier) {
+        return spawnNearCaller(src, Theme.GENERAL, tier);
+    }
+
+    /** Entrypoint from /crate / /armorcrate / /gearcrate / /foodcrate.
+     *  Spawns the chest at the caller's exact block position. Returns
+     *  success/fail for the command. */
+    public static boolean spawnNearCaller(ServerCommandSource src, Theme theme, Tier tier) {
         MinecraftServer server = src.getServer();
         if (server == null) return false;
         int x, y, z;
@@ -100,7 +196,7 @@ public final class LootCrate {
             x = sp.getX(); y = sp.getY(); z = sp.getZ();
         }
 
-        LootItem[] loot = lootFor(tier);
+        LootItem[] loot = lootFor(theme, tier);
         if (!placeChest(server, x, y, z, loot)) {
             src.sendFeedback(() -> Text.literal("§c[Icey SMP] Failed to /setblock the crate"), false);
             return false;
@@ -110,8 +206,10 @@ public final class LootCrate {
         VersionShim.executeServerCommand(server,
                 "summon minecraft:lightning_bolt " + x + " " + (y + 1) + " " + z);
 
+        // Crate label = tier prefix + (theme name if non-general).
+        String labelBody = (theme == Theme.GENERAL) ? tier.label : tier.label + " · " + theme.labelBase;
         server.getPlayerManager().broadcast(
-                Text.literal("§b§l[Icey SMP] §rA " + tier.colorPrefix + tier.label
+                Text.literal("§b§l[Icey SMP] §rA " + tier.colorPrefix + labelBody
                         + " §rhas spawned at §f§l(" + x + ", " + y + ", " + z + ")"
                         + (caller != null ? " §7— placed by §f" + caller.getName().getString() : "")),
                 false);

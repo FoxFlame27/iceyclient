@@ -30,6 +30,20 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.84.6
+
+**Six asks bundled.**
+
+1. **`/leaderboard` (no arg) opens a chest GUI** — [LeaderboardGui.java](mod-smp/src/main/java/com/iceysmp/LeaderboardGui.java) mirrors `SkillsScreen`'s 9×3 layout, one item per category, but each item's lore shows the **top 5 ranked players** for that category instead of viewer progress. Viewer's own rank pinned at the bottom if outside the top 5. `/leaderboard <category>` keeps the legacy chat-text top-10 output, same for `/lb`.
+2. **Bounty payout works on every PvP kill.** Previously buried inside the combat-tag gate, so a kill that didn't pass `bothTagged` / `canCountKill` (one-shot ambushes, repeat kills) would skip the bounty even though the victim actually died. Hoisted the payout above the gates in `StatTracker` — bounty pays out on **any** PvP kill regardless of stat-steal eligibility. Stat-steal still respects the gates (separately broadcast).
+3. **Three new crate themes — `/armorcrate`, `/gearcrate`, `/foodcrate`** with the same `[common|rare|epic]` tier arg as `/crate`. Lightning + broadcast as before. Themed loot per tier:
+   - **Armor crate**: iron/diamond/netherite sets, shield, turtle helmet, elytra (epic), totems (epic).
+   - **Gear crate**: iron/diamond/netherite swords/picks/axes, bow/crossbow, trident + mace (epic), enchanted books.
+   - **Food crate**: cooked beef, bread, golden apples, golden carrots, cake, honey bottles, enchanted golden apples (epic), suspicious stew (epic).
+4. **`/reward` now applies the max-level effect for the category.** Previously it gave only the themed weapon — now it also calls `LeaderboardManager.applyMaxEffectFor(player, categoryId)` which slaps on the peak amp (Haste V for mining, Strength III for pvp, Resistance III for damage taken, etc.). Recompute will keep refreshing it if the player has enough stats; otherwise it expires after `effectDurationSeconds`.
+5. **Every player gets 15 hearts (30 HP) on join.** New `setMaxHealth` helper in [IceySmp.java](mod-smp/src/main/java/com/iceysmp/IceySmp.java) sets the player's `generic.max_health` attribute base to 30 in the JOIN hook. If they're below 15 HP at join time we top them up to 15 so they don't suffocate.
+6. **Yarn-portable max-health lookup.** Constant name flipped between `GENERIC_MAX_HEALTH` and `MAX_HEALTH` across 1.21.x; the `getAttributeInstance` signature also flipped between taking `EntityAttribute` and `RegistryEntry<EntityAttribute>`. Helper tries every combination via reflection and stops at the first that resolves.
+
 ## What's new in v1.84.5
 
 **Four user-reported fixes.**

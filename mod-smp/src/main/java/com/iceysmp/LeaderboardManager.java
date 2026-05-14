@@ -101,6 +101,26 @@ public final class LeaderboardManager {
         if (tickCounter % (60 * 20) == 0) combat.prune();
     }
 
+    /** Apply the MAX-level status effect for a single category — used
+     *  by /reward so the admin handout grants both the themed item AND
+     *  the matching peak buff (Haste V for mining, Strength III for pvp,
+     *  Dolphin's Grace for water, etc.). Bypasses the count-based amp
+     *  calculation so even players with no stats get the full effect. */
+    public void applyMaxEffectFor(ServerPlayerEntity p, String categoryId) {
+        if (p == null) return;
+        for (Category cat : Category.values()) {
+            if (!cat.id.equals(categoryId)) continue;
+            try {
+                RegistryEntry<StatusEffect> effect = cat.effect();
+                if (effect == null) return;
+                int amp = capFor(effect);
+                int duration = config.effectDurationSeconds() * 20;
+                p.addStatusEffect(new StatusEffectInstance(effect, duration, amp, false, false, true));
+            } catch (Throwable ignored) {}
+            return;
+        }
+    }
+
     /** Per-player effect re-application — called from recompute() AND
      *  from the AFTER_RESPAWN hook so dying never strips a player's
      *  category-based buffs. Walks every Category, computes the amp

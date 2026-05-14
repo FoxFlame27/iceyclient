@@ -211,14 +211,36 @@ public final class StatTracker {
                     vs.name = victim.getName().getString();
 
                     if (attacker instanceof ServerPlayerEntity sp && !sp.getUuid().equals(victim.getUuid())) {
-                        // PvP kill anti-farm gates
+                        // Bounty payout — ALWAYS pays out on any PvP kill,
+                        // regardless of combat-tag gates. Previously it
+                        // was buried inside the `else` branch below, so a
+                        // kill that didn't pass the combat-tag check (e.g.
+                        // one-shot ambush, repeat kill on same victim)
+                        // would not pay the bounty even though the victim
+                        // actually died. User report: "bounty works but
+                        // when i kill some1 with a bounty i dnt get the
+                        // bounty." Fix is to hoist this above the gates.
+                        int bountyClaimed = vs.bountyXp;
+                        if (bountyClaimed > 0) {
+                            vs.bountyXp = 0;
+                            try { sp.addExperienceLevels(bountyClaimed); } catch (Throwable ignored) {}
+                            try {
+                                if (IceySmp.server != null) IceySmp.server.getPlayerManager().broadcast(
+                                        net.minecraft.text.Text.literal("§b§l[Icey SMP] §a§l" + sp.getName().getString()
+                                                + " §rclaimed a §6§l" + bountyClaimed + " XP §rbounty on §c§l"
+                                                + victim.getName().getString()), false);
+                            } catch (Throwable ignored) {}
+                        }
+
+                        // PvP kill anti-farm gates — these only gate the
+                        // stat-steal + pvpKills counter, NOT bounty above.
                         if (NoobProtection.isProtected(stats.get(sp.getUuid(), sp.getName().getString()), config)
                                 || NoobProtection.isProtected(vs, config)) {
-                            // Protected players don't earn/give credit
+                            // Protected players don't earn/give stat credit
                         } else if (!combat.bothTagged(sp.getUuid(), victim.getUuid())) {
-                            // not actively fighting → no credit, no steal
+                            // not actively fighting → no stat credit, no steal
                         } else if (!combat.canCountKill(sp.getUuid(), victim.getUuid(), config.sameVictimCooldownSeconds())) {
-                            // already-killed-this-player → no credit, no steal
+                            // already-killed-this-player → no stat credit, no steal
                         } else {
                             PlayerStats attackerStats = stats.get(sp.getUuid(), sp.getName().getString());
                             attackerStats.pvpKills++;
@@ -230,20 +252,11 @@ public final class StatTracker {
                             }
                             combat.recordKill(sp.getUuid(), victim.getUuid());
 
-                            // Bounty payout — if the victim had a bounty,
-                            // transfer it to the killer as XP levels.
-                            int bountyClaimed = vs.bountyXp;
-                            if (bountyClaimed > 0) {
-                                vs.bountyXp = 0;
-                                try { sp.addExperienceLevels(bountyClaimed); } catch (Throwable ignored) {}
-                            }
-
                             // Server-wide broadcast — bold so it doesn't get missed.
                             try {
                                 StringBuilder msg = new StringBuilder("§b§l[Icey SMP] §c§l");
                                 msg.append(sp.getName().getString()).append(" §rkilled §c§l").append(victim.getName().getString());
                                 if (stolen > 0) msg.append(" §7and stole §b§l").append(stolen).append("§r§7 stats");
-                                if (bountyClaimed > 0) msg.append(" §7+ §6§l").append(bountyClaimed).append(" XP §rbounty");
                                 msg.append("§7!");
                                 if (IceySmp.server != null) {
                                     IceySmp.server.getPlayerManager().broadcast(

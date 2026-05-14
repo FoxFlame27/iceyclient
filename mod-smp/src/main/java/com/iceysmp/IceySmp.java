@@ -107,6 +107,12 @@ public final class IceySmp implements ModInitializer {
                             "§b§l[Icey SMP] §aYou have §l" + NoobProtection.remainingMinutes(ps, config)
                             + " min§r§a of noob protection — no PvP damage to or from you."), false);
                 }
+                // 15 hearts (30 HP) base for every player on this server.
+                // Modifies the player's generic.max_health attribute base
+                // value. Reflection-driven so it tolerates yarn drift on
+                // EntityAttributes.GENERIC_MAX_HEALTH (renamed to MAX_HEALTH
+                // in 1.21.3, then back-and-forth on the qualifier).
+                setMaxHealth(p, 30.0);
             } catch (Throwable t) { System.out.println("[IceySMP] JOIN handler failed: " + t); }
         }); System.out.println("[IceySMP] JOIN hook installed"); }
         catch (Throwable t) { System.out.println("[IceySMP] JOIN hook failed: " + t); }
@@ -140,5 +146,46 @@ public final class IceySmp implements ModInitializer {
         }
 
         System.out.println("[IceySMP] onInitialize complete");
+    }
+
+    /** Set a player's base max_health attribute. Reflection-driven so we
+     *  don't bind to a particular {@code EntityAttributes.X} constant
+     *  name (drift across the 1.21.x matrix). If the player's current
+     *  health is below the new max, top them up to half the new max so
+     *  they don't immediately suffocate or anything weird. */
+    private static void setMaxHealth(net.minecraft.server.network.ServerPlayerEntity p, double value) {
+        if (p == null) return;
+        try {
+            Object attrInst = null;
+            // Try every known constant name for the max-health attribute.
+            for (String fieldName : new String[] {
+                    "GENERIC_MAX_HEALTH", "MAX_HEALTH", "generic_max_health", "max_health"}) {
+                try {
+                    Class<?> attrs = Class.forName("net.minecraft.entity.attribute.EntityAttributes");
+                    Object attr = attrs.getField(fieldName).get(null);
+                    java.lang.reflect.Method getInst = p.getClass().getMethod("getAttributeInstance",
+                            Class.forName("net.minecraft.registry.entry.RegistryEntry"));
+                    attrInst = getInst.invoke(p, attr);
+                    if (attrInst != null) break;
+                } catch (Throwable ignored) {}
+            }
+            if (attrInst == null) {
+                // Older yarn used EntityAttribute directly, not RegistryEntry.
+                try {
+                    Class<?> attrs = Class.forName("net.minecraft.entity.attribute.EntityAttributes");
+                    Object attr = attrs.getField("GENERIC_MAX_HEALTH").get(null);
+                    java.lang.reflect.Method getInst = p.getClass().getMethod("getAttributeInstance",
+                            Class.forName("net.minecraft.entity.attribute.EntityAttribute"));
+                    attrInst = getInst.invoke(p, attr);
+                } catch (Throwable ignored) {}
+            }
+            if (attrInst == null) return;
+            attrInst.getClass().getMethod("setBaseValue", double.class).invoke(attrInst, value);
+            if (p.getHealth() < value / 2.0f) {
+                p.setHealth((float) (value / 2.0));
+            }
+        } catch (Throwable t) {
+            System.out.println("[IceySMP] setMaxHealth failed: " + t);
+        }
     }
 }
