@@ -68,7 +68,7 @@ public final class KitsScreen {
                         // Close the GUI then run the purchase on the
                         // server thread so any error message lands in
                         // chat after the player is back in the world.
-                        var server = playerRef.getServer();
+                        var server = IceySmp.server;
                         if (server != null) server.execute(() -> {
                             playerRef.closeHandledScreen();
                             String error = Kits.attemptPurchase(playerRef, kit);

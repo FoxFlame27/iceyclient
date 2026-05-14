@@ -66,7 +66,7 @@ public final class LeaderboardGui {
                         if (catId == null) return;
                         // Defer one tick so the close animation completes
                         // cleanly before we open the next screen.
-                        var server = player.getServer();
+                        var server = IceySmp.server;
                         if (server != null) server.execute(() -> openCategory(player, catId));
                     });
                 }
@@ -136,7 +136,7 @@ public final class LeaderboardGui {
                         // onClosed callback: reopen the picker on the
                         // next tick. Per user: "if you press esc you
                         // go back ok?"
-                        var server = playerRef.getServer();
+                        var server = IceySmp.server;
                         if (server != null) server.execute(() -> open(playerRef));
                     });
                 }
@@ -160,12 +160,10 @@ public final class LeaderboardGui {
         List<Text> lore = new ArrayList<>();
         lore.add(line("§7" + cat.label() + ": §b§l" + formatValue(cat.id(), r.value)));
         trySetLore(stack, lore);
-        // Set the head texture to the player's skin if possible.
-        try {
-            stack.set(DataComponentTypes.PROFILE,
-                    new net.minecraft.component.type.ProfileComponent(
-                            new com.mojang.authlib.GameProfile(r.uuid, r.name)));
-        } catch (Throwable ignored) {}
+        // Skin texture would require ProfileComponent which has been
+        // alternately concrete and abstract across yarn variants — punt
+        // on per-skin heads for portability. The named/colored head still
+        // looks fine in the GUI.
         return stack;
     }
 

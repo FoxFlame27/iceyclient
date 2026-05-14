@@ -30,6 +30,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.85.2
+
+**CI yarn compile fix.** Two errors on CI's non-1.21.8 matrix entries:
+
+1. `ServerPlayerEntity.getServer()` doesn't exist on every yarn — replaced the 3 call sites in `LeaderboardGui` / `KitsScreen` with the cached `IceySmp.server` static (already populated in `SERVER_STARTED`).
+2. `net.minecraft.component.type.ProfileComponent` is abstract on this yarn variant — can't instantiate with `new ProfileComponent(GameProfile)`. Dropped the per-player head-skin lookup in `LeaderboardGui.rankedItem`. The named/colored player_head still renders fine in the GUI; just no skin texture per entry.
+
 ## What's new in v1.85.1
 
 **Kits tuned and expanded to 7.** Per user iteration:
