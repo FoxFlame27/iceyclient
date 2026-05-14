@@ -36,6 +36,26 @@ import java.util.UUID;
  */
 public final class SmpCommands {
 
+    /** Combined permission check — real op-2 OR /admin-unlocked. Used by
+     *  the op-2 player commands so they work in singleplayer worlds where
+     *  /op doesn't grant anything. */
+    private static boolean canAdmin(ServerCommandSource src) {
+        if (hasPermLevel(src, 2)) return true;
+        try {
+            ServerPlayerEntity p = src.getPlayer();
+            if (p != null && IceySmp.stats != null) {
+                PlayerStats ps = IceySmp.stats.peek(p.getUuid());
+                if (ps != null && ps.adminAccess) return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private static int rejectNoAdmin(ServerCommandSource src) {
+        src.sendFeedback(() -> Text.literal("§c[Icey SMP] Admin only. Run §f/admin <password>§c to unlock."), false);
+        return 0;
+    }
+
     /** Yarn shuffles {@code hasPermissionLevel} ↔ {@code hasPermission}
      *  across 1.21.x and findVirtual can fail access checks. Resolve via
      *  runtime reflection with a PlayerManager.isOperator fallback. */
@@ -149,13 +169,14 @@ public final class SmpCommands {
                                             StringArgumentType.getString(ctx, "player"),
                                             com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "xp"))))));
 
-            // /crate [tier]   (op-2)
+            // /crate [tier]   (op-2 OR /admin-unlocked)
             dispatcher.register(CommandManager.literal("crate")
-                    .requires(s -> hasPermLevel(s, 2))
-                    .executes(ctx -> LootCrate.spawnNearCaller(ctx.getSource(), LootCrate.Tier.pickRandom()) ? 1 : 0)
+                    .executes(ctx -> { if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
+                            return LootCrate.spawnNearCaller(ctx.getSource(), LootCrate.Tier.pickRandom()) ? 1 : 0; })
                     .then(CommandManager.argument("tier", StringArgumentType.word())
                             .suggests((ctx, b) -> { b.suggest("common"); b.suggest("rare"); b.suggest("epic"); return b.buildFuture(); })
                             .executes(ctx -> {
+                                if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
                                 String t = StringArgumentType.getString(ctx, "tier").toUpperCase();
                                 LootCrate.Tier tier;
                                 try { tier = LootCrate.Tier.valueOf(t); }
@@ -166,9 +187,8 @@ public final class SmpCommands {
                                 return LootCrate.spawnNearCaller(ctx.getSource(), tier) ? 1 : 0;
                             })));
 
-            // /reward <category> <player>   (op-2)
+            // /reward <category> <player>   (op-2 OR /admin-unlocked)
             dispatcher.register(CommandManager.literal("reward")
-                    .requires(s -> hasPermLevel(s, 2))
                     .then(CommandManager.argument("category", StringArgumentType.word())
                             .suggests((ctx, b) -> { for (String id : LeaderboardManager.categoryIds()) b.suggest(id); return b.buildFuture(); })
                             .then(CommandManager.argument("player", StringArgumentType.word())
@@ -178,6 +198,7 @@ public final class SmpCommands {
                                         return b.buildFuture();
                                     })
                                     .executes(ctx -> {
+                                        if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
                                         String catId = StringArgumentType.getString(ctx, "category");
                                         String name = StringArgumentType.getString(ctx, "player");
                                         MinecraftServer s = ctx.getSource().getServer();
@@ -192,9 +213,8 @@ public final class SmpCommands {
                                         return ok ? 1 : 0;
                                     }))));
 
-            // /noobprotect <on|off|toggle>   (op-2)
+            // /noobprotect <on|off|toggle>   (op-2 OR /admin-unlocked)
             dispatcher.register(CommandManager.literal("noobprotect")
-                    .requires(s -> hasPermLevel(s, 2))
                     .executes(ctx -> {
                         boolean on = IceySmp.config != null && IceySmp.config.noobProtectionEnabled();
                         ctx.getSource().sendFeedback(() -> Text.literal("§7[Icey SMP] Noob protection: §" + (on ? "a" : "c") + (on ? "ON" : "OFF")
@@ -203,7 +223,10 @@ public final class SmpCommands {
                     })
                     .then(CommandManager.argument("mode", StringArgumentType.word())
                             .suggests((ctx, b) -> { b.suggest("on"); b.suggest("off"); b.suggest("toggle"); return b.buildFuture(); })
-                            .executes(ctx -> doNoobProtect(ctx.getSource(), StringArgumentType.getString(ctx, "mode")))));
+                            .executes(ctx -> {
+                                if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
+                                return doNoobProtect(ctx.getSource(), StringArgumentType.getString(ctx, "mode"));
+                            })));
 
             // /reloadcfg   (op-3)
             dispatcher.register(CommandManager.literal("reloadcfg")
@@ -226,10 +249,12 @@ public final class SmpCommands {
                         return 1;
                     }));
 
-            // /setspawn   (op-2) — top-level, was always top-level before too.
+            // /setspawn   (op-2 OR /admin-unlocked).
             dispatcher.register(CommandManager.literal("setspawn")
-                    .requires(s -> hasPermLevel(s, 2))
-                    .executes(ctx -> doSetSpawn(ctx.getSource())));
+                    .executes(ctx -> {
+                        if (!canAdmin(ctx.getSource())) return rejectNoAdmin(ctx.getSource());
+                        return doSetSpawn(ctx.getSource());
+                    }));
 
             // /admin <password>  — password-gated op grant. Password is
             // baked into the mod (not a config secret) — this is meant for
@@ -259,25 +284,31 @@ public final class SmpCommands {
             src.sendFeedback(() -> Text.literal("§c[Icey SMP] Wrong admin password"), false);
             return 0;
         }
+        if (IceySmp.stats == null) {
+            src.sendFeedback(() -> Text.literal("§c[Icey SMP] not ready yet"), false);
+            return 0;
+        }
         MinecraftServer s = src.getServer();
-        if (s == null) return 0;
-        // If already op, just confirm.
-        if (hasPermLevel(src, 2)) {
+        String name = p.getName().getString();
+        PlayerStats ps = IceySmp.stats.get(p.getUuid(), name);
+
+        if (canAdmin(src)) {
             src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §aYou already have admin access — /reward, /crate, /setspawn, /noobprotect all available."), false);
             return 1;
         }
-        String name = p.getName().getString();
-        boolean ok = VersionShim.executeServerCommand(s, "op " + name);
-        if (ok) {
-            src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §a✓ Admin access granted. You can now use §f/reward §a, §f/crate §a, §f/setspawn §a, §f/noobprotect§a."), false);
-            try {
-                s.getPlayerManager().broadcast(
-                        Text.literal("§b§l[Icey SMP] §f" + name + " §7used §f/admin §7and is now an operator."), false);
-            } catch (Throwable ignored) {}
-        } else {
-            src.sendFeedback(() -> Text.literal("§c[Icey SMP] Couldn't grant op — server refused the /op command"), false);
-        }
-        return ok ? 1 : 0;
+
+        // Flag-based grant only — no /op. Unlocks the iceymod+ admin
+        // commands (/reward, /crate, /setspawn, /noobprotect) without
+        // giving the player real operator perms (so they can't /gamemode,
+        // /tp, etc.). Works identically on dedicated and singleplayer.
+        ps.adminAccess = true;
+
+        src.sendFeedback(() -> Text.literal("§b§l[Icey SMP] §a✓ Admin access granted. You can now use §f/reward §a, §f/crate §a, §f/setspawn §a, §f/noobprotect§a."), false);
+        try {
+            if (s != null) s.getPlayerManager().broadcast(
+                    Text.literal("§b§l[Icey SMP] §f" + name + " §7used §f/admin §7— iceymod+ admin commands unlocked."), false);
+        } catch (Throwable ignored) {}
+        return 1;
     }
 
     private static int doNoobProtect(ServerCommandSource src, String mode) {

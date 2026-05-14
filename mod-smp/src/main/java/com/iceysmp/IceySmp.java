@@ -123,6 +123,22 @@ public final class IceySmp implements ModInitializer {
         try { if (combat != null) CombatLogoutHandler.register(combat, config); }
         catch (Throwable t) { System.out.println("[IceySMP] CombatLogoutHandler failed: " + t); }
 
+        // Death wipes all StatusEffects in vanilla MC, so respawning meant
+        // up to recomputeSeconds (default 30s) of no Haste/Strength/etc.
+        // until the next recompute pass. Per user: "if you die you lose
+        // all effects I dont want." Re-apply on AFTER_RESPAWN so the
+        // category buffs come back the moment they respawn.
+        try {
+            net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.AFTER_RESPAWN.register(
+                    (oldPlayer, newPlayer, alive) -> {
+                        try { if (leaderboard != null) leaderboard.applyEffectsFor(newPlayer); }
+                        catch (Throwable t) { System.out.println("[IceySMP] AFTER_RESPAWN re-apply failed: " + t); }
+                    });
+            System.out.println("[IceySMP] AFTER_RESPAWN hook installed (re-apply category effects)");
+        } catch (Throwable t) {
+            System.out.println("[IceySMP] AFTER_RESPAWN hook failed: " + t);
+        }
+
         System.out.println("[IceySMP] onInitialize complete");
     }
 }

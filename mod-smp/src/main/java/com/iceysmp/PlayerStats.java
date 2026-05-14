@@ -45,6 +45,11 @@ public final class PlayerStats {
     /** Epoch-millis of the last /icey daily roll. Cooldown is 14h. */
     public long lastDailyMs = 0L;
 
+    /** True after a successful /admin &lt;password&gt; — unlocks /reward,
+     *  /crate, /setspawn, /noobprotect without needing real op perms.
+     *  Works on singleplayer worlds where /op doesn't grant anything. */
+    public boolean adminAccess = false;
+
     public PlayerStats(String name) {
         this.name = name;
     }
@@ -67,26 +72,39 @@ public final class PlayerStats {
             "crops", "diamonds", "woodChopped", "damageDealt", "damageTaken", "deaths"
     };
 
-    /** Transfer all stealable counters from {@code victim} to this stats
-     *  block, zero them on the victim. Called on PvP death. */
+    /** Transfer 10% of each stealable counter from {@code victim} to this
+     *  stats block. Per user request — full transfer was too punishing,
+     *  the victim keeps the other 90% and stays useful after a death.
+     *  Called only on PvP kill, never on environmental death. */
     public void absorbFrom(PlayerStats victim) {
         if (victim == this) return;
-        this.mining       += victim.mining;       victim.mining       = 0;
-        this.pvpKills     += victim.pvpKills;     victim.pvpKills     = 0;
-        this.playtimeTicks+= victim.playtimeTicks;victim.playtimeTicks= 0;
-        this.mobKills     += victim.mobKills;     victim.mobKills     = 0;
-        this.animalKills  += victim.animalKills;  victim.animalKills  = 0;
-        this.crops        += victim.crops;        victim.crops        = 0;
-        this.diamonds     += victim.diamonds;     victim.diamonds     = 0;
-        this.woodChopped  += victim.woodChopped;  victim.woodChopped  = 0;
-        this.damageDealt  += victim.damageDealt;  victim.damageDealt  = 0;
-        this.damageTaken  += victim.damageTaken;  victim.damageTaken  = 0;
-        this.deaths       += victim.deaths;       victim.deaths       = 0;
-        this.fishCaught       += victim.fishCaught;       victim.fishCaught       = 0;
-        this.distanceWalkedCm += victim.distanceWalkedCm; victim.distanceWalkedCm = 0;
-        this.jumps            += victim.jumps;            victim.jumps            = 0;
-        this.xpLevelsGained   += victim.xpLevelsGained;   victim.xpLevelsGained   = 0;
-        this.sneakTimeTicks   += victim.sneakTimeTicks;   victim.sneakTimeTicks   = 0;
-        this.distanceInWaterCm+= victim.distanceInWaterCm;victim.distanceInWaterCm= 0;
+        this.mining            += takeTenth(victim, "mining");
+        this.pvpKills          += takeTenth(victim, "pvpKills");
+        this.playtimeTicks     += takeTenth(victim, "playtimeTicks");
+        this.mobKills          += takeTenth(victim, "mobKills");
+        this.animalKills       += takeTenth(victim, "animalKills");
+        this.crops             += takeTenth(victim, "crops");
+        this.diamonds          += takeTenth(victim, "diamonds");
+        this.woodChopped       += takeTenth(victim, "woodChopped");
+        this.damageDealt       += takeTenth(victim, "damageDealt");
+        this.damageTaken       += takeTenth(victim, "damageTaken");
+        this.deaths            += takeTenth(victim, "deaths");
+        this.fishCaught        += takeTenth(victim, "fishCaught");
+        this.distanceWalkedCm  += takeTenth(victim, "distanceWalkedCm");
+        this.jumps             += takeTenth(victim, "jumps");
+        this.xpLevelsGained    += takeTenth(victim, "xpLevelsGained");
+        this.sneakTimeTicks    += takeTenth(victim, "sneakTimeTicks");
+        this.distanceInWaterCm += takeTenth(victim, "distanceInWaterCm");
+    }
+
+    /** Take floor(field/10) from victim, leave the rest. */
+    private static long takeTenth(PlayerStats victim, String fieldName) {
+        try {
+            java.lang.reflect.Field f = PlayerStats.class.getField(fieldName);
+            long val = f.getLong(victim);
+            long take = val / 10;
+            f.setLong(victim, val - take);
+            return take;
+        } catch (Throwable t) { return 0; }
     }
 }

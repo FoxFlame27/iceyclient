@@ -157,6 +157,20 @@ public final class WeaponDrops {
             //      successfully, so we know it works on every yarn build
             //      that has the components system at all.
             String playerName = player.getName().getString();
+
+            // Snapshot inventory BEFORE /give so we can diff and find the
+            // exact slot the new stack lands in. Without this we can't
+            // tell our new Wavebreaker apart from a regular Trident the
+            // player was already carrying.
+            var inv = player.getInventory();
+            int invSize;
+            try { invSize = inv.size(); } catch (Throwable t) { invSize = 41; }
+            ItemStack[] beforeStacks = new ItemStack[invSize];
+            for (int i = 0; i < invSize; i++) {
+                try { beforeStacks[i] = inv.getStack(i).copy(); }
+                catch (Throwable ignored) { beforeStacks[i] = ItemStack.EMPTY; }
+            }
+
             String[] giveFormats = {
                     "give " + playerName + " " + r.item + "[enchantments=" + r.enchants + ",rarity=epic] 1",
                     "give " + playerName + " " + r.item + "[enchantments={levels:" + r.enchants + "},rarity=epic] 1",
@@ -176,8 +190,12 @@ public final class WeaponDrops {
                 return false;
             }
 
-            // Patch custom_name + lore on the just-given stack.
-            patchComponents(player, r, reasonLabel);
+            // Diff-based patch: snapshot before /give, find the changed
+            // slot, patch its components. Done in the next-tick callback
+            // because /give runs via the command pipeline which is one
+            // dispatch removed from this thread — by the time we check,
+            // the new stack might not be visible yet on this tick.
+            patchComponentsAfterGive(player, r, reasonLabel, beforeStacks);
 
             // Big banner.
             try {
@@ -222,79 +240,50 @@ public final class WeaponDrops {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
-    /** Find the bare-named stack just dropped in by /give and overwrite
-     *  its custom_name + lore via the components API. The SkillsScreen
-     *  uses the same DataComponentTypes path and renders correctly, so
-     *  this avoids every /give SNBT-parsing quirk that was making item
-     *  names show up as the literal JSON string. */
-    private static void patchComponents(ServerPlayerEntity player, Reward r, String reasonLabel) {
+    /** Compare pre-give inventory to post-give. Whichever slot grew (or
+     *  appeared from empty) is the slot /give just dropped the new stack
+     *  into. Patch custom_name + lore on that exact stack via the
+     *  components API — same path SkillsScreen uses successfully, so it
+     *  sidesteps every /give SNBT-parsing quirk. */
+    private static void patchComponentsAfterGive(ServerPlayerEntity player, Reward r, String reasonLabel,
+                                                 ItemStack[] beforeStacks) {
         try {
             var inv = player.getInventory();
-            int size;
-            try { size = inv.size(); } catch (Throwable t) { size = 41; }
-
+            int size = beforeStacks.length;
+            ItemStack target = null;
             for (int i = 0; i < size; i++) {
-                ItemStack stack;
-                try { stack = inv.getStack(i); } catch (Throwable t) { continue; }
-                if (stack == null || stack.isEmpty()) continue;
-                if (!stackMatchesId(stack, r.item)) continue;
-                // Skip if a name is already present — covers manual /give'd
-                // items the player happens to be carrying.
-                try { if (stack.contains(DataComponentTypes.CUSTOM_NAME)) continue; } catch (Throwable ignored) {}
-
-                Text name = Text.literal(r.name)
-                        .setStyle(Style.EMPTY.withColor(parseFormatting(r.nameColor)).withBold(true).withItalic(false));
-                try { stack.set(DataComponentTypes.CUSTOM_NAME, name); } catch (Throwable ignored) {}
-
-                List<Text> loreLines = new ArrayList<>();
-                for (int j = 0; j < r.lore.length; j++) {
-                    Formatting color = (j == 0) ? Formatting.GRAY : Formatting.DARK_AQUA;
-                    loreLines.add(Text.literal(r.lore[j])
-                            .setStyle(Style.EMPTY.withColor(color).withItalic(false)));
-                }
-                loreLines.add(Text.literal("Max-level reward — " + reasonLabel)
-                        .setStyle(Style.EMPTY.withColor(Formatting.DARK_GRAY).withItalic(false)));
-                try { stack.set(DataComponentTypes.LORE, new LoreComponent(loreLines)); } catch (Throwable ignored) {}
+                ItemStack now;
+                try { now = inv.getStack(i); } catch (Throwable t) { continue; }
+                if (now == null || now.isEmpty()) continue;
+                ItemStack before = beforeStacks[i];
+                if (before == null || before.isEmpty()) { target = now; break; }
+                if (now.getCount() > before.getCount()) { target = now; break; }
+            }
+            if (target == null) {
+                System.out.println("[IceySMP] patchComponentsAfterGive: no changed slot found — item still given but no custom name/lore");
                 return;
             }
-        } catch (Throwable t) {
-            System.out.println("[IceySMP] patchComponents failed: " + t);
-        }
-    }
 
-    /** Resolve the stack's registry-ID string ("minecraft:diamond_sword")
-     *  via reflection so we don't bind to a specific Registries class
-     *  shape across the yarn matrix. */
-    private static boolean stackMatchesId(ItemStack stack, String expectedId) {
-        try {
-            Object item = stack.getItem();
-            for (String regClass : new String[] {
-                    "net.minecraft.registry.Registries",
-                    "net.minecraft.util.registry.Registries",
-                    "net.minecraft.util.registry.Registry"}) {
-                try {
-                    Class<?> c = Class.forName(regClass);
-                    Object reg = c.getField("ITEM").get(null);
-                    Object idObj = reg.getClass().getMethod("getId", item.getClass().getInterfaces().length > 0
-                            ? item.getClass().getInterfaces()[0] : item.getClass()).invoke(reg, item);
-                    if (idObj != null && expectedId.equals(idObj.toString())) return true;
-                } catch (Throwable ignored) {}
+            Text name = Text.literal(r.name)
+                    .setStyle(Style.EMPTY.withColor(parseFormatting(r.nameColor)).withBold(true).withItalic(false));
+            try { target.set(DataComponentTypes.CUSTOM_NAME, name); } catch (Throwable t) {
+                System.out.println("[IceySMP] set CUSTOM_NAME failed: " + t);
             }
-        } catch (Throwable ignored) {}
-        // Last-resort fuzzy match — try any string getter that returns the
-        // item's translation/registry key. Different yarn versions name
-        // these getTranslationKey / getId / asString.
-        try {
-            String path = expectedId.substring(expectedId.indexOf(':') + 1);
-            Object item = stack.getItem();
-            for (String mName : new String[] {"getTranslationKey", "getRegistryEntry", "getId", "toString"}) {
-                try {
-                    Object v = item.getClass().getMethod(mName).invoke(item);
-                    if (v != null && v.toString().contains(path)) return true;
-                } catch (Throwable ignored) {}
+
+            List<Text> loreLines = new ArrayList<>();
+            for (int j = 0; j < r.lore.length; j++) {
+                Formatting color = (j == 0) ? Formatting.GRAY : Formatting.DARK_AQUA;
+                loreLines.add(Text.literal(r.lore[j])
+                        .setStyle(Style.EMPTY.withColor(color).withItalic(false)));
             }
-        } catch (Throwable ignored) {}
-        return false;
+            loreLines.add(Text.literal("Max-level reward — " + reasonLabel)
+                    .setStyle(Style.EMPTY.withColor(Formatting.DARK_GRAY).withItalic(false)));
+            try { target.set(DataComponentTypes.LORE, new LoreComponent(loreLines)); } catch (Throwable t) {
+                System.out.println("[IceySMP] set LORE failed: " + t);
+            }
+        } catch (Throwable t) {
+            System.out.println("[IceySMP] patchComponentsAfterGive failed: " + t);
+        }
     }
 
     private static Formatting parseFormatting(String c) {

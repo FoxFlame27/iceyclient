@@ -101,6 +101,28 @@ public final class LeaderboardManager {
         if (tickCounter % (60 * 20) == 0) combat.prune();
     }
 
+    /** Per-player effect re-application — called from recompute() AND
+     *  from the AFTER_RESPAWN hook so dying never strips a player's
+     *  category-based buffs. Walks every Category, computes the amp
+     *  from the player's count, and re-applies the StatusEffect. */
+    public void applyEffectsFor(ServerPlayerEntity p) {
+        if (p == null || stats == null) return;
+        int duration = config.effectDurationSeconds() * 20;
+        for (Category cat : Category.values()) {
+            try {
+                RegistryEntry<StatusEffect> effect = cat.effect();
+                if (effect == null) continue;
+                PlayerStats ps = stats.peek(p.getUuid());
+                if (ps == null) continue;
+                double normalized = cat.field.applyAsLong(ps) / (double) cat.divisor;
+                int amp = ampForNormalized(normalized, effect);
+                if (amp >= 0) {
+                    p.addStatusEffect(new StatusEffectInstance(effect, duration, amp, false, false, true));
+                }
+            } catch (Throwable ignored) {}
+        }
+    }
+
     private void recompute(MinecraftServer server) {
         int duration = config.effectDurationSeconds() * 20;
 

@@ -30,6 +30,18 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.84.5
+
+**Four user-reported fixes.**
+
+1. **`/admin` works in singleplayer.** Previous `/op <player>` step is a no-op on singleplayer worlds (only mutates ops.json on dedicated servers). Replaced with a runtime flag on `PlayerStats.adminAccess` — per user: "instead of making op just grant them access to custom commands ok." `/crate`, `/reward`, `/noobprotect`, `/setspawn` drop their `.requires(...)` brigadier gate so they always tab-complete, with perm + adminAccess check moved inside the executor — rejects with `Admin only. Run /admin <password> to unlock.` `/admin 2705` now only sets the flag — no `/op`, no vanilla cheat-command access.
+
+2. **Custom item names + lore actually apply now.** v1.84.4's reflection-based ID match couldn't resolve `Registries.ITEM.getId()` reliably across yarn, so `patchComponents` silently exited. Replaced with a positional diff in [WeaponDrops.java](mod-smp/src/main/java/com/iceysmp/WeaponDrops.java): snapshot the full inventory **before** `/give`, then walk the inventory and find the first slot whose count grew (or went empty → non-empty). That's the slot `/give` just landed in — patch its `CUSTOM_NAME` + `LORE` directly via the components API. No item-ID matching, no registry reflection.
+
+3. **PvP kill steals 10%, not 100%** — per user: "if a other player kills u they steal 10%." Previous `absorbFrom` zeroed the victim's counters and moved them entirely to the killer. Now takes `floor(field / 10)` from each stealable counter, leaves the rest with the victim. Reflection iterates the 17 stealable fields by name so future fields auto-participate.
+
+4. **Effects survive death.** Per user: "if you die you lose all effects I dont want." Vanilla MC clears every `StatusEffectInstance` on death, so respawning meant up to `recomputeSeconds` (30s default) of no Haste/Strength/etc. until the next recompute pass. New `LeaderboardManager.applyEffectsFor(player)` walks every category and re-applies amps for one player; called from a `ServerPlayerEvents.AFTER_RESPAWN` hook in [IceySmp.java](mod-smp/src/main/java/com/iceysmp/IceySmp.java) so respawning gets the category buffs back the same tick.
+
 ## What's new in v1.84.4
 
 **Custom weapon names finally render properly + new `/admin <password>` command.**
