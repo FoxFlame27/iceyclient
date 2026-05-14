@@ -50,6 +50,46 @@ public final class PlayerStats {
      *  Works on singleplayer worlds where /op doesn't grant anything. */
     public boolean adminAccess = false;
 
+    /** Per-kit last-purchase epoch-ms. Encoded as "kitId:ms;kitId:ms;..."
+     *  in the JSON blob for compactness. */
+    public String kitCooldowns = "";
+
+    public long getKitLastMs(String kitId) {
+        if (kitCooldowns == null || kitCooldowns.isEmpty()) return 0;
+        for (String pair : kitCooldowns.split(";")) {
+            int colon = pair.indexOf(':');
+            if (colon < 0) continue;
+            if (!pair.substring(0, colon).equals(kitId)) continue;
+            try { return Long.parseLong(pair.substring(colon + 1)); }
+            catch (NumberFormatException e) { return 0; }
+        }
+        return 0;
+    }
+
+    public void setKitLastMs(String kitId, long ms) {
+        StringBuilder sb = new StringBuilder();
+        boolean replaced = false;
+        if (kitCooldowns != null) for (String pair : kitCooldowns.split(";")) {
+            if (pair.isEmpty()) continue;
+            int colon = pair.indexOf(':');
+            if (colon < 0) continue;
+            String thisId = pair.substring(0, colon);
+            if (thisId.equals(kitId)) {
+                if (sb.length() > 0) sb.append(";");
+                sb.append(kitId).append(":").append(ms);
+                replaced = true;
+            } else {
+                if (sb.length() > 0) sb.append(";");
+                sb.append(pair);
+            }
+        }
+        if (!replaced) {
+            if (sb.length() > 0) sb.append(";");
+            sb.append(kitId).append(":").append(ms);
+        }
+        kitCooldowns = sb.toString();
+    }
+
     public PlayerStats(String name) {
         this.name = name;
     }

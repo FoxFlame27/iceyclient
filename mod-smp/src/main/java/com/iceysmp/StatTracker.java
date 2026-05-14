@@ -112,6 +112,9 @@ public final class StatTracker {
                 st.frostfangAwardedFor = extractString(body, "ffAwarded", "");
                 st.bountyXp = (int) extractLong(body, "bounty");
                 st.lastDailyMs = extractLong(body, "lastDaily");
+                st.kitCooldowns = extractString(body, "kitCooldowns", "");
+                st.distanceInWaterCm = extractLong(body, "waterCm");
+                st.adminAccess = extractLong(body, "adminAccess") == 1L;
                 try { map.put(UUID.fromString(uuidStr), st); } catch (Exception ignored) {}
             }
         } catch (IOException ignored) {}
@@ -148,7 +151,10 @@ public final class StatTracker {
                 sb.append("\"sneak\":").append(s.sneakTimeTicks).append(",");
                 sb.append("\"ffAwarded\":\"").append(escape(s.frostfangAwardedFor == null ? "" : s.frostfangAwardedFor)).append("\",");
                 sb.append("\"bounty\":").append(s.bountyXp).append(",");
-                sb.append("\"lastDaily\":").append(s.lastDailyMs);
+                sb.append("\"lastDaily\":").append(s.lastDailyMs).append(",");
+                sb.append("\"kitCooldowns\":\"").append(escape(s.kitCooldowns == null ? "" : s.kitCooldowns)).append("\",");
+                sb.append("\"waterCm\":").append(s.distanceInWaterCm).append(",");
+                sb.append("\"adminAccess\":").append(s.adminAccess ? 1 : 0);
                 sb.append("}");
             }
             sb.append("\n}\n");

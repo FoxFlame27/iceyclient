@@ -30,6 +30,26 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.85.0
+
+**`/kits` — buy tiered SMP gear bundles with in-game items.** Chest GUI with 5 progressively-better SMP kits, each on a 24h cooldown per player. Pay the price in inventory items at the moment of purchase; the kit lands in your inventory immediately. Per user spec: "ALL SMP THEME CHEAPEST BEING PROT 2 NETH ETC ETC."
+
+| Tier | Kit | Price | Highlights |
+| --- | --- | --- | --- |
+| 1 | **Starter Kit** | 16 diamonds | Full netherite Prot II + Unb II, Sharp III diamond sword, Power II bow, 16 cooked beef |
+| 2 | **Soldier Kit** | 1 netherite ingot | Full netherite Prot III + Unb II, Sharp IV netherite sword, Quick Charge II + Piercing II crossbow, shield, 8 golden apples |
+| 3 | **Veteran Kit** | 3 netherite ingots | Prot IV + Unb III netherite, Sharp V + Sweep III + Fire II sword, Power V + Punch II + Infinity bow, shield, 4 enchanted gapples, 1 totem |
+| 4 | **Champion Kit** | 8 netherite ingots | Prot IV + Mending + Thorns III armor (boots +Feather Falling IV), Looting III sword (Sharp V + Sweep III + Fire II + Unb III + Mending), Flame bow, Unb III shield, 8 enchanted gapples, 2 totems |
+| 5 | **Attribute Kit** | 20 netherite ingots | Prot IV + Unb III + Mending netherite (boots +FF IV), Sharp V sword, **Mace** (Density V + Breach IV + Unb III), **Elytra** (Unb III + Mending) |
+
+Implementation:
+- [Kits.java](mod-smp/src/main/java/com/iceysmp/Kits.java) holds the 5-kit catalog plus the `attemptPurchase` logic: cooldown check → inventory count check → deduct currency → run a /give command per item (with the same enchants-via-component path proven in `WeaponDrops`, with `{levels:{...}}` and bare-item fallbacks).
+- [KitsScreen.java](mod-smp/src/main/java/com/iceysmp/KitsScreen.java) is the chest GUI. 9×3 layout with purple stained-glass-pane border, 5 kit icons in slots 10–14. Each kit's lore shows price, cooldown remaining (or "Ready to buy"/"You have X/Y"), description, and a bullet list of contents. Click → closes GUI, then attempts purchase on the next tick.
+- 24h cooldown tracked in new `PlayerStats.kitCooldowns` field, encoded as `"kitId:lastMs;kitId:lastMs;..."` and persisted in stats.json. Same file path also picks up `waterCm`, `adminAccess` which were missing from the JSON I/O before.
+- Failure modes per user choice ("Chat error + close GUI"): cooldown active → "kit on cooldown for 12h 34m"; not enough currency → "need 4 more 20 Netherite Ingots"; both close the GUI and print chat error.
+
+On success a title banner shows the kit name and "Purchased for X", and the server broadcasts who bought what.
+
 ## What's new in v1.84.7
 
 **Five user asks bundled.**

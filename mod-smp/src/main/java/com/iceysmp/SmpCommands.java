@@ -127,6 +127,18 @@ public final class SmpCommands {
                         return 1;
                     }));
 
+            // /kits — chest GUI for buying tiered SMP gear bundles
+            dispatcher.register(CommandManager.literal("kits")
+                    .executes(ctx -> {
+                        ServerPlayerEntity p = ctx.getSource().getPlayer();
+                        if (p == null) {
+                            ctx.getSource().sendFeedback(() -> Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r§c /kits must be run by a player"), false);
+                            return 0;
+                        }
+                        KitsScreen.open(p);
+                        return 1;
+                    }));
+
             // /leaderboard [cat]  — no arg opens the chest GUI; with arg
             // sends the legacy chat-text top-10. (/lb removed per user
             // request — only /leaderboard now.)
