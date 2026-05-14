@@ -30,6 +30,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.85.3
+
+**Two user-reported bugs.**
+
+1. **Kit currency count was always 0.** User: "if i try and buy a kit with 64 neth it says need 20 more 20 netherite ingot same for diamond." The reflection-based `matchesItemId` in `Kits` couldn't reach `Registries.ITEM.getId(Item)` reliably — the loop over `getMethods()` was hitting overloads that threw before finding the right one. Replaced with a direct call to `Registries.ITEM.getId(stack.getItem())` first (same API path `KitsScreen` uses successfully), with the reflection walk kept as a fallback for yarn variants where the direct call fails. Currency counting + deduction now matches.
+2. **Attacking a mob still combat-tagged the player.** User: "if i attack a ob i still get cokmabt." v1.84.7 dropped `combat.tagOne(victim)` in the *mob-hits-player* branch but missed the *player-hits-mob* branch which still called `combat.tagOne(attacker)`. Removed that too — combat tag is now strictly PvP. Mobs still credit `damageTaken` (so the dmgtaken leaderboard counts mob hits), and player-hits-mob still credits `damageDealt` (so the damage-dealt counter increases), but neither side gets flagged in-combat.
+
 ## What's new in v1.85.2
 
 **CI yarn compile fix.** Two errors on CI's non-1.21.8 matrix entries:

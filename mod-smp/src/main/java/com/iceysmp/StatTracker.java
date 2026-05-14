@@ -331,12 +331,14 @@ public final class StatTracker {
                     PlayerStats vs = stats.get(victim.getUuid(), victim.getName().getString());
                     vs.damageTaken += (long) (amount * 10);
                 }
-                // Player hits mob — tag attacker only
+                // Player hits mob — credit damage-dealt but DON'T combat-tag.
+                // Per user: "if i attack a ob i still get cokmabt" — attacking
+                // mobs should not flag the player as in-combat (no boss bar,
+                // no combat-log death). Combat tag is now strictly PvP.
                 else if (attacker instanceof ServerPlayerEntity sp
                         && !(entity instanceof ServerPlayerEntity)) {
                     PlayerStats as = stats.get(sp.getUuid(), sp.getName().getString());
                     as.damageDealt += (long) (amount * 10);
-                    combat.tagOne(sp.getUuid());
                 }
                 // Environmental damage on a player (fall, lava, fire, etc.)
                 // — only track damage-taken counter, no combat tag.

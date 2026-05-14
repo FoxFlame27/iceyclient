@@ -250,6 +250,15 @@ public final class Kits {
     }
 
     private static boolean matchesItemId(ItemStack stack, String expectedId) {
+        // Direct API first (proven to work in KitsScreen which uses
+        // Registries.ITEM.get(Identifier.of(id)) successfully).
+        try {
+            net.minecraft.util.Identifier id = net.minecraft.registry.Registries.ITEM.getId(stack.getItem());
+            if (id != null && expectedId.equals(id.toString())) return true;
+        } catch (Throwable ignored) {}
+        // Reflection fallback for yarn variants where the direct API
+        // call fails — try every getId(Object) method on the Registries
+        // .ITEM instance.
         try {
             Object item = stack.getItem();
             for (String regClass : new String[] {
