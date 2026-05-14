@@ -30,6 +30,24 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.85.5
+
+**Kit items now get themed custom names** matching the reward-weapon path proven in `WeaponDrops`. Per user: "Make the sword armor gear etc called the same name as the kit so for e.g Attribute Sword in a cool Colour … Like the customs gear we made alr."
+
+- Per-item naming runs through the same components API path as the reward weapons (`stack.set(DataComponentTypes.CUSTOM_NAME, Text)` with `Style.withColor + bold + italic-off`), and uses the same positional snapshot-before-/give → diff-to-find-new-slot logic.
+- Each piece of nameable gear gets renamed to `<KitName> <PieceType>` in the kit's signature color. Examples:
+  - **Attribute Kit** (color: light purple) → "Attribute Helmet", "Attribute Chestplate", "Attribute Sword", "Attribute Mace (Breach)", "Attribute Mace (Density)", "Attribute Wings".
+  - **Champion Kit** (gold) → "Champion Helmet", "Champion Sword", "Champion Spear", etc.
+  - **Bruiser Kit** (red) → "Bruiser Helmet", "Bruiser Axe", etc.
+  - **Hunter Kit** (dark green) → "Hunter Bow", "Hunter Crossbow", etc.
+- Stackable consumables (food, arrows, gapples, totems, pearls, splash potions) are NOT renamed — they'd waste a stack slot per unique name and look silly.
+- Two Attribute maces use explicit `displayName` overrides ("Mace (Breach)" / "Mace (Density)") to differentiate them; everything else auto-derives from the item ID (`netherite_sword` → "Sword", `trident` → "Spear", `elytra` → "Wings", etc.).
+- `Kits.Item` constructor gains an optional `displayName` arg; the old 3-arg constructor still works via overload, so existing entries don't need changes.
+
+`isNameable` filter, `deriveTypeName` mapping, and `formattingFor` (section-code → `Formatting` enum) added to [Kits.java](mod-smp/src/main/java/com/iceysmp/Kits.java).
+
+**Confirming Sharpness is removed** from both Attribute maces in v1.85.4. Breach mace = Breach IV + Wind Burst III + Fire II + KB II + Unb III + Mending. Density mace = Density V + same supporting set. (User report from earlier confirmed against a stale jar — make sure to grab a fresh v1.85.5 release jar for the test.)
+
 ## What's new in v1.85.4
 
 **Kit nerfs + role differentiation + `/kitgive` admin command.**

@@ -1,9 +1,12 @@
 package com.iceysmp;
 
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 /**
  * /kits — five tiered SMP gear bundles purchasable through the
@@ -44,13 +47,19 @@ public final class Kits {
 
     /** One item dropped into the buyer's inventory. {@code enchants} is
      *  the {@code minecraft:enchantments=...} component value (SNBT
-     *  compound), or null if no enchantments. */
+     *  compound), or null if no enchantments. {@code displayName} overrides
+     *  the auto-derived name suffix ({@code "Mace (Breach)"} vs the
+     *  default {@code "Mace"}); leave null to use the auto-derive. */
     public static final class Item {
         public final String id;
         public final int count;
         public final String enchants;
+        public final String displayName;
         public Item(String id, int count, String enchants) {
-            this.id = id; this.count = count; this.enchants = enchants;
+            this(id, count, enchants, null);
+        }
+        public Item(String id, int count, String enchants, String displayName) {
+            this.id = id; this.count = count; this.enchants = enchants; this.displayName = displayName;
         }
     }
 
@@ -211,9 +220,9 @@ public final class Kits {
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:feather_falling\":4}"),
                             new Item("minecraft:netherite_sword",      1, MAXED_SWORD),
                             // Breach mace — Sharpness removed per user.
-                            new Item("minecraft:mace",                 1, "{\"minecraft:breach\":4,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:mace",                 1, "{\"minecraft:breach\":4,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}", "Mace (Breach)"),
                             // Density mace — Sharpness removed per user.
-                            new Item("minecraft:mace",                 1, "{\"minecraft:density\":5,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:mace",                 1, "{\"minecraft:density\":5,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}", "Mace (Density)"),
                             new Item("minecraft:elytra",               1, "{\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                     },
                     new String[] {"§7Endgame elite loadout.", "§7MAXED sword + 2 maces (Breach + Density) + Elytra."}
@@ -360,6 +369,18 @@ public final class Kits {
         if (server == null) return;
         String name = player.getName().getString();
         for (Item it : kit.items) {
+            // Snapshot inventory BEFORE /give so we can find the slot the
+            // new stack landed in and patch its custom_name. Same
+            // positional-diff approach proven in WeaponDrops.
+            var inv = player.getInventory();
+            int invSize;
+            try { invSize = inv.size(); } catch (Throwable t) { invSize = 41; }
+            ItemStack[] beforeStacks = new ItemStack[invSize];
+            for (int i = 0; i < invSize; i++) {
+                try { beforeStacks[i] = inv.getStack(i).copy(); }
+                catch (Throwable ignored) { beforeStacks[i] = ItemStack.EMPTY; }
+            }
+
             String cmd;
             if (it.enchants != null) {
                 cmd = "give " + name + " " + it.id + "[enchantments=" + it.enchants + "] " + it.count;
@@ -374,7 +395,72 @@ public final class Kits {
                 }
                 if (!ok) VersionShim.executeServerCommand(server, "give " + name + " " + it.id + " " + it.count);
             }
+
+            // Skip naming for stackable consumables — they'd look silly
+            // with custom names and waste a stack slot per name variant.
+            if (!isNameable(it.id)) continue;
+
+            // Find the changed slot and patch CUSTOM_NAME on it.
+            for (int i = 0; i < invSize; i++) {
+                ItemStack now;
+                try { now = inv.getStack(i); } catch (Throwable t) { continue; }
+                if (now == null || now.isEmpty()) continue;
+                ItemStack before = beforeStacks[i];
+                boolean newStack = (before == null || before.isEmpty()) || (now.getCount() > before.getCount());
+                if (!newStack) continue;
+                String suffix = (it.displayName != null) ? it.displayName : deriveTypeName(it.id);
+                Text label = Text.literal(kit.label.replace(" Kit", "") + " " + suffix)
+                        .setStyle(Style.EMPTY.withColor(formattingFor(kit.iconColor)).withBold(true).withItalic(false));
+                try { now.set(DataComponentTypes.CUSTOM_NAME, label); } catch (Throwable ignored) {}
+                break;
+            }
         }
+    }
+
+    /** Items eligible for kit-themed custom names. Single-instance gear
+     *  only — consumables stay un-named so they stack cleanly. */
+    private static boolean isNameable(String id) {
+        return id.endsWith("_helmet") || id.endsWith("_chestplate") || id.endsWith("_leggings") || id.endsWith("_boots")
+                || id.endsWith("_sword") || id.endsWith("_axe") || id.endsWith("_pickaxe") || id.endsWith("_shovel")
+                || id.endsWith(":bow") || id.endsWith(":crossbow") || id.endsWith(":trident") || id.endsWith(":mace")
+                || id.endsWith(":shield") || id.endsWith(":elytra");
+    }
+
+    /** Map an item ID's tail to a human-readable suffix used in the
+     *  custom name ("netherite_sword" -> "Sword"). */
+    private static String deriveTypeName(String id) {
+        if (id.endsWith("_helmet"))     return "Helmet";
+        if (id.endsWith("_chestplate")) return "Chestplate";
+        if (id.endsWith("_leggings"))   return "Leggings";
+        if (id.endsWith("_boots"))      return "Boots";
+        if (id.endsWith("_sword"))      return "Sword";
+        if (id.endsWith("_axe"))        return "Axe";
+        if (id.endsWith("_pickaxe"))    return "Pickaxe";
+        if (id.endsWith("_shovel"))     return "Shovel";
+        if (id.endsWith(":bow"))        return "Bow";
+        if (id.endsWith(":crossbow"))   return "Crossbow";
+        if (id.endsWith(":trident"))    return "Spear";
+        if (id.endsWith(":mace"))       return "Mace";
+        if (id.endsWith(":shield"))     return "Shield";
+        if (id.endsWith(":elytra"))     return "Wings";
+        return "Item";
+    }
+
+    /** Map a section-code color string ("§d") to a {@link Formatting}
+     *  enum value for use with {@code Style.withColor}. */
+    private static Formatting formattingFor(String sectionCode) {
+        if (sectionCode == null || sectionCode.length() < 2) return Formatting.WHITE;
+        return switch (sectionCode.charAt(1)) {
+            case 'a' -> Formatting.GREEN;
+            case 'b' -> Formatting.AQUA;
+            case 'c' -> Formatting.RED;
+            case 'd' -> Formatting.LIGHT_PURPLE;
+            case 'e' -> Formatting.YELLOW;
+            case '2' -> Formatting.DARK_GREEN;
+            case '6' -> Formatting.GOLD;
+            case '5' -> Formatting.DARK_PURPLE;
+            default  -> Formatting.WHITE;
+        };
     }
 
     private static void announceTitle(ServerPlayerEntity player, Kit kit, String subtitle) {
