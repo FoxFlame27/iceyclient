@@ -34,7 +34,7 @@ public final class KitsScreen {
 
     private KitsScreen() {}
 
-    private static final int[] KIT_SLOTS = {10, 11, 12, 13, 14};
+    private static final int[] KIT_SLOTS = {10, 11, 12, 13, 14, 15, 16};
 
     public static void open(ServerPlayerEntity player) {
         if (player == null) return;

@@ -30,6 +30,27 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.85.1
+
+**Kits tuned and expanded to 7.** Per user iteration:
+
+- **Starter Kit**: 16 → **45 diamonds** (entry tier costs more grinding now).
+- **Attribute Kit**: sword **upgraded to MAXED** (Sharp V + Sweep III + Fire II + KB II + Looting III + Unb III + Mending), single mace replaced with **TWO maces** — one Breach IV mace and one Density V mace, both with every other applicable enchant maxed (Sharpness V + Wind Burst III + Fire Aspect II + Knockback II + Unbreaking III + Mending), no overlap on the specialty enchant. Elytra unchanged.
+- **Champion Kit**: sword **upgraded to MAXED** (same enchant set as Attribute). New fully-enchanted **trident ("spear")** added — Loyalty III + Channeling I + Impaling V + Unbreaking III + Mending (no Riptide — conflicts with Loyalty/Channeling).
+- **Hunter Kit** (NEW, tier 3 between Soldier and Veteran, **2 netherite ingots**): ranged specialist. Projectile Protection IV netherite (boots +Soul Speed III), maxed bow (Power V + Punch II + Flame + Infinity + Unb III), maxed crossbow (Quick Charge III + Piercing IV + Unb III + Mending), 32 spectral arrows + 64 arrows + 4 ender pearls.
+- **Bruiser Kit** (NEW, tier 6 between Champion and Attribute, **12 netherite ingots**): axe specialist. Same Mending + Thorns III armor as Champion, but with a maxed netherite axe (Sharpness V + Efficiency V + Fire Aspect II + Looting III + Unb III + Mending), Unb III shield, **16 enchanted golden apples**, **4 totems**.
+
+New 7-kit ladder:
+1. Starter — 45 diamonds
+2. Soldier — 1 netherite ingot
+3. **Hunter** — 2 netherite ingots
+4. Veteran — 3 netherite ingots
+5. Champion — 8 netherite ingots (+ MAXED sword, + maxed spear)
+6. **Bruiser** — 12 netherite ingots
+7. Attribute — 20 netherite ingots (+ MAXED sword, + 2 maxed maces)
+
+`KitsScreen` middle-row slots expanded from `{10..14}` to `{10..16}` to fit all 7.
+
 ## What's new in v1.85.0
 
 **`/kits` — buy tiered SMP gear bundles with in-game items.** Chest GUI with 5 progressively-better SMP kits, each on a 24h cooldown per player. Pay the price in inventory items at the moment of purchase; the kit lands in your inventory immediately. Per user spec: "ALL SMP THEME CHEAPEST BEING PROT 2 NETH ETC ETC."

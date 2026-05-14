@@ -69,10 +69,19 @@ public final class Kits {
 
     public static final long COOLDOWN_MS = 24L * 3600L * 1000L;
 
+    /** Maxed-out sword enchants (every applicable enchantment at vanilla max). */
+    private static final String MAXED_SWORD =
+            "{\"minecraft:sharpness\":5,\"minecraft:sweeping_edge\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:looting\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}";
+
+    /** Fully-enchanted trident — "spear" per user request. Riptide
+     *  intentionally omitted because it conflicts with Loyalty/Channeling. */
+    private static final String MAXED_TRIDENT =
+            "{\"minecraft:loyalty\":3,\"minecraft:channeling\":1,\"minecraft:impaling\":5,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}";
+
     public static final Kit[] ALL = new Kit[] {
             new Kit(
                     "starter", "Starter Kit", "§a", "minecraft:diamond_chestplate",
-                    new Cost("minecraft:diamond", 16, "16 Diamonds"),
+                    new Cost("minecraft:diamond", 45, "45 Diamonds"),
                     new Item[] {
                             new Item("minecraft:netherite_helmet",     1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
                             new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":2,\"minecraft:unbreaking\":2}"),
@@ -100,6 +109,22 @@ public final class Kits {
                     new String[] {"Reliable mid-tier loadout.", "Prot III + Unbreaking II all pieces."}
             ),
             new Kit(
+                    "hunter", "Hunter Kit", "§2", "minecraft:bow",
+                    new Cost("minecraft:netherite_ingot", 2, "2 Netherite Ingots"),
+                    new Item[] {
+                            new Item("minecraft:netherite_helmet",     1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:netherite_leggings",   1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:soul_speed\":3}"),
+                            new Item("minecraft:bow",                  1, "{\"minecraft:power\":5,\"minecraft:punch\":2,\"minecraft:flame\":1,\"minecraft:infinity\":1,\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:crossbow",             1, "{\"minecraft:quick_charge\":3,\"minecraft:piercing\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:spectral_arrow",      32, null),
+                            new Item("minecraft:arrow",               64, null),
+                            new Item("minecraft:ender_pearl",          4, null),
+                    },
+                    new String[] {"Ranged specialist.", "Projectile Prot IV. Maxed bow + crossbow."}
+            ),
+            new Kit(
                     "veteran", "Veteran Kit", "§e", "minecraft:netherite_sword",
                     new Cost("minecraft:netherite_ingot", 3, "3 Netherite Ingots"),
                     new Item[] {
@@ -116,20 +141,37 @@ public final class Kits {
                     new String[] {"Max-prot armor + Sharp V sword.", "Power V + Infinity bow + totem."}
             ),
             new Kit(
-                    "champion", "Champion Kit", "§6", "minecraft:netherite_chestplate",
+                    "champion", "Champion Kit", "§6", "minecraft:trident",
                     new Cost("minecraft:netherite_ingot", 8, "8 Netherite Ingots"),
                     new Item[] {
                             new Item("minecraft:netherite_helmet",     1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
                             new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
                             new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4}"),
-                            new Item("minecraft:netherite_sword",      1, "{\"minecraft:sharpness\":5,\"minecraft:sweeping_edge\":3,\"minecraft:fire_aspect\":2,\"minecraft:looting\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:netherite_sword",      1, MAXED_SWORD),
+                            new Item("minecraft:trident",              1, MAXED_TRIDENT),
                             new Item("minecraft:bow",                  1, "{\"minecraft:power\":5,\"minecraft:punch\":2,\"minecraft:flame\":1,\"minecraft:infinity\":1,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:shield",               1, "{\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:enchanted_golden_apple", 8, null),
                             new Item("minecraft:totem_of_undying",      2, null),
                     },
-                    new String[] {"Mending + Thorns III armor.", "Looting III sword. Flame bow. 2 totems."}
+                    new String[] {"Mending + Thorns III armor.", "MAXED sword + fully-enchanted spear (trident)."}
+            ),
+            new Kit(
+                    "bruiser", "Bruiser Kit", "§c", "minecraft:netherite_axe",
+                    new Cost("minecraft:netherite_ingot", 12, "12 Netherite Ingots"),
+                    new Item[] {
+                            new Item("minecraft:netherite_helmet",     1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
+                            new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
+                            new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
+                            new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4}"),
+                            new Item("minecraft:netherite_axe",        1, "{\"minecraft:sharpness\":5,\"minecraft:efficiency\":5,\"minecraft:fire_aspect\":2,\"minecraft:looting\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:shield",               1, "{\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:enchanted_golden_apple", 16, null),
+                            new Item("minecraft:totem_of_undying",      4, null),
+                            new Item("minecraft:potion",                4, null),
+                    },
+                    new String[] {"Axe specialist + heavy healing.", "Sharp V axe. 4 totems. 16 e-gapples."}
             ),
             new Kit(
                     "attribute", "Attribute Kit", "§d", "minecraft:elytra",
@@ -139,11 +181,16 @@ public final class Kits {
                             new Item("minecraft:netherite_chestplate", 1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                             new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:feather_falling\":4}"),
-                            new Item("minecraft:netherite_sword",      1, "{\"minecraft:sharpness\":5,\"minecraft:sweeping_edge\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
-                            new Item("minecraft:mace",                 1, "{\"minecraft:density\":5,\"minecraft:breach\":4,\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:netherite_sword",      1, MAXED_SWORD),
+                            // Breach mace — full Breach IV + every other
+                            // applicable enchant maxed, NO Density.
+                            new Item("minecraft:mace",                 1, "{\"minecraft:breach\":4,\"minecraft:sharpness\":5,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Density mace — full Density V + every other
+                            // applicable enchant maxed, NO Breach.
+                            new Item("minecraft:mace",                 1, "{\"minecraft:density\":5,\"minecraft:sharpness\":5,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                             new Item("minecraft:elytra",               1, "{\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                     },
-                    new String[] {"Top tier. Full netherite + sword.", "Mace + Elytra included."}
+                    new String[] {"Top tier. MAXED sword + 2 maces + Elytra.", "1 Breach mace + 1 Density mace, both maxed."}
             ),
     };
 
