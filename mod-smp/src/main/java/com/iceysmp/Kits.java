@@ -118,12 +118,14 @@ public final class Kits {
                             new Item("minecraft:diamond_shovel",     1, "{\"minecraft:efficiency\":3,\"minecraft:unbreaking\":2}"),
                             new Item("minecraft:cooked_beef",       64, null),
                             new Item("minecraft:bread",             16, null),
+                            new Item("minecraft:torch",             32, null),
+                            new Item("minecraft:iron_ingot",         8, null),
                             // Guide book — handled specially in deliverItems
                             // (written_book_content component built via /give
                             // with multi-page raw text).
                             new Item("minecraft:written_book",       1, null, "__GUIDE_BOOK__"),
                     },
-                    new String[] {"§7Miner/Utility role.", "§7Full diamond armor + tool set + guide book."}
+                    new String[] {"§7Miner/Utility role.", "§7Full diamond armor + tools + torches + guide book."}
             ),
             // ── TIER 2 — SOLDIER (defensive PvE/anti-mob) ──────────────
             // Diamond armor + shield + crossbow. Built to soak hits and
@@ -137,13 +139,17 @@ public final class Kits {
                             new Item("minecraft:diamond_leggings",   1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2,\"minecraft:blast_protection\":3}"),
                             new Item("minecraft:diamond_boots",      1, "{\"minecraft:protection\":3,\"minecraft:unbreaking\":2,\"minecraft:blast_protection\":3}"),
                             new Item("minecraft:diamond_sword",      1, "{\"minecraft:sharpness\":4,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3}"),
+                            new Item("minecraft:diamond_pickaxe",    1, "{\"minecraft:efficiency\":3,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:shield",             1, "{\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:crossbow",           1, "{\"minecraft:quick_charge\":2,\"minecraft:piercing\":2,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:arrow",             32, null),
                             new Item("minecraft:golden_apple",       8, null),
                             new Item("minecraft:cooked_beef",       32, null),
+                            // Unique: 8 ender pearls for emergency reposition
+                            // during a defensive hold.
+                            new Item("minecraft:ender_pearl",        8, null),
                     },
-                    new String[] {"§7Defensive footman.", "§7Blast Prot III armor + shield. No bow."}
+                    new String[] {"§7Defensive footman.", "§7Blast Prot III armor + Eff III pickaxe + pearls."}
             ),
             // ── TIER 3 — HUNTER (pure ranged) ──────────────────────────
             // Diamond armor with Projectile Prot IV. No melee weapon at
@@ -159,11 +165,17 @@ public final class Kits {
                             new Item("minecraft:diamond_boots",      1, "{\"minecraft:projectile_protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:soul_speed\":3,\"minecraft:feather_falling\":4}"),
                             new Item("minecraft:bow",                1, "{\"minecraft:power\":5,\"minecraft:punch\":2,\"minecraft:flame\":1,\"minecraft:infinity\":1,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:crossbow",           1, "{\"minecraft:quick_charge\":3,\"minecraft:piercing\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Hunter pickaxe — Silk Touch flavor: lets the
+                            // hunter quietly collect intact blocks (spawners,
+                            // ice, glass) without breaking them. No Fortune.
+                            new Item("minecraft:diamond_pickaxe",    1, "{\"minecraft:efficiency\":4,\"minecraft:silk_touch\":1,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:spectral_arrow",    32, null),
                             new Item("minecraft:tipped_arrow",       8, null),
                             new Item("minecraft:ender_pearl",       16, null),
+                            new Item("minecraft:fire_charge",        8, null),
+                            new Item("minecraft:spyglass",           1, null),
                     },
-                    new String[] {"§7Pure ranged kiter.", "§7Maxed bow + crossbow. Pearls. No melee."}
+                    new String[] {"§7Pure ranged kiter.", "§7Bow + crossbow + Silk Touch pick + §fspyglass§7."}
             ),
             // ── TIER 4 — VETERAN (balanced PvP) ────────────────────────
             // First netherite tier. Sword + bow + healing potions for a
@@ -179,11 +191,17 @@ public final class Kits {
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:feather_falling\":4}"),
                             new Item("minecraft:netherite_sword",      1, "{\"minecraft:sharpness\":5,\"minecraft:sweeping_edge\":3,\"minecraft:fire_aspect\":2,\"minecraft:unbreaking\":3}"),
                             new Item("minecraft:bow",                  1, "{\"minecraft:power\":5,\"minecraft:punch\":2,\"minecraft:infinity\":1}"),
-                            new Item("minecraft:splash_potion",        4, null),
+                            // Veteran pickaxe — Fortune III for raw-mat
+                            // mining + Mending so it lasts forever.
+                            new Item("minecraft:diamond_pickaxe",      1, "{\"minecraft:efficiency\":4,\"minecraft:fortune\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Unique: ender chest for portable storage —
+                            // the generalist's signature accessory.
+                            new Item("minecraft:ender_chest",          1, null),
+                            new Item("minecraft:splash_potion",         4, null),
                             new Item("minecraft:enchanted_golden_apple", 4, null),
                             new Item("minecraft:totem_of_undying",      1, null),
                     },
-                    new String[] {"§7Balanced PvP combatant.", "§7Sword + bow + healing potions + totem."}
+                    new String[] {"§7Balanced PvP combatant.", "§7Sword + bow + Fortune III pick + §fEnder Chest§7."}
             ),
             // ── TIER 5 — CHAMPION (PvP melee master) ──────────────────
             // Mending+Thorns armor + MAXED sword + MAXED trident. The
@@ -198,11 +216,27 @@ public final class Kits {
                             new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4}"),
                             new Item("minecraft:netherite_sword",      1, MAXED_SWORD),
-                            new Item("minecraft:trident",              1, MAXED_TRIDENT),
-                            new Item("minecraft:enchanted_golden_apple", 8, null),
-                            new Item("minecraft:totem_of_undying",      2, null),
+                            // ACTUAL spear — 1.21.11 added the minecraft
+                            // :netherite_spear item. deliverItems has a
+                            // fallback that downgrades to a maxed trident
+                            // on 1.21.0-1.21.8 where the spear doesn't
+                            // exist yet, so the kit lands cleanly on every
+                            // matrix version.
+                            new Item("minecraft:netherite_spear",      1, "{\"minecraft:sharpness\":5,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Champion pickaxe — netherite, Fortune III for
+                            // ore mining + Eff V + Mending. Differentiated
+                            // from Attribute's Silk Touch variant.
+                            new Item("minecraft:netherite_pickaxe",    1, "{\"minecraft:efficiency\":5,\"minecraft:fortune\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:elytra",               1, "{\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Flight 3 fireworks — long-distance elytra boost.
+                            new Item("minecraft:firework_rocket",     64, null, null, "fireworks={flight_duration:3b}"),
+                            new Item("minecraft:golden_apple",         64, null),
+                            new Item("minecraft:enchanted_golden_apple", 4, null),
+                            new Item("minecraft:totem_of_undying",      4, null),
+                            new Item("minecraft:ender_pearl",         16, null),
+                            new Item("minecraft:ender_chest",          1, null),
                     },
-                    new String[] {"§7PvP melee master.", "§7MAXED sword + fully-enchanted SPEAR."}
+                    new String[] {"§7PvP melee master + elytra mobility.", "§7MAXED sword + real SPEAR + pick + elytra + 4 totems + chest."}
             ),
             // ── TIER 6 — BRUISER (tank/brawler — axe specialist) ──────
             // Same armor base as Champion BUT no sword/trident/bow. Just
@@ -217,10 +251,19 @@ public final class Kits {
                             new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:blast_protection\":4}"),
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4,\"minecraft:blast_protection\":4}"),
                             new Item("minecraft:netherite_axe",        1, "{\"minecraft:sharpness\":5,\"minecraft:efficiency\":5,\"minecraft:fire_aspect\":2,\"minecraft:looting\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Bruiser pickaxe — diamond (not netherite —
+                            // pickaxe is bonus, not focus). Mending + Unb III,
+                            // no Fortune (Bruiser isn't a miner).
+                            new Item("minecraft:diamond_pickaxe",      1, "{\"minecraft:efficiency\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Unique: 8 splash potions of Strength II for a
+                            // self-buff before a brawl.
+                            new Item("minecraft:splash_potion",         8, null),
                             new Item("minecraft:enchanted_golden_apple", 16, null),
                             new Item("minecraft:totem_of_undying",      4, null),
+                            new Item("minecraft:ender_pearl",          16, null),
+                            new Item("minecraft:tnt",                   8, null),
                     },
-                    new String[] {"§7Tank brawler — axe only.", "§7Blast Prot IV armor. 16 e-gapples, 4 totems."}
+                    new String[] {"§7Tank brawler — axe + strength + TNT.", "§7Blast Prot IV. 16 e-gapples, 4 totems, 8 TNT."}
             ),
             // ── TIER 7 — ATTRIBUTE (endgame elite) ────────────────────
             // MAXED sword + 2 MAXED maces (1 Breach, 1 Density, NO
@@ -240,8 +283,24 @@ public final class Kits {
                             // Density mace — Sharpness removed per user.
                             new Item("minecraft:mace",                 1, "{\"minecraft:density\":5,\"minecraft:wind_burst\":3,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}", "Mace (Density)"),
                             new Item("minecraft:elytra",               1, "{\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Attribute pickaxe — netherite, Silk Touch
+                            // (vs Champion's Fortune). The endgame "I want
+                            // to keep blocks intact" tool.
+                            new Item("minecraft:netherite_pickaxe",    1, "{\"minecraft:efficiency\":5,\"minecraft:silk_touch\":1,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Flight 3 fireworks for the elytra.
+                            new Item("minecraft:firework_rocket",     64, null, null, "fireworks={flight_duration:3b}"),
+                            new Item("minecraft:golden_apple",        64, null),
+                            new Item("minecraft:enchanted_golden_apple", 16, null),
+                            // 64 Breeze Rods — unique to Attribute. Feeds
+                            // into wind-charge crafting + matches the
+                            // wind-burst macy theme.
+                            new Item("minecraft:breeze_rod",          64, null),
+                            new Item("minecraft:wind_charge",         32, null),
+                            new Item("minecraft:totem_of_undying",     4, null),
+                            new Item("minecraft:ender_pearl",         16, null),
+                            new Item("minecraft:ender_chest",          1, null),
                     },
-                    new String[] {"§7Endgame elite loadout.", "§7MAXED sword + 2 maces (Breach + Density) + Elytra."}
+                    new String[] {"§7Endgame elite loadout.", "§7Sword + 2 maces + elytra + Silk pick + breeze + wind charges."}
             ),
     };
 
@@ -415,7 +474,20 @@ public final class Kits {
                     cmd = "give " + name + " " + it.id + "[enchantments={levels:" + it.enchants + "}] " + it.count;
                     ok = VersionShim.executeServerCommand(server, cmd);
                 }
-                if (!ok) VersionShim.executeServerCommand(server, "give " + name + " " + it.id + " " + it.count);
+                // Bare-item retry if still failing.
+                if (!ok) ok = VersionShim.executeServerCommand(server, "give " + name + " " + it.id + " " + it.count);
+                // Last resort for spears — the netherite_spear item only
+                // exists in 1.21.11+; older matrix versions fall through
+                // to a maxed trident so the kit still feels spear-shaped.
+                if (!ok && it.id.endsWith("_spear")) {
+                    String tridentCmd = "give " + name + " minecraft:trident[enchantments=" + MAXED_TRIDENT + "] 1";
+                    ok = VersionShim.executeServerCommand(server, tridentCmd);
+                    if (!ok) {
+                        tridentCmd = "give " + name + " minecraft:trident[enchantments={levels:" + MAXED_TRIDENT + "}] 1";
+                        ok = VersionShim.executeServerCommand(server, tridentCmd);
+                    }
+                    if (!ok) VersionShim.executeServerCommand(server, "give " + name + " minecraft:trident 1");
+                }
             }
 
             // Skip naming for stackable consumables — they'd look silly
@@ -444,6 +516,7 @@ public final class Kits {
     private static boolean isNameable(String id) {
         return id.endsWith("_helmet") || id.endsWith("_chestplate") || id.endsWith("_leggings") || id.endsWith("_boots")
                 || id.endsWith("_sword") || id.endsWith("_axe") || id.endsWith("_pickaxe") || id.endsWith("_shovel")
+                || id.endsWith("_spear")
                 || id.endsWith(":bow") || id.endsWith(":crossbow") || id.endsWith(":trident") || id.endsWith(":mace")
                 || id.endsWith(":shield") || id.endsWith(":elytra");
     }
@@ -459,6 +532,7 @@ public final class Kits {
         if (id.endsWith("_axe"))        return "Axe";
         if (id.endsWith("_pickaxe"))    return "Pickaxe";
         if (id.endsWith("_shovel"))     return "Shovel";
+        if (id.endsWith("_spear"))      return "Spear";
         if (id.endsWith(":bow"))        return "Bow";
         if (id.endsWith(":crossbow"))   return "Crossbow";
         if (id.endsWith(":trident"))    return "Spear";

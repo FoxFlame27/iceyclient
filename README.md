@@ -30,6 +30,73 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.85.7
+
+**Champion + Attribute mass buff, every kit gets a tier-themed pickaxe, more role-unique extras** per user: "in the champion kit there neth pickaxe (enchatnted) and an ACTUAL SPEAR and a elytra and 64 firweworks and 64 golen appples … for attribute kit add 64 golden apples 64 firewoks and 64 breeze rods and a neth pickaxe (enchatnted) … pickaxes in all kits but depeinding on kit different enchates adn some diamond ALOS MAKE THE KITS EVEN MORE UNIQUE."
+
+### Pickaxe progression (new — every kit has one now)
+| Kit | Pickaxe | Theme |
+| --- | --- | --- |
+| Starter | Diamond — Eff III + Fortune II + Unb II | already had, kept |
+| Soldier | Diamond — Eff III + Unb III | durability over speed |
+| Hunter | Diamond — Eff IV + **Silk Touch** + Unb III | quiet block collector |
+| Veteran | Diamond — Eff IV + Fortune III + Unb III + Mending | high-tier miner |
+| Champion | **Netherite** — Eff V + Fortune III + Unb III + Mending | endgame mining |
+| Bruiser | Diamond — Eff IV + Unb III + Mending | bonus tool, not focus |
+| Attribute | **Netherite** — Eff V + **Silk Touch** + Unb III + Mending | endgame silk picks |
+
+### Champion buffs (tier 5)
+- **+ Netherite pickaxe** (Eff V + Fortune III + Unb III + Mending). Kit-named "Champion Pickaxe" in gold.
+- **+ Elytra** (Unb III + Mending). Named "Champion Wings".
+- **+ 64 fireworks** (Flight 3 — long-distance elytra boost). Built via the `componentArgs` override carrying `fireworks={flight_duration:3b}`.
+- **8 enchanted gapples → 64 regular gapples** per user spec.
+
+### Attribute buffs (tier 7)
+- **+ Netherite pickaxe** (Eff V + Silk Touch + Unb III + Mending). Differentiated from Champion's Fortune variant. Named "Attribute Pickaxe" in light purple.
+- **+ 64 golden apples**.
+- **+ 64 fireworks** (Flight 3).
+- **+ 64 Breeze Rods** — exclusive to Attribute. Feeds wind-charge crafting, matches the Wind Burst mace theme.
+
+### Extra role-unique items
+- **Soldier**: + **8 ender pearls** for emergency repositioning during a defensive hold.
+- **Veteran**: + **Ender Chest** — generalist's portable storage signature.
+- **Bruiser**: + **8 splash potions** (Strength) for the pre-brawl self-buff.
+
+The 7-kit ladder still goes Starter → Soldier → Hunter → Veteran → Champion → Bruiser → Attribute. Prices unchanged.
+
+## What's new in v1.85.7
+
+**Real `netherite_spear` (1.21.11), every kit gets a pickaxe, way more items per kit.** Per user: "no the new item in 1.21.11 the spear look it up" + "add even more items."
+
+### Real spear (the 1.21.11 item)
+Confirmed in yarn 1.21.11+build.5 — the full `wooden_spear` … `netherite_spear` ladder exists as proper items in `minecraft:` namespace (yarn `field_63390` → `NETHERITE_SPEAR`).
+
+- **Champion's trident is now a `minecraft:netherite_spear`** with Sharpness V + Fire Aspect II + Knockback II + Unbreaking III + Mending.
+- Auto-named "Champion Spear" via the existing `deriveTypeName` (new `_spear` → "Spear" entry).
+- **Cross-version fallback** — the spear item only exists on 1.21.11+. `deliverItems` detects `id.endsWith("_spear")`, and if `/give` of the spear fails (older MC), falls through to `give P minecraft:trident[enchantments={maxed-trident-set}]` so 1.21 / 1.21.5 / 1.21.8 servers still hand out a maxed trident as the "spear" stand-in. Both forms render the same custom-named "Champion Spear" tooltip via the patch logic.
+
+### More items per kit
+- **Starter** + 32 torches + 8 iron ingots (mining QoL beyond just tools).
+- **Soldier** + 8 ender pearls (added v1.85.6 dev, kept).
+- **Hunter** + 8 fire charges + a **Spyglass** (scout signature item).
+- **Veteran** + Ender Chest (added v1.85.6 dev, kept).
+- **Champion** + 4 enchanted golden apples + 16 ender pearls + Ender Chest. Totems bumped 2 → 4.
+- **Bruiser** + 16 ender pearls + 8 TNT (siege option for the brawler).
+- **Attribute** + 16 enchanted golden apples + 32 wind charges (consumes the 64 breeze rods) + 4 totems + 16 ender pearls + Ender Chest.
+
+### Pickaxes everywhere (recap from earlier work)
+| Kit | Pickaxe | Theme |
+| --- | --- | --- |
+| Starter | Diamond — Eff III + Fortune II + Unb II | early miner |
+| Soldier | Diamond — Eff III + Unb III | durability |
+| Hunter | Diamond — Eff IV + Silk Touch + Unb III | quiet collector |
+| Veteran | Diamond — Eff IV + Fortune III + Unb III + Mending | high-tier miner |
+| Champion | **Netherite** — Eff V + Fortune III + Unb III + Mending | endgame Fortune |
+| Bruiser | Diamond — Eff IV + Unb III + Mending | bonus tool |
+| Attribute | **Netherite** — Eff V + **Silk Touch** + Unb III + Mending | endgame Silk |
+
+Other recap: 64 fireworks (Flight 3 via componentArgs) on Champion + Attribute, 64 gapples each, 64 breeze rods exclusive to Attribute, sharper role identities across the ladder.
+
 ## What's new in v1.85.6
 
 **UI polish + Starter Kit goodies.**
