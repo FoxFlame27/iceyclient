@@ -43,9 +43,18 @@ public final class LeaderboardGui {
         if (player == null) return;
         try {
             SimpleInventory inv = new SimpleInventory(27);
-            ItemStack border = new ItemStack(Items.BLACK_STAINED_GLASS_PANE);
+            ItemStack border = new ItemStack(Items.PURPLE_STAINED_GLASS_PANE);
             trySetCustomName(border, Text.literal(" "));
             for (int i = 0; i < 27; i++) inv.setStack(i, border.copy());
+
+            // Header in slot 4 — explains the click-to-drill-down hint.
+            ItemStack header = new ItemStack(Items.NETHER_STAR);
+            trySetCustomName(header, Text.literal("§6§l✦ Top Players ✦"));
+            java.util.List<Text> headerLore = new java.util.ArrayList<>();
+            headerLore.add(line("§7Click any category for"));
+            headerLore.add(line("§7the full top-10 view."));
+            trySetLore(header, headerLore);
+            inv.setStack(4, header);
 
             LeaderboardManager.Category[] cats = LeaderboardManager.Category.values();
             for (int i = 0; i < cats.length && i < CATEGORY_SLOTS.length; i++) {
@@ -85,7 +94,7 @@ public final class LeaderboardGui {
         if (cat == null) return;
         try {
             SimpleInventory inv = new SimpleInventory(27);
-            ItemStack border = new ItemStack(Items.BLACK_STAINED_GLASS_PANE);
+            ItemStack border = new ItemStack(Items.PURPLE_STAINED_GLASS_PANE);
             trySetCustomName(border, Text.literal(" "));
             for (int i = 0; i < 27; i++) inv.setStack(i, border.copy());
 
@@ -96,9 +105,16 @@ public final class LeaderboardGui {
             headerLore.add(line("§7Effect: §a" + effectName(cat.id())));
             headerLore.add(line("§7Custom reward at: §6" + formatValue(cat.id(), cat.weaponThreshold())));
             headerLore.add(line(" "));
-            headerLore.add(line("§8Press ESC to go back"));
+            headerLore.add(line("§8Press ESC or click ← Back"));
             trySetLore(header, headerLore);
             inv.setStack(4, header);
+
+            // Back button — slot 26 (bottom-right). Clicking closes the
+            // screen; onClosed re-opens the picker on the next tick.
+            ItemStack backBtn = new ItemStack(Items.RED_STAINED_GLASS_PANE);
+            trySetCustomName(backBtn, Text.literal("§c§l← Back"));
+            trySetLore(backBtn, List.of(line("§7Return to category picker")));
+            inv.setStack(26, backBtn);
 
             // Top 10 in slots 9..18 (two rows of 9).
             int[] entrySlots = {9, 10, 11, 12, 13, 14, 15, 16, 17, 18};
@@ -130,8 +146,11 @@ public final class LeaderboardGui {
                 }
                 @Override public ScreenHandler createMenu(int syncId, PlayerInventory pInv, PlayerEntity p) {
                     return new ClickableScreenHandler(syncId, pInv, inv, slot -> {
-                        // No slot routing on the detail screen — clicks
-                        // are ignored, ESC handles the "go back" gesture.
+                        if (slot == 26) {
+                            // Back button — close, onClosed re-opens picker.
+                            playerRef.closeHandledScreen();
+                        }
+                        // Other slots ignored; ESC also triggers onClosed.
                     }, () -> {
                         // onClosed callback: reopen the picker on the
                         // next tick. Per user: "if you press esc you

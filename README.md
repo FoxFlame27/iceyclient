@@ -1,4 +1,4 @@
-llb ty for downloading 
+pllb ty for downloading 
 get .exe for windows
 
 ## Download iceymod+
@@ -29,6 +29,20 @@ get arm 64x .dmg for mac but make sure to run this command if the app says iceyc
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.85.6
+
+**UI polish + Starter Kit goodies.**
+
+- **Starter Kit additions** (per user: "to the starter kit also add some Steak, and a guide book"):
+  - 64 cooked beef (up from 32). Should last well past the early grind.
+  - A 3-page **AttributeSMP Guide** written book — page 1 is a welcome blurb pointing at `/skills`, page 2 lists every player command, page 3 maps each category to its status effect. Built with the 1.21+ `written_book_content` component via the `Item.componentArgs` override + a dedicated `__GUIDE_BOOK__` marker in `deliverItems` so /give can carry the page text. Falls through to a plain `minecraft:written_book` on yarn variants where the component args don't parse.
+- **UI polish across all three chest GUIs:**
+  - `/skills` — purple Nether Star header in slot 4 (`✦ Your Skills ✦`) with a hover-hint explaining the grind → buff loop.
+  - `/kits` — purple Nether Star header in slot 4 (`✦ Kit Shop ✦`) with a "click to buy / 24h cooldown" hint.
+  - `/leaderboard` — gold Nether Star header in slot 4 (`✦ Top Players ✦`) with a "click any category for details" hint.
+- **Back button in per-category leaderboard view** — red glass pane in slot 26 labeled `← Back`. Clicking it closes the screen; the existing `onClosed` callback then re-opens the picker on the next tick. ESC still works as before; the button is just a more discoverable affordance.
+- **`Kits.Item.componentArgs` field** added so any kit item can specify a literal `[component=...]` block in its /give command, not just enchantments. Used for the guide book; other future component-y items (potions with custom effects, banners, music discs) can plug in without touching `deliverItems` again.
 
 ## What's new in v1.85.5
 

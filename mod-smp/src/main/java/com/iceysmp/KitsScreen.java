@@ -46,6 +46,17 @@ public final class KitsScreen {
             trySetCustomName(border, Text.literal(" "));
             for (int i = 0; i < 27; i++) inv.setStack(i, border.copy());
 
+            // Header (slot 4) — quick price-tier overview.
+            ItemStack header = new ItemStack(Items.NETHER_STAR);
+            trySetCustomName(header, Text.literal("§d§l✦ Kit Shop ✦"));
+            java.util.List<Text> headerLore = new java.util.ArrayList<>();
+            headerLore.add(line("§7Click a kit below to buy."));
+            headerLore.add(line("§7Pay in inventory items."));
+            headerLore.add(line(" "));
+            headerLore.add(line("§8Each kit: 24h cooldown."));
+            trySetLore(header, headerLore);
+            inv.setStack(4, header);
+
             // Place kit items in the middle row.
             Kits.Kit[] all = Kits.ALL;
             String[] slotToKit = new String[27];

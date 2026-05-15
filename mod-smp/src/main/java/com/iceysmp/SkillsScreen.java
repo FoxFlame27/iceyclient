@@ -39,11 +39,21 @@ public final class SkillsScreen {
 
             SimpleInventory inv = new SimpleInventory(27);
 
-            // Border — gray glass panes with blank name so they don't read
-            // as "stained glass pane" in the tooltip.
-            ItemStack border = new ItemStack(Items.GRAY_STAINED_GLASS_PANE);
+            // Border — purple glass for the AttributeSMP theme.
+            ItemStack border = new ItemStack(Items.PURPLE_STAINED_GLASS_PANE);
             trySetCustomName(border, Text.literal(" "));
             for (int i = 0; i < 27; i++) inv.setStack(i, border.copy());
+
+            // Header (slot 4) — short hint explaining the view.
+            ItemStack header = new ItemStack(Items.NETHER_STAR);
+            trySetCustomName(header, Text.literal("§d§l✦ Your Skills ✦"));
+            java.util.List<Text> headerLore = new java.util.ArrayList<>();
+            headerLore.add(line("§7Grind the categories below to"));
+            headerLore.add(line("§7unlock buffs + custom gear."));
+            headerLore.add(line(" "));
+            headerLore.add(line("§8(read-only — hover for details)"));
+            trySetLore(header, headerLore);
+            inv.setStack(4, header);
 
             // Place category items in the middle row.
             LeaderboardManager.Category[] cats = LeaderboardManager.Category.values();

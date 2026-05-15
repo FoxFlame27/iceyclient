@@ -55,11 +55,21 @@ public final class Kits {
         public final int count;
         public final String enchants;
         public final String displayName;
+        /** Literal /give component arg string (without the surrounding
+         *  brackets). When set, overrides the {@code enchants} field —
+         *  the resulting command is {@code give P id[componentArgs] N}.
+         *  Used for things like {@code written_book_content={...}} where
+         *  the override is a non-enchantments component. */
+        public final String componentArgs;
         public Item(String id, int count, String enchants) {
-            this(id, count, enchants, null);
+            this(id, count, enchants, null, null);
         }
         public Item(String id, int count, String enchants, String displayName) {
-            this.id = id; this.count = count; this.enchants = enchants; this.displayName = displayName;
+            this(id, count, enchants, displayName, null);
+        }
+        public Item(String id, int count, String enchants, String displayName, String componentArgs) {
+            this.id = id; this.count = count; this.enchants = enchants;
+            this.displayName = displayName; this.componentArgs = componentArgs;
         }
     }
 
@@ -91,7 +101,9 @@ public final class Kits {
             // ── TIER 1 — STARTER (mining/utility role) ─────────────────
             // Diamond armor (no longer netherite per user nerf). Full
             // tool kit so a fresh player can mine + build their way up
-            // without grinding wood/iron tools first.
+            // without grinding wood/iron tools first. Now also includes
+            // a 3-page guide book + 64 steak (user: "also add some steak,
+            // and a guide book").
             new Kit(
                     "starter", "Starter Kit", "§a", "minecraft:diamond_pickaxe",
                     new Cost("minecraft:diamond", 45, "45 Diamonds"),
@@ -104,10 +116,14 @@ public final class Kits {
                             new Item("minecraft:diamond_pickaxe",    1, "{\"minecraft:efficiency\":3,\"minecraft:unbreaking\":2,\"minecraft:fortune\":2}"),
                             new Item("minecraft:diamond_axe",        1, "{\"minecraft:sharpness\":2,\"minecraft:unbreaking\":2}"),
                             new Item("minecraft:diamond_shovel",     1, "{\"minecraft:efficiency\":3,\"minecraft:unbreaking\":2}"),
-                            new Item("minecraft:cooked_beef",       32, null),
+                            new Item("minecraft:cooked_beef",       64, null),
                             new Item("minecraft:bread",             16, null),
+                            // Guide book — handled specially in deliverItems
+                            // (written_book_content component built via /give
+                            // with multi-page raw text).
+                            new Item("minecraft:written_book",       1, null, "__GUIDE_BOOK__"),
                     },
-                    new String[] {"§7Miner/Utility role.", "§7Full diamond armor + tool set. No bow."}
+                    new String[] {"§7Miner/Utility role.", "§7Full diamond armor + tool set + guide book."}
             ),
             // ── TIER 2 — SOLDIER (defensive PvE/anti-mob) ──────────────
             // Diamond armor + shield + crossbow. Built to soak hits and
@@ -382,14 +398,20 @@ public final class Kits {
             }
 
             String cmd;
-            if (it.enchants != null) {
+            if ("__GUIDE_BOOK__".equals(it.displayName)) {
+                cmd = buildGuideBookGive(name);
+            } else if (it.enchants != null) {
                 cmd = "give " + name + " " + it.id + "[enchantments=" + it.enchants + "] " + it.count;
             } else {
                 cmd = "give " + name + " " + it.id + " " + it.count;
             }
             boolean ok = VersionShim.executeServerCommand(server, cmd);
             if (!ok) {
-                if (it.enchants != null) {
+                if ("__GUIDE_BOOK__".equals(it.displayName)) {
+                    // Guide-book component syntax failed on this MC
+                    // version; fall through to a bare written_book.
+                    ok = VersionShim.executeServerCommand(server, "give " + name + " minecraft:written_book 1");
+                } else if (it.enchants != null) {
                     cmd = "give " + name + " " + it.id + "[enchantments={levels:" + it.enchants + "}] " + it.count;
                     ok = VersionShim.executeServerCommand(server, cmd);
                 }
@@ -444,6 +466,45 @@ public final class Kits {
         if (id.endsWith(":shield"))     return "Shield";
         if (id.endsWith(":elytra"))     return "Wings";
         return "Item";
+    }
+
+    /** Build a /give command for the Starter Kit guide book — a 3-page
+     *  written book with quick reference for commands + categories.
+     *  Uses the 1.21+ {@code written_book_content} component with the
+     *  modern {@code pages:[{raw:"..."}]} shape. */
+    private static String buildGuideBookGive(String playerName) {
+        String p1 =
+                "§5§lAttributeSMP\\n§r\\n" +
+                "Welcome! Your stats track every action you take. " +
+                "Hit thresholds to unlock buffs and themed gear.\\n\\n" +
+                "Open §a/skills§r to see your progress.";
+        String p2 =
+                "§5§lCommands\\n§r\\n" +
+                "/skills - your stats\\n" +
+                "/leaderboard - top players\\n" +
+                "/daily - daily reward\\n" +
+                "/kits - buy gear\\n" +
+                "/bounty <p> <xp> - set a bounty\\n" +
+                "/admin <pwd> - unlock admin";
+        String p3 =
+                "§5§lCategories\\n§r\\n" +
+                "Mining - Haste\\n" +
+                "PvP - Strength\\n" +
+                "Playtime - Saturation\\n" +
+                "Fishing - Luck\\n" +
+                "Walking - Speed\\n" +
+                "Jumps - Jump Boost\\n" +
+                "Water - Dolphin Grace\\n" +
+                "Dmg Taken - Resistance";
+        return "give " + playerName
+                + " minecraft:written_book[written_book_content="
+                + "{title:{raw:\"AttributeSMP Guide\"},"
+                + "author:\"AttributeSMP\","
+                + "pages:["
+                + "{raw:\"" + p1 + "\"},"
+                + "{raw:\"" + p2 + "\"},"
+                + "{raw:\"" + p3 + "\"}"
+                + "]}] 1";
     }
 
     /** Map a section-code color string ("§d") to a {@link Formatting}
