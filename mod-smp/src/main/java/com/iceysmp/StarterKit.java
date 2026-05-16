@@ -46,9 +46,20 @@ public final class StarterKit {
             player.getInventory().insertStack(new ItemStack(Items.IRON_AXE));
             player.getInventory().insertStack(new ItemStack(Items.IRON_SHOVEL));
             player.getInventory().insertStack(new ItemStack(Items.COOKED_BEEF, 16));
+
+            // Welcome guide book — every fresh player gets one regardless
+            // of whether they buy the Starter Kit from /kits later. The
+            // book renders pages in black-on-parchment by default; we set
+            // §0 explicitly because the §r reset was rendering as white
+            // on some client builds, making the text unreadable.
+            if (IceySmp.server != null) {
+                VersionShim.executeServerCommand(IceySmp.server,
+                        Kits.buildWelcomeBookGive(player.getName().getString()));
+            }
+
             player.sendMessage(
                     Text.literal("§5§l[§d§lAttribute§7§lSMP§5§l]§r §a§lWelcome! §rHere's your starter kit. You have " +
-                            config.noobProtectionMinutes() + " min of noob protection."),
+                            config.noobProtectionMinutes() + " min of noob protection. §7Read the §fAttributeSMP Guide§7 for commands."),
                     false);
         } catch (Throwable t) {
             System.out.println("[IceySMP] StarterKit grant failed: " + t);

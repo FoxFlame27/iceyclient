@@ -120,12 +120,13 @@ public final class Kits {
                             new Item("minecraft:bread",             16, null),
                             new Item("minecraft:torch",             32, null),
                             new Item("minecraft:iron_ingot",         8, null),
-                            // Guide book — handled specially in deliverItems
-                            // (written_book_content component built via /give
-                            // with multi-page raw text).
-                            new Item("minecraft:written_book",       1, null, "__GUIDE_BOOK__"),
+                            // (The AttributeSMP Guide book was moved out
+                            // of this purchasable kit and is now handed
+                            // out automatically on first-join by
+                            // StarterKit.giveIfFirstJoin — every new
+                            // player gets it without paying.)
                     },
-                    new String[] {"§7Miner/Utility role.", "§7Full diamond armor + tools + torches + guide book."}
+                    new String[] {"§7Miner/Utility role.", "§7Full diamond armor + tools + torches + iron."}
             ),
             // ── TIER 2 — SOLDIER (defensive PvE/anti-mob) ──────────────
             // Diamond armor + shield + crossbow. Built to soak hits and
@@ -216,13 +217,15 @@ public final class Kits {
                             new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3}"),
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4}"),
                             new Item("minecraft:netherite_sword",      1, MAXED_SWORD),
-                            // ACTUAL spear — 1.21.11 added the minecraft
-                            // :netherite_spear item. deliverItems has a
-                            // fallback that downgrades to a maxed trident
+                            // ACTUAL netherite spear — 1.21.11 added the
+                            // minecraft:netherite_spear item with its own
+                            // Lunge enchant (yarn field_63420 = LUNGE
+                            // RegistryKey<Enchantment>). deliverItems has
+                            // a fallback that downgrades to a maxed trident
                             // on 1.21.0-1.21.8 where the spear doesn't
                             // exist yet, so the kit lands cleanly on every
                             // matrix version.
-                            new Item("minecraft:netherite_spear",      1, "{\"minecraft:sharpness\":5,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            new Item("minecraft:netherite_spear",      1, "{\"minecraft:sharpness\":5,\"minecraft:fire_aspect\":2,\"minecraft:knockback\":2,\"minecraft:lunge\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                             // Champion pickaxe — netherite, Fortune III for
                             // ore mining + Eff V + Mending. Differentiated
                             // from Attribute's Silk Touch variant.
@@ -251,6 +254,13 @@ public final class Kits {
                             new Item("minecraft:netherite_leggings",   1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:blast_protection\":4}"),
                             new Item("minecraft:netherite_boots",      1, "{\"minecraft:protection\":4,\"minecraft:unbreaking\":3,\"minecraft:mending\":1,\"minecraft:thorns\":3,\"minecraft:feather_falling\":4,\"minecraft:blast_protection\":4}"),
                             new Item("minecraft:netherite_axe",        1, "{\"minecraft:sharpness\":5,\"minecraft:efficiency\":5,\"minecraft:fire_aspect\":2,\"minecraft:looting\":3,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
+                            // Riptide trident — the brawler's mobility
+                            // tool. Riptide III for water/rain-launches,
+                            // Impaling V for big damage on water-bound
+                            // mobs, Channeling for lightning crit. Riptide
+                            // conflicts with Loyalty so the trident does
+                            // NOT return — Bruiser commits to the throw.
+                            new Item("minecraft:trident",              1, "{\"minecraft:riptide\":3,\"minecraft:impaling\":5,\"minecraft:channeling\":1,\"minecraft:unbreaking\":3,\"minecraft:mending\":1}"),
                             // Bruiser pickaxe — diamond (not netherite —
                             // pickaxe is bonus, not focus). Mending + Unb III,
                             // no Fortune (Bruiser isn't a miner).
@@ -458,7 +468,7 @@ public final class Kits {
 
             String cmd;
             if ("__GUIDE_BOOK__".equals(it.displayName)) {
-                cmd = buildGuideBookGive(name);
+                cmd = buildWelcomeBookGive(name);
             } else if (it.enchants != null) {
                 cmd = "give " + name + " " + it.id + "[enchantments=" + it.enchants + "] " + it.count;
             } else {
@@ -542,26 +552,32 @@ public final class Kits {
         return "Item";
     }
 
-    /** Build a /give command for the Starter Kit guide book — a 3-page
+    /** Build a /give command for the AttributeSMP Guide book — a 3-page
      *  written book with quick reference for commands + categories.
      *  Uses the 1.21+ {@code written_book_content} component with the
-     *  modern {@code pages:[{raw:"..."}]} shape. */
-    private static String buildGuideBookGive(String playerName) {
+     *  modern {@code pages:[{raw:"..."}]} shape.
+     *
+     *  <p>Color note: book pages render on a tan parchment background.
+     *  We use explicit §0 (black) for body text and §8§l (dark gray bold)
+     *  for headers — the default §r reset was rendering as WHITE on some
+     *  client builds, making the guide unreadable. User: "you can read it
+     *  properly cause the font is white." */
+    public static String buildWelcomeBookGive(String playerName) {
         String p1 =
-                "§5§lAttributeSMP\\n§r\\n" +
+                "§8§lAttributeSMP\\n\\n§0" +
                 "Welcome! Your stats track every action you take. " +
                 "Hit thresholds to unlock buffs and themed gear.\\n\\n" +
-                "Open §a/skills§r to see your progress.";
+                "Open §1§l/skills§0 to see your progress.";
         String p2 =
-                "§5§lCommands\\n§r\\n" +
+                "§8§lCommands\\n\\n§0" +
                 "/skills - your stats\\n" +
                 "/leaderboard - top players\\n" +
                 "/daily - daily reward\\n" +
                 "/kits - buy gear\\n" +
-                "/bounty <p> <xp> - set a bounty\\n" +
+                "/bounty <p> <xp> - bounty\\n" +
                 "/admin <pwd> - unlock admin";
         String p3 =
-                "§5§lCategories\\n§r\\n" +
+                "§8§lCategories\\n\\n§0" +
                 "Mining - Haste\\n" +
                 "PvP - Strength\\n" +
                 "Playtime - Saturation\\n" +

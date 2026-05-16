@@ -30,39 +30,14 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
-## What's new in v1.85.7
+## What's new in v1.85.8
 
-**Champion + Attribute mass buff, every kit gets a tier-themed pickaxe, more role-unique extras** per user: "in the champion kit there neth pickaxe (enchatnted) and an ACTUAL SPEAR and a elytra and 64 firweworks and 64 golen appples … for attribute kit add 64 golden apples 64 firewoks and 64 breeze rods and a neth pickaxe (enchatnted) … pickaxes in all kits but depeinding on kit different enchates adn some diamond ALOS MAKE THE KITS EVEN MORE UNIQUE."
+**Four user fixes/additions.**
 
-### Pickaxe progression (new — every kit has one now)
-| Kit | Pickaxe | Theme |
-| --- | --- | --- |
-| Starter | Diamond — Eff III + Fortune II + Unb II | already had, kept |
-| Soldier | Diamond — Eff III + Unb III | durability over speed |
-| Hunter | Diamond — Eff IV + **Silk Touch** + Unb III | quiet block collector |
-| Veteran | Diamond — Eff IV + Fortune III + Unb III + Mending | high-tier miner |
-| Champion | **Netherite** — Eff V + Fortune III + Unb III + Mending | endgame mining |
-| Bruiser | Diamond — Eff IV + Unb III + Mending | bonus tool, not focus |
-| Attribute | **Netherite** — Eff V + **Silk Touch** + Unb III + Mending | endgame silk picks |
-
-### Champion buffs (tier 5)
-- **+ Netherite pickaxe** (Eff V + Fortune III + Unb III + Mending). Kit-named "Champion Pickaxe" in gold.
-- **+ Elytra** (Unb III + Mending). Named "Champion Wings".
-- **+ 64 fireworks** (Flight 3 — long-distance elytra boost). Built via the `componentArgs` override carrying `fireworks={flight_duration:3b}`.
-- **8 enchanted gapples → 64 regular gapples** per user spec.
-
-### Attribute buffs (tier 7)
-- **+ Netherite pickaxe** (Eff V + Silk Touch + Unb III + Mending). Differentiated from Champion's Fortune variant. Named "Attribute Pickaxe" in light purple.
-- **+ 64 golden apples**.
-- **+ 64 fireworks** (Flight 3).
-- **+ 64 Breeze Rods** — exclusive to Attribute. Feeds wind-charge crafting, matches the Wind Burst mace theme.
-
-### Extra role-unique items
-- **Soldier**: + **8 ender pearls** for emergency repositioning during a defensive hold.
-- **Veteran**: + **Ender Chest** — generalist's portable storage signature.
-- **Bruiser**: + **8 splash potions** (Strength) for the pre-brawl self-buff.
-
-The 7-kit ladder still goes Starter → Soldier → Hunter → Veteran → Champion → Bruiser → Attribute. Prices unchanged.
+1. **Guide book is now a first-join freebie**, not a purchasable kit item. Per user: "you put the guide book in the starterkit that you have to buy do it as the fisrt thing you get when you join." Removed the `written_book` from `Kits.ALL.starter`; new `StarterKit.giveIfFirstJoin` calls `Kits.buildWelcomeBookGive(playerName)` and runs the resulting `/give written_book[written_book_content={...}]` so every brand-new player gets a copy the moment they log in. The welcome message now mentions the guide.
+2. **Book text is readable** (was rendering white on parchment). Per user: "you can read it properly cause the font is white." Replaced the `§r` (reset → white on this client build) with explicit `§0` (black) on body text and `§8§l` (dark gray bold) on headers. `/skills` callout uses `§1§l` (dark blue bold) so it stands out from the body.
+3. **Champion spear gets `minecraft:lunge` III** — confirmed in yarn 1.21.11+build.5 as `field_63420 LUNGE` (`RegistryKey<Enchantment>`). Spear is netherite (verified). Full enchant set: Sharpness V + Fire Aspect II + Knockback II + **Lunge III** + Unbreaking III + Mending.
+4. **Bruiser kit gets a Riptide trident** with Riptide III + Impaling V + Channeling I + Unbreaking III + Mending. Riptide conflicts with Loyalty so the trident doesn't return — Bruiser commits to the throw. Auto-named "Bruiser Spear" via `deriveTypeName` (trident maps to "Spear").
 
 ## What's new in v1.85.7
 
