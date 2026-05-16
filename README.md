@@ -30,6 +30,25 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.85.9
+
+**Version-manifest cache TTL — launcher stays current with new MC releases without restart.**
+
+Investigated whether the launcher needs updating to fetch newer MC / Fabric / shader versions. Result: it already auto-updates by construction. Every version-relevant lookup hits the same live APIs Prism Launcher uses:
+
+| Thing | Source | Always-fresh? |
+| --- | --- | --- |
+| MC version list | `piston-meta.mojang.com/mc/game/version_manifest_v2.json` | live |
+| Fabric loader | `meta.fabricmc.net/v2/versions/loader/{mcVer}` → `[0]` (newest) | live |
+| Fabric API mod | Modrinth `api.modrinth.com/v2/project/fabric-api/version?game_versions=[{mc}]` | live |
+| Iris + Sodium | same Modrinth API path | live |
+
+Only gotcha: `VersionManager._versions` cached the manifest in memory for the entire launcher session, so a new MC release published after the launcher started wouldn't show up until restart.
+
+Fix in [versions.js](src/utils/versions.js): 10-minute TTL on the cached manifest + a cache-busting `?t=<now>` query param so any CDN-cached response doesn't get reused. Reopening "Create Installation" 10+ minutes after the first fetch triggers a fresh manifest pull. (Within the 10-minute window the cached copy is reused — that's just to keep snap-open-close cycles cheap.)
+
+CI matrix (`build-smp` in `.github/workflows/build.yml`) is still hardcoded to 1.21 / 1.21.5 / 1.21.8 / 1.21.11 — that's a deliberate per-release build-target list, not auto-discovery. Adding a new MC release to the matrix is a one-line append.
+
 ## What's new in v1.85.8
 
 **Four user fixes/additions.**
