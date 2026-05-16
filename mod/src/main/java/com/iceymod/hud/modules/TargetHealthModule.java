@@ -10,7 +10,11 @@ import net.minecraft.util.hit.HitResult;
 public class TargetHealthModule extends HudModule {
     public TargetHealthModule() {
         super("targethealth", "Target Health", 5, 130);
-        setEnabled(false);
+        // Enabled by default — the nameplate-style render above other
+        // players' heads should "just work" out of the box. User report:
+        // "i dont see anythign abive their head" — was due to the
+        // default-off state requiring a Y-menu toggle.
+        setEnabled(true);
     }
 
     @Override

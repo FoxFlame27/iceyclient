@@ -30,6 +30,16 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.1
+
+**Target-health nameplate visibility fixes.** User: "i dont see anythign abive their head."
+
+- **`TargetHealthModule` is now enabled by default** (was `setEnabled(false)`). The default-off state required toggling via the Y-menu before the nameplate would render, which is why it wasn't showing.
+- **Bumped the Y offset from `+0.6` → `+1.0`** above the player's bounding-box top, so our health line sits clearly above the vanilla username nameplate instead of overlapping with it.
+- **Added one-shot debug logging** in [TargetHealthRenderer](mod/src/main/java/com/iceymod/render/TargetHealthRenderer.java) — first successful render prints `[IceyMod] TargetHealthRenderer: drew health above <name>` to the client log so we can confirm the hook fires; first error also logs once with the exception class, suppressing further repeats. Future "doesn't show" reports can be triaged from the log instead of guessing.
+
+If you're still not seeing it: confirm you're on a multiplayer / LAN server with at least one other player within 64 blocks. In a solo singleplayer world `client.world.getPlayers()` only contains yourself, which the renderer correctly skips.
+
 ## What's new in v1.86.0
 
 **Target-health HUD moved from a fixed on-screen widget to a 3D nameplate above each player's head.** Per user: "change the target health hud to be above the other players head … if you come close to a player it shows but try and maximize the distance."

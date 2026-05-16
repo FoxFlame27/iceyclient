@@ -86,8 +86,10 @@ public class TargetHealthRenderer {
                         + String.format("%.1f", hp) + "/" + String.format("%.0f", max));
 
                 Vec3d pos = p.getPos();
-                // Position the text just above the nameplate.
-                double yOffset = p.getHeight() + 0.6;
+                // Position the text well above the vanilla nameplate.
+                // Vanilla username renders at height + 0.5 — go higher
+                // so our health line doesn't overlap the username.
+                double yOffset = p.getHeight() + 1.0;
                 ms.push();
                 ms.translate(pos.x - camPos.x, pos.y - camPos.y + yOffset, pos.z - camPos.z);
                 ms.multiply(cam.getRotation());
@@ -108,11 +110,21 @@ public class TargetHealthRenderer {
                         0x40000000, 0xF000F0);
 
                 ms.pop();
+                if (!loggedFirstRender) {
+                    System.out.println("[IceyMod] TargetHealthRenderer: drew health above " + p.getName().getString());
+                    loggedFirstRender = true;
+                }
             }
-        } catch (Throwable ignored) {
-            // Yarn signature drift fallback — fail silently rather than
-            // crash the render frame. Some yarn variants may rename
-            // TextRenderer.draw overloads or TextLayerType constants.
+        } catch (Throwable t) {
+            // Yarn signature drift fallback — log the first failure so we
+            // can diagnose, then suppress further logs.
+            if (!loggedFirstError) {
+                System.out.println("[IceyMod] TargetHealthRenderer error (suppressing further): " + t);
+                loggedFirstError = true;
+            }
         }
     }
+
+    private static boolean loggedFirstRender = false;
+    private static boolean loggedFirstError = false;
 }
