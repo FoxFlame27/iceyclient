@@ -16,17 +16,12 @@ public class TargetHealthModule extends HudModule {
     @Override
     public Category getCategory() { return Category.COMBAT; }
 
+    /** Per user, the target-health display is now rendered as a 3D
+     *  nameplate above the targeted player's head (see
+     *  {@code TargetHealthRenderer}). The on-screen HUD text is gone \u2014
+     *  this module's role is just the on/off toggle the renderer reads. */
     @Override
     public String getText(MinecraftClient client) {
-        if (client.player == null) return null;
-        HitResult r = client.crosshairTarget;
-        if (!(r instanceof EntityHitResult)) return "\u00A78No target";
-        Entity e = ((EntityHitResult) r).getEntity();
-        if (!(e instanceof LivingEntity)) return "\u00A78No target";
-        LivingEntity le = (LivingEntity) e;
-        float hp = le.getHealth();
-        float max = le.getMaxHealth();
-        String color = hp > max * 0.66f ? "\u00A7a" : hp > max * 0.33f ? "\u00A7e" : "\u00A7c";
-        return color + "\u2764 " + String.format("%.1f", hp) + "/" + String.format("%.0f", max);
+        return null;
     }
 }

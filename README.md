@@ -1,4 +1,4 @@
-pllb ty for downloading 
+  pllb ty for downloading 
 get .exe for windows
 
 ## Download iceymod+
@@ -29,6 +29,16 @@ get arm 64x .dmg for mac but make sure to run this command if the app says iceyc
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.86.0
+
+**Target-health HUD moved from a fixed on-screen widget to a 3D nameplate above each player's head.** Per user: "change the target health hud to be above the other players head … if you come close to a player it shows but try and maximize the distance."
+
+- New [TargetHealthRenderer.java](mod/src/main/java/com/iceymod/render/TargetHealthRenderer.java) hooks `WorldRenderEvents.AFTER_ENTITIES` (same pattern as `HitboxRenderer` and `WaypointBeamRenderer` — uses `WorldRenderContext.matrixStack` + `consumers` directly).
+- Iterates every loaded player in `client.world.getPlayers()`, skips the local player, filters by `squaredDistanceTo(self) <= 64²`. The 64-block cap matches the vanilla player entity-tracking range — beyond that the player isn't on the client side anyway, so 64 is the practical maximum distance.
+- Text is `§<color>❤ <hp>/<max>` where color is green/yellow/red by HP ratio (green > 66%, yellow > 33%, red below). Billboarded toward the camera via `matrices.multiply(camera.getRotation())`. Vanilla nameplate scale (`-0.025`) so it looks like a real nameplate. Drawn with `TextLayerType.SEE_THROUGH` so the health stays visible even when the player is behind cover — easier to read from far away.
+- `TargetHealthModule.getText()` now returns `null` so no on-screen widget competes with the in-world nameplate. The module remains as the on/off toggle the renderer reads via `HudManager.getModules()`.
+- Registered in `IceyMod` next to the other render hooks, wrapped in the standard try/catch in case a yarn variant renames a class.
 
 ## What's new in v1.85.9
 
