@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.3
+
+**Mod version-picker recolored.** The selected version button on the install modal had a saturated cyan-blue gradient (`var(--accent) → #38bdf8`) that read as "purple" on the user's display. Swapped to a soft white-on-dark glass tile: subtle white gradient, off-white border, inset highlight + soft drop shadow. No color cast — matches the new create-installation modal-icon styling. Same change applied to the loader buttons (Fabric / Forge picker) and the version-list border / scrollbar thumb (cyan-tinted → neutral white).
+
 ## What's new in v1.86.2
 
 **Four user fixes/changes.**
