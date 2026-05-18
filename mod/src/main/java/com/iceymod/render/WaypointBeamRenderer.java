@@ -4,8 +4,6 @@ import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.modules.WaypointManager;
 import com.iceymod.hud.modules.WaypointsModule;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.Camera;
@@ -25,10 +23,8 @@ import java.util.List;
 public class WaypointBeamRenderer {
 
     public static void register() {
-        try {
-            WorldRenderEvents.AFTER_TRANSLUCENT.register(WaypointBeamRenderer::onRender);
-        } catch (Throwable t) {
-            System.out.println("[IceyMod] WorldRenderEvents unavailable (VulkanMod / stub?) — waypoint beams disabled: " + t.getMessage());
+        if (!WorldRenderHook.registerAfterTranslucent(WaypointBeamRenderer::onRender)) {
+            System.out.println("[IceyMod] WorldRenderEvents unavailable — waypoint beams disabled");
         }
     }
 
@@ -39,7 +35,7 @@ public class WaypointBeamRenderer {
         return false;
     }
 
-    private static void onRender(WorldRenderContext ctx) {
+    private static void onRender(WorldRenderHook.Ctx ctx) {
         if (!beamsEnabled()) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null || client.player == null) return;
@@ -51,7 +47,7 @@ public class WaypointBeamRenderer {
         Vec3d camPos = cam.getPos();
         MatrixStack ms = ctx.matrixStack();
         long worldTime = client.world.getTime();
-        float tickDelta = ctx.tickCounter().getTickProgress(false);
+        float tickDelta = ctx.tickDelta();
 
         Vec3d playerPos = client.player.getPos();
         VertexConsumerProvider vcp = ctx.consumers();

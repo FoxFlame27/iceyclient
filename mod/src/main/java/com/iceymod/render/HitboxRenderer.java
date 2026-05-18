@@ -3,8 +3,6 @@ package com.iceymod.render;
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.modules.HitboxModule;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
@@ -25,11 +23,11 @@ import net.minecraft.util.math.Vec3d;
 public class HitboxRenderer {
 
     public static void register() {
-        // Same VulkanMod-stub guard as WaypointBeamRenderer.
-        try {
-            WorldRenderEvents.AFTER_ENTITIES.register(HitboxRenderer::onRender);
-        } catch (Throwable t) {
-            System.out.println("[IceyMod] WorldRenderEvents unavailable — hitbox renderer disabled: " + t.getMessage());
+        // Routes through WorldRenderHook so it works regardless of which
+        // package path Fabric API ships WorldRenderEvents at (the location
+        // moved between 1.21.8 and 1.21.11).
+        if (!WorldRenderHook.registerAfterEntities(HitboxRenderer::onRender)) {
+            System.out.println("[IceyMod] WorldRenderEvents unavailable — hitbox renderer disabled");
         }
     }
 
@@ -40,7 +38,7 @@ public class HitboxRenderer {
         return null;
     }
 
-    private static void onRender(WorldRenderContext ctx) {
+    private static void onRender(WorldRenderHook.Ctx ctx) {
         HitboxModule mod = findModule();
         if (mod == null || !mod.isEnabled()) return;
 

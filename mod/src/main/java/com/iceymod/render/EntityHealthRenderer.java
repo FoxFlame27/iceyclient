@@ -4,8 +4,6 @@ import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.modules.MobHealthModule;
 import com.iceymod.hud.modules.PlayerHealthModule;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.Camera;
@@ -60,10 +58,8 @@ public final class EntityHealthRenderer {
     private static final float SCALE = 0.025f;
 
     public static void register() {
-        try {
-            WorldRenderEvents.AFTER_ENTITIES.register(EntityHealthRenderer::onRender);
-        } catch (Throwable t) {
-            System.out.println("[IceyMod] WorldRenderEvents unavailable — entity-health renderer disabled: " + t.getMessage());
+        if (!WorldRenderHook.registerAfterEntities(EntityHealthRenderer::onRender)) {
+            System.out.println("[IceyMod] WorldRenderEvents unavailable — entity-health renderer disabled");
         }
     }
 
@@ -74,7 +70,7 @@ public final class EntityHealthRenderer {
         return null;
     }
 
-    private static void onRender(WorldRenderContext ctx) {
+    private static void onRender(WorldRenderHook.Ctx ctx) {
         PlayerHealthModule playerMod = find(PlayerHealthModule.class);
         MobHealthModule mobMod = find(MobHealthModule.class);
         boolean showPlayers = playerMod != null && playerMod.isEnabled();

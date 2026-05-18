@@ -924,15 +924,15 @@ function launchMinecraft(installationId) {
       const modsDir = path.join(installGameDir, 'mods');
       fs.mkdirSync(modsDir, { recursive: true });
 
-      // 1) Install/UPDATE Icey mod jar — or remove it if Icey mods are disabled
+      // 1) Install/UPDATE Icey mod jar. Single 1.21.8-built jar that
+      // gracefully degrades on other MC versions via WorldRenderHook
+      // reflection + per-module try/catch fallbacks.
       const modJarName = 'iceymod-1.0.0.jar';
       const destJar = path.join(modsDir, modJarName);
       try {
-        // Match ONLY iceymod-VERSION.jar (the client mod). The previous
-        // `^iceymod.*\.jar` regex was greedy and matched `iceymodplus-...jar`
-        // too, so every launch silently deleted the user's freshly-installed
-        // server mod. Require `iceymod-` (with the hyphen) so `iceymodplus`
-        // (with a letter after `iceymod`) is excluded.
+        // Clean up any stale iceymod jars (wrong MC version, or the old
+        // single-jar "iceymod-1.0.0.jar" name from before the matrix build).
+        // Match `iceymod-` with a hyphen so we don't sweep up iceymodplus.
         for (const f of fs.readdirSync(modsDir)) {
           if (/^iceymod-.*\.jar$/i.test(f) && f !== modJarName) {
             fs.unlinkSync(path.join(modsDir, f));
@@ -947,6 +947,7 @@ function launchMinecraft(installationId) {
           path.join(DATA_DIR, modJarName),
           path.join(__dirname, 'resources', modJarName),
         ];
+        let installed = false;
         for (const src of searchPaths) {
           if (fs.existsSync(src)) {
             try {
@@ -957,11 +958,16 @@ function launchMinecraft(installationId) {
                 log('info', 'Updated Icey mod to ' + destJar);
                 if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod updated', level: 'info' });
               }
+              installed = true;
             } catch (e) {
               log('warn', 'Failed to install Icey mod: ' + e.message);
             }
             break;
           }
+        }
+        if (!installed) {
+          log('warn', `Icey mod (client) jar not bundled for MC ${installation.version}`);
+          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Icey mod not bundled for MC ${installation.version} — HUDs unavailable`, level: 'warn' });
         }
       } else {
         try {

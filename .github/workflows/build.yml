@@ -8,6 +8,12 @@ on:
 
 jobs:
   build-mod:
+    # Single-version build (default 1.21.8 yarn). The WorldRenderHook
+    # reflection bridge handles the WorldRenderEvents package-path drift
+    # between 1.21.8 and 1.21.11 at RUNTIME, so the 1.21.8-built jar
+    # works on 1.21.11 servers for the renderer hooks. Other yarn-drift
+    # issues (Camera/GameOptions/ClientWorld renames) silently no-op
+    # via the per-module try/catch — not perfect but it ships.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +50,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: mod-jar
+          merge-multiple: true
           path: mod/build/libs
       - name: Download all iceymodplus jars
         uses: actions/download-artifact@v4
@@ -118,6 +125,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: mod-jar
+          merge-multiple: true
           path: mod/build/libs
       - name: Download all iceymodplus jars
         uses: actions/download-artifact@v4
@@ -174,6 +182,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: mod-jar
+          merge-multiple: true
           path: mod/build/libs
       - name: Download all iceymodplus jars
         uses: actions/download-artifact@v4

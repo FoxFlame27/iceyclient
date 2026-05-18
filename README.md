@@ -30,6 +30,30 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.4
+
+**HUDs above entities work on 1.21.11 (and the spear/freecam diagnosis).**
+
+User report: HUDs above players don't show, freecam + freelook don't work on 1.21.11. The client log confirmed the cause:
+```
+[IceyMod] WorldRenderEvents unavailable — entity-health renderer disabled:
+net/fabricmc/fabric/api/client/rendering/v1/WorldRenderEvents
+```
+…repeated for hitboxes and waypoint beams.
+
+**Root cause** — Fabric API moved `WorldRenderEvents` between 1.21.8 (the version the client mod is built against) and 1.21.11 (what the user runs):
+
+| MC version | Class path |
+| --- | --- |
+| 1.21 → 1.21.8 | `net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents` |
+| 1.21.11+ | `net.fabricmc.fabric.api.client.rendering.v1.**world**.WorldRenderEvents` |
+
+The class with the old path is **gone** in 1.21.11's fabric-api, so all three world-render hooks fail to register at runtime. Same package shift affects `WorldRenderContext` and the nested listener interfaces.
+
+**Fix** — new [WorldRenderHook.java](mod/src/main/java/com/iceymod/render/WorldRenderHook.java) is a reflection bridge that tries both class paths at runtime, builds a `Proxy` implementing the matching nested listener interface, and exposes a `Ctx` wrapper that calls `matrixStack()/camera()/consumers()/tickDelta()` on the underlying context reflectively. The three renderers (`HitboxRenderer`, `WaypointBeamRenderer`, `EntityHealthRenderer`) now import nothing from `net.fabricmc.fabric.api.client.rendering.v1.*` directly — they go through `WorldRenderHook`. Source compiles cleanly against 1.21.8 yarn AND the resulting jar works at runtime on both 1.21.8 and 1.21.11.
+
+**Freecam / freelook** are a separate yarn-drift issue — `CameraMixin`'s descriptor-type capture was the v1.86.2 fix and it's still in place, but `FreecamModule` calls a few `GameOptions` accessors that got renamed in 1.21.11 (`getGraphicsMode()` removed, `forwardKey` field shape may have changed). Those need per-call try/catch fallbacks; tracking as a follow-up.
+
 ## What's new in v1.86.3
 
 **Mod version-picker recolored.** The selected version button on the install modal had a saturated cyan-blue gradient (`var(--accent) → #38bdf8`) that read as "purple" on the user's display. Swapped to a soft white-on-dark glass tile: subtle white gradient, off-white border, inset highlight + soft drop shadow. No color cast — matches the new create-installation modal-icon styling. Same change applied to the loader buttons (Fabric / Forge picker) and the version-list border / scrollbar thumb (cyan-tinted → neutral white).
