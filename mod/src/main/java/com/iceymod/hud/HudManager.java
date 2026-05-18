@@ -89,7 +89,8 @@ public class HudManager {
         // New combat modules (mace PvP / crystal PvP / general PvP)
         modules.add(new CrystalTrackerModule());
         modules.add(new TotemPopsModule());
-        modules.add(new TargetHealthModule());
+        modules.add(new PlayerHealthModule());
+        modules.add(new MobHealthModule());
         modules.add(new MaceDamageModule());
         modules.add(new GappleCountModule());
         modules.add(new EnderPearlCountModule());

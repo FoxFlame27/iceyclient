@@ -18,7 +18,7 @@ import com.iceymod.screen.BiomeMenuScreen;
 import com.iceymod.chat.ChatCoordParser;
 import com.iceymod.render.WaypointBeamRenderer;
 import com.iceymod.render.HitboxRenderer;
-import com.iceymod.render.TargetHealthRenderer;
+import com.iceymod.render.EntityHealthRenderer;
 import com.iceymod.compat.KeyBindingCompat;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -66,7 +66,7 @@ public class IceyMod implements ClientModInitializer {
         try { WaypointManager.init(); }        catch (Throwable t) { System.out.println("[IceyMod] WaypointManager.init failed: " + t); }
         try { WaypointBeamRenderer.register(); } catch (Throwable t) { System.out.println("[IceyMod] WaypointBeamRenderer failed: " + t); }
         try { HitboxRenderer.register(); }     catch (Throwable t) { System.out.println("[IceyMod] HitboxRenderer failed: " + t); }
-        try { TargetHealthRenderer.register(); } catch (Throwable t) { System.out.println("[IceyMod] TargetHealthRenderer failed: " + t); }
+        try { EntityHealthRenderer.register(); } catch (Throwable t) { System.out.println("[IceyMod] EntityHealthRenderer failed: " + t); }
         try { StructureTracker.register(); }   catch (Throwable t) { System.out.println("[IceyMod] StructureTracker failed: " + t); }
         try { BiomeTracker.register(); }       catch (Throwable t) { System.out.println("[IceyMod] BiomeTracker failed: " + t); }
         try { ChatCoordParser.register(); }    catch (Throwable t) { System.out.println("[IceyMod] ChatCoordParser failed: " + t); }

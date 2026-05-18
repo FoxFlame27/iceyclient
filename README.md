@@ -30,6 +30,15 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.2
+
+**Four user fixes/changes.**
+
+1. **Freecam fixed on 1.21.11.** The `CameraMixin` was no-op'ing because `Camera.update`'s first param changed from `BlockView` (1.21.8) to `World` (1.21.11) and the mixin's descriptor-type capture stopped matching. Switched the injection to take only `CallbackInfo`, so the target is matched by method name only and fires regardless of param-type drift. Freelook fetches the focused entity from `MinecraftClient.getCameraEntity()` instead of capturing it from the call site. Result: camera moves, can fly through walls, all WASD/space/shift controls work again.
+2. **Health nameplate split into two toggleable modules.** `TargetHealthModule` deleted. Replaced with `PlayerHealthModule` (id `playerhealth`, controls nameplates above other players) and `MobHealthModule` (id `mobhealth`, controls nameplates above non-player LivingEntities — zombies, villagers, animals, etc.). Both default ON; toggle each independently via the Y-menu.
+3. **Vanilla two-pass nameplate render** in new `EntityHealthRenderer` (replaces single-pass `TargetHealthRenderer`). Mirrors `EntityRenderer.renderLabelIfPresent`: draws with `TextLayerType.SEE_THROUGH` at low alpha (`0x21FFFFFF` ≈ 13%) first so the text is visible faintly through walls, then draws `TextLayerType.NORMAL` at full white over it for unoccluded text. Same scale (`-0.025`), same camera-billboard rotation, same `+1.0` Y offset above bbox. This is exactly what vanilla does for username tags, just with health instead of the player name. **Visible from anywhere within 64 blocks** — the same range vanilla tracks players client-side — so you don't have to be close.
+4. **Create-Installation modal — the "ugly purple box with a big plus"** is now an Icey-logo tile. The placeholder SVG is replaced with `<img src="assets/icon.png">` and the surrounding `.create-modal-icon` CSS swapped from a cyan/blue gradient + cyan border to a dark neutral glass tile (subtle white highlight + soft drop shadow). Icon sits on `64×64` with `14-px` rounded corners; the logo image is `44×44` centered.
+
 ## What's new in v1.86.1
 
 **Target-health nameplate visibility fixes.** User: "i dont see anythign abive their head."

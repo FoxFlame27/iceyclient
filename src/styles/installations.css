@@ -499,16 +499,30 @@
 }
 
 .create-modal-icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 12px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(91,200,245,0.15), rgba(56,189,248,0.08));
-  border: 1px solid rgba(91,200,245,0.2);
+  /* Was a 56-px cyan/blue rounded box with a generic plus SVG — user
+   * called it "a very ugly purple box with a big plus". Replaced with
+   * the Icey app icon on a darker, neutral glass tile with a subtle
+   * white highlight (no strong color cast). */
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
+  overflow: hidden;
+}
+
+.create-modal-icon img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  /* Slight drop-shadow so a transparent-PNG logo still has presence
+   * on the dark tile. */
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
 }
 
 .create-modal-title {

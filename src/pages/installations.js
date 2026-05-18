@@ -579,11 +579,7 @@ async function showCreateInstallModal() {
     <div class="create-install-modal">
       <div class="create-modal-header">
         <div class="create-modal-icon">
-          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="3" y="3" width="18" height="18" rx="3"/>
-            <line x1="12" y1="8" x2="12" y2="16"/>
-            <line x1="8" y1="12" x2="16" y2="12"/>
-          </svg>
+          <img src="assets/icon.png" alt="Icey Client">
         </div>
         <h2 class="create-modal-title">New Installation</h2>
         <p class="create-modal-subtitle">Set up a new Minecraft installation</p>
