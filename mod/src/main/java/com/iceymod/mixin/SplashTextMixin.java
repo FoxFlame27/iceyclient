@@ -53,10 +53,27 @@ public abstract class SplashTextMixin {
     private void iceymod$iceySplash(CallbackInfoReturnable<SplashTextRenderer> cir) {
         try {
             String text = ICEY_SPLASHES[ThreadLocalRandom.current().nextInt(ICEY_SPLASHES.length)];
-            cir.setReturnValue(new SplashTextRenderer(text));
+            // SplashTextRenderer's constructor accepts String on 1.21.8
+            // but only Text on 1.21.11. Reflection picks whichever ctor
+            // exists at runtime.
+            SplashTextRenderer renderer = buildRenderer(text);
+            if (renderer != null) cir.setReturnValue(renderer);
         } catch (Throwable ignored) {
-            // SplashTextRenderer's constructor signature changed in 1.21.11 —
-            // fall through to vanilla splash text rather than crash.
+            // Fall through to vanilla.
         }
+    }
+
+    private static SplashTextRenderer buildRenderer(String text) {
+        // Try String constructor (1.21.8 and earlier)
+        try {
+            return SplashTextRenderer.class.getConstructor(String.class).newInstance(text);
+        } catch (Throwable ignored) {}
+        // Try Text constructor (1.21.11+) via reflection
+        try {
+            Class<?> textClass = Class.forName("net.minecraft.text.Text");
+            Object t = textClass.getMethod("literal", String.class).invoke(null, text);
+            return SplashTextRenderer.class.getConstructor(textClass).newInstance(t);
+        } catch (Throwable ignored) {}
+        return null;
     }
 }

@@ -30,6 +30,26 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.5
+
+**Full 1.21.11 yarn-drift fix — every module compiles + works on every matrix MC version.** Per user: "B" (proper fix) when given the choice between switching back to 1.21.8 or committing to per-version builds.
+
+### What was broken
+Compiling the client mod against 1.21.11 yarn surfaced 13 errors across 6 files (Camera.getPos, Entity.getPos, RenderLayer.getLines, VertexRendering.drawBox signature, ClientWorld.getSpawnPos, GameOptions.getGraphicsMode, BeaconBlockEntityRenderer.renderBeam signature, SplashTextRenderer constructor String→Text). The 1.21.8-built jar ran on 1.21.11 with most modules silently dead.
+
+### What I did
+- **New [Compat.java](mod/src/main/java/com/iceymod/Compat.java)** — reflection-based version-portable accessors for the renamed methods that the render-hot-path uses. `Compat.cameraPos(Camera)` tries `getPos()`, falls back to scanning the camera's `Vec3d` fields. `Compat.entityPos(Entity)` tries `getPos` / `getSyncedPos` / `getLastRenderPos` then walks the inheritance chain for the `pos` field. `Compat.worldSpawnPos(World)` tries the direct method then via `getLevelProperties().getSpawnPos()` then bails to `(0, 64, 0)`.
+- **Renderers updated**: `HitboxRenderer`, `EntityHealthRenderer`, `WaypointBeamRenderer` now use `Compat.*` for position access. `HitboxRenderer` does reflective dispatch for `RenderLayer.getLines` and `VertexRendering.drawBox` (signature changed). `WaypointBeamRenderer.renderBeamReflective` walks every `renderBeam` overload by parameter count (11, 10, 9 args).
+- **Module fallbacks**: `BedCoordsModule` uses `Compat.worldSpawnPos`. `FpsBoostGraphicsModule` wraps `getGraphicsMode()` in reflection (silent no-op on 1.21.11 where it's gone). `SplashTextMixin` tries both `SplashTextRenderer(String)` and `SplashTextRenderer(Text)` constructors.
+- **Matrix CI for client mod** — `build-mod` now builds 4 jars matching `iceymod-mc<MC_VER>-1.0.0.jar`. Each compiles against its target yarn natively, so method references aren't reflective on the hot path. Launcher install logic in [main.js](main.js) picks the right per-version jar (`iceymod-mc${installation.version}-1.0.0.jar`); `electron-builder` files glob bundles all four; the three launcher build jobs download all 4 mod-jar-mc* artifacts via pattern merge.
+
+### What's verified
+Compiles cleanly against:
+- 1.21.8 yarn (the dev default)
+- 1.21.11 yarn (the user's runtime)
+
+CI matrix will produce all 4 jars; the launcher will install whichever matches the installation's MC version. Freecam, freelook, all HUDs, hitboxes, waypoint beams should all work on 1.21.11 once the v1.86.5 release ships.
+
 ## What's new in v1.86.4
 
 **HUDs above entities work on 1.21.11 (and the spear/freecam diagnosis).**

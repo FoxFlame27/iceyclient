@@ -81,7 +81,7 @@ public final class EntityHealthRenderer {
         if (client.world == null || client.player == null) return;
 
         Camera cam = ctx.camera();
-        Vec3d camPos = cam.getPos();
+        Vec3d camPos = com.iceymod.Compat.cameraPos(cam);
         MatrixStack ms = ctx.matrixStack();
         VertexConsumerProvider vcp = ctx.consumers();
         if (vcp == null) return;
@@ -129,8 +129,8 @@ public final class EntityHealthRenderer {
     private static void drawNameplate(MatrixStack ms, VertexConsumerProvider vcp,
                                       Camera cam, TextRenderer tr,
                                       LivingEntity le, Text text) {
-        Vec3d pos = le.getPos();
-        Vec3d camPos = cam.getPos();
+        Vec3d pos = com.iceymod.Compat.entityPos(le);
+        Vec3d camPos = com.iceymod.Compat.cameraPos(cam);
         // Sit above the vanilla username nameplate. Vanilla nameplate
         // renders at getHeight() + 0.5; +1.0 gives clear separation.
         double yOffset = le.getHeight() + 1.0;

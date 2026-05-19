@@ -924,10 +924,11 @@ function launchMinecraft(installationId) {
       const modsDir = path.join(installGameDir, 'mods');
       fs.mkdirSync(modsDir, { recursive: true });
 
-      // 1) Install/UPDATE Icey mod jar. Single 1.21.8-built jar that
-      // gracefully degrades on other MC versions via WorldRenderHook
-      // reflection + per-module try/catch fallbacks.
-      const modJarName = 'iceymod-1.0.0.jar';
+      // 1) Install/UPDATE Icey mod jar (per-MC-version, matrix-built).
+      // Source compiles against all 4 yarn matrix variants; each jar
+      // references the correct method names natively. Naming scheme
+      // matches iceymodplus: iceymod-mc<MC_VER>-1.0.0.jar.
+      const modJarName = `iceymod-mc${installation.version}-1.0.0.jar`;
       const destJar = path.join(modsDir, modJarName);
       try {
         // Clean up any stale iceymod jars (wrong MC version, or the old

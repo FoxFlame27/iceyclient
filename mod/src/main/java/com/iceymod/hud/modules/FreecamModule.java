@@ -38,6 +38,7 @@ public class FreecamModule extends HudModule {
     // Anchor module instance so the static frame loop can read settings.
     private static FreecamModule INSTANCE;
     private static long lastFrameNanos = 0L;
+    private static boolean loggedFirstUpdate = false;
 
     public FreecamModule() {
         super("freecam", "Freecam", 0, 0);
@@ -131,6 +132,11 @@ public class FreecamModule extends HudModule {
         MinecraftClient c = MinecraftClient.getInstance();
         if (c == null || c.options == null || c.player == null) return;
 
+        if (!loggedFirstUpdate) {
+            System.out.println("[IceyMod] FreecamModule.updatePerFrame: first frame after activate");
+            loggedFirstUpdate = true;
+        }
+
         long now = System.nanoTime();
         double dt;
         if (lastFrameNanos == 0L) {
@@ -148,13 +154,17 @@ public class FreecamModule extends HudModule {
                 || c.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
 
         if (inputActive && dt > 0.0) {
-            boolean fwd    = c.options.forwardKey.isPressed();
-            boolean back   = c.options.backKey.isPressed();
-            boolean left   = c.options.leftKey.isPressed();
-            boolean right  = c.options.rightKey.isPressed();
-            boolean up     = c.options.jumpKey.isPressed();
-            boolean down   = c.options.sneakKey.isPressed();
-            boolean sprint = c.options.sprintKey.isPressed();
+            // Wrap each key read in try/catch — KeyBinding.isPressed has
+            // been stable for years but yarn renames hit other GameOptions
+            // fields, defensive read in case it ever shifts.
+            boolean fwd, back, left, right, up, down, sprint;
+            try { fwd    = c.options.forwardKey.isPressed(); } catch (Throwable t) { fwd = false; }
+            try { back   = c.options.backKey.isPressed();    } catch (Throwable t) { back = false; }
+            try { left   = c.options.leftKey.isPressed();    } catch (Throwable t) { left = false; }
+            try { right  = c.options.rightKey.isPressed();   } catch (Throwable t) { right = false; }
+            try { up     = c.options.jumpKey.isPressed();    } catch (Throwable t) { up = false; }
+            try { down   = c.options.sneakKey.isPressed();   } catch (Throwable t) { down = false; }
+            try { sprint = c.options.sprintKey.isPressed();  } catch (Throwable t) { sprint = false; }
 
             // moveSpeed setting is "blocks per tick"; 20 ticks/sec → blocks/sec.
             double speed = INSTANCE.moveSpeed.get() * 20.0;
@@ -185,7 +195,9 @@ public class FreecamModule extends HudModule {
         // the server has actually sent. View distance × 16 = block radius;
         // shave 32 so we don't sit at the very edge where chunks pop in/out.
         try {
-            int viewChunks = c.options.getViewDistance().getValue();
+            int viewChunks;
+            try { viewChunks = c.options.getViewDistance().getValue(); }
+            catch (Throwable t) { viewChunks = 12; } // safe default if the accessor drifted
             double maxDist = Math.max(64.0, viewChunks * 16.0 - 32.0);
             double px = c.player.getX(), py = c.player.getEyeY(), pz = c.player.getZ();
             double rx = posX - px, ry = posY - py, rz = posZ - pz;

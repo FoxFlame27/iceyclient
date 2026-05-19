@@ -58,17 +58,29 @@ public class HitboxRenderer {
         boolean onlyLiving = mod.onlyLiving.get();
 
         Camera cam = ctx.camera();
-        Vec3d camPos = cam.getPos();
+        Vec3d camPos = com.iceymod.Compat.cameraPos(cam);
         MatrixStack ms = ctx.matrixStack();
         VertexConsumerProvider consumers = ctx.consumers();
         if (consumers == null) return;
 
+        // RenderLayer.getLines() and VertexRendering.drawBox both shifted
+        // signature between 1.21.8 and 1.21.11. Use reflection so we can
+        // gracefully no-op on the version where they don't match.
         VertexConsumer lines;
+        Object linesLayer;
         try {
-            lines = consumers.getBuffer(RenderLayer.getLines());
+            linesLayer = RenderLayer.class.getMethod("getLines").invoke(null);
+            if (linesLayer == null) return;
+            // VertexConsumerProvider.getBuffer(RenderLayer) — the param
+            // type may have changed too. Try with the layer we just got.
+            lines = (VertexConsumer) consumers.getClass()
+                    .getMethod("getBuffer", linesLayer.getClass().getSuperclass())
+                    .invoke(consumers, linesLayer);
         } catch (Throwable t) {
+            // Reflection failed — can't render hitboxes on this MC version.
             return;
         }
+        if (lines == null) return;
 
         ms.push();
         ms.translate(-camPos.x, -camPos.y, -camPos.z);
@@ -78,12 +90,38 @@ public class HitboxRenderer {
                 if (onlyLiving && !(e instanceof LivingEntity)) continue;
                 if (e.squaredDistanceTo(client.player) > rangeSq) continue;
                 Box box = e.getBoundingBox();
-                VertexRendering.drawBox(ms, lines, box, r, g, b, a);
+                // VertexRendering.drawBox signature changed in 1.21.11.
+                // Reflective dispatch tries the known shapes.
+                drawBoxReflective(ms, lines, box, r, g, b, a);
             }
         } catch (Throwable ignored) {
-            // If the entity iterator or drawBox signature changes in a future
-            // version, fail silently rather than crash the frame.
+            // Iterator / drawBox renamed — fail silently rather than crash.
         }
         ms.pop();
+    }
+
+    private static void drawBoxReflective(MatrixStack ms, VertexConsumer lines, Box box,
+                                          float r, float g, float b, float a) {
+        // Try (MatrixStack, VertexConsumer, Box, float×4) — 1.21.8 shape
+        try {
+            VertexRendering.class.getMethod("drawBox",
+                    MatrixStack.class, VertexConsumer.class, Box.class,
+                    float.class, float.class, float.class, float.class)
+                .invoke(null, ms, lines, box, r, g, b, a);
+            return;
+        } catch (Throwable ignored) {}
+        // Try (MatrixStack, VertexConsumer, double×6, float×4) — older shape
+        try {
+            VertexRendering.class.getMethod("drawBox",
+                    MatrixStack.class, VertexConsumer.class,
+                    double.class, double.class, double.class,
+                    double.class, double.class, double.class,
+                    float.class, float.class, float.class, float.class)
+                .invoke(null, ms, lines,
+                        box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ,
+                        r, g, b, a);
+            return;
+        } catch (Throwable ignored) {}
+        // Both shapes failed — silently skip this entity's box.
     }
 }

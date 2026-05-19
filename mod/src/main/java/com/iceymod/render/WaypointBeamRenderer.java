@@ -44,12 +44,12 @@ public class WaypointBeamRenderer {
         if (wps.isEmpty()) return;
 
         Camera cam = ctx.camera();
-        Vec3d camPos = cam.getPos();
+        Vec3d camPos = com.iceymod.Compat.cameraPos(cam);
         MatrixStack ms = ctx.matrixStack();
         long worldTime = client.world.getTime();
         float tickDelta = ctx.tickDelta();
 
-        Vec3d playerPos = client.player.getPos();
+        Vec3d playerPos = com.iceymod.Compat.entityPos(client.player);
         VertexConsumerProvider vcp = ctx.consumers();
         TextRenderer textRenderer = client.textRenderer;
 
@@ -58,19 +58,13 @@ public class WaypointBeamRenderer {
             ms.push();
             ms.translate(wp.x + 0.5 - camPos.x, -64 - camPos.y, wp.z + 0.5 - camPos.z);
             try {
-                BeaconBlockEntityRenderer.renderBeam(
-                        ms,
-                        vcp,
-                        BeaconBlockEntityRenderer.BEAM_TEXTURE,
-                        tickDelta,
-                        1.0f,
-                        worldTime,
-                        0,
-                        BeaconBlockEntityRenderer.MAX_BEAM_HEIGHT,
-                        wp.color,
-                        0.2f,
-                        0.25f
-                );
+                // BeaconBlockEntityRenderer.renderBeam signature changed
+                // in 1.21.11 (params reshuffled). Resolve the static method
+                // via reflection so the call dispatches to whichever shape
+                // the runtime classpath has.
+                renderBeamReflective(ms, vcp, BeaconBlockEntityRenderer.BEAM_TEXTURE,
+                        tickDelta, 1.0f, worldTime, 0,
+                        BeaconBlockEntityRenderer.MAX_BEAM_HEIGHT, wp.color, 0.2f, 0.25f);
             } catch (Throwable ignored) {
                 // Renderer API changed? Don't crash the frame.
             }
@@ -123,6 +117,40 @@ public class WaypointBeamRenderer {
             } catch (Throwable ignored) {
                 // Any text-render API wobble shouldn't crash the frame.
             }
+        }
+    }
+
+    /** Reflection dispatch for {@code BeaconBlockEntityRenderer.renderBeam}.
+     *  The static method's signature changed between 1.21.8 and 1.21.11
+     *  (params got reordered + the texture-Identifier slot moved). Try the
+     *  known shapes in order, fall through silently if none match. */
+    private static void renderBeamReflective(net.minecraft.client.util.math.MatrixStack ms,
+                                             net.minecraft.client.render.VertexConsumerProvider vcp,
+                                             net.minecraft.util.Identifier tex,
+                                             float tickDelta, float heightScale, long worldTime,
+                                             int yOffset, int maxHeight, int color,
+                                             float innerRadius, float outerRadius) {
+        Class<?> rb = BeaconBlockEntityRenderer.class;
+        for (java.lang.reflect.Method m : rb.getMethods()) {
+            if (!"renderBeam".equals(m.getName())) continue;
+            try {
+                Class<?>[] p = m.getParameterTypes();
+                if (p.length == 11) {
+                    m.invoke(null, ms, vcp, tex, tickDelta, heightScale, worldTime,
+                            yOffset, maxHeight, color, innerRadius, outerRadius);
+                    return;
+                }
+                if (p.length == 10) {
+                    m.invoke(null, ms, vcp, tex, tickDelta, heightScale, worldTime,
+                            yOffset, maxHeight, color, innerRadius);
+                    return;
+                }
+                if (p.length == 9) {
+                    m.invoke(null, ms, vcp, tex, tickDelta, heightScale, worldTime,
+                            yOffset, maxHeight, color);
+                    return;
+                }
+            } catch (Throwable ignored) {}
         }
     }
 
