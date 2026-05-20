@@ -30,6 +30,31 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.7
+
+**Diagnostic-driven fix — HUDs failed at registration because Java's module system blocked reflective `register` on the impl class.**
+
+User's log from v1.86.6 install on 1.21.11 showed:
+```
+[IceyMod] CameraMixin@update RETURN fired (mixin IS bound)            ← good, freecam mixin works
+[IceyMod] WorldRenderHook.register('AFTER_ENTITIES') failed:
+  java.lang.IllegalAccessException: class com.iceymod.render.WorldRenderHook
+  cannot access a member of class net.fabricmc.fabric.impl.base.event.ArrayBackedEvent
+  with modifiers "public"                                              ← THE bug
+```
+
+The `Event` instance returned by Fabric API's `WorldRenderEvents.AFTER_ENTITIES.get()` is an `ArrayBackedEvent` — public class, public `register` method, but the package `net.fabricmc.fabric.impl.base.event` is sealed by the Java Module System and refuses reflective access from outside the module even though the member is `public`.
+
+**Fix** in [WorldRenderHook.java](mod/src/main/java/com/iceymod/render/WorldRenderHook.java): resolve `register(Object)` via the public `net.fabricmc.fabric.api.event.Event` interface instead of `event.getClass()` (the impl). The interface is in an exported package, so reflective access is allowed. Also added `setAccessible(true)` as belt-and-suspenders before invoke. Old impl-class walk kept as fallback for any future Fabric API restructure.
+
+`AFTER_TRANSLUCENT` still fails on 1.21.11 (NoSuchFieldException — that listener was removed) — waypoint beams stay disabled there, but **HUDs (AFTER_ENTITIES) now register cleanly**.
+
+When the v1.86.7 client jar (mc1.21.11) lands, you should see in the Console:
+```
+[IceyMod] EntityHealthRenderer: drew health above player <name>
+[IceyMod] CameraMixin: applying freecam (first frame)   ← if you toggle F4
+```
+
 ## What's new in v1.86.6
 
 **CI hotfix on top of v1.86.5.** The client-mod matrix-build I added in v1.86.5 failed CI on the 1.21 entry — 20+ symbol errors from APIs introduced in 1.21.5 (RenderPipelines, VertexRendering, PlayerInput, HoverEvent.ShowText record, PlayerInventory.getSelectedSlot, BiomeKeys.PALE_GARDEN, ParticlesMode, etc.). The mod actually requires 1.21.5+ to build at all; the 1.21 + 1.21.5 matrix entries were aspirational and never tested against the current source. Dropped them from the client-mod matrix — only 1.21.8 and 1.21.11 client jars now ship. iceymodplus (server mod) matrix unchanged: still 1.21 / 1.21.5 / 1.21.8 / 1.21.11, because its API surface is smaller and stable across all four.

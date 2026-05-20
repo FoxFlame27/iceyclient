@@ -87,18 +87,34 @@ public final class WorldRenderHook {
                         return null;
                     });
 
-            // Event has register(T listener). Match by method name.
+            // Get register() from the PUBLIC Event interface, not the
+            // impl class. event.getClass() returns ArrayBackedEvent which
+            // lives in net.fabricmc.fabric.impl.base.event — a package
+            // the Java module system blocks reflective access to (even
+            // for public members). Routing through the Event interface
+            // sidesteps that. Real-world failure observed: "Illegal
+            // AccessException: class WorldRenderHook cannot access a
+            // member of class ArrayBackedEvent with modifiers public".
             Method registerMethod = null;
-            for (Method m : event.getClass().getMethods()) {
-                if ("register".equals(m.getName()) && m.getParameterCount() == 1) {
-                    Class<?> p = m.getParameterTypes()[0];
-                    if (p.isAssignableFrom(listenerType)) { registerMethod = m; break; }
+            try {
+                Class<?> eventInterface = Class.forName("net.fabricmc.fabric.api.event.Event");
+                registerMethod = eventInterface.getMethod("register", Object.class);
+            } catch (Throwable ignored) {}
+            // Fallback: walk the impl class hierarchy looking for a
+            // register() that takes the listener type.
+            if (registerMethod == null) {
+                for (Method m : event.getClass().getMethods()) {
+                    if ("register".equals(m.getName()) && m.getParameterCount() == 1) {
+                        Class<?> p = m.getParameterTypes()[0];
+                        if (p.isAssignableFrom(listenerType)) { registerMethod = m; break; }
+                    }
                 }
             }
             if (registerMethod == null) {
                 System.out.println("[IceyMod] WorldRenderHook: no register(listener) on Event");
                 return false;
             }
+            try { registerMethod.setAccessible(true); } catch (Throwable ignored) {}
             registerMethod.invoke(event, proxy);
             return true;
         } catch (Throwable t) {
