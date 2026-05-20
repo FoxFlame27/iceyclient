@@ -21,13 +21,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Client mod requires APIs introduced in 1.21.5 (RenderPipelines,
+        # VertexRendering, PlayerInput, HoverEvent.ShowText record,
+        # PlayerInventory.getSelectedSlot, BiomeKeys.PALE_GARDEN, etc.).
+        # Building against 1.21 / 1.21.5 yarn fails with 20+ symbol errors
+        # — those MC releases simply don't have the features the mod uses.
+        # Ship binaries only for the supported floor (1.21.8) + the latest
+        # (1.21.11). iceymodplus (server mod) still builds for all four
+        # because the server-side API surface is much smaller and stable.
         include:
-          - mc: "1.21"
-            yarn: "1.21+build.9"
-            fabric: "0.102.0+1.21"
-          - mc: "1.21.5"
-            yarn: "1.21.5+build.1"
-            fabric: "0.119.5+1.21.5"
           - mc: "1.21.8"
             yarn: "1.21.8+build.1"
             fabric: "0.136.1+1.21.8"

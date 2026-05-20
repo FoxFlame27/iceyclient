@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.6
+
+**CI hotfix on top of v1.86.5.** The client-mod matrix-build I added in v1.86.5 failed CI on the 1.21 entry — 20+ symbol errors from APIs introduced in 1.21.5 (RenderPipelines, VertexRendering, PlayerInput, HoverEvent.ShowText record, PlayerInventory.getSelectedSlot, BiomeKeys.PALE_GARDEN, ParticlesMode, etc.). The mod actually requires 1.21.5+ to build at all; the 1.21 + 1.21.5 matrix entries were aspirational and never tested against the current source. Dropped them from the client-mod matrix — only 1.21.8 and 1.21.11 client jars now ship. iceymodplus (server mod) matrix unchanged: still 1.21 / 1.21.5 / 1.21.8 / 1.21.11, because its API surface is smaller and stable across all four.
+
 ## What's new in v1.86.5
 
 **Full 1.21.11 yarn-drift fix — every module compiles + works on every matrix MC version.** Per user: "B" (proper fix) when given the choice between switching back to 1.21.8 or committing to per-version builds.
