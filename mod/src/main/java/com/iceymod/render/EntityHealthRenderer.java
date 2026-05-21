@@ -4,62 +4,62 @@ import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.modules.MobHealthModule;
 import com.iceymod.hud.modules.PlayerHealthModule;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
- * Renders an entity's health as a "nameplate-style" text above its head
- * in world space. Replaces the old fixed-HUD-position TargetHealthModule.
- * Two-module toggle:
+ * Renders a target's health as a 2D "nameplate" above each player / mob,
+ * implemented via {@code HudRenderCallback} + manual world-to-screen
+ * projection instead of {@code WorldRenderEvents.AFTER_ENTITIES}.
  *
- * <ul>
- *   <li>{@link PlayerHealthModule} — controls the nameplate for OTHER
- *       players (excluding the local player).
- *   <li>{@link MobHealthModule} — controls the nameplate for non-player
- *       LivingEntities (zombies, villagers, animals, etc.).
- * </ul>
+ * <h2>Why this approach</h2>
+ * fabric-rendering-v1 16.x (1.21.11+) restructured the world-render
+ * pipeline. {@code AFTER_ENTITIES} fires with a {@code matrices()}
+ * MatrixStack and a {@code consumers()} VertexConsumerProvider, but the
+ * consumer buffer is no longer auto-flushed at that point in the new
+ * pipeline — text submitted via {@code TextRenderer.draw} just sits in
+ * the buffer and never reaches the screen. Logs from the user's 1.21.11
+ * install confirmed: {@code drew health above player <name>} fired
+ * every frame, but no text visible in-game.
  *
- * <h2>Render approach (vanilla nameplate algorithm)</h2>
- * Mirrors {@code EntityRenderer.renderLabelIfPresent} — the canonical
- * way Minecraft draws floating text above entities:
+ * <p>This rewrite drops the world-space approach. Now per frame we:
+ *
  * <ol>
- *   <li>Translate world-relative to camera (subtract {@code camera.getPos}).
- *   <li>Multiply by {@code camera.getRotation()} so the text quad faces the camera.
- *   <li>Scale by {@code -0.025f} on X/Y (the {@code -} flips the text
- *       so it reads correctly facing the player) and {@code 0.025f} on Z.
- *   <li>Draw text TWICE:
- *       <ol type="a">
- *         <li>{@code TextLayerType.SEE_THROUGH} with a faint alpha
- *             ({@code 0x21FFFFFF}) — visible through walls, faded.
- *         <li>{@code TextLayerType.NORMAL} with full-opaque white
- *             ({@code -1}) — drawn over the SEE_THROUGH layer in
- *             world view, so unoccluded text reads at full strength
- *             while occluded text shows faintly through cover.
- *       </ol>
+ *   <li>Get the camera position + rotation.
+ *   <li>For each {@link LivingEntity} within 64 blocks, compute its
+ *       head position in world space.
+ *   <li>Transform to camera-relative space via the camera's inverse rotation.
+ *   <li>Skip if behind the camera ({@code z >= 0}).
+ *   <li>Project to screen via the FOV-based pinhole formula
+ *       {@code x' = x * focal / -z}, {@code y' = y * focal / -z}.
+ *   <li>Draw the heart-and-HP text via the {@link DrawContext} 2D HUD
+ *       pipeline, which has been stable across every yarn version we
+ *       care about.
  * </ol>
  *
- * <p>Sight cap is the vanilla player entity-tracking distance (~64
- * blocks for players, ~80 for mobs depending on type). Beyond that the
- * entity isn't on the client and we couldn't draw it anyway.
+ * <p>Trade-off: the text doesn't scale with distance — it's always
+ * one font size, which actually reads better at distance than a tiny
+ * 3D-billboarded nameplate. Visible 64 blocks out.
  */
 public final class EntityHealthRenderer {
 
     private static final double MAX_DIST = 64.0;
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
-    /** Vanilla nameplate text scale. */
-    private static final float SCALE = 0.025f;
 
     public static void register() {
-        if (!WorldRenderHook.registerAfterEntities(EntityHealthRenderer::onRender)) {
-            System.out.println("[IceyMod] WorldRenderEvents unavailable — entity-health renderer disabled");
+        try {
+            HudRenderCallback.EVENT.register(EntityHealthRenderer::onHudRender);
+        } catch (Throwable t) {
+            System.out.println("[IceyMod] HudRenderCallback unavailable — entity-health renderer disabled: " + t.getMessage());
         }
     }
 
@@ -70,28 +70,45 @@ public final class EntityHealthRenderer {
         return null;
     }
 
-    private static void onRender(WorldRenderHook.Ctx ctx) {
-        PlayerHealthModule playerMod = find(PlayerHealthModule.class);
-        MobHealthModule mobMod = find(MobHealthModule.class);
-        boolean showPlayers = playerMod != null && playerMod.isEnabled();
-        boolean showMobs = mobMod != null && mobMod.isEnabled();
+    private static void onHudRender(DrawContext ctx, Object tickCounter) {
+        PlayerHealthModule pm = find(PlayerHealthModule.class);
+        MobHealthModule mm = find(MobHealthModule.class);
+        boolean showPlayers = pm != null && pm.isEnabled();
+        boolean showMobs = mm != null && mm.isEnabled();
         if (!showPlayers && !showMobs) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null || client.player == null) return;
+        if (client.gameRenderer == null) return;
 
-        Camera cam = ctx.camera();
+        Camera cam = client.gameRenderer.getCamera();
+        if (cam == null) return;
         Vec3d camPos = com.iceymod.Compat.cameraPos(cam);
-        MatrixStack ms = ctx.matrixStack();
-        VertexConsumerProvider vcp = ctx.consumers();
-        if (vcp == null) return;
+        Quaternionf camRot = cam.getRotation();
+        if (camRot == null) return;
+        // Invert camera rotation so we can transform world positions
+        // into camera-relative space.
+        Quaternionf camRotInv = new Quaternionf(camRot).invert();
+
         TextRenderer tr = client.textRenderer;
         if (tr == null) return;
 
+        // FOV + window for the projection formula.
+        double fovDeg;
+        try { fovDeg = (double)(int) client.options.getFov().getValue(); }
+        catch (Throwable t) { fovDeg = 70.0; }
+        double fovRad = Math.toRadians(fovDeg);
+        int scaledW = client.getWindow().getScaledWidth();
+        int scaledH = client.getWindow().getScaledHeight();
+        int pixelH = client.getWindow().getHeight();
+        // Focal length in SCALED-screen units. MC's HUD coords are in
+        // scaled pixels, not physical pixels, so the projection has to
+        // match.
+        float focal = (float)((pixelH / 2.0) / Math.tan(fovRad / 2.0));
+        float guiScale = (float)(scaledH > 0 ? (double) pixelH / scaledH : 1.0);
+        float focalGui = focal / guiScale;
+
         try {
-            // Iterate all loaded entities. Filter by LivingEntity first
-            // (skips items, arrows, paintings) then split into player vs
-            // mob, then check the corresponding module's enabled flag.
             for (var e : client.world.getEntities()) {
                 if (!(e instanceof LivingEntity le)) continue;
                 if (le == client.player) continue;
@@ -109,11 +126,37 @@ public final class EntityHealthRenderer {
                 Text text = Text.literal(color + "❤ "
                         + String.format("%.1f", hp) + "/" + String.format("%.0f", max));
 
-                drawNameplate(ms, vcp, cam, tr, le, text);
+                Vec3d entityPos = com.iceymod.Compat.entityPos(le);
+                // Head position slightly above the bbox top so the
+                // text sits ABOVE the vanilla nameplate.
+                double yOffset = le.getHeight() + 0.6;
+                Vector3f rel = new Vector3f(
+                        (float)(entityPos.x - camPos.x),
+                        (float)(entityPos.y - camPos.y + yOffset),
+                        (float)(entityPos.z - camPos.z)
+                );
+                // Transform into camera space.
+                rel.rotate(camRotInv);
+
+                // MC's camera looks down -Z. After rotation, z < 0 = in
+                // front, z > 0 = behind.
+                if (rel.z >= -0.05f) continue;
+
+                // Pinhole projection: screen_x_offset = x * focal / -z
+                float sx = scaledW * 0.5f + (rel.x / -rel.z) * focalGui;
+                float sy = scaledH * 0.5f + (-rel.y / -rel.z) * focalGui;
+                // The (-rel.y) because screen Y grows downward but world Y
+                // grows upward; the camera-relative coords are world-axis.
+
+                int width = tr.getWidth(text);
+                int x = (int)(sx - width / 2f);
+                int y = (int)sy;
+                // Draw with shadow so the text is readable on any backdrop.
+                ctx.drawText(tr, text, x, y, 0xFFFFFFFF, true);
 
                 if (!loggedFirstRender) {
-                    System.out.println("[IceyMod] EntityHealthRenderer: drew health above "
-                            + (isPlayer ? "player " : "mob ") + le.getType().getUntranslatedName());
+                    System.out.println("[IceyMod] EntityHealthRenderer: HUD nameplate drawn at ("
+                            + x + "," + y + ") for " + (isPlayer ? "player" : "mob"));
                     loggedFirstRender = true;
                 }
             }
@@ -123,38 +166,6 @@ public final class EntityHealthRenderer {
                 loggedFirstError = true;
             }
         }
-    }
-
-    /** Vanilla two-pass nameplate draw — see class doc. */
-    private static void drawNameplate(MatrixStack ms, VertexConsumerProvider vcp,
-                                      Camera cam, TextRenderer tr,
-                                      LivingEntity le, Text text) {
-        Vec3d pos = com.iceymod.Compat.entityPos(le);
-        Vec3d camPos = com.iceymod.Compat.cameraPos(cam);
-        // Sit above the vanilla username nameplate. Vanilla nameplate
-        // renders at getHeight() + 0.5; +1.0 gives clear separation.
-        double yOffset = le.getHeight() + 1.0;
-        ms.push();
-        ms.translate(pos.x - camPos.x, pos.y - camPos.y + yOffset, pos.z - camPos.z);
-        ms.multiply(cam.getRotation());
-        ms.scale(-SCALE, -SCALE, SCALE);
-        Matrix4f matrix = ms.peek().getPositionMatrix();
-
-        int halfWidth = tr.getWidth(text) / 2;
-        // Background tint — alpha is from client text-background opacity
-        // setting (default 25%). 0x40 = 64/255 ≈ 25%.
-        int bgColor = 0x40000000;
-
-        // Pass 1: SEE_THROUGH (visible through walls, faint).
-        // 0x21FFFFFF = ~13% alpha white — matches vanilla nameplate.
-        tr.draw(text, (float) (-halfWidth), 0f, 0x21FFFFFF, false, matrix, vcp,
-                TextRenderer.TextLayerType.SEE_THROUGH, bgColor, 0xF000F0);
-        // Pass 2: NORMAL (drawn over the SEE_THROUGH layer in world view
-        // — unoccluded text reads at full white).
-        tr.draw(text, (float) (-halfWidth), 0f, 0xFFFFFFFF, false, matrix, vcp,
-                TextRenderer.TextLayerType.NORMAL, 0, 0xF000F0);
-
-        ms.pop();
     }
 
     private static boolean loggedFirstRender = false;

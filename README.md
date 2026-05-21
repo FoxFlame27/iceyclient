@@ -30,6 +30,34 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.9
+
+**Switched the health nameplate from world-render to 2D HUD projection — bypasses the broken consumer-flush on 1.21.11.**
+
+User's log from v1.86.8 confirmed:
+- `CameraMixin@update RETURN fired` ✅
+- `EntityHealthRenderer: drew health above player <name>` ✅ (renderer fires every frame)
+- But nothing visible in-game ❌
+
+Root cause: fabric-rendering-v1 16.x (1.21.11+) restructured the world-render pipeline. `WorldRenderEvents.AFTER_ENTITIES` still fires, `matrices()` / `consumers()` are valid, but the `VertexConsumerProvider` buffer is **no longer auto-flushed** at that injection point in the new pipeline. Text submitted via `TextRenderer.draw` just sits in the buffer forever.
+
+Fix: dropped the world-space approach entirely. `EntityHealthRenderer` is now a `HudRenderCallback` (2D HUD pipeline, stable across every yarn version) that does manual world-to-screen projection:
+
+1. Get camera position + rotation each frame via Compat helper.
+2. For each `LivingEntity` within 64 blocks:
+   - Compute head position in world space (entity.pos + (0, height+0.6, 0))
+   - Subtract camera position → camera-relative offset
+   - Rotate by inverse camera rotation → camera-space coords
+   - Skip if behind camera (z >= 0)
+   - Pinhole-project: `screen_x = halfW + (rel.x / -rel.z) * focal`, same for y with -rel.y for screen-coord flip
+   - Draw text via `DrawContext.drawText` (the 2D HUD pipeline)
+
+The text doesn't scale with distance — fixed font size, which actually reads better at 64-block range than a tiny 3D billboard would. Still color-coded green/yellow/red by HP ratio. Still toggleable via the `PlayerHealthModule` / `MobHealthModule` HUD entries.
+
+Compiles cleanly against both 1.21.8 and 1.21.11 yarn.
+
+When v1.86.9 lands, you should see the heart/HP text floating above every player + mob within 64 blocks — no per-frame log spam this time (only the first-draw debug line).
+
 ## What's new in v1.86.8
 
 **Next diagnostic — `ctx.matrixStack()` returned null on 1.21.11 because the method was renamed.**
