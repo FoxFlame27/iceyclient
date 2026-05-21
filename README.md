@@ -30,6 +30,31 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.10
+
+**New `HealthHudRenderer` — world-space nameplate done right, with explicit buffer flush.**
+
+The fundamental issue across v1.86.4 → v1.86.9 was that on 1.21.11's fabric-rendering-v1 16.x, the world-render pipeline no longer auto-drains the `VertexConsumerProvider` at `AFTER_ENTITIES` — any text submitted via `TextRenderer.draw` sat in the buffer forever. Logs confirmed: the renderer fired ("drew health above player <name>") but nothing was ever visible.
+
+v1.86.9 worked around it by switching to 2D HUD projection. v1.86.10 goes back to world-space (per user's "I want the spec implemented properly") and just **calls `immediate.draw()` explicitly** at the end of every render frame to flush the buffer.
+
+[HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java) — clean rewrite, ~250 lines:
+
+- `WorldRenderEvents.AFTER_ENTITIES` registration via `WorldRenderHook` (handles the 1.21.8 ↔ 1.21.11 package-path shift).
+- Iterates loaded `LivingEntity`s within 30 blocks (configurable), skipping self / spectators / invisible targets.
+- Per-player `HashMap<UUID, Float>` for lerped health — bar animates toward the real value at 5%/tick so HP changes are smooth instead of snapping.
+- Matrix transforms: translate to head position (camera-relative) → multiply by `cam.getRotation()` (billboard) → scale by vanilla nameplate factor `-0.025`.
+- Bar rendered as Unicode block characters (`██████░░░░░░░░░░░░░░`) with `§`-color codes for fill, going through the same `TextRenderer.draw` path as the numeric label — single batched submission. **This avoids the yarn-drifty `RenderLayer` / `VertexConsumer` quad APIs.**
+- Color thresholds: green ≥ 80%, yellow ≥ 50%, gold ≥ 25%, red below.
+- Numeric label below: `18.5 / 20` in white with drop shadow.
+- **Explicit `((VertexConsumerProvider.Immediate) vcp).draw()`** at the end of the render frame — the fix.
+- `ClientPlayConnectionEvents.DISCONNECT` clears the lerp cache.
+- Each toggleable independently via existing `PlayerHealthModule` / `MobHealthModule` Y-menu entries.
+
+The old `EntityHealthRenderer.java` (from v1.86.5 onward, including the v1.86.9 HUD projection version) is deleted. `IceyMod.onInitializeClient` now wires `HealthHudRenderer.register()`.
+
+Compiles cleanly against both 1.21.8 and 1.21.11 yarn.
+
 ## What's new in v1.86.9
 
 **Switched the health nameplate from world-render to 2D HUD projection — bypasses the broken consumer-flush on 1.21.11.**
