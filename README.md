@@ -1,4 +1,4 @@
-  pllb ty for downloading 
+l  pllb ty for downloading 
 get .exe for windows
 
 ## Download iceymod+
@@ -29,6 +29,31 @@ get arm 64x .dmg for mac but make sure to run this command if the app says iceyc
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.86.8
+
+**Next diagnostic — `ctx.matrixStack()` returned null on 1.21.11 because the method was renamed.**
+
+User's v1.86.7 log on 1.21.11:
+```
+[IceyMod] CameraMixin@update RETURN fired (mixin IS bound)
+[IceyMod] EntityHealthRenderer error (suppressing further):
+  java.lang.NullPointerException: Cannot invoke
+  "net.minecraft.class_4587.method_22903()" because "ms" is null
+```
+
+`class_4587` is MatrixStack, `method_22903` is `push()`. The renderer got null from `ctx.matrixStack()`. Inspecting `WorldRenderContext` class strings on both versions:
+
+| Method | 1.21.8 | 1.21.11 |
+| --- | --- | --- |
+| MatrixStack accessor | `matrixStack()` | **`matrices()`** |
+| Camera accessor | `camera()` | *(removed entirely)* |
+| VertexConsumerProvider | `consumers()` | `consumers()` |
+| Tick counter | `tickCounter()` | *(removed)* |
+
+`WorldRenderHook.Ctx` now tries `matrixStack()` first then `matrices()`. `camera()` falls back to `MinecraftClient.getInstance().gameRenderer.getCamera()` when the context-level method is missing. `tickDelta()` falls back to `MinecraftClient.getRenderTickCounter()`.
+
+When v1.86.8 lands and you install the new client jar, the Console line `[IceyMod] EntityHealthRenderer: drew health above player <name>` should appear within ~1 second of seeing another player. If you see a different error after this, paste it back.
 
 ## What's new in v1.86.7
 

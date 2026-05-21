@@ -137,17 +137,36 @@ public final class WorldRenderHook {
 
     /** Reflection-based facade over a {@code WorldRenderContext} instance.
      *  Methods are looked up by name on whatever class the underlying
-     *  object happens to be — works regardless of which class-path
-     *  variant Fabric API is shipping. */
+     *  object happens to be. Per-version method-name drift:
+     *
+     *  <pre>
+     *  1.21.8: matrixStack() camera() consumers() tickCounter()
+     *  1.21.11: matrices()  consumers()
+     *           (camera/tickCounter removed — fall back to MinecraftClient)
+     *  </pre>
+     */
     public static final class Ctx {
         private final Object context;
         Ctx(Object context) { this.context = context; }
 
         public MatrixStack matrixStack() {
-            return invoke(MatrixStack.class, "matrixStack");
+            // 1.21.8 → matrixStack(); 1.21.11 → matrices().
+            MatrixStack ms = invoke(MatrixStack.class, "matrixStack");
+            if (ms != null) return ms;
+            return invoke(MatrixStack.class, "matrices");
         }
         public Camera camera() {
-            return invoke(Camera.class, "camera");
+            // 1.21.8 has camera() on the context. 1.21.11 removed it —
+            // get the game's camera from MinecraftClient.gameRenderer.
+            Camera c = invoke(Camera.class, "camera");
+            if (c != null) return c;
+            try {
+                net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+                if (mc != null && mc.gameRenderer != null) {
+                    return mc.gameRenderer.getCamera();
+                }
+            } catch (Throwable ignored) {}
+            return null;
         }
         public VertexConsumerProvider consumers() {
             return invoke(VertexConsumerProvider.class, "consumers");
@@ -156,7 +175,6 @@ public final class WorldRenderHook {
             try {
                 Object v = context.getClass().getMethod("tickCounter").invoke(context);
                 if (v != null) {
-                    // RenderTickCounter has getTickProgress(boolean) on 1.21.5+.
                     try {
                         Object f = v.getClass().getMethod("getTickProgress", boolean.class).invoke(v, true);
                         if (f instanceof Float ff) return ff;
@@ -167,9 +185,22 @@ public final class WorldRenderHook {
                     } catch (Throwable ignored) {}
                 }
             } catch (Throwable ignored) {}
-            // Older API exposed tickDelta() directly on the context.
             Float legacy = invoke(Float.class, "tickDelta");
-            return legacy == null ? 0f : legacy;
+            if (legacy != null) return legacy;
+            // Last fallback — tickDelta from MinecraftClient.getRenderTickCounter
+            try {
+                net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+                if (mc != null) {
+                    Object rtc = mc.getClass().getMethod("getRenderTickCounter").invoke(mc);
+                    if (rtc != null) {
+                        try {
+                            Object f = rtc.getClass().getMethod("getTickProgress", boolean.class).invoke(rtc, true);
+                            if (f instanceof Float ff) return ff;
+                        } catch (Throwable ignored) {}
+                    }
+                }
+            } catch (Throwable ignored) {}
+            return 0f;
         }
 
         @SuppressWarnings("unchecked")
