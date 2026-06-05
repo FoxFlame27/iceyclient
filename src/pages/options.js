@@ -28,6 +28,11 @@ async function _renderMainOptions(page, settings) {
 
   const iceyModsEnabled = settings.iceyModsEnabled !== false;
   const skinChangerEnabled = !!settings.skinChangerEnabled;
+  const closeOnStart = !!settings.closeLauncherOnStart;
+  // Layout theme: 'classic' (sidebar left) or 'liquid' (bottom nav +
+  // 4-button home). The default is 'classic' so existing users don't
+  // get a surprise UI rearrangement on first launch after upgrading.
+  const layoutTheme = settings.layoutTheme === 'liquid' ? 'liquid' : 'classic';
 
   // Load panorama catalog if not cached
   if (!_optionsPanoramaCache) {
@@ -94,6 +99,48 @@ async function _renderMainOptions(page, settings) {
           </div>
           <label class="toggle" onclick="event.stopPropagation();">
             <input type="checkbox" ${skinChangerEnabled ? 'checked' : ''} onchange="_optToggleFeature('skinChangerEnabled', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Launch / Layout row — promoted out of Advanced so the two
+           most-touched preferences live next to each other. -->
+      <div class="options-toggle-row">
+        <div class="options-toggle-card ${closeOnStart ? 'on' : 'off'}" onclick="_optToggleFeature('closeLauncherOnStart', ${!closeOnStart})">
+          <div class="options-toggle-icon-svg">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </div>
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Close on Launch</div>
+            <div class="options-toggle-desc">Auto-close launcher when MC starts</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${closeOnStart ? 'checked' : ''} onchange="_optToggleFeature('closeLauncherOnStart', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="options-toggle-card ${layoutTheme === 'liquid' ? 'on' : 'off'}" onclick="_optSetLayoutTheme('${layoutTheme === 'liquid' ? 'classic' : 'liquid'}')">
+          <div class="options-toggle-icon-svg">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3"/>
+              <line x1="3" y1="16" x2="21" y2="16"/>
+              <circle cx="7.5" cy="19" r="0.5" fill="currentColor"/>
+              <circle cx="12" cy="19" r="0.5" fill="currentColor"/>
+              <circle cx="16.5" cy="19" r="0.5" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Change Theme</div>
+            <div class="options-toggle-desc">${layoutTheme === 'liquid' ? 'Liquid — bottom nav' : 'Classic — side nav'}</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${layoutTheme === 'liquid' ? 'checked' : ''} onchange="_optSetLayoutTheme(this.checked ? 'liquid' : 'classic')">
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -184,6 +231,18 @@ async function _optSelectPanorama(filename) {
 
 async function _optToggleFeature(key, value) {
   await SettingsManager.set(key, value);
+  _optionsRender();
+}
+
+// Swap layout between classic (left sidebar) and liquid (bottom nav +
+// 4-button home). SettingsManager pushes the `data-layout` attribute on
+// <html> so the CSS swap is instant — we just re-render Home and the
+// settings page so any home-specific markup picks up the change.
+async function _optSetLayoutTheme(value) {
+  const next = value === 'liquid' ? 'liquid' : 'classic';
+  await SettingsManager.set('layoutTheme', next);
+  Toast.info(next === 'liquid' ? 'Liquid theme on' : 'Classic theme on');
+  if (typeof HomePageInit === 'function') HomePageInit().catch(() => {});
   _optionsRender();
 }
 
@@ -313,15 +372,6 @@ function _renderAdvancedOptions(page, settings) {
             </div>
             <div class="jvm-args-content" id="jvm-args-content">
               <textarea class="form-input" id="opt-jvm-args" placeholder="-XX:+UseG1GC" onchange="_optSet('jvmArgs', this.value)">${_optEscape(settings.jvmArgs || '')}</textarea>
-            </div>
-          </div>
-          <div class="options-row">
-            <div class="options-row-label"><span class="options-row-name">Close Launcher on Game Start</span></div>
-            <div class="options-row-control">
-              <label class="toggle">
-                <input type="checkbox" ${settings.closeLauncherOnStart ? 'checked' : ''} onchange="_optSet('closeLauncherOnStart', this.checked)">
-                <span class="toggle-slider"></span>
-              </label>
             </div>
           </div>
         </div>

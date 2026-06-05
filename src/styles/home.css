@@ -246,3 +246,226 @@
   transition: all 0.2s;
 }
 .home-inst-empty:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ───────────────────────────────────────────────────────────────
+   Liquid home — 4 big buttons on the left, hero logo on the right.
+   Inspired by LiquidBounce's home screen. Active when
+   <html data-layout="liquid">.
+   ─────────────────────────────────────────────────────────────── */
+.home-liquid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(340px, 1fr) 1fr;
+  gap: 28px;
+  width: 100%;
+  height: 100%;
+  padding: 36px 28px 24px;
+  align-items: center;
+}
+
+.home-liquid-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 540px;
+  width: 100%;
+  justify-self: end;
+}
+
+.liquid-menu-btn {
+  display: grid;
+  grid-template-columns: 64px 1fr 24px;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, rgba(13,20,36,0.78) 0%, rgba(8,12,24,0.68) 100%);
+  border: 1px solid rgba(91,200,245,0.14);
+  border-radius: 16px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1),
+              border-color 0.25s ease, box-shadow 0.25s ease,
+              background 0.25s ease;
+}
+
+.liquid-menu-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(91,200,245,0.12), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.liquid-menu-btn:hover {
+  transform: translateX(6px);
+  border-color: rgba(91,200,245,0.45);
+  box-shadow: 0 10px 32px rgba(0,0,0,0.45),
+              0 0 0 1px rgba(91,200,245,0.08) inset;
+}
+.liquid-menu-btn:hover::before { opacity: 1; }
+
+.liquid-menu-btn:active { transform: translateX(2px) scale(0.99); }
+
+.liquid-menu-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(91,200,245,0.18), rgba(91,200,245,0.04));
+  border: 1px solid rgba(91,200,245,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.liquid-menu-text { min-width: 0; }
+
+.liquid-menu-title {
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.liquid-menu-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.liquid-menu-arrow {
+  color: rgba(91,200,245,0.4);
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+.liquid-menu-btn:hover .liquid-menu-arrow {
+  color: var(--accent);
+  transform: translateX(4px);
+}
+
+/* Play button has a brighter accent + greenish glow at idle */
+.liquid-menu-play {
+  border-color: rgba(74,222,128,0.32);
+  background: linear-gradient(135deg, rgba(34,197,94,0.10) 0%, rgba(8,12,24,0.68) 100%);
+}
+.liquid-menu-play .liquid-menu-icon {
+  background: linear-gradient(135deg, rgba(74,222,128,0.25), rgba(34,197,94,0.06));
+  border-color: rgba(74,222,128,0.32);
+  color: #4ade80;
+}
+.liquid-menu-play:hover {
+  border-color: rgba(74,222,128,0.6);
+  box-shadow: 0 12px 36px rgba(34,197,94,0.18),
+              0 0 0 1px rgba(74,222,128,0.12) inset;
+}
+.liquid-menu-play.launch-btn-running .liquid-menu-icon {
+  background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.06));
+  border-color: rgba(239,68,68,0.4);
+  color: var(--red);
+}
+.liquid-menu-play.launch-btn-running {
+  border-color: rgba(239,68,68,0.45);
+}
+.liquid-menu-play.launch-btn-starting .liquid-menu-icon {
+  background: linear-gradient(135deg, rgba(91,200,245,0.25), rgba(91,200,245,0.06));
+  border-color: rgba(91,200,245,0.4);
+  color: var(--accent);
+}
+
+/* Right side: big logo + tagline + (optional) playtime */
+.home-liquid-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  position: relative;
+}
+
+.home-liquid-logo {
+  width: 220px;
+  height: 220px;
+  border-radius: 36px;
+  background: linear-gradient(135deg, rgba(91,200,245,0.18), rgba(91,200,245,0.02));
+  border: 1px solid rgba(91,200,245,0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 24px 80px rgba(91,200,245,0.18),
+              0 0 0 1px rgba(91,200,245,0.06) inset;
+  animation: heroFloat 6s ease-in-out infinite;
+}
+.home-liquid-logo img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 24px rgba(91,200,245,0.4));
+}
+
+.home-liquid-title {
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #f1f5f9 0%, var(--accent-frost) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-align: center;
+}
+
+.home-liquid-tagline {
+  font-size: 12px;
+  color: var(--text-secondary);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.home-liquid-side .home-timer {
+  margin-top: 12px;
+  background: rgba(13,20,36,0.7);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 16px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+.home-liquid-side .home-timer.visible { display: flex; }
+.home-liquid-side .home-timer-label { color: var(--text-secondary); text-transform: uppercase; font-weight: 600; }
+.home-liquid-side .home-timer-value { color: var(--accent-frost); font-weight: 700; }
+
+/* Compact layouts when the window is narrow */
+@media (max-width: 1100px) {
+  .home-liquid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 24px 18px 24px;
+    align-content: start;
+  }
+  .home-liquid-menu { justify-self: stretch; max-width: 100%; }
+  .home-liquid-side { padding: 0; gap: 10px; }
+  .home-liquid-logo { width: 140px; height: 140px; border-radius: 28px; }
+  .home-liquid-title { font-size: 24px; }
+}

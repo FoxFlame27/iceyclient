@@ -30,6 +30,46 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.12
+
+**New "Liquid" theme — bottom-bar nav + 4-button home in LiquidBounce style. "Close Launcher on Game Start" promoted out of Advanced into main Settings, sitting next to the new theme toggle.**
+
+### Theme toggle in main settings ([options.js](src/pages/options.js))
+
+The Settings page now has a second toggle row next to "Icey Mods / Skin Changer":
+
+- **Close on Launch** — was buried in Advanced → Java & Performance. Now a one-tap card on the front page. Backing setting (`closeLauncherOnStart`) is the same key as before, so existing preferences are preserved.
+- **Change Theme** — toggles `layoutTheme` between `'classic'` (default) and `'liquid'`. SettingsManager applies `data-layout` on `<html>` immediately and re-renders the Home page so the swap is instant — no restart.
+
+The duplicate "Close Launcher on Game Start" row in Advanced is removed.
+
+### Liquid layout ([nav.css](src/styles/nav.css), [home.css](src/styles/home.css), [global.css](src/styles/global.css))
+
+When `data-layout="liquid"` is set on `<html>`, the entire shell rearranges via CSS — no DOM changes needed:
+
+- **Sidebar → floating bottom bar.** Same icons (Play, Installations, Mods, Skins, Console, Settings, profile), now in a pill-shaped horizontal nav centered at the bottom. Backdrop blur + subtle ring shadow. Tooltip flips to above each tab. Active-tab indicator moves from a left stripe to a top stripe.
+- **Page container** loses its left sidebar offset and gains a bottom margin for the new nav. Pages get the full width.
+- **Heading typography** picks up a subtle gradient (frost → white) to feel airier under the new layout.
+- **Cards** (options, panorama, toggles) gain a soft inner-glow ring and a 2px hover lift.
+
+### Liquid home page ([home.js](src/pages/home.js))
+
+The home page renders one of two layouts depending on `layoutTheme`:
+
+- **Classic** — unchanged: centered logo + Lunar-style launch bar + installations cards + servers column on the right.
+- **Liquid** — four big icon-buttons stacked on the left (`Play`, `Installations`, `Mods`, `Account`), each with a 64px icon tile, uppercase title, subtitle line, and a chevron that slides right on hover. A 220px logo tile + "ICEY CLIENT" wordmark + tagline live on the right. Below 1100px width the grid collapses to a single column.
+
+Wiring:
+
+- `Play` reuses the existing `HomePlayClick()` handler — same launch flow, same state machine. The button keeps its `#launch-btn` ID, and `_homeUpdateLaunchButton` was made layout-aware so the state-change rewrite only patches the title + subtitle text-nodes by ID instead of nuking the icon/arrow markup.
+- `Installations` and `Mods` go through `switchPage(...)`, same as the nav tabs.
+- `Account` opens the existing titlebar account dropdown via `_toggleProfileDropdown()` — no duplicate account-switch UI to maintain.
+- Play button picks up red glow when MC is running, blue glow during start.
+
+### Default behaviour
+
+`layoutTheme` defaults to `'classic'` for existing users — no UI surprise on first launch after upgrade. Flipping the toggle saves to settings.json and the change is instant on this and every future launch. Per-page CSS keeps owning its own structure; the Liquid layer just retunes the shared shell.
+
 ## What's new in v1.86.11
 
 **Two real fixes: health nameplate finally shows on 1.21.11, and Microsoft accounts stay logged in for ~8 months instead of ~24 hours.**

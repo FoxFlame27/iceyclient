@@ -457,11 +457,20 @@
   image-rendering: pixelated;
 }
 .options-toggle-icon-svg {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(91,200,245,0.1);
+  background: rgba(91,200,245,0.12);
+  border: 1px solid rgba(91,200,245,0.18);
   color: var(--accent);
+}
+.options-toggle-card.on .options-toggle-icon-svg {
+  background: rgba(91,200,245,0.22);
+  border-color: rgba(91,200,245,0.4);
 }
 .options-toggle-body {
   flex: 1;

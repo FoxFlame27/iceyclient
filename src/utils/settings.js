@@ -6,6 +6,7 @@ const SettingsManager = {
     this._settings = await window.icey.getSettings();
     this._applyTheme();
     this._applyAccent();
+    this._applyLayout();
     return this._settings;
   },
 
@@ -23,6 +24,7 @@ const SettingsManager = {
     await window.icey.saveSettings({ [key]: value });
     if (key === 'theme') this._applyTheme();
     if (key === 'accentColor') this._applyAccent();
+    if (key === 'layoutTheme') this._applyLayout();
     this._notifyListeners(key, value);
   },
 
@@ -32,6 +34,7 @@ const SettingsManager = {
     await window.icey.saveSettings(obj);
     if ('theme' in obj) this._applyTheme();
     if ('accentColor' in obj) this._applyAccent();
+    if ('layoutTheme' in obj) this._applyLayout();
     for (const [k, v] of Object.entries(obj)) {
       this._notifyListeners(k, v);
     }
@@ -51,6 +54,16 @@ const SettingsManager = {
   _applyTheme() {
     const theme = this._settings?.theme || 'dark';
     document.documentElement.setAttribute('data-theme', theme);
+  },
+
+  // Toggles the entire layout shell between two presets:
+  //   'classic' — sidebar on the left (default)
+  //   'liquid'  — nav bar at the bottom + 4-button home page,
+  //               LiquidBounce-style
+  // CSS keys off [data-layout="liquid"] on <html>.
+  _applyLayout() {
+    const layout = this._settings?.layoutTheme || 'classic';
+    document.documentElement.setAttribute('data-layout', layout);
   },
 
   _applyAccent() {

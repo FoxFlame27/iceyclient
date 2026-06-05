@@ -77,7 +77,9 @@ html, body {
   background: rgba(91,200,245,0.4);
 }
 
-/* Page container */
+/* Page container — in Classic mode the left sidebar pushes content
+   right; in Liquid mode the bottom nav reserves space at the foot of
+   the screen but the content uses the full width. */
 #page-container {
   position: fixed;
   top: 0;
@@ -86,6 +88,12 @@ html, body {
   bottom: 0;
   overflow: hidden;
   background: url('../assets/background.png') center/cover no-repeat fixed;
+}
+
+:root[data-layout="liquid"] #page-container {
+  left: 0;
+  bottom: calc(var(--bottom-nav-height, 84px));
+  padding: 0 18px;
 }
 
 #page-container::after {
@@ -205,4 +213,51 @@ button:not(:disabled):active {
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 8px;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Liquid layout polish — page headers get a brighter accent line
+   and slightly tighter top spacing now that the bottom nav frees
+   up the left margin. Card-style elements pick up a subtle inner
+   glow. Per-page CSS files (installations, mods, skins, options)
+   continue to own their own structure; this layer just retunes
+   the shared feel.
+   ─────────────────────────────────────────────────────────────── */
+:root[data-layout="liquid"] .page {
+  padding-top: 24px;
+}
+
+:root[data-layout="liquid"] .installations-title,
+:root[data-layout="liquid"] .mods-browse-title,
+:root[data-layout="liquid"] .mods-guard-title,
+:root[data-layout="liquid"] .options-v2-title,
+:root[data-layout="liquid"] h1,
+:root[data-layout="liquid"] h2 {
+  background: linear-gradient(180deg, #f1f5f9 0%, var(--accent-frost) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.04em;
+}
+
+:root[data-layout="liquid"] .options-card,
+:root[data-layout="liquid"] .options-toggle-card,
+:root[data-layout="liquid"] .options-small-card,
+:root[data-layout="liquid"] .options-panorama-card {
+  background: linear-gradient(135deg, rgba(13,20,36,0.78), rgba(8,12,24,0.62));
+  border-color: rgba(91,200,245,0.18);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35),
+              0 0 0 1px rgba(91,200,245,0.04) inset;
+}
+
+:root[data-layout="liquid"] .glass-panel {
+  background: rgba(13, 18, 32, 0.78);
+  border-color: rgba(91, 200, 245, 0.18);
+}
+
+/* Make the option row hover feel snappier */
+:root[data-layout="liquid"] .options-toggle-card:hover,
+:root[data-layout="liquid"] .options-small-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(91,200,245,0.35);
 }
