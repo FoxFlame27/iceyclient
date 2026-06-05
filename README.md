@@ -30,6 +30,36 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.19
+
+**Health bars are now pixel-quad rectangles instead of text characters, scaled by distance — a player 30 blocks away gets a small bar attached to their model, not a huge `[████████]` text strip that looks the same size as one 3 blocks away. Plus the Liquid install cards bumped back up to a medium footer-strip size.**
+
+### Pixel-quad bars + distance scaling ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+Previous builds drew the bar as a 20-cell text string (`§7[§a██████░░§7]`) plus a numeric label. `TextRenderer.draw` can't scale text per-call, so every bar — close or far — was the same fixed ~150px wide. On a 427-pixel-wide scaled viewport that's 35% of the screen, per bar, regardless of how far away the entity is. User's screenshot showed exactly this: bars "huge" and visually disconnected from the entities they label.
+
+Rewrote with `drawContext.fill()` rectangles:
+
+- **Black 1-pixel border** quad.
+- **Dark inner fill** (`#1a1a22`) for the empty-bar background.
+- **Color fill** (green/yellow/gold/red ARGB) for the filled portion, width = `barW * ratio`.
+
+Distance scaling: `scale = clamp(1.0 - dist / (MAX_DIST * 1.4), 0.28, 1.0)` — full size at point-blank, ~28% at 30-block max range. Bar width is `60 * scale` (clamped to 18px min), height `6 * scale` (3px min). Numeric label `42/42` shown only when `scale > 0.55`, so far entities don't get unreadable squashed text — just the bar.
+
+Bar is positioned `barH + 6` pixels above the projected head position so it sits cleanly above the username nameplate instead of overlapping.
+
+### Liquid install cards bumped back up ([home.css](src/styles/home.css))
+
+User feedback on 1.86.17: "the boxes are tiny look at the image" — at `clamp(160px, 14vw, 220px)` they hit the 220px cap on a 2560px monitor and looked dwarfed by the home page. Bumped to a medium size that reads as an intentional footer strip:
+
+- Width: `clamp(260px, 22vw, 380px)` (was `clamp(160px, 14vw, 220px)`)
+- Image height: `clamp(120px, 13vw, 200px)` (was `clamp(70px, 8vw, 110px)`)
+- Version overlay: `clamp(24px, 2.4vw, 36px)` (was `clamp(16px, 1.6vw, 22px)`)
+- Name 15px / 700-weight (was 13px / 600)
+- Body padding 12/16 (was 8/12)
+
+Still smaller than the giant Classic-home banner cards, but now actually readable on a big monitor.
+
 ## What's new in v1.86.18
 
 **Diagnostic banner removed (it served its purpose — confirmed `DrawContext` works and the projection math now lands entities on-screen) and ArmorStandEntity is filtered out so spawn-area kit-display NPCs don't drown the actual player bars in clutter.**

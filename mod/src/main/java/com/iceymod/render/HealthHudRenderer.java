@@ -225,32 +225,45 @@ public final class HealthHudRenderer {
                 double sx = halfW + Math.tan(Math.toRadians(dYaw)) / tanHalfH * halfW;
                 double sy = halfH + Math.tan(Math.toRadians(dPitch)) / tanHalfV * halfH;
 
-                // Build bar text (20 cells of █/░ with §-colors).
+                // ── Pixel-quad bar with distance-based scaling ───
+                // Text bars (█████░░░) couldn't be sized down for far
+                // entities — every bar looked the same huge size
+                // regardless of distance. Pixel quads via
+                // drawContext.fill let us scale width/height by
+                // distance so the bar feels attached to the entity.
                 float ratio = MathHelper.clamp(displayed / max, 0f, 1f);
-                String barColor = healthColorCode(ratio);
-                int barCells = 20;
-                int filled = Math.round(ratio * barCells);
-                StringBuilder bar = new StringBuilder();
-                bar.append("§7[").append(barColor);
-                for (int i = 0; i < filled; i++) bar.append('█');
-                bar.append("§8");
-                for (int i = filled; i < barCells; i++) bar.append('░');
-                bar.append("§7]");
-                Text barText = Text.literal(bar.toString());
-                Text label = Text.literal(
-                        String.format("§f%.1f §7/ §f%.0f", displayed, max));
+                int barColor = healthColorArgb(ratio);
 
-                int barW = tr.getWidth(barText);
-                int labelW = tr.getWidth(label);
+                // Distance scale: 1.0 right next to the camera,
+                // ~0.25 at MAX_DIST. Linear with a floor so far bars
+                // don't disappear into 1-pixel slivers.
+                double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                double scale = MathHelper.clamp(1.0 - dist / (MAX_DIST * 1.4), 0.28, 1.0);
+                int barW = (int) Math.max(18, Math.round(60 * scale));
+                int barH = (int) Math.max(3,  Math.round(6  * scale));
+
                 int x = (int) Math.round(sx);
                 int y = (int) Math.round(sy);
+                int bx = x - barW / 2;
+                // Sit visually above the username nameplate. -6 leaves
+                // a small gap above the projected head point.
+                int by = y - barH - 6;
+                int fillW = Math.round(barW * ratio);
 
-                // Bar above, label one line below. Y offset chosen so
-                // the bar sits visually above the player's name tag.
-                drawContext.drawTextWithShadow(tr, barText,
-                        x - barW / 2, y - 12, 0xFFFFFFFF);
-                drawContext.drawTextWithShadow(tr, label,
-                        x - labelW / 2, y, 0xFFFFFFFF);
+                // 1px black border via outer fill, then dark bg, then color fill.
+                drawContext.fill(bx - 1, by - 1, bx + barW + 1, by + barH + 1, 0xFF000000);
+                drawContext.fill(bx, by, bx + barW, by + barH, 0xFF1a1a22);
+                if (fillW > 0) {
+                    drawContext.fill(bx, by, bx + fillW, by + barH, barColor);
+                }
+
+                // Numeric label only when close enough to be readable.
+                if (scale > 0.55) {
+                    String hpText = String.format("%.0f/%.0f", displayed, max);
+                    int textW = tr.getWidth(hpText);
+                    drawContext.drawTextWithShadow(tr, hpText,
+                            x - textW / 2, by - 10, 0xFFFFFFFF);
+                }
 
                 if (drewCount == 0) { firstDebugX = sx; firstDebugY = sy; }
                 drewCount++;
@@ -283,6 +296,15 @@ public final class HealthHudRenderer {
             if (val instanceof Number n) return n.doubleValue();
         } catch (Throwable ignored) {}
         return DEFAULT_FOV_DEG;
+    }
+
+    /** Map an HP ratio to an ARGB color for the filled bar quad.
+     *  Bright green high → yellow → gold → red low. Opaque alpha. */
+    private static int healthColorArgb(float ratio) {
+        if (ratio >= 0.80f) return 0xFF4ade80; // green
+        if (ratio >= 0.50f) return 0xFFfacc15; // yellow
+        if (ratio >= 0.25f) return 0xFFfb923c; // gold
+        return 0xFFef4444;                      // red
     }
 
     /** Map an HP ratio to the closest section-code color for the filled
