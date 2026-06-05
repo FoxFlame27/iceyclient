@@ -30,6 +30,26 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.18
+
+**Diagnostic banner removed (it served its purpose — confirmed `DrawContext` works and the projection math now lands entities on-screen) and ArmorStandEntity is filtered out so spawn-area kit-display NPCs don't drown the actual player bars in clutter.**
+
+### Banner removed ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+The 1.86.16 diagnostic banner proved what we needed: `DrawContext.drawTextWithShadow` does render on 1.21.11, the `Compat.cameraPos` fix moved the projection from off-screen `(32, 520)` to on-screen `(194, 186)`, and at least one bar renders. The banner is now gone — it was ugly and the diagnostic data was a one-time confirmation, not something to ship.
+
+### Filter ArmorStandEntity ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+The screenshot from 1.86.16 showed acspvp.de's spawn area — `RAGE KIT`, `MACE KIT`, `VANCE SPEAR KIT`, `CRYSTAL KIT`, etc. across the back. Every one of those is an `ArmorStandEntity` masquerading as a kit-vendor NPC, and every one passes `LivingEntity` filtering with max-HP 20 and full HP, so the renderer was drawing ~10 full-green bars stacked on top of each other in the same area as the real player bars. Plus a similar problem in any minigame hub or RPG server.
+
+Added a single guard:
+
+```java
+if (le instanceof ArmorStandEntity) continue;
+```
+
+So now only real players + real mobs get bars, and the clutter clears. The remaining entities in any given scene should mostly be the actual combatants whose HP you care about.
+
 ## What's new in v1.86.17
 
 **Liquid bottom installation cards are now compact — sized similarly to the tiles on the Installations page rather than the giant banner-sized cards the Classic home uses.**
