@@ -91,15 +91,12 @@ public final class HealthHudRenderer {
     /** Max distance to render the bar (config-able later). */
     private static final double MAX_DIST = 30.0;
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
-    /** Vertical offset above the entity's bbox top. Matches the
-     *  vanilla username nameplate (+0.5) so my projected anchor
-     *  lands at the same world spot as the nametag, and the bar
-     *  draws just above it with a small screen-space gap. */
-    private static final float Y_OFFSET = 0.5f;
-    /** Fixed bar size — no distance scaling. User feedback was that
-     *  scaled bars looked "huge far away, super small close" and the
-     *  previous fixed 60×6 was still "huge". Smaller now: 32×3 reads
-     *  cleanly as a thin status strip without dominating the screen. */
+    /** Vertical offset above the entity's bbox top. Zero = projected
+     *  anchor sits right at the head, below the vanilla username
+     *  nameplate (which is at +0.5). Bar then draws just above the
+     *  head with a tight 1-pixel gap. */
+    private static final float Y_OFFSET = 0.0f;
+    /** Fixed bar size — no distance scaling. Slim 32×3 strip. */
     private static final int BAR_WIDTH  = 32;
     private static final int BAR_HEIGHT = 3;
     /** Per-tick lerp factor for the animated fill — 5% means the bar
@@ -242,8 +239,8 @@ public final class HealthHudRenderer {
                 int x = (int) Math.round(sx);
                 int y = (int) Math.round(sy);
                 int bx = x - barW / 2;
-                // 2-pixel gap above the projected nametag anchor.
-                int by = y - barH - 2;
+                // 1-pixel gap above the head (projected anchor).
+                int by = y - barH - 1;
                 int fillW = Math.round(barW * ratio);
 
                 // Black 1px border → dark bg → color fill.
@@ -252,6 +249,12 @@ public final class HealthHudRenderer {
                 if (fillW > 0) {
                     drawContext.fill(bx, by, bx + fillW, by + barH, barColor);
                 }
+
+                // Numeric "14/20" label above the bar — always shown.
+                String hpText = String.format("%.0f/%.0f", displayed, max);
+                int textW = tr.getWidth(hpText);
+                drawContext.drawTextWithShadow(tr, hpText,
+                        x - textW / 2, by - 10, 0xFFFFFFFF);
 
                 if (drewCount == 0) { firstDebugX = sx; firstDebugY = sy; }
                 drewCount++;

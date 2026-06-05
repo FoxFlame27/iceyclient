@@ -30,6 +30,26 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.25
+
+**Bar dropped from above-the-nametag to right-at-the-head, and the `14/20` numeric label is back.**
+
+### Lower anchor, label restored ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+User: "DUDE put back the numbers AND ITS STILL TO HIGH just make it waayy lower". Two changes:
+
+- **`Y_OFFSET = 0.0`** (was 0.5). The projected anchor is now at the entity's head (top of bounding box) instead of at the vanilla nametag world position. The bar draws **below** the nametag now — sits right above the head, with the username text floating above it as usual.
+- **`14/20` label restored** above the bar.
+
+`by = y - barH - 1` keeps a tight 1-pixel gap between the bar and the head. Final layout (top to bottom):
+
+```
+[username]      ← vanilla nametag (+0.5 world above head)
+[14/20]         ← my label
+[████░░]        ← my bar (32×3)
+   ▓            ← entity head
+```
+
 ## What's new in v1.86.24
 
 **Health bars shrunk to a 32×3 strip and the `14/20` numeric label removed entirely. Bars now sit 2 pixels above the vanilla nameplate as a clean slim status indicator instead of dominating the screen.**
