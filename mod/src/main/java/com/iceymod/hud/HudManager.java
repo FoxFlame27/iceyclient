@@ -89,8 +89,8 @@ public class HudManager {
         // New combat modules (mace PvP / crystal PvP / general PvP)
         modules.add(new CrystalTrackerModule());
         modules.add(new TotemPopsModule());
-        modules.add(new PlayerHealthModule());
-        modules.add(new MobHealthModule());
+        // PlayerHealthModule + MobHealthModule removed — replaced by
+        // the bundled HealthIndicators mod (handled by the launcher).
         modules.add(new MaceDamageModule());
         modules.add(new GappleCountModule());
         modules.add(new EnderPearlCountModule());

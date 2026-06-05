@@ -871,9 +871,14 @@ function launchMinecraft(installationId) {
       }
     }
 
-    // Settings-driven toggles (default: Icey mods ON, skin changer OFF)
+    // Settings-driven toggles (default: Icey mods ON, skin changer OFF,
+    // health-indicator + architectury ON unless explicitly opted out
+    // in Advanced settings — architectury is HealthIndicators' Fabric
+    // dependency so they ride together by default).
     const iceyModsEnabled = settings.iceyModsEnabled !== false;
     const skinChangerEnabled = !!settings.skinChangerEnabled;
+    const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
+    const architecturyEnabled = settings.architecturyEnabled !== false;
 
     // Panorama pack installs on ANY installation (vanilla or Fabric) because
     // it's just a resource pack — MC loads it regardless of mod loader.
@@ -1141,6 +1146,96 @@ function launchMinecraft(installationId) {
             log('info', 'Skin changer disabled — removed SkinShuffle');
           }
         } catch (_) {}
+      }
+
+      // 4) Architectury — Fabric/Forge compat layer. Bundled and
+      // installed by default because HealthIndicators (the
+      // health-bar mod we replaced our own Java renderer with)
+      // depends on it. Can be opted out in Advanced settings; if
+      // the user does, HealthIndicators won't load either.
+      try {
+        const archJarName = 'IceyArchitectury.jar';
+        const destArchJar = path.join(modsDir, archJarName);
+        // Clean up any stale architectury jars under different names so
+        // there's only ever one copy in the mods folder.
+        try {
+          for (const f of fs.readdirSync(modsDir)) {
+            if (/^architectury.*\.jar$/i.test(f) && f !== archJarName) {
+              try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed stale architectury: ' + f); } catch (_) {}
+            }
+          }
+        } catch (_) {}
+        if (architecturyEnabled) {
+          const archSources = [
+            path.join(__dirname, 'resources', 'mods', 'architectury', 'architectury-19.0.1-fabric.jar'),
+            path.join(process.resourcesPath || '', 'mods', 'architectury', 'architectury-19.0.1-fabric.jar'),
+          ];
+          for (const src of archSources) {
+            if (src && fs.existsSync(src)) {
+              try {
+                const srcStat = fs.statSync(src);
+                const destStat = fs.existsSync(destArchJar) ? fs.statSync(destArchJar) : null;
+                if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+                  fs.copyFileSync(src, destArchJar);
+                  log('info', 'Installed architectury → ' + destArchJar);
+                  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'architectury installed', level: 'info' });
+                }
+              } catch (e) {
+                log('warn', 'architectury install failed: ' + e.message);
+              }
+              break;
+            }
+          }
+        } else if (fs.existsSync(destArchJar)) {
+          try { fs.unlinkSync(destArchJar); log('info', 'architectury disabled by user — removed'); } catch (_) {}
+        }
+      } catch (e) {
+        log('warn', 'architectury install block failed: ' + e.message);
+      }
+
+      // 5) HealthIndicators — replaces our removed Java HealthHudRenderer.
+      // Auto-installs alongside iceymod (gated on iceyModsEnabled by
+      // default, with an explicit per-feature healthIndicatorsEnabled
+      // override that defaults to true). Built for MC 1.21.11 (the only
+      // version the user runs); skipped silently on other versions.
+      try {
+        const hiJarName = 'IceyHealthIndicators.jar';
+        const destHiJar = path.join(modsDir, hiJarName);
+        try {
+          for (const f of fs.readdirSync(modsDir)) {
+            if (/^healthindicators.*\.jar$/i.test(f) && f !== hiJarName) {
+              try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed stale HealthIndicators: ' + f); } catch (_) {}
+            }
+          }
+        } catch (_) {}
+        const wantHi = iceyModsEnabled && healthIndicatorsEnabled
+            && (installation.version === '1.21.11' || installation.version === '1.21.10');
+        if (wantHi) {
+          const hiSources = [
+            path.join(__dirname, 'resources', 'mods', 'healthindicators', 'HealthIndicators-21.11.1.jar'),
+            path.join(process.resourcesPath || '', 'mods', 'healthindicators', 'HealthIndicators-21.11.1.jar'),
+          ];
+          for (const src of hiSources) {
+            if (src && fs.existsSync(src)) {
+              try {
+                const srcStat = fs.statSync(src);
+                const destStat = fs.existsSync(destHiJar) ? fs.statSync(destHiJar) : null;
+                if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+                  fs.copyFileSync(src, destHiJar);
+                  log('info', 'Installed HealthIndicators → ' + destHiJar);
+                  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'HealthIndicators installed', level: 'info' });
+                }
+              } catch (e) {
+                log('warn', 'HealthIndicators install failed: ' + e.message);
+              }
+              break;
+            }
+          }
+        } else if (fs.existsSync(destHiJar)) {
+          try { fs.unlinkSync(destHiJar); log('info', 'HealthIndicators disabled — removed'); } catch (_) {}
+        }
+      } catch (e) {
+        log('warn', 'HealthIndicators install block failed: ' + e.message);
       }
 
       // Mod-compatibility check removed entirely — the fabric.mod.json

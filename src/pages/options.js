@@ -392,6 +392,24 @@ function _renderAdvancedOptions(page, settings) {
       </div>
 
       <div class="options-section">
+        <div class="options-section-title">Bundled Mods</div>
+        <div class="options-card">
+          <div class="options-row">
+            <div class="options-row-label">
+              <span class="options-row-name">Architectury</span>
+              <span class="options-row-desc">Required by HealthIndicators. On by default; turn off only if you're managing your own architectury jar.</span>
+            </div>
+            <div class="options-row-control">
+              <label class="toggle">
+                <input type="checkbox" ${settings.architecturyEnabled !== false ? 'checked' : ''} onchange="_optSet('architecturyEnabled', this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="options-section">
         <div class="options-section-title">About</div>
         <div class="options-card">
           <div class="options-row">

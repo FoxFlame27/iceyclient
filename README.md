@@ -30,6 +30,37 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.28
+
+**Health-bar overlay swapped from our broken-on-1.21.11 Java implementation to the proper [HealthIndicators](https://modrinth.com/mod/healthindicators) mod, bundled with the launcher and auto-installed alongside iceymod. Architectury (its Fabric compat dep) is bundled too — on by default, opt-out via Advanced Settings.**
+
+### Why the swap
+
+Through v1.86.12 → v1.86.27 the Java `HealthHudRenderer` cycled through every drawing API the 1.21.11 fabric-rendering-v1 16.x rewrite would still accept — `WorldRenderEvents.LAST`/`AFTER_TRANSLUCENT`/`AFTER_ENTITIES`, `HudRenderCallback` with both text bars and pixel quads, angle-based vs quaternion-based projection, fixed vs distance-scaled sizes, anchor at head vs nametag vs above-nametag. Each iteration uncovered a real bug (the `(0,0,0)` reflection bug in v1.86.20 was particularly fun) but the underlying problem never went away: a 2D HUD bar at fixed pixel size can't ever look proportional to a player whose model size shrinks with distance. The "right" fix needs 3D world-space billboarding — and the 1.21.11 fabric rendering API doesn't give us that any more.
+
+HealthIndicators (by tr7zw) is a mature 1.21.11 mod that does exactly this: world-space billboarded health bars that auto-shrink with distance via perspective. No projection math, no MAX_DIST tuning, no "huge bar above a tiny faraway player". It's what the iceymod implementation was always trying to be.
+
+### What changed
+
+**Launcher ([main.js](main.js))** — two new auto-install blocks in `launchMinecraft`:
+
+- **HealthIndicators** ([resources/mods/healthindicators/](resources/mods/healthindicators/HealthIndicators-21.11.1.jar)) auto-installs when `iceyModsEnabled === true` AND `healthIndicatorsEnabled !== false` AND the installation is MC 1.21.10 or 1.21.11. Dropped into `<install>/mods/` as `IceyHealthIndicators.jar`. Stale-name cleanup pattern matches the existing SkinShuffle / iceymod / iceymod+ blocks.
+- **Architectury 19.0.1** ([resources/mods/architectury/](resources/mods/architectury/architectury-19.0.1-fabric.jar)) auto-installs when `architecturyEnabled !== false`. Dropped as `IceyArchitectury.jar`. Required by HealthIndicators.
+
+Both default to ON. Either can be opted out from settings.
+
+**Settings UI ([options.js](src/pages/options.js))** — new "Bundled Mods" section in Advanced Settings with an Architectury toggle + description ("Required by HealthIndicators. On by default; turn off only if you're managing your own architectury jar.").
+
+**iceymod ([IceyMod.java](mod/src/main/java/com/iceymod/IceyMod.java), [HudManager.java](mod/src/main/java/com/iceymod/hud/HudManager.java))** — `HealthHudRenderer.register()` call removed, import removed. `PlayerHealthModule` + `MobHealthModule` no longer added to the Y-menu module list. Source files for all three deleted.
+
+**Packaging** — already covered by the existing `resources/mods/**/*` glob in `electron-builder` config; the new `healthindicators/` and `architectury/` subdirs bundle automatically.
+
+### Behavioural changes
+
+- The "Player Health" and "Mob Health" entries in the iceymod Y-menu HUD config are gone. Configure HealthIndicators via its own ModMenu entry in-game (or its config file) instead.
+- Disabling "Icey Mods" in launcher Settings now also removes HealthIndicators (it's gated on `iceyModsEnabled`).
+- Disabling Architectury in Advanced Settings will break HealthIndicators on next launch — that's the documented trade-off.
+
 ## What's new in v1.86.27
 
 **Bar + label moved UNDER the vanilla username nameplate (instead of above), matching vanilla's "name on top, HP indicator below" pattern.**
