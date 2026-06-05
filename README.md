@@ -30,6 +30,90 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.13
+
+**Health HUD now renders via the 2D HUD pipeline — the world-render approach is fundamentally broken on 1.21.11 and no flush/layer/phase tweak fixes it. Plus Liquid-theme polish based on first-run feedback.**
+
+### Health nameplate — now actually visible on 1.21.11 ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+The 1.86.12 build's runtime log was decisive:
+
+```
+WorldRenderEvents.register('LAST') failed: NoSuchFieldException: LAST
+WorldRenderEvents.register('AFTER_TRANSLUCENT') failed: NoSuchFieldException
+HealthHudRenderer: AFTER_TRANSLUCENT unavailable, falling back to AFTER_ENTITIES
+HealthHudRenderer: first-frame render OK (17 entities)
+```
+
+— renderer fired, AFTER_ENTITIES the only post-pass left, **still nothing visible**. On fabric-rendering-v1 16.x both `LAST` and `AFTER_TRANSLUCENT` were removed from `WorldRenderEvents`, and AFTER_ENTITIES sits inside a render-target context that eats late text submissions even with `imm.draw()` called explicitly. No world-render injection point works for nameplate overlays anymore.
+
+Fix: drop world-render entirely. Renderer now registers on `HudRenderCallback` — the same 2D pipeline vanilla uses for the hotbar / chat / debug screen, stable across every yarn version since 1.20. For each LivingEntity in range:
+
+1. Build head world position `entity.pos + (0, height + 0.5, 0)`.
+2. Subtract camera world position → camera-relative offset.
+3. Apply `cam.getRotation().conjugate()` → camera-local coords (x right, y up, -z forward).
+4. Skip if `z >= -0.05` (behind camera).
+5. Pinhole-project: `sx = sw/2 + (v.x / -v.z) * focal`, `sy = sh/2 - (v.y / -v.z) * focal` where `focal = (sh/2) / tan(fov/2)`.
+6. Draw bar + label via `DrawContext.drawTextWithShadow`.
+
+The v1.86.9 attempt at HUD-projection put nameplates at `(68, 492)` — that build applied the camera rotation *forwards* instead of inverse, and used FOV in degrees inside `Math.tan()`. Both fixed here: `Quaternionf.conjugate()` for the inverse, `Math.toRadians()` on the FOV.
+
+First-frame log now reports projected coords + viewport + FOV so future diagnoses don't need code-spelunking: `first-frame HUD render OK (N entities, first at X,Y on WxH fov=70.0)`.
+
+`WorldRenderHook` stays around for waypoint beams — those still attempt the world-render path because they need depth-tested 3D quads, not 2D billboarded text.
+
+### Bottom nav scales with viewport ([nav.css](src/styles/nav.css))
+
+The pill was sized at a fixed 64px which looked great on a 1366px laptop and tiny on a 1600px+ monitor. Switched to `clamp()`:
+
+- Tab size: `clamp(54px, 5.6vw, 84px)` — bigger on monitors, comfortable on laptops, never cramped on small windows
+- Icon size: `clamp(28px, 2.6vw, 40px)`
+- Bar height, padding, gap, profile avatar, indicator width — all derived from the same scale
+- Page container reserves `--bottom-nav-tab + 28px` so the bar never overlaps content
+
+### Play button now matches Classic exactly ([home.js](src/pages/home.js), [home.css](src/styles/home.css))
+
+Dropped the icon/text/arrow Play card. The Liquid layout now renders the **same** `home-launch-bar` + `.launch-btn` structure the Classic layout uses — same green Lunar gradient, same title + subtitle stack, same snow overlay, same idle/starting/running state colors. Just wrapped in `.liquid-launch-wrap` to stretch it across the menu column. `_homeUpdateLaunchButton` is back to a single code path — no Liquid branch needed.
+
+### Account button uses player skin head ([home.js](src/pages/home.js))
+
+The generic person SVG is gone — the Account card now renders a 56px MineSkin helm of your active account's username (`mineskin.eu/helm/<name>/56.png`), same source the titlebar avatar uses. Subtitle reads "Signed in as <name>" when logged in, "Sign in or switch account" when not. Falls back to the person SVG if there's no active account.
+
+### Logo frame + "Liquid" tagline removed ([home.js](src/pages/home.js))
+
+The 220px rounded square behind the icon was making the hero feel boxed-in. The logo image is now bare — same floaty drop-shadow glow, no frame — with `clamp(180px, 22vw, 280px)` sizing so it scales with the monitor. The "Premium Minecraft launcher · Liquid" tagline line is removed.
+
+### Settings toggles drop the icons ([options.js](src/pages/options.js))
+
+The leading icons on "Close on Launch" and "Change Theme" cards are removed per user request — the rows read cleaner with just the title + description + toggle.
+
+## What's new in v1.86.12
+
+### Bottom nav scales with viewport ([nav.css](src/styles/nav.css))
+
+The pill was sized at a fixed 64px which looked great on a 1366px laptop and tiny on a 1600px+ monitor. Switched to `clamp()`:
+
+- Tab size: `clamp(54px, 5.6vw, 84px)` — bigger on monitors, comfortable on laptops, never cramped on small windows
+- Icon size: `clamp(28px, 2.6vw, 40px)`
+- Bar height, padding, gap, profile avatar, indicator width — all derived from the same scale
+- Page container reserves `--bottom-nav-tab + 28px` so the bar never overlaps content
+
+### Play button now matches Classic exactly ([home.js](src/pages/home.js), [home.css](src/styles/home.css))
+
+Dropped the icon/text/arrow Play card. The Liquid layout now renders the **same** `home-launch-bar` + `.launch-btn` structure the Classic layout uses — same green Lunar gradient, same title + subtitle stack, same snow overlay, same idle/starting/running state colors. Just wrapped in `.liquid-launch-wrap` to stretch it across the menu column. `_homeUpdateLaunchButton` is back to a single code path — no Liquid branch needed.
+
+### Account button uses player skin head ([home.js](src/pages/home.js))
+
+The generic person SVG is gone — the Account card now renders a 56px MineSkin helm of your active account's username (`mineskin.eu/helm/<name>/56.png`), same source the titlebar avatar uses. Subtitle reads "Signed in as <name>" when logged in, "Sign in or switch account" when not. Falls back to the person SVG if there's no active account.
+
+### Logo frame + "Liquid" tagline removed ([home.js](src/pages/home.js))
+
+The 220px rounded square behind the icon was making the hero feel boxed-in. The logo image is now bare — same floaty drop-shadow glow, no frame — with `clamp(180px, 22vw, 280px)` sizing so it scales with the monitor. The "Premium Minecraft launcher · Liquid" tagline line is removed.
+
+### Settings toggles drop the icons ([options.js](src/pages/options.js))
+
+The leading icons on "Close on Launch" and "Change Theme" cards are removed per user request — the rows read cleaner with just the title + description + toggle.
+
 ## What's new in v1.86.12
 
 **New "Liquid" theme — bottom-bar nav + 4-button home in LiquidBounce style. "Close Launcher on Game Start" promoted out of Advanced into main Settings, sitting next to the new theme toggle.**

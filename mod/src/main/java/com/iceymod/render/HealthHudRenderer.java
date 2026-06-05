@@ -1,65 +1,77 @@
 package com.iceymod.render;
 
+import com.iceymod.Compat;
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.modules.MobHealthModule;
 import com.iceymod.hud.modules.PlayerHealthModule;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * World-space health HUD rendered above each LivingEntity's head as a
- * billboarded bar + numeric label. Mirrors the vanilla nameplate render
- * approach but with a custom bar geometry instead of text.
+ * Health HUD as a 2D HUD overlay with manual world→screen projection.
  *
- * <h2>Why this rewrite (v1.86.11)</h2>
- * v1.86.10 added an explicit {@code imm.draw()} flush thinking the
- * VertexConsumerProvider just wasn't being drained at AFTER_ENTITIES on
- * 1.21.11. It still didn't show. Two real problems:
+ * <h2>Why this rewrite (v1.86.13)</h2>
+ * Three previous attempts at world-space rendering all failed silently
+ * on 1.21.11 — the runtime log told the full story:
+ *
+ * <pre>
+ *   WorldRenderEvents.register('LAST') failed: NoSuchFieldException: LAST
+ *   WorldRenderEvents.register('AFTER_TRANSLUCENT') failed: NoSuchFieldException
+ *   HealthHudRenderer: AFTER_ENTITIES fallback registered
+ *   HealthHudRenderer: first-frame render OK (17 entities)
+ *   ...but nothing visible.
+ * </pre>
+ *
+ * On fabric-rendering-v1 16.x (1.21.11) <b>LAST and AFTER_TRANSLUCENT
+ * were both removed</b>, and AFTER_ENTITIES — the only post-pass phase
+ * left — sits inside a render-target context that drops late text
+ * submissions even when {@code imm.draw()} is called explicitly. No
+ * world-render injection point works for nameplate overlays anymore.
+ *
+ * <h2>The fix</h2>
+ * Drop world-render entirely. Register on {@link HudRenderCallback}
+ * (the 2D HUD pipeline) — that's the same pipeline vanilla draws the
+ * hotbar / chat / debug screen with, and it's been stable across every
+ * yarn version since 1.20. For each {@link LivingEntity} in range:
  *
  * <ol>
- *   <li><b>Wrong event phase.</b> On fabric-rendering-v1 16.x (1.21.11)
- *       {@code AFTER_TRANSLUCENT} was <i>removed entirely</i> from the
- *       {@code WorldRenderEvents} class — confirmed at runtime via
- *       {@code NoSuchFieldException: AFTER_TRANSLUCENT}. AFTER_ENTITIES
- *       still exists but fires <i>before</i> the world-render pipeline
- *       finalises depth + framebuffer state for overlay text, so
- *       anything we submit there gets eaten by translucency or
- *       overwritten by the framebuffer composite. The remaining
- *       post-pass injection point is {@code LAST} — fires once after
- *       all world geometry is drawn, before the HUD pass — and it
- *       still exists on 1.21.8 too, so it's the right primary target.
- *   <li><b>Wrong text layer.</b> {@code TextLayerType.NORMAL} is
- *       depth-tested. At LAST the depth buffer holds every opaque +
- *       translucent fragment in front of the entity head, so NORMAL
- *       text gets z-rejected. Vanilla nameplates use {@code SEE_THROUGH}
- *       (uses {@code RenderLayer.getTextSeeThrough(font)} — no depth
- *       test) so the nameplate is always visible.
+ *   <li>Compute the head world position
+ *       ({@code entity.pos + (0, height + offset, 0)}).
+ *   <li>Subtract the camera world position → camera-relative offset.
+ *   <li>Apply the inverse of the camera rotation → camera-local
+ *       coordinates (x = right, y = up, -z = forward).
+ *   <li>If z &gt;= 0 the entity is behind the camera — skip.
+ *   <li>Pinhole-project to screen-space pixels using the game's FOV.
+ *   <li>Draw the bar + numeric label with {@link DrawContext}.
  * </ol>
  *
- * Switching to LAST + SEE_THROUGH gets pixels on screen. We keep the
- * explicit {@code imm.draw()} flush at the end as a defensive measure
- * — harmless on 1.21.8 where the pipeline drains automatically.
+ * The 2D HUD pass runs <i>after</i> the world render finishes and the
+ * framebuffer is composited, so our submissions land on the final
+ * screen target — no flushing dance required.
  *
- * <h2>Registration</h2>
- * Called from {@link com.iceymod.IceyMod#onInitializeClient()}:
- * <pre>
- *   HealthHudRenderer.register();
- * </pre>
+ * <p>v1.86.9 tried this approach and abandoned it because "coordinates
+ * landed at (68, 492) — basically off-screen". Wrong math: that build
+ * either applied the camera rotation forwards instead of inverse, or
+ * used FOV in degrees inside Math.tan(). This implementation does
+ * neither — inverse-rotates via {@link Quaternionf#conjugate()} and
+ * uses Math.toRadians on the FOV.
  *
  * <h2>Module toggles</h2>
  * Reads {@link PlayerHealthModule} (players) and {@link MobHealthModule}
@@ -74,47 +86,30 @@ public final class HealthHudRenderer {
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
     /** Vertical offset above the entity's bbox top (sits clear of the
      *  vanilla username nameplate which is at +0.5). */
-    private static final float Y_OFFSET = 0.3f;
+    private static final float Y_OFFSET = 0.5f;
     /** Per-tick lerp factor for the animated fill — 5% means the bar
      *  catches up to a sudden HP change over about 20 ticks (1 second). */
     private static final float LERP_FACTOR = 0.05f;
-    /** Vanilla nameplate text scale used for the numeric label below. */
-    private static final float TEXT_SCALE = 0.025f;
-    /** Vanilla nameplate background alpha (~25% black). */
-    private static final int BG_COLOR = 0x40000000;
-    /** Full-bright packed light (sky+block both max). */
-    private static final int FULL_LIGHT = 0xF000F0;
+    /** Default MC field of view in degrees, used when the options
+     *  accessor isn't available on this yarn version. */
+    private static final double DEFAULT_FOV_DEG = 70.0;
 
     /** Per-player lerped health, keyed by entity UUID. */
     private static final Map<UUID, Float> lerpedHealth = new HashMap<>();
-    /** First-frame log gate so we know in production logs which event
-     *  phase actually fired (helps diagnose future yarn drift without
-     *  spamming the console every frame). */
+    /** First-frame log gate. Logs the projection result on the first
+     *  successful draw so future yarn-drift diagnoses don't require
+     *  code-spelunking. */
     private static boolean loggedFirstFrame = false;
 
     private HealthHudRenderer() {}
 
     /** Wire the renderer + disconnect cleanup. */
     public static void register() {
-        // Try injection points in order of "latest in the world pass
-        // that still exists on this fabric-rendering-v1 version":
-        //   LAST              — exists on both 1.21.8 and 1.21.11
-        //   AFTER_TRANSLUCENT — exists on 1.21.8, REMOVED on 1.21.11
-        //   AFTER_ENTITIES    — exists on both, but text submissions
-        //                       here get eaten on 1.21.11 (the bug)
-        // The fallback chain keeps the mod working if a future yarn
-        // drift removes LAST too.
-        boolean registered = WorldRenderHook.registerLast(HealthHudRenderer::onRender);
-        if (!registered) {
-            System.out.println("[IceyMod] HealthHudRenderer: LAST unavailable, falling back to AFTER_TRANSLUCENT");
-            registered = WorldRenderHook.registerAfterTranslucent(HealthHudRenderer::onRender);
-        }
-        if (!registered) {
-            System.out.println("[IceyMod] HealthHudRenderer: AFTER_TRANSLUCENT unavailable, falling back to AFTER_ENTITIES");
-            registered = WorldRenderHook.registerAfterEntities(HealthHudRenderer::onRender);
-        }
-        if (!registered) {
-            System.out.println("[IceyMod] HealthHudRenderer: WorldRenderEvents unavailable — bar disabled");
+        try {
+            HudRenderCallback.EVENT.register(HealthHudRenderer::onRender);
+            System.out.println("[IceyMod] HealthHudRenderer: HUD callback registered");
+        } catch (Throwable t) {
+            System.out.println("[IceyMod] HealthHudRenderer: HudRenderCallback registration failed: " + t);
             return;
         }
         try {
@@ -134,9 +129,9 @@ public final class HealthHudRenderer {
         return null;
     }
 
-    /** Per-frame entrypoint. Iterates loaded LivingEntities and renders
-     *  a bar above each within range. */
-    private static void onRender(WorldRenderHook.Ctx ctx) {
+    /** Per-frame entrypoint. Walks loaded LivingEntities, projects each
+     *  head position to screen pixels, and draws the bar + label there. */
+    private static void onRender(DrawContext drawContext, Object tickCounter) {
         PlayerHealthModule playerMod = find(PlayerHealthModule.class);
         MobHealthModule mobMod = find(MobHealthModule.class);
         boolean showPlayers = playerMod != null && playerMod.isEnabled();
@@ -145,25 +140,37 @@ public final class HealthHudRenderer {
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null || client.player == null) return;
+        // Stay out of pause / inventory / config screens, but allow chat
+        // (vanilla nameplates are visible while typing in chat too).
+        if (client.currentScreen != null && !(client.currentScreen instanceof ChatScreen)) return;
 
-        Camera cam = ctx.camera();
-        if (cam == null) cam = client.gameRenderer != null ? client.gameRenderer.getCamera() : null;
+        Camera cam = client.gameRenderer != null ? client.gameRenderer.getCamera() : null;
         if (cam == null) return;
-        Vec3d camPos = com.iceymod.Compat.cameraPos(cam);
-        MatrixStack ms = ctx.matrixStack();
-        VertexConsumerProvider vcp = ctx.consumers();
-        if (ms == null || vcp == null) return;
         TextRenderer tr = client.textRenderer;
         if (tr == null) return;
 
+        Vec3d camPos = Compat.cameraPos(cam);
+        int sw = client.getWindow().getScaledWidth();
+        int sh = client.getWindow().getScaledHeight();
+        double fovDeg = currentFovDeg(client);
+        double tanHalf = Math.tan(Math.toRadians(fovDeg / 2.0));
+        // Focal length in pixels for vertical FOV. (sh / 2) / tan(fov/2)
+        // — same derivation as a pinhole camera. Horizontal projection
+        // uses the same focal length because we have a square pixel
+        // viewport in scaled GUI space.
+        double focal = (sh / 2.0) / tanHalf;
+        // Inverse camera rotation: getRotation() rotates camera-local
+        // axes into world axes. We want the opposite (world → camera).
+        // For a unit quaternion, conjugate == inverse.
+        Quaternionf invRot = new Quaternionf(cam.getRotation()).conjugate();
+
         int drewCount = 0;
+        double firstDebugX = 0, firstDebugY = 0;
 
         try {
             for (var e : client.world.getEntities()) {
                 if (!(e instanceof LivingEntity le)) continue;
-                // Skip self — local player doesn't get a bar over their own head.
                 if (le == client.player) continue;
-                // Skip spectators + invisible-to-viewer entities.
                 if (le instanceof PlayerEntity pe && pe.isSpectator()) continue;
                 if (le.isInvisibleTo(client.player)) continue;
 
@@ -175,14 +182,54 @@ public final class HealthHudRenderer {
                 float current = le.getHealth();
                 float max = le.getMaxHealth();
                 if (max <= 0f) continue;
-                // Lerp the displayed health toward the real value so HP
-                // bumps feel smooth instead of snapping.
+
+                // Lerp displayed HP toward true HP for a smooth bar.
                 Float prev = lerpedHealth.get(le.getUuid());
                 float displayed = (prev == null) ? current
                         : MathHelper.lerp(LERP_FACTOR, prev, current);
                 lerpedHealth.put(le.getUuid(), displayed);
 
-                renderBarForEntity(ms, vcp, cam, camPos, tr, le, displayed, max);
+                // Project head to screen pixels.
+                Vec3d entityPos = Compat.entityPos(le);
+                double headWorldY = entityPos.y + le.getHeight() + Y_OFFSET;
+                Vector3f v = new Vector3f(
+                        (float) (entityPos.x - camPos.x),
+                        (float) (headWorldY  - camPos.y),
+                        (float) (entityPos.z - camPos.z));
+                invRot.transform(v);
+                // After inverse-rotation, -z is forward. Skip behind-camera.
+                if (v.z >= -0.05f) continue;
+                double sx = sw / 2.0 + (v.x / -v.z) * focal;
+                double sy = sh / 2.0 - (v.y / -v.z) * focal;
+
+                // Build bar text (20 cells of █/░ with §-colors).
+                float ratio = MathHelper.clamp(displayed / max, 0f, 1f);
+                String barColor = healthColorCode(ratio);
+                int barCells = 20;
+                int filled = Math.round(ratio * barCells);
+                StringBuilder bar = new StringBuilder();
+                bar.append("§7[").append(barColor);
+                for (int i = 0; i < filled; i++) bar.append('█');
+                bar.append("§8");
+                for (int i = filled; i < barCells; i++) bar.append('░');
+                bar.append("§7]");
+                Text barText = Text.literal(bar.toString());
+                Text label = Text.literal(
+                        String.format("§f%.1f §7/ §f%.0f", displayed, max));
+
+                int barW = tr.getWidth(barText);
+                int labelW = tr.getWidth(label);
+                int x = (int) Math.round(sx);
+                int y = (int) Math.round(sy);
+
+                // Bar above, label one line below. Y offset chosen so
+                // the bar sits visually above the player's name tag.
+                drawContext.drawTextWithShadow(tr, barText,
+                        x - barW / 2, y - 12, 0xFFFFFFFF);
+                drawContext.drawTextWithShadow(tr, label,
+                        x - labelW / 2, y, 0xFFFFFFFF);
+
+                if (drewCount == 0) { firstDebugX = sx; firstDebugY = sy; }
                 drewCount++;
             }
         } catch (Throwable t) {
@@ -192,80 +239,26 @@ public final class HealthHudRenderer {
 
         if (!loggedFirstFrame && drewCount > 0) {
             loggedFirstFrame = true;
-            System.out.println("[IceyMod] HealthHudRenderer: first-frame render OK (" + drewCount + " entities)");
-        }
-
-        // Force-flush the consumer buffer. Vanilla drains the entity VCP
-        // once at the end of the entity pass; anything submitted later
-        // at AFTER_TRANSLUCENT sits in the buffer unless we draw() it.
-        if (drewCount > 0 && vcp instanceof VertexConsumerProvider.Immediate imm) {
-            try { imm.draw(); } catch (Throwable ignored) {}
+            System.out.println("[IceyMod] HealthHudRenderer: first-frame HUD render OK ("
+                    + drewCount + " entities, first at " + (int) firstDebugX + "," + (int) firstDebugY
+                    + " on " + sw + "x" + sh + " fov=" + fovDeg + ")");
         }
     }
 
-    /** Per-entity render. Translates to the entity's head, billboards
-     *  to the camera, draws the bar + numeric label as text. The bar is
-     *  Unicode block characters (█/░) with §-color so we go through the
-     *  same {@code TextRenderer.draw} path as the numeric label — one
-     *  buffered batch, one explicit flush at the end. Avoids the
-     *  yarn-drifty RenderLayer / VertexConsumer quad API entirely.
-     *
-     *  Uses {@code SEE_THROUGH} layer (no depth test) so the nameplate
-     *  is visible even when foliage / translucent blocks are between the
-     *  camera and the entity head — matches vanilla nameplate behaviour. */
-    private static void renderBarForEntity(MatrixStack ms, VertexConsumerProvider vcp, Camera cam,
-                                           Vec3d camPos, TextRenderer tr,
-                                           LivingEntity le, float displayedHp, float maxHp) {
-        Vec3d entityPos = com.iceymod.Compat.entityPos(le);
-        double headY = entityPos.y + le.getHeight() + Y_OFFSET;
-
-        ms.push();
+    /** Read the current FOV from GameOptions. Two yarn shapes:
+     *  1.21.8: {@code options.getFov()} returns SimpleOption&lt;Integer&gt;.
+     *  Newer:  same shape, value is Integer or Double.
+     *  Falls back to 70° if anything blows up. */
+    private static double currentFovDeg(MinecraftClient client) {
         try {
-            // Translate to entity head in camera-relative space.
-            ms.translate(entityPos.x - camPos.x, headY - camPos.y, entityPos.z - camPos.z);
-            // Billboard toward the camera.
-            ms.multiply(cam.getRotation());
-            // Vanilla nameplate scale (negative X/Y so text reads correctly
-            // facing the player).
-            ms.scale(-TEXT_SCALE, -TEXT_SCALE, TEXT_SCALE);
-
-            float ratio = MathHelper.clamp(displayedHp / maxHp, 0f, 1f);
-
-            // Build the bar as Unicode block characters. 20 cells wide.
-            // Filled cells use the color matching the HP ratio, empty
-            // cells use dark gray.
-            String barColor = healthColorCode(ratio);
-            int barCells = 20;
-            int filled = Math.round(ratio * barCells);
-            StringBuilder bar = new StringBuilder();
-            bar.append("§7[").append(barColor);
-            for (int i = 0; i < filled; i++) bar.append('█');
-            bar.append("§8");
-            for (int i = filled; i < barCells; i++) bar.append('░');
-            bar.append("§7]");
-            Text barText = Text.literal(bar.toString());
-
-            // Numeric label below the bar.
-            Text label = Text.literal(
-                    String.format("§f%.1f §7/ §f%.0f", displayedHp, maxHp));
-
-            Matrix4f matrix = ms.peek().getPositionMatrix();
-            int barWidth = tr.getWidth(barText);
-            int labelWidth = tr.getWidth(label);
-
-            // SEE_THROUGH: no depth test → bar always visible above the
-            // head regardless of foliage / smoke / clouds in between.
-            // backgroundColor non-zero → TextRenderer emits the dark
-            // backdrop quad through the same VCP in one batch.
-            tr.draw(barText, -barWidth / 2f, 0f,
-                    0xFFFFFFFF, false, matrix, vcp,
-                    TextRenderer.TextLayerType.SEE_THROUGH, BG_COLOR, FULL_LIGHT);
-            tr.draw(label, -labelWidth / 2f, 10f,
-                    0xFFFFFFFF, false, matrix, vcp,
-                    TextRenderer.TextLayerType.SEE_THROUGH, BG_COLOR, FULL_LIGHT);
-        } finally {
-            ms.pop();
-        }
+            Object opts = client.options;
+            if (opts == null) return DEFAULT_FOV_DEG;
+            Object simpleOpt = opts.getClass().getMethod("getFov").invoke(opts);
+            if (simpleOpt == null) return DEFAULT_FOV_DEG;
+            Object val = simpleOpt.getClass().getMethod("getValue").invoke(simpleOpt);
+            if (val instanceof Number n) return n.doubleValue();
+        } catch (Throwable ignored) {}
+        return DEFAULT_FOV_DEG;
     }
 
     /** Map an HP ratio to the closest section-code color for the filled

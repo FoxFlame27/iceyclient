@@ -193,25 +193,34 @@
    ─────────────────────────────────────────────────────────────── */
 :root[data-layout="liquid"] {
   --sidebar-width: 0px;
-  --bottom-nav-height: 84px;
+  /* Bar height + icon size both clamp() with viewport width — chunky
+     on big monitors (≥1600px), comfortable on laptops (~1366px),
+     compact on small windows. The min/max stop the bar from getting
+     comically tall on ultrawides or unreadably small on tiny windows.
+     The page-container reserves bottom-nav-height + a 28px gutter so
+     the nav never overlaps page content. */
+  --bottom-nav-tab: clamp(54px, 5.6vw, 84px);
+  --bottom-nav-icon: clamp(28px, 2.6vw, 40px);
+  --bottom-nav-height: calc(var(--bottom-nav-tab) + 28px);
 }
 
 :root[data-layout="liquid"] #sidebar-nav {
   top: auto;
   left: 50%;
   right: auto;
-  bottom: 12px;
+  bottom: clamp(14px, 1.6vw, 24px);
   width: auto;
   max-width: calc(100% - 24px);
-  height: 64px;
+  height: calc(var(--bottom-nav-tab) + 18px);
   flex-direction: row;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 clamp(12px, 1.2vw, 20px);
   border-radius: 999px;
   transform: translateX(-50%);
   background: rgba(10, 14, 26, 0.92);
   border: 1px solid var(--border);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(91,200,245,0.05) inset;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.55),
+              0 0 0 1px rgba(91,200,245,0.06) inset;
 }
 
 :root[data-layout="liquid"] .nav-tabs-group {
@@ -219,24 +228,24 @@
   align-items: center;
   width: auto;
   padding: 0 4px;
-  gap: 4px;
+  gap: clamp(4px, 0.5vw, 10px);
 }
 
 :root[data-layout="liquid"] .nav-tab {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: var(--bottom-nav-tab);
+  height: var(--bottom-nav-tab);
+  border-radius: clamp(12px, 1.2vw, 20px);
 }
 
 :root[data-layout="liquid"] .nav-icon-img,
 :root[data-layout="liquid"] .nav-tab img.nav-icon-img {
-  width: 26px;
-  height: 26px;
+  width: var(--bottom-nav-icon);
+  height: var(--bottom-nav-icon);
 }
 
 :root[data-layout="liquid"] .nav-icon {
-  width: 22px;
-  height: 22px;
+  width: calc(var(--bottom-nav-icon) - 4px);
+  height: calc(var(--bottom-nav-icon) - 4px);
 }
 
 /* Active indicator: top stripe on horizontal nav, not the left bar */
@@ -245,7 +254,7 @@
   top: 4px;
   bottom: auto;
   transform: translateX(-50%);
-  width: 22px;
+  width: calc(var(--bottom-nav-tab) * 0.4);
   height: 3px;
   border-radius: 999px;
 }
@@ -261,10 +270,11 @@
   transform: translateX(-50%) translateY(0);
 }
 
-/* Profile chip becomes a small inline avatar at the right edge */
+/* Profile chip becomes a small inline avatar at the right edge,
+   scaling alongside the tabs. */
 :root[data-layout="liquid"] .nav-profile {
   margin-top: 0;
-  margin-left: 6px;
+  margin-left: clamp(4px, 0.5vw, 10px);
   padding: 0;
   width: auto;
   flex-direction: row;
@@ -276,7 +286,7 @@
 
 :root[data-layout="liquid"] .nav-profile-avatar,
 :root[data-layout="liquid"] .nav-profile-login {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: calc(var(--bottom-nav-tab) - 14px);
+  height: calc(var(--bottom-nav-tab) - 14px);
+  border-radius: clamp(10px, 1vw, 16px);
 }

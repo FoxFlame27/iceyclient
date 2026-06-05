@@ -21,6 +21,13 @@ async function HomePageInit() {
   const settings = SettingsManager.getAll();
   const showTimer = settings.showSessionTimer !== false;
   const isLiquid = (settings.layoutTheme || 'classic') === 'liquid';
+  // Pull the active account for the Liquid Account button — same
+  // mineskin avatar source the titlebar profile uses.
+  let _liquidAuthUser = null;
+  try {
+    const _auth = await window.icey.getAuth();
+    if (_auth && _auth.username) _liquidAuthUser = _auth.username;
+  } catch (_) {}
 
   // Both layouts share the launch button + timer + installations + servers
   // logic that follows this innerHTML block. CSS hides the inactive
@@ -28,18 +35,16 @@ async function HomePageInit() {
   const liquidHero = `
     <div class="home-liquid">
       <div class="home-liquid-menu">
-        <button class="liquid-menu-btn liquid-menu-play" id="launch-btn" onclick="HomePlayClick()">
-          <div class="liquid-menu-icon">
-            <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
-          </div>
-          <div class="liquid-menu-text">
-            <div class="liquid-menu-title" id="launch-btn-title">PLAY</div>
-            <div class="liquid-menu-sub" id="launch-btn-subtitle"><span class="launch-btn-dot"></span> READY TO LAUNCH</div>
-          </div>
-          <div class="liquid-menu-arrow">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </button>
+        <!-- Play button — same exact markup + classes as the Classic
+             launch button so it renders identically. Wrapped in a snow
+             bar overlay just like Classic. -->
+        <div class="home-launch-bar liquid-launch-wrap">
+          <div class="launch-bar-snow" id="launch-bar-snow"></div>
+          <button class="launch-btn launch-btn-idle" id="launch-btn" onclick="HomePlayClick()">
+            <span class="launch-btn-title" id="launch-btn-title">LAUNCH</span>
+            <span class="launch-btn-subtitle" id="launch-btn-subtitle"><span class="launch-btn-dot"></span> READY TO LAUNCH</span>
+          </button>
+        </div>
 
         <button class="liquid-menu-btn" onclick="switchPage('installations')">
           <div class="liquid-menu-icon"><img src="assets/installations-icon.png" alt="" style="width:36px;height:36px;object-fit:contain;filter:brightness(0) invert(1);"></div>
@@ -64,12 +69,14 @@ async function HomePageInit() {
         </button>
 
         <button class="liquid-menu-btn" onclick="_liquidOpenAccount()">
-          <div class="liquid-menu-icon">
-            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+          <div class="liquid-menu-icon liquid-menu-icon-skin">
+            ${_liquidAuthUser
+              ? `<img src="https://mineskin.eu/helm/${encodeURIComponent(_liquidAuthUser)}/56.png" alt="${_liquidAuthUser}" onerror="this.style.display='none'">`
+              : `<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>`}
           </div>
           <div class="liquid-menu-text">
             <div class="liquid-menu-title">ACCOUNT</div>
-            <div class="liquid-menu-sub" id="liquid-account-sub">Switch or add account</div>
+            <div class="liquid-menu-sub" id="liquid-account-sub">${_liquidAuthUser ? 'Signed in as ' + _liquidAuthUser : 'Sign in or switch account'}</div>
           </div>
           <div class="liquid-menu-arrow">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -78,11 +85,8 @@ async function HomePageInit() {
       </div>
 
       <div class="home-liquid-side">
-        <div class="home-liquid-logo">
-          <img src="assets/icon.png" alt="Icey Client" onerror="this.style.display='none'">
-        </div>
+        <img class="home-liquid-logo-img" src="assets/icon.png" alt="Icey Client" onerror="this.style.display='none'">
         <div class="home-liquid-title">ICEY CLIENT</div>
-        <div class="home-liquid-tagline">Premium Minecraft launcher · Liquid</div>
         <div class="home-timer ${showTimer ? '' : 'hidden'}" id="home-timer">
           <span class="home-timer-label">Playtime</span>
           <span class="home-timer-value" id="home-timer-value">00:00:00</span>
@@ -327,33 +331,8 @@ async function _homeUpdateLaunchButton(state, showTimer) {
   const version = await _homeGetSelectedVersion();
   const versionStr = version ? ` ${version}` : '';
 
-  // Liquid layout: the button has a fixed [icon][text][arrow] structure
-  // — full innerHTML rewrite would nuke the icon/arrow, so we only patch
-  // the title + subtitle spans by ID and toggle state classes.
-  const isLiquid = (SettingsManager.get('layoutTheme') || 'classic') === 'liquid';
-  if (isLiquid) {
-    btn.classList.remove('launch-btn-idle', 'launch-btn-starting', 'launch-btn-running');
-    const title = document.getElementById('launch-btn-title');
-    const sub = document.getElementById('launch-btn-subtitle');
-    if (state === 'idle') {
-      btn.classList.add('launch-btn-idle'); btn.disabled = false;
-      if (title) title.textContent = `PLAY${versionStr}`;
-      if (sub) sub.innerHTML = `<span class="launch-btn-dot"></span> READY TO LAUNCH`;
-      if (timer) timer.classList.remove('visible');
-    } else if (state === 'starting') {
-      btn.classList.add('launch-btn-starting'); btn.disabled = true;
-      if (title) { title.textContent = 'Starting'; title.classList.add('starting-dots'); }
-      if (sub) sub.textContent = 'PLEASE WAIT';
-      if (timer) timer.classList.remove('visible');
-    } else if (state === 'running') {
-      btn.classList.add('launch-btn-running'); btn.disabled = false;
-      if (title) { title.textContent = 'STOP'; title.classList.remove('starting-dots'); }
-      if (sub) sub.textContent = 'GAME IS RUNNING';
-      if (timer && showTimer) timer.classList.add('visible');
-    }
-    return;
-  }
-
+  // Same button structure in both layouts — full innerHTML rewrite is
+  // safe regardless of layoutTheme.
   btn.className = 'launch-btn';
   if (state === 'idle') {
     btn.classList.add('launch-btn-idle'); btn.disabled = false;

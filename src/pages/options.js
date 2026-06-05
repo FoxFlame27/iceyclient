@@ -105,16 +105,10 @@ async function _renderMainOptions(page, settings) {
       </div>
 
       <!-- Launch / Layout row — promoted out of Advanced so the two
-           most-touched preferences live next to each other. -->
+           most-touched preferences live next to each other. No icons:
+           per user request, this row reads cleaner without them. -->
       <div class="options-toggle-row">
         <div class="options-toggle-card ${closeOnStart ? 'on' : 'off'}" onclick="_optToggleFeature('closeLauncherOnStart', ${!closeOnStart})">
-          <div class="options-toggle-icon-svg">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </div>
           <div class="options-toggle-body">
             <div class="options-toggle-name">Close on Launch</div>
             <div class="options-toggle-desc">Auto-close launcher when MC starts</div>
@@ -126,15 +120,6 @@ async function _renderMainOptions(page, settings) {
         </div>
 
         <div class="options-toggle-card ${layoutTheme === 'liquid' ? 'on' : 'off'}" onclick="_optSetLayoutTheme('${layoutTheme === 'liquid' ? 'classic' : 'liquid'}')">
-          <div class="options-toggle-icon-svg">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="3"/>
-              <line x1="3" y1="16" x2="21" y2="16"/>
-              <circle cx="7.5" cy="19" r="0.5" fill="currentColor"/>
-              <circle cx="12" cy="19" r="0.5" fill="currentColor"/>
-              <circle cx="16.5" cy="19" r="0.5" fill="currentColor"/>
-            </svg>
-          </div>
           <div class="options-toggle-body">
             <div class="options-toggle-name">Change Theme</div>
             <div class="options-toggle-desc">${layoutTheme === 'liquid' ? 'Liquid — bottom nav' : 'Classic — side nav'}</div>

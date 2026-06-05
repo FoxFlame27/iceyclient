@@ -360,33 +360,25 @@
   transform: translateX(4px);
 }
 
-/* Play button has a brighter accent + greenish glow at idle */
-.liquid-menu-play {
-  border-color: rgba(74,222,128,0.32);
-  background: linear-gradient(135deg, rgba(34,197,94,0.10) 0%, rgba(8,12,24,0.68) 100%);
+/* Play button in Liquid uses the EXACT classic launch-btn styling.
+   The wrapper just stretches it across the full menu-column width so
+   it sits flush with the other Liquid cards. All visual styling (green
+   gradient, hover, state colors, dot) is inherited from .launch-btn /
+   .launch-btn-idle / .launch-btn-running / .launch-btn-starting above. */
+.liquid-launch-wrap {
+  width: 100%;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
 }
-.liquid-menu-play .liquid-menu-icon {
-  background: linear-gradient(135deg, rgba(74,222,128,0.25), rgba(34,197,94,0.06));
-  border-color: rgba(74,222,128,0.32);
-  color: #4ade80;
+.liquid-launch-wrap .launch-btn {
+  width: 100%;
+  padding: 0 24px;
+  height: 84px;
+  border-radius: 16px;
 }
-.liquid-menu-play:hover {
-  border-color: rgba(74,222,128,0.6);
-  box-shadow: 0 12px 36px rgba(34,197,94,0.18),
-              0 0 0 1px rgba(74,222,128,0.12) inset;
-}
-.liquid-menu-play.launch-btn-running .liquid-menu-icon {
-  background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.06));
-  border-color: rgba(239,68,68,0.4);
-  color: var(--red);
-}
-.liquid-menu-play.launch-btn-running {
-  border-color: rgba(239,68,68,0.45);
-}
-.liquid-menu-play.launch-btn-starting .liquid-menu-icon {
-  background: linear-gradient(135deg, rgba(91,200,245,0.25), rgba(91,200,245,0.06));
-  border-color: rgba(91,200,245,0.4);
-  color: var(--accent);
+.liquid-launch-wrap .launch-bar-snow {
+  border-radius: 16px;
 }
 
 /* Right side: big logo + tagline + (optional) playtime */
@@ -400,29 +392,20 @@
   position: relative;
 }
 
-.home-liquid-logo {
-  width: 220px;
-  height: 220px;
-  border-radius: 36px;
-  background: linear-gradient(135deg, rgba(91,200,245,0.18), rgba(91,200,245,0.02));
-  border: 1px solid rgba(91,200,245,0.22);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 24px 80px rgba(91,200,245,0.18),
-              0 0 0 1px rgba(91,200,245,0.06) inset;
-  animation: heroFloat 6s ease-in-out infinite;
-}
-.home-liquid-logo img {
-  width: 78%;
-  height: 78%;
+/* Bare logo image — no frame, no background — floats freely with a
+   soft drop-shadow glow. */
+.home-liquid-logo-img {
+  width: clamp(180px, 22vw, 280px);
+  height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 8px 24px rgba(91,200,245,0.4));
+  filter: drop-shadow(0 12px 36px rgba(91,200,245,0.45))
+          drop-shadow(0 0 64px rgba(91,200,245,0.18));
+  animation: heroFloat 6s ease-in-out infinite;
 }
 
 .home-liquid-title {
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  font-size: 36px;
+  font-size: clamp(28px, 3vw, 42px);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -431,13 +414,6 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   text-align: center;
-}
-
-.home-liquid-tagline {
-  font-size: 12px;
-  color: var(--text-secondary);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
 .home-liquid-side .home-timer {
@@ -466,6 +442,21 @@
   }
   .home-liquid-menu { justify-self: stretch; max-width: 100%; }
   .home-liquid-side { padding: 0; gap: 10px; }
-  .home-liquid-logo { width: 140px; height: 140px; border-radius: 28px; }
+  .home-liquid-logo-img { width: 160px; }
   .home-liquid-title { font-size: 24px; }
+}
+
+/* Account-button avatar: pixelated, fills the icon tile, no extra bg
+   tint so the skin head shows through cleanly. */
+.liquid-menu-icon-skin {
+  padding: 4px;
+  background: rgba(91,200,245,0.08);
+  overflow: hidden;
+}
+.liquid-menu-icon-skin img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  border-radius: 10px;
 }
