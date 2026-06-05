@@ -30,6 +30,20 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.26
+
+**Render range cut from 30 blocks → 10 blocks. Bars now only show on entities close enough that the fixed-pixel size looks proportional, matching vanilla nameplate fade-out behaviour.**
+
+### Why ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+User: "THIS IS HOW I WANT IT ITS ALWAYS THE SAME and you only see it when you come close ... by us its really high and big and long".
+
+The root cause of "big and long when far": my HUD bar is a **2D overlay at fixed pixel size** (32×3 scaled pixels). When the entity is far away, the player model itself shrinks with perspective to ~5-10 pixels tall on screen — but my bar stays 32 pixels wide, so it looks proportionally enormous. Vanilla nameplates avoid this because they're 3D billboards rendered in world space with a fixed *world* size — they shrink with distance via the projection naturally.
+
+Since `WorldRenderEvents.LAST` and friends are dead on 1.21.11 (see v1.86.13–v1.86.21), there's no way to render in 3D world space and get the auto-shrink. So instead: just cull bars on entities beyond close range.
+
+`MAX_DIST` reduced from 30 to 10 blocks. At 10 blocks a player is still tall enough on screen (~30+ scaled pixels) that a 32-pixel bar looks proportional. Beyond that the bar would look comically oversized — so it simply doesn't render, exactly like vanilla nameplates fading out at the configured render distance.
+
 ## What's new in v1.86.25
 
 **Bar dropped from above-the-nametag to right-at-the-head, and the `14/20` numeric label is back.**

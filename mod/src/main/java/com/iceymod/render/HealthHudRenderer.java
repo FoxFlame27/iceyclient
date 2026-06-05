@@ -88,8 +88,11 @@ import java.util.UUID;
 public final class HealthHudRenderer {
 
     // ── Tunables ──────────────────────────────────────────────────────
-    /** Max distance to render the bar (config-able later). */
-    private static final double MAX_DIST = 30.0;
+    /** Max distance to render the bar. Kept short (~10 blocks) so far
+     *  entities don't get a fixed-size 32-pixel bar above a 5-pixel
+     *  player figure — matches vanilla nameplate fade-out behaviour
+     *  ("always loaded, only visible up close"). */
+    private static final double MAX_DIST = 10.0;
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
     /** Vertical offset above the entity's bbox top. Zero = projected
      *  anchor sits right at the head, below the vanilla username
