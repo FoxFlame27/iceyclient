@@ -91,17 +91,17 @@ public final class HealthHudRenderer {
     /** Max distance to render the bar (config-able later). */
     private static final double MAX_DIST = 30.0;
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
-    /** Vertical offset above the entity's bbox top. Tuned so the
-     *  projected point lands just above the vanilla username
-     *  nameplate (which sits at +0.5), giving the bar a clean spot
-     *  to draw with a small screen-space gap. */
-    private static final float Y_OFFSET = 0.65f;
+    /** Vertical offset above the entity's bbox top. Matches the
+     *  vanilla username nameplate (+0.5) so my projected anchor
+     *  lands at the same world spot as the nametag, and the bar
+     *  draws just above it with a small screen-space gap. */
+    private static final float Y_OFFSET = 0.5f;
     /** Fixed bar size — no distance scaling. User feedback was that
-     *  scaled bars looked "huge far away, super small close"; a
-     *  constant-pixel bar reads consistently at every range and
-     *  matches the vanilla nameplate behaviour. */
-    private static final int BAR_WIDTH  = 60;
-    private static final int BAR_HEIGHT = 6;
+     *  scaled bars looked "huge far away, super small close" and the
+     *  previous fixed 60×6 was still "huge". Smaller now: 32×3 reads
+     *  cleanly as a thin status strip without dominating the screen. */
+    private static final int BAR_WIDTH  = 32;
+    private static final int BAR_HEIGHT = 3;
     /** Per-tick lerp factor for the animated fill — 5% means the bar
      *  catches up to a sudden HP change over about 20 ticks (1 second). */
     private static final float LERP_FACTOR = 0.05f;
@@ -242,7 +242,8 @@ public final class HealthHudRenderer {
                 int x = (int) Math.round(sx);
                 int y = (int) Math.round(sy);
                 int bx = x - barW / 2;
-                int by = y - barH;
+                // 2-pixel gap above the projected nametag anchor.
+                int by = y - barH - 2;
                 int fillW = Math.round(barW * ratio);
 
                 // Black 1px border → dark bg → color fill.
@@ -251,12 +252,6 @@ public final class HealthHudRenderer {
                 if (fillW > 0) {
                     drawContext.fill(bx, by, bx + fillW, by + barH, barColor);
                 }
-
-                // Numeric label above the bar — always shown.
-                String hpText = String.format("%.0f/%.0f", displayed, max);
-                int textW = tr.getWidth(hpText);
-                drawContext.drawTextWithShadow(tr, hpText,
-                        x - textW / 2, by - 10, 0xFFFFFFFF);
 
                 if (drewCount == 0) { firstDebugX = sx; firstDebugY = sy; }
                 drewCount++;

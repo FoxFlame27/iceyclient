@@ -30,6 +30,20 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.24
+
+**Health bars shrunk to a 32×3 strip and the `14/20` numeric label removed entirely. Bars now sit 2 pixels above the vanilla nameplate as a clean slim status indicator instead of dominating the screen.**
+
+### Smaller, label-free ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+User screenshot showed v1.86.23's 60×6 bar + `14/20` label looking huge on a faraway player — at GUI scale 3 the bar+label spanned ~80 displayed pixels above a player figure that was 10-15 pixels tall on screen. Two changes:
+
+- **Bar shrunk to `32×3`** (was `60×6`) — about a quarter the area. Still readable as an HP indicator but no longer screen-dominating.
+- **Numeric label dropped.** The bar fill itself shows HP proportion (green/yellow/gold/red color + fill width tracks the ratio), and dropping the text saves ~10 pixels of vertical space above each entity. Much tighter footprint.
+- **`Y_OFFSET` back to `0.5`** so the projected anchor lands at the vanilla nametag world position, then `by = y - barH - 2` puts the bar a tight 2-pixel gap above the username text.
+
+Net result: each player gets a slim 32×3 colored strip floating just above their username, same size regardless of distance.
+
 ## What's new in v1.86.23
 
 **Bars are now fixed size at every distance, and the projected anchor moved up so the bar sits just above the username nameplate instead of overlapping or floating high above.**
