@@ -72,37 +72,21 @@ public final class Compat {
         return Vec3d.ZERO;
     }
 
-    /** Entity position. 1.21.8 used {@code getPos()}; 1.21.11 split it
-     *  into {@code getSyncedPos()} / {@code getLastRenderPos()}. Prefer
-     *  {@code getLastRenderPos()} when available because that's the
-     *  interpolated position the world renderer uses for the current
-     *  frame — using {@code getSyncedPos} (the server-tick position)
-     *  for HUD projection makes the bar lag the on-screen entity by
-     *  one tick per move. */
+    /** Entity position. The previous reflection-based version
+     *  ({@code entity.getClass().getMethod("getLastRenderPos")} etc.)
+     *  silently failed on 1.21.11 — at runtime the MC classes carry
+     *  <b>intermediary</b> method names, not the yarn names we wrote.
+     *  {@code getMethod("getLastRenderPos")} threw NoSuchMethodException
+     *  for every attempted name, the field walk failed too (field names
+     *  are intermediary), and every entity fell through to
+     *  {@code Vec3d.ZERO} — making every bar project to the same point.
+     *
+     *  Compile-time calls to {@code entity.getX/getY/getZ()} resolve at
+     *  build time against 1.21.8 yarn → the correct intermediary names,
+     *  which are STABLE between 1.21.8 and 1.21.11. No reflection. */
     public static Vec3d entityPos(Entity entity) {
         if (entity == null) return Vec3d.ZERO;
-        for (String name : new String[] {"getLastRenderPos", "getPos", "getSyncedPos"}) {
-            try {
-                Method m = entity.getClass().getMethod(name);
-                Object v = m.invoke(entity);
-                if (v instanceof Vec3d vd) return vd;
-            } catch (Throwable ignored) {}
-        }
-        // Walk inheritance chain for the `pos` field (declared on Entity).
-        try {
-            Class<?> c = entity.getClass();
-            while (c != null) {
-                for (Field f : c.getDeclaredFields()) {
-                    if (f.getType() == Vec3d.class && "pos".equals(f.getName())) {
-                        f.setAccessible(true);
-                        Object v = f.get(entity);
-                        if (v instanceof Vec3d vd) return vd;
-                    }
-                }
-                c = c.getSuperclass();
-            }
-        } catch (Throwable ignored) {}
-        return Vec3d.ZERO;
+        return new Vec3d(entity.getX(), entity.getY(), entity.getZ());
     }
 
     /** World spawn position (overworld). {@code ClientWorld.getSpawnPos()}

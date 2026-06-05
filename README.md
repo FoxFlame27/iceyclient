@@ -30,6 +30,61 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.21
+
+**THE health-HUD root-cause fix. Every entity was getting world position `(0, 0, 0)` because `Compat.entityPos` used reflection with yarn method names that don't exist in the runtime intermediary mapping.**
+
+### The smoking gun ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java) v1.86.20 diagnostic log)
+
+The 1.86.20 per-entity log dump made the cause obvious:
+
+```
+[IceyMod] HUD ent #0: world=(0,0,0) dist=116 dYaw=-46 dPitch=66 screen=(32,520) ...
+[IceyMod] HUD ent #1: world=(0,0,0) dist=116 dYaw=-46 dPitch=66 screen=(32,520) ...
+[IceyMod] HUD ent #2: world=(0,0,0) dist=116 dYaw=-46 dPitch=66 screen=(32,520) ...
+[IceyMod] HUD ent #3: world=(0,0,0) dist=116 dYaw=-46 dPitch=66 screen=(32,520) ...
+[IceyMod] HUD ent #4: world=(0,0,0) dist=116 dYaw=-46 dPitch=66 screen=(32,520) ...
+```
+
+Every entity at `(0, 0, 0)`. Identical projection. Every bar piled on top of every other bar at one point on screen.
+
+### Root cause ([Compat.java](mod/src/main/java/com/iceymod/Compat.java))
+
+`Compat.entityPos` did this:
+
+```java
+for (String name : new String[] {"getLastRenderPos", "getPos", "getSyncedPos"}) {
+    try {
+        Method m = entity.getClass().getMethod(name);  // ← yarn name
+        Object v = m.invoke(entity);
+        if (v instanceof Vec3d vd) return vd;
+    } catch (Throwable ignored) {}
+}
+// ... field walk by yarn name "pos" ...
+return Vec3d.ZERO;
+```
+
+The problem: **at runtime, MC's classes carry intermediary names, not yarn names.** `entity.getClass().getMethod("getLastRenderPos")` looks for a method literally named `getLastRenderPos` on the runtime class. The actual runtime method name is something like `method_19538`. `NoSuchMethodException` for all three yarn names. Then the field walk by yarn name `"pos"` also fails (field names are intermediary too). Falls through to `return Vec3d.ZERO`.
+
+Result: every entity's position is `(0, 0, 0)`. The bar for every player projects to whatever screen point that fixed world coordinate happens to land at — exactly what the user reported: "all the health huds are at 1 PLACE and not above the player hitbox".
+
+### Fix
+
+Drop reflection entirely. Use direct `entity.getX()`, `entity.getY()`, `entity.getZ()` calls:
+
+```java
+public static Vec3d entityPos(Entity entity) {
+    if (entity == null) return Vec3d.ZERO;
+    return new Vec3d(entity.getX(), entity.getY(), entity.getZ());
+}
+```
+
+These compile against 1.21.8 yarn → the correct intermediary names, which are **stable** between 1.21.8 and 1.21.11. No reflection, no version-name guessing — the bytecode references the right runtime method directly.
+
+The same trick has worked for `entity.getHeight()` and `Camera.getYaw()/getPitch()` all along (none of those use reflection). The `entity.getPos()` removal in 1.21.11 only sent us down the reflection path for the legacy convenience accessor — and that's where we got bitten by yarn-vs-intermediary.
+
+`Compat.cameraPos` is left as-is — its "any Vec3d field" fallback already finds the right field on Camera because `pos` is declared as the first Vec3d field on that class.
+
 ## What's new in v1.86.20
 
 **Health bars bumped up significantly so they're actually visible (1.86.19's 60×6 floor at 18×3 was too small to spot on a 427×240 viewport), bright accent ring added for contrast, numeric label always shown, and first-frame log dumps positions of the first 5 entities for diagnosis. Install cards bumped up again.**
