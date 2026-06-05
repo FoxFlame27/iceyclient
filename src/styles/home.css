@@ -408,16 +408,17 @@
   align-self: center;
 }
 
-/* Installations row across the bottom of the Liquid hero, matching
-   the Classic layout's bottom installations bar. Uses the exact
-   same #home-inst-cards container ID so home.js's existing
-   _loadHomeInstallations() populates it for free. */
+/* Installations row across the bottom of the Liquid hero. Uses the
+   same #home-inst-cards container the Classic layout uses, so the
+   existing _loadHomeInstallations() populates it for free. Cards
+   are scoped-overridden to be compact — closer in size to the
+   Installations page tiles, not the giant Classic-home banner cards. */
 .home-liquid-installs {
   grid-area: installs;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   padding-top: 8px;
   border-top: 1px solid rgba(91,200,245,0.08);
 }
@@ -427,6 +428,52 @@
 .home-liquid-installs .home-inst-title {
   font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
   color: var(--accent); text-transform: uppercase;
+}
+
+/* Compact card overrides — only inside the Liquid bottom row. */
+.home-liquid-installs .home-inst-cards {
+  gap: 10px;
+  padding-bottom: 4px;
+}
+.home-liquid-installs .home-inst-card {
+  width: clamp(160px, 14vw, 220px);
+  min-width: clamp(160px, 14vw, 220px);
+  border-radius: 14px;
+  border-width: 1px;
+}
+.home-liquid-installs .home-inst-card-img {
+  height: clamp(70px, 8vw, 110px);
+  border-radius: 13px 13px 0 0;
+}
+.home-liquid-installs .home-inst-card-version-overlay {
+  font-size: clamp(16px, 1.6vw, 22px);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+}
+.home-liquid-installs .home-inst-card-body {
+  padding: 8px 12px;
+  gap: 4px;
+}
+.home-liquid-installs .home-inst-card-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.home-liquid-installs .home-inst-card-platform {
+  font-size: 9px;
+  padding: 2px 7px;
+}
+.home-liquid-installs .home-inst-card-check {
+  width: 18px;
+  height: 18px;
+  top: 6px;
+  right: 6px;
+}
+.home-liquid-installs .home-inst-card-check svg {
+  width: 10px;
+  height: 10px;
+}
+.home-liquid-installs .home-inst-empty {
+  font-size: 11px;
+  padding: 10px;
 }
 
 /* Bare logo image — no frame, no background — floats freely with a

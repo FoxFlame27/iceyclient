@@ -30,6 +30,25 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.17
+
+**Liquid bottom installation cards are now compact — sized similarly to the tiles on the Installations page rather than the giant banner-sized cards the Classic home uses.**
+
+The 1.86.16 build re-used the Classic home's `.home-inst-card` class for the new Liquid installations row. Those cards are `clamp(320px, 45vw, 700px)` wide with `clamp(180px, 22vw, 400px)` tall images — way too tall for a "thin strip at the bottom" footprint. On a 2560×1440 screen each card was nearly 700px wide with a 400px image, eating most of the vertical space.
+
+Scoped overrides added — only inside `.home-liquid-installs`, so the Classic theme keeps its existing larger cards:
+
+- Card width: `clamp(160px, 14vw, 220px)` (was `clamp(320px, 45vw, 700px)`)
+- Image height: `clamp(70px, 8vw, 110px)` (was `clamp(180px, 22vw, 400px)`)
+- Version overlay text: `clamp(16px, 1.6vw, 22px)` (was `clamp(32px, 4vw, 64px)`)
+- Card name: 13px (was `clamp(16px, 2vw, 28px)`)
+- Platform badge: 9px (was `clamp(11px, 1.2vw, 16px)`)
+- Body padding: 8px 12px (was 16px 20px)
+- Card border-radius: 14px (was 22px)
+- Checkmark badge: 18×18 (was 24×24)
+
+Net result: the installations row at the bottom of Liquid home now reads like a horizontal scrolling strip of compact tiles, not as a second giant home-banner section.
+
 ## What's new in v1.86.16
 
 **Diagnostic on-screen banner for the HealthHud, Compat fixes for the reflection-based camera/entity position lookups, installation cards back on the Liquid home, and the 4 menu buttons reverted to their original fixed size.**
