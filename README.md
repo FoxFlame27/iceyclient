@@ -1,4 +1,4 @@
-oll  pllb ty for downloading 
+loll  pllb ty for downloading 
 get .exe for windows
 
 ## Download iceymod+
@@ -29,6 +29,27 @@ get arm 64x .dmg for mac but make sure to run this command if the app says iceyc
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.86.29
+
+**Health Indicators toggle promoted to main Settings, sitting next to the Skin Changer toggle. Works exactly like Skin Changer — flip it off and the jar comes out of `mods/` on next launch.**
+
+### New Health Indicators main-settings toggle ([options.js](src/pages/options.js))
+
+User: "make that you can select the mod just like the skin changer mod in the settings".
+
+The third card in the main Settings toggle row is now:
+
+```
+[Health Indicators]
+HP bars above player + mob heads      [● ]
+```
+
+- Same toggle-card layout as Icey Mods / Skin Changer cards.
+- Backing setting is `healthIndicatorsEnabled` (default `true`) — the same key the launcher install logic from v1.86.28 already reads. No main.js changes needed.
+- Flipping it off → `IceyHealthIndicators.jar` gets removed from `<install>/mods/` on next launch, identical to how Skin Changer manages SkinShuffle.
+
+Architectury toggle stays in Advanced Settings (it's HealthIndicators' Fabric compat dep — most users shouldn't touch it).
 
 ## What's new in v1.86.28
 

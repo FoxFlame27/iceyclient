@@ -28,6 +28,7 @@ async function _renderMainOptions(page, settings) {
 
   const iceyModsEnabled = settings.iceyModsEnabled !== false;
   const skinChangerEnabled = !!settings.skinChangerEnabled;
+  const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
   const closeOnStart = !!settings.closeLauncherOnStart;
   // Layout theme: 'classic' (sidebar left) or 'liquid' (bottom nav +
   // 4-button home). The default is 'classic' so existing users don't
@@ -99,6 +100,17 @@ async function _renderMainOptions(page, settings) {
           </div>
           <label class="toggle" onclick="event.stopPropagation();">
             <input type="checkbox" ${skinChangerEnabled ? 'checked' : ''} onchange="_optToggleFeature('skinChangerEnabled', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="options-toggle-card ${healthIndicatorsEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('healthIndicatorsEnabled', ${!healthIndicatorsEnabled})">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Health Indicators</div>
+            <div class="options-toggle-desc">HP bars above player + mob heads</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${healthIndicatorsEnabled ? 'checked' : ''} onchange="_optToggleFeature('healthIndicatorsEnabled', this.checked)">
             <span class="toggle-slider"></span>
           </label>
         </div>
