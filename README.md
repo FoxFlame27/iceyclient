@@ -30,6 +30,39 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.15
+
+**Health nameplate projection rewritten with angle math (atan2 + tan) instead of quaternion-conjugate camera-local rotation. v1.86.13's runtime log decisively proved the quaternion approach was broken.**
+
+The runtime log from v1.86.13:
+
+```
+HealthHudRenderer: first-frame HUD render OK
+  (11 entities, first at 22,711 on 427x240 fov=70.0)
+```
+
+`(22, 711)` on a `427×240` viewport means the first entity projected ~471 pixels *below* a 240-pixel-tall screen. Not "slightly off" — fundamentally wrong. After analysis:
+
+**MC's camera-local convention is +Z forward**, not -Z like standard graphics. The check `if (v.z >= -0.05f) continue` was rejecting all in-front entities (which have positive `v.z` in MC's coordinate system) and *projecting only the behind-camera ones* (`v.z < 0`) to nonsense screen positions. The `(v.x / -v.z)` denominator compounded the sign error.
+
+Quaternion conventions in joml + MC are a death trap (see also v1.86.9, which abandoned the HUD-projection path for the exact same reason — different specific bug, same root cause). Fix: ditch quaternions entirely.
+
+### Angle-based projection ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+For each entity:
+
+1. Compute world delta (dx, dy, dz) from camera to entity head.
+2. World yaw to head: `Math.toDegrees(Math.atan2(-dx, dz))` — matches MC's convention exactly (yaw=0 → south = +Z, yaw=90 → west = -X).
+3. World pitch to head: `Math.toDegrees(-Math.atan2(dy, horizDist))` — matches MC's convention (pitch=0 = horizontal, +90 = down).
+4. Delta vs camera: `MathHelper.wrapDegrees(targetYaw - cam.getYaw())`, `targetPitch - cam.getPitch()`.
+5. Skip if `|dYaw|` or `|dPitch|` > 89° (behind / too far off-axis).
+6. Pinhole-project the angular delta to screen pixels: `sx = halfW + tan(dYaw) / tan(fovH/2) * halfW`, same for sy with vertical FOV.
+7. Horizontal FOV derived from vertical FOV × aspect ratio: `tan(fovH/2) = tan(fovV/2) * (sw / sh)`.
+
+No quaternions, no `getRotation()`, no camera-local coordinate guesswork. Just `cam.getYaw()` and `cam.getPitch()` — MC's own canonical orientation values, identical convention to MC's own targeting / arrow / projectile code.
+
+First-frame log now also reports `camYaw=… camPitch=…` so the projection state at the moment of first render is fully diagnosable.
+
 ## What's new in v1.86.14
 
 **Account button now opens a proper centered modal listing every account (switch / add / remove), and the Liquid home page actually fills the screen on big monitors — buttons, logo, and gutters all scale.**
