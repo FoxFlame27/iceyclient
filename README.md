@@ -30,6 +30,26 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.22
+
+**1.86.21 confirmed the entityPos fix works — bars now appear above the right players. This build shrinks them and brings them closer to the heads.**
+
+### Smaller, lower bars ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+User feedback after testing 1.86.21: "GOOD NOW FINALLY only its huge and way too high". Three tweaks:
+
+- **Base bar 50×5** (was 96×10) — roughly half the area
+- **Floor 28×3** at max distance (was 48×5)
+- **Distance scale floor 55%** (was 50%)
+- **Position 2px above the projected head point** (was 12px) — bar now sits just above the username nameplate instead of floating high above the model
+- **Y_OFFSET reduced to 0.15** world units (was 0.5) — projected point moves down toward the actual head
+- **Accent-blue outer ring removed** — just black 1px border + dark bg + color fill, less chunky
+- **Numeric label only at scale > 0.70** (was always) — close-range only, so far entities are just the slim bar
+
+### First-frame diagnostic dump removed
+
+The per-entity log dump from 1.86.20 served its purpose — it surfaced the `(0,0,0)` bug that 1.86.21 fixed. Gone now to keep the production log clean.
+
 ## What's new in v1.86.21
 
 **THE health-HUD root-cause fix. Every entity was getting world position `(0, 0, 0)` because `Compat.entityPos` used reflection with yarn method names that don't exist in the runtime intermediary mapping.**

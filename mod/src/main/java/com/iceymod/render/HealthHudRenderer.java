@@ -91,9 +91,10 @@ public final class HealthHudRenderer {
     /** Max distance to render the bar (config-able later). */
     private static final double MAX_DIST = 30.0;
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
-    /** Vertical offset above the entity's bbox top (sits clear of the
-     *  vanilla username nameplate which is at +0.5). */
-    private static final float Y_OFFSET = 0.5f;
+    /** Vertical offset above the entity's bbox top. Small so the bar
+     *  sits visually near the head, with the on-screen offset added
+     *  on top giving just enough gap above the username nameplate. */
+    private static final float Y_OFFSET = 0.15f;
     /** Per-tick lerp factor for the animated fill — 5% means the bar
      *  catches up to a sudden HP change over about 20 ticks (1 second). */
     private static final float LERP_FACTOR = 0.05f;
@@ -225,55 +226,40 @@ public final class HealthHudRenderer {
                 double sx = halfW + Math.tan(Math.toRadians(dYaw)) / tanHalfH * halfW;
                 double sy = halfH + Math.tan(Math.toRadians(dPitch)) / tanHalfV * halfH;
 
-                // ── Pixel-quad bar with distance-based scaling ───
-                // Bigger base size than v1.86.19 (60×6 → 96×10) plus
-                // brighter colors and an accent-blue outer ring so the
-                // bar pops against the world. Distance scaling is also
-                // less aggressive (floor 0.50 → bars never get below
-                // 48×5 px) so far-but-visible entities still show.
+                // Compact pixel-quad bar — half the 1.86.20 size since
+                // the user reported them as "huge". Distance scaling
+                // keeps far entities from getting unreadable.
                 float ratio = MathHelper.clamp(displayed / max, 0f, 1f);
                 int barColor = healthColorArgb(ratio);
                 double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                double scale = MathHelper.clamp(1.0 - dist / (MAX_DIST * 1.8), 0.50, 1.0);
-                int barW = (int) Math.max(48, Math.round(96 * scale));
-                int barH = (int) Math.max(5,  Math.round(10 * scale));
+                double scale = MathHelper.clamp(1.0 - dist / (MAX_DIST * 2.0), 0.55, 1.0);
+                int barW = (int) Math.max(28, Math.round(50 * scale));
+                int barH = (int) Math.max(3,  Math.round(5  * scale));
 
                 int x = (int) Math.round(sx);
                 int y = (int) Math.round(sy);
                 int bx = x - barW / 2;
-                // Sit clearly above the username nameplate.
-                int by = y - barH - 12;
+                // Sit right above the username nameplate — small gap
+                // (was -12, way too high).
+                int by = y - barH - 2;
                 int fillW = Math.round(barW * ratio);
 
-                // Outer accent ring (2px) — makes the bar visible against
-                // any background, doubles as a "this is a HUD overlay"
-                // visual signature.
-                drawContext.fill(bx - 2, by - 2, bx + barW + 2, by + barH + 2, 0xFF1d4ed8);
-                // Black inner border (1px).
+                // Black 1px border → dark bg → color fill.
                 drawContext.fill(bx - 1, by - 1, bx + barW + 1, by + barH + 1, 0xFF000000);
-                // Dark gray empty-bar background.
                 drawContext.fill(bx, by, bx + barW, by + barH, 0xFF2a2a35);
-                // Filled portion (HP color).
                 if (fillW > 0) {
                     drawContext.fill(bx, by, bx + fillW, by + barH, barColor);
                 }
 
-                // Numeric label always shown — small text, easier to
-                // read what's at full HP at a glance.
-                String hpText = String.format("%.0f/%.0f", displayed, max);
-                int textW = tr.getWidth(hpText);
-                drawContext.drawTextWithShadow(tr, hpText,
-                        x - textW / 2, by - 11, 0xFFFFFFFF);
-
-                // First-frame only: log positions for the first 5 ents.
-                if (!loggedFirstFrame && drewCount < 5) {
-                    System.out.println("[IceyMod] HUD ent #" + drewCount
-                            + ": world=(" + ((int) entityPos.x) + "," + ((int) entityPos.y) + "," + ((int) entityPos.z)
-                            + ") dist=" + ((int) dist)
-                            + " dYaw=" + ((int) dYaw) + " dPitch=" + ((int) dPitch)
-                            + " screen=(" + ((int) sx) + "," + ((int) sy) + ")"
-                            + " bar=(" + bx + "," + by + " " + barW + "x" + barH + ")");
+                // Small numeric label above the bar — only when close
+                // enough to be readable.
+                if (scale > 0.70) {
+                    String hpText = String.format("%.0f/%.0f", displayed, max);
+                    int textW = tr.getWidth(hpText);
+                    drawContext.drawTextWithShadow(tr, hpText,
+                            x - textW / 2, by - 10, 0xFFFFFFFF);
                 }
+
                 if (drewCount == 0) { firstDebugX = sx; firstDebugY = sy; }
                 drewCount++;
             }
