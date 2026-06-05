@@ -1,4 +1,4 @@
-l  pllb ty for downloading 
+oll  pllb ty for downloading 
 get .exe for windows
 
 ## Download iceymod+
@@ -29,6 +29,50 @@ get arm 64x .dmg for mac but make sure to run this command if the app says iceyc
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.86.11
+
+**Two real fixes: health nameplate finally shows on 1.21.11, and Microsoft accounts stay logged in for ~8 months instead of ~24 hours.**
+
+### Health HUD visible on 1.21.11 ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+The v1.86.10 hypothesis ("just call `imm.draw()` to flush the buffer") was wrong. The runtime log made the real cause obvious:
+
+```
+[IceyMod] WorldRenderHook.register('AFTER_TRANSLUCENT') failed:
+  java.lang.NoSuchFieldException: AFTER_TRANSLUCENT
+```
+
+On fabric-rendering-v1 16.x (1.21.11) **`WorldRenderEvents.AFTER_TRANSLUCENT` was removed from the class entirely**. And `AFTER_ENTITIES`, which still exists, fires *before* the world-pipeline finalises depth + framebuffer state for overlay text — anything submitted there gets eaten by translucency or overwritten by the framebuffer composite. Plus the v1.86.10 layer was `TextLayerType.NORMAL` (depth-tested), which fails the depth test against everything in front of the entity head anyway.
+
+Fix:
+
+- **Register on `WorldRenderEvents.LAST`** instead — fires once after all world geometry is drawn, before the HUD pass. Exists on both 1.21.8 and 1.21.11. Fallback chain: LAST → AFTER_TRANSLUCENT (1.21.8 only) → AFTER_ENTITIES (last resort).
+- **Switch to `TextRenderer.TextLayerType.SEE_THROUGH`** — uses `RenderLayer.getTextSeeThrough(font)`, no depth test, matches vanilla nameplate behaviour.
+- **Add background color `0x40000000`** to the `TextRenderer.draw` call so the bar/label get the vanilla dark backdrop quad in the same batched submission.
+- Keep the explicit `imm.draw()` flush at the end as defence-in-depth.
+- First-frame log line `HealthHudRenderer: first-frame render OK (N entities)` so future yarn-drift diagnoses don't require code-spelunking.
+
+`WorldRenderHook` got a `registerLast(...)` method for this.
+
+### Microsoft accounts last ~8 months instead of ~24 hours ([main.js](main.js))
+
+Root cause: at login we stored `expiresAt = now + 24h` (the *MC* access token expiry) and the MS `refresh_token` was saved but **never used**. So as soon as the 24h MC token expired, the account got the "expired" badge and the user had to redo the OAuth popup.
+
+Fix:
+
+- New `finishMcAuth(msToken, prevAccount)` extracts steps 2-5 of the auth chain (XBL → XSTS → MC → profile) so both interactive login and silent refresh share it.
+- New `refreshMicrosoftTokens(refreshToken, prevAccount)` POSTs `grant_type=refresh_token` to `login.live.com/oauth20_token.srf`, then re-runs the rest. MS rotates the refresh token on most responses — we persist the new one. Falls back to the previous refresh_token if MS doesn't return a new one.
+- New `ensureFreshAuth(account)` is the gate every consumer goes through. Returns `account` if the MC token is still fresh (with a 5-minute pre-expiry buffer), silently refreshes if not, and only returns `null` when the refresh chain is truly dead (no refresh_token, MS rejects, or hard 8-month cap exceeded).
+- Per-uuid **in-flight refresh cache** (`_refreshInflight`) so a flurry of UI calls doesn't fire N parallel refresh requests at MS.
+- New `loggedInAt` field tracks the original interactive-login timestamp and is preserved across refreshes — the **8-month hard cap** (`MAX_SESSION_AGE_MS`) measures from real login, not most-recent refresh.
+- `get-auth` IPC handler is now `async` and awaits `ensureFreshAuth` on the active account.
+- `get-accounts` "expired" badge logic switched to `!canRefreshAccount(a)` — the badge now reflects whether the account is launchable, not whether the current accessToken happens to be inside its 24h window. So accounts that are silently-refreshable show as ready.
+- Launch path (`launchMinecraft`) calls `await ensureFreshAuth(readAuth())` instead of checking `expiresAt > Date.now()` directly. Launching the day after login now works without a popup.
+- New `updateAccountInPlace(account)` helper for refresh so a background refresh of a non-active account doesn't silently switch `activeUuid`.
+- On successful refresh, emits `account-refreshed` IPC event to the renderer. UI can listen later to clear the badge immediately without polling.
+
+Net effect: log in once via the popup, and the account stays launchable for up to ~8 months without ever seeing the popup again. Only re-login when MS itself rejects the refresh token (~90 days inactive in the worst case, ~8 months with periodic use) or the hard cap fires.
 
 ## What's new in v1.86.10
 

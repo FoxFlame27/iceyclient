@@ -1229,8 +1229,12 @@ function launchMinecraft(installationId) {
     if (settings.jvmArgs) args.push(...settings.jvmArgs.split(/\s+/).filter(Boolean));
     args.push('-cp', classpath);
     args.push(mainClass);
-    // Choose auth based on active account: Microsoft (with valid token) or offline/cracked
-    const auth = readAuth();
+    // Choose auth based on active account: Microsoft (refreshed if needed) or offline/cracked.
+    // ensureFreshAuth silently swaps an expired MC token for a fresh one
+    // using the stored refresh_token, so a launch the day after login
+    // still works without the popup.
+    const storedAuth = readAuth();
+    const auth = await ensureFreshAuth(storedAuth);
     let launchUsername, launchUuid, launchToken, launchUserType;
     if (auth && auth.type === 'offline') {
       // Cracked/offline account — always legacy with deterministic offline UUID
@@ -1239,13 +1243,13 @@ function launchMinecraft(installationId) {
       launchToken = '0';
       launchUserType = 'legacy';
     } else if (auth && auth.accessToken && auth.expiresAt > Date.now()) {
-      // Valid Microsoft session
+      // Valid Microsoft session (either fresh from login or just refreshed)
       launchUsername = auth.username;
       launchUuid = auth.uuid;
       launchToken = auth.accessToken;
       launchUserType = 'msa';
     } else {
-      // No active account (or expired) — fall back to settings as vanilla-offline
+      // No active account, or the refresh chain is dead — fall back to settings as vanilla-offline
       launchUsername = username;
       launchUuid = offlineUuid(launchUsername);
       launchToken = '0';
@@ -1762,6 +1766,18 @@ function upsertAccount(account) {
   return store;
 }
 
+// In-place update of an existing account by uuid, WITHOUT touching
+// activeUuid. Used by the refresh flow so a background refresh of a
+// non-active account doesn't silently switch the user's active session.
+function updateAccountInPlace(account) {
+  const store = readAuthStore();
+  const idx = store.accounts.findIndex(a => a.uuid === account.uuid);
+  if (idx < 0) return upsertAccount(account); // first time → fall back
+  store.accounts[idx] = account;
+  writeAuthStore(store);
+  return store;
+}
+
 async function httpPost(url, body, contentType = 'application/x-www-form-urlencoded') {
   return new Promise((resolve, reject) => {
     const proto = url.startsWith('https') ? https : http;
@@ -1823,12 +1839,25 @@ async function microsoftLogin() {
   });
 }
 
-async function exchangeMicrosoftTokens(code) {
-  // Step 1: Code -> MS Token
-  const msToken = await httpPost('https://login.live.com/oauth20_token.srf',
-    `client_id=${MS_CLIENT_ID}&code=${code}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20XboxLive.offline_access`);
-  if (!msToken.access_token) { log('error', 'MS token failed: ' + JSON.stringify(msToken)); throw new Error('MS token failed'); }
+// MS refresh tokens with periodic rotation last up to ~8 months. Cap
+// the silent-refresh chain at that point and force an interactive
+// re-login, since the refresh endpoint will start rejecting with
+// invalid_grant past that window anyway.
+const MAX_SESSION_AGE_MS = 8 * 30 * 24 * 60 * 60 * 1000; // ~8 months
+// Refresh proactively a few minutes before the MC token expires so a
+// launch that happens right around the expiry doesn't race the auth
+// servers.
+const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
+/**
+ * Steps 2-5 of the MS auth chain (XBL → XSTS → MC token → profile).
+ * Shared between interactive login and silent refresh.
+ *
+ * `prevAccount` is the existing stored account when called from refresh;
+ * it lets us preserve `loggedInAt` and fall back to the old
+ * refresh_token when MS doesn't rotate it on this response.
+ */
+async function finishMcAuth(msToken, prevAccount) {
   // Step 2: MS Token -> Xbox Live Token
   const xblRes = await httpPost('https://user.auth.xboxlive.com/user/authenticate',
     JSON.stringify({ Properties: { AuthMethod: 'RPS', SiteName: 'user.auth.xboxlive.com', RpsTicket: 'd=' + msToken.access_token }, RelyingParty: 'http://auth.xboxlive.com', TokenType: 'JWT' }), 'application/json');
@@ -1843,22 +1872,120 @@ async function exchangeMicrosoftTokens(code) {
   // Step 4: XSTS -> Minecraft Token
   const mcRes = await httpPost('https://api.minecraftservices.com/authentication/login_with_xbox',
     JSON.stringify({ identityToken: `XBL3.0 x=${userHash};${xstsRes.Token}` }), 'application/json');
-  log('info', 'MC auth response: ' + JSON.stringify(mcRes));
   if (!mcRes.access_token) { log('error', 'Minecraft auth failed: ' + JSON.stringify(mcRes)); throw new Error('MC auth failed: ' + (mcRes.error || mcRes.errorMessage || JSON.stringify(mcRes))); }
 
   // Step 5: Get profile
   const profile = await httpGet('https://api.minecraftservices.com/minecraft/profile', { Authorization: 'Bearer ' + mcRes.access_token });
 
-  const authData = {
+  return {
+    type: 'microsoft',
     accessToken: mcRes.access_token,
-    username: profile.name || 'Player',
-    uuid: profile.id || crypto.randomUUID(),
-    skinUrl: profile.skins?.[0]?.url || null,
-    refreshToken: msToken.refresh_token || null,
-    expiresAt: Date.now() + (mcRes.expires_in || 86400) * 1000
+    username: profile.name || prevAccount?.username || 'Player',
+    uuid: profile.id || prevAccount?.uuid || crypto.randomUUID(),
+    skinUrl: profile.skins?.[0]?.url || prevAccount?.skinUrl || null,
+    // MS rotates refresh tokens — persist the new one when supplied,
+    // fall back to the previous one otherwise.
+    refreshToken: msToken.refresh_token || prevAccount?.refreshToken || null,
+    expiresAt: Date.now() + (mcRes.expires_in || 86400) * 1000,
+    // Preserve the original interactive-login timestamp across refreshes
+    // so the 8-month cap is measured from real login, not the most
+    // recent silent refresh.
+    loggedInAt: prevAccount?.loggedInAt || Date.now()
   };
+}
+
+async function exchangeMicrosoftTokens(code) {
+  // Step 1: Code -> MS Token (interactive login)
+  const msToken = await httpPost('https://login.live.com/oauth20_token.srf',
+    `client_id=${MS_CLIENT_ID}&code=${code}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20XboxLive.offline_access`);
+  if (!msToken.access_token) { log('error', 'MS token failed: ' + JSON.stringify(msToken)); throw new Error('MS token failed'); }
+
+  const authData = await finishMcAuth(msToken, null);
   upsertAccount(authData);
   return authData;
+}
+
+/**
+ * Trade the stored refresh_token for a fresh MS access token + (usually
+ * rotated) refresh_token, then run the rest of the auth chain to mint
+ * a new Minecraft access token. Throws on hard MS errors (invalid_grant,
+ * etc.) — the caller surfaces those as "expired" so the user re-logs.
+ */
+async function refreshMicrosoftTokens(refreshToken, prevAccount) {
+  const msToken = await httpPost('https://login.live.com/oauth20_token.srf',
+    `client_id=${MS_CLIENT_ID}&grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&redirect_uri=${encodeURIComponent(MS_REDIRECT)}&scope=XboxLive.signin%20XboxLive.offline_access`);
+  if (!msToken.access_token) {
+    // invalid_grant means the refresh chain is dead — surface as a
+    // distinct error so callers can mark the account expired instead
+    // of just retrying.
+    const err = new Error('MS refresh failed: ' + (msToken.error || JSON.stringify(msToken)));
+    err.code = msToken.error || 'refresh_failed';
+    throw err;
+  }
+  return finishMcAuth(msToken, prevAccount);
+}
+
+// Per-uuid in-flight refresh cache so a flurry of get-auth / get-accounts
+// calls from the UI doesn't fire five parallel refresh requests at MS.
+const _refreshInflight = new Map();
+
+/**
+ * If the account's MC token is fresh, return as-is. Otherwise attempt
+ * a silent refresh and return the updated account. Returns null when
+ * the account is truly expired (no refresh token, refresh rejected,
+ * or hard 8-month cap exceeded) — caller treats null as "needs
+ * interactive re-login".
+ *
+ * Offline accounts pass through unchanged.
+ */
+async function ensureFreshAuth(account) {
+  if (!account) return null;
+  if (account.type === 'offline') return account;
+  // Token still valid (with a few-minute buffer to avoid races).
+  if (account.expiresAt && account.expiresAt - Date.now() > REFRESH_BUFFER_MS) {
+    return account;
+  }
+  if (!account.refreshToken) return null;
+  // Hard 8-month cap since the last interactive login — MS rejects past
+  // this anyway, surface it locally before burning a network round-trip.
+  // Accounts saved before loggedInAt existed get a one-time grace where
+  // we treat the cap as "from now" — the refresh chain on those is still
+  // healthy enough that re-login isn't urgent.
+  if (account.loggedInAt && Date.now() - account.loggedInAt > MAX_SESSION_AGE_MS) {
+    return null;
+  }
+
+  const cached = _refreshInflight.get(account.uuid);
+  if (cached) return cached;
+
+  const p = (async () => {
+    try {
+      const refreshed = await refreshMicrosoftTokens(account.refreshToken, account);
+      updateAccountInPlace(refreshed);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try { mainWindow.webContents.send('account-refreshed', { uuid: refreshed.uuid }); } catch (_) {}
+      }
+      return refreshed;
+    } catch (e) {
+      log('warn', `MS refresh for ${account.username} failed: ${e.message}`);
+      return null;
+    } finally {
+      _refreshInflight.delete(account.uuid);
+    }
+  })();
+  _refreshInflight.set(account.uuid, p);
+  return p;
+}
+
+/** Cheap synchronous check used by UI badge logic — does this account
+ *  have a viable refresh path, even if the current accessToken is
+ *  past expiry? Mirrors the rejection conditions in ensureFreshAuth so
+ *  the badge matches reality without doing a network call. */
+function canRefreshAccount(account) {
+  if (!account || account.type === 'offline') return false;
+  if (!account.refreshToken) return false;
+  if (account.loggedInAt && Date.now() - account.loggedInAt > MAX_SESSION_AGE_MS) return false;
+  return true;
 }
 
 // ── App ready ──────────────────────────────────────────
@@ -2917,15 +3044,19 @@ app.whenReady().then(() => {
     return { success: true };
   });
 
-  ipcMain.handle('get-auth', () => {
+  ipcMain.handle('get-auth', async () => {
     const auth = readAuth();
-    if (auth && auth.expiresAt && Date.now() > auth.expiresAt) {
-      return null; // Expired
-    }
-    return auth;
+    if (!auth) return null;
+    if (auth.type === 'offline') return auth;
+    // Silent refresh when needed — null means the chain is truly dead
+    // and the UI should treat the account as expired (re-login required).
+    return await ensureFreshAuth(auth);
   });
 
-  // Multi-account support
+  // Multi-account support. The "expired" badge here reflects whether
+  // the account has a viable refresh path, NOT whether the current
+  // accessToken is still inside its 24h window. That way an account
+  // shows as launchable as long as we can silently refresh it.
   ipcMain.handle('get-accounts', () => {
     const store = readAuthStore();
     return {
@@ -2936,7 +3067,7 @@ app.whenReady().then(() => {
         uuid: a.uuid,
         skinUrl: a.skinUrl || null,
         type: a.type || 'microsoft',
-        expired: a.type === 'offline' ? false : !!(a.expiresAt && Date.now() > a.expiresAt)
+        expired: a.type === 'offline' ? false : !canRefreshAccount(a)
       }))
     };
   });

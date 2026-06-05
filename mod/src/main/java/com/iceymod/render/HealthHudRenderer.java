@@ -8,8 +8,6 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
@@ -28,28 +26,40 @@ import java.util.UUID;
  * billboarded bar + numeric label. Mirrors the vanilla nameplate render
  * approach but with a custom bar geometry instead of text.
  *
- * <h2>Why this rewrite</h2>
- * v1.86.9 switched to {@code HudRenderCallback} + manual projection
- * because the world-space approach was failing on 1.21.11. Real cause:
- * the {@code VertexConsumerProvider} returned by
- * {@code WorldRenderContext.consumers()} is a buffered {@code Immediate}
- * that needs an explicit {@code .draw()} to flush — without that, the
- * text + bar geometry sit in the buffer forever and never reach the
- * screen. This version goes back to the world-space approach but calls
- * {@code immediate.draw()} explicitly at the end of every render.
+ * <h2>Why this rewrite (v1.86.11)</h2>
+ * v1.86.10 added an explicit {@code imm.draw()} flush thinking the
+ * VertexConsumerProvider just wasn't being drained at AFTER_ENTITIES on
+ * 1.21.11. It still didn't show. Two real problems:
+ *
+ * <ol>
+ *   <li><b>Wrong event phase.</b> On fabric-rendering-v1 16.x (1.21.11)
+ *       {@code AFTER_TRANSLUCENT} was <i>removed entirely</i> from the
+ *       {@code WorldRenderEvents} class — confirmed at runtime via
+ *       {@code NoSuchFieldException: AFTER_TRANSLUCENT}. AFTER_ENTITIES
+ *       still exists but fires <i>before</i> the world-render pipeline
+ *       finalises depth + framebuffer state for overlay text, so
+ *       anything we submit there gets eaten by translucency or
+ *       overwritten by the framebuffer composite. The remaining
+ *       post-pass injection point is {@code LAST} — fires once after
+ *       all world geometry is drawn, before the HUD pass — and it
+ *       still exists on 1.21.8 too, so it's the right primary target.
+ *   <li><b>Wrong text layer.</b> {@code TextLayerType.NORMAL} is
+ *       depth-tested. At LAST the depth buffer holds every opaque +
+ *       translucent fragment in front of the entity head, so NORMAL
+ *       text gets z-rejected. Vanilla nameplates use {@code SEE_THROUGH}
+ *       (uses {@code RenderLayer.getTextSeeThrough(font)} — no depth
+ *       test) so the nameplate is always visible.
+ * </ol>
+ *
+ * Switching to LAST + SEE_THROUGH gets pixels on screen. We keep the
+ * explicit {@code imm.draw()} flush at the end as a defensive measure
+ * — harmless on 1.21.8 where the pipeline drains automatically.
  *
  * <h2>Registration</h2>
  * Called from {@link com.iceymod.IceyMod#onInitializeClient()}:
  * <pre>
  *   HealthHudRenderer.register();
  * </pre>
- * Inside, {@code register} wires:
- * <ul>
- *   <li>{@code WorldRenderHook.registerAfterEntities(...)} — fires every
- *       frame post-entity rendering with the matrix stack + consumers.
- *   <li>{@code ClientPlayConnectionEvents.DISCONNECT} — clears the
- *       per-player lerp cache when leaving a world.
- * </ul>
  *
  * <h2>Module toggles</h2>
  * Reads {@link PlayerHealthModule} (players) and {@link MobHealthModule}
@@ -62,11 +72,6 @@ public final class HealthHudRenderer {
     /** Max distance to render the bar (config-able later). */
     private static final double MAX_DIST = 30.0;
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
-    /** Bar dimensions in world units (1 unit ≈ 1 block). */
-    private static final float BAR_WIDTH = 1.5f;
-    private static final float BAR_HEIGHT = 0.12f;
-    /** Border thickness inside/outside the bar. */
-    private static final float BORDER = 0.012f;
     /** Vertical offset above the entity's bbox top (sits clear of the
      *  vanilla username nameplate which is at +0.5). */
     private static final float Y_OFFSET = 0.3f;
@@ -75,21 +80,48 @@ public final class HealthHudRenderer {
     private static final float LERP_FACTOR = 0.05f;
     /** Vanilla nameplate text scale used for the numeric label below. */
     private static final float TEXT_SCALE = 0.025f;
+    /** Vanilla nameplate background alpha (~25% black). */
+    private static final int BG_COLOR = 0x40000000;
+    /** Full-bright packed light (sky+block both max). */
+    private static final int FULL_LIGHT = 0xF000F0;
 
     /** Per-player lerped health, keyed by entity UUID. */
     private static final Map<UUID, Float> lerpedHealth = new HashMap<>();
+    /** First-frame log gate so we know in production logs which event
+     *  phase actually fired (helps diagnose future yarn drift without
+     *  spamming the console every frame). */
+    private static boolean loggedFirstFrame = false;
 
     private HealthHudRenderer() {}
 
     /** Wire the renderer + disconnect cleanup. */
     public static void register() {
-        // Use WorldRenderHook so the AFTER_ENTITIES registration works
-        // across the 1.21.8 / 1.21.11 fabric-rendering-v1 package shift.
-        if (!WorldRenderHook.registerAfterEntities(HealthHudRenderer::onRender)) {
+        // Try injection points in order of "latest in the world pass
+        // that still exists on this fabric-rendering-v1 version":
+        //   LAST              — exists on both 1.21.8 and 1.21.11
+        //   AFTER_TRANSLUCENT — exists on 1.21.8, REMOVED on 1.21.11
+        //   AFTER_ENTITIES    — exists on both, but text submissions
+        //                       here get eaten on 1.21.11 (the bug)
+        // The fallback chain keeps the mod working if a future yarn
+        // drift removes LAST too.
+        boolean registered = WorldRenderHook.registerLast(HealthHudRenderer::onRender);
+        if (!registered) {
+            System.out.println("[IceyMod] HealthHudRenderer: LAST unavailable, falling back to AFTER_TRANSLUCENT");
+            registered = WorldRenderHook.registerAfterTranslucent(HealthHudRenderer::onRender);
+        }
+        if (!registered) {
+            System.out.println("[IceyMod] HealthHudRenderer: AFTER_TRANSLUCENT unavailable, falling back to AFTER_ENTITIES");
+            registered = WorldRenderHook.registerAfterEntities(HealthHudRenderer::onRender);
+        }
+        if (!registered) {
             System.out.println("[IceyMod] HealthHudRenderer: WorldRenderEvents unavailable — bar disabled");
+            return;
         }
         try {
-            ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> lerpedHealth.clear());
+            ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+                lerpedHealth.clear();
+                loggedFirstFrame = false;
+            });
         } catch (Throwable t) {
             System.out.println("[IceyMod] HealthHudRenderer: DISCONNECT hook failed (cache will not auto-clear): " + t);
         }
@@ -124,7 +156,7 @@ public final class HealthHudRenderer {
         TextRenderer tr = client.textRenderer;
         if (tr == null) return;
 
-        boolean drewAny = false;
+        int drewCount = 0;
 
         try {
             for (var e : client.world.getEntities()) {
@@ -151,25 +183,23 @@ public final class HealthHudRenderer {
                 lerpedHealth.put(le.getUuid(), displayed);
 
                 renderBarForEntity(ms, vcp, cam, camPos, tr, le, displayed, max);
-                drewAny = true;
+                drewCount++;
             }
         } catch (Throwable t) {
             System.out.println("[IceyMod] HealthHudRenderer render error: " + t);
             return;
         }
 
-        // ── Force-flush the consumer buffer ───────────────────────────
-        // On 1.21.11+ the world-render pipeline no longer auto-drains the
-        // VertexConsumerProvider at AFTER_ENTITIES — any quads/text we
-        // submitted above will sit in the buffer forever unless we call
-        // draw() ourselves. Cast safely and call draw() if it's an
-        // Immediate; if it isn't, the existing pipeline will flush.
-        if (drewAny) {
-            try {
-                if (vcp instanceof VertexConsumerProvider.Immediate imm) {
-                    imm.draw();
-                }
-            } catch (Throwable ignored) {}
+        if (!loggedFirstFrame && drewCount > 0) {
+            loggedFirstFrame = true;
+            System.out.println("[IceyMod] HealthHudRenderer: first-frame render OK (" + drewCount + " entities)");
+        }
+
+        // Force-flush the consumer buffer. Vanilla drains the entity VCP
+        // once at the end of the entity pass; anything submitted later
+        // at AFTER_TRANSLUCENT sits in the buffer unless we draw() it.
+        if (drewCount > 0 && vcp instanceof VertexConsumerProvider.Immediate imm) {
+            try { imm.draw(); } catch (Throwable ignored) {}
         }
     }
 
@@ -178,7 +208,11 @@ public final class HealthHudRenderer {
      *  Unicode block characters (█/░) with §-color so we go through the
      *  same {@code TextRenderer.draw} path as the numeric label — one
      *  buffered batch, one explicit flush at the end. Avoids the
-     *  yarn-drifty RenderLayer / VertexConsumer quad API entirely. */
+     *  yarn-drifty RenderLayer / VertexConsumer quad API entirely.
+     *
+     *  Uses {@code SEE_THROUGH} layer (no depth test) so the nameplate
+     *  is visible even when foliage / translucent blocks are between the
+     *  camera and the entity head — matches vanilla nameplate behaviour. */
     private static void renderBarForEntity(MatrixStack ms, VertexConsumerProvider vcp, Camera cam,
                                            Vec3d camPos, TextRenderer tr,
                                            LivingEntity le, float displayedHp, float maxHp) {
@@ -219,15 +253,16 @@ public final class HealthHudRenderer {
             int barWidth = tr.getWidth(barText);
             int labelWidth = tr.getWidth(label);
 
-            // Bar line — full alpha white text, the §-colors inside
-            // override per character. Drop shadow on for legibility.
+            // SEE_THROUGH: no depth test → bar always visible above the
+            // head regardless of foliage / smoke / clouds in between.
+            // backgroundColor non-zero → TextRenderer emits the dark
+            // backdrop quad through the same VCP in one batch.
             tr.draw(barText, -barWidth / 2f, 0f,
-                    0xFFFFFFFF, true, matrix, vcp,
-                    TextRenderer.TextLayerType.NORMAL, 0, 0xF000F0);
-            // Numeric label one line below the bar.
+                    0xFFFFFFFF, false, matrix, vcp,
+                    TextRenderer.TextLayerType.SEE_THROUGH, BG_COLOR, FULL_LIGHT);
             tr.draw(label, -labelWidth / 2f, 10f,
-                    0xFFFFFFFF, true, matrix, vcp,
-                    TextRenderer.TextLayerType.NORMAL, 0, 0xF000F0);
+                    0xFFFFFFFF, false, matrix, vcp,
+                    TextRenderer.TextLayerType.SEE_THROUGH, BG_COLOR, FULL_LIGHT);
         } finally {
             ms.pop();
         }

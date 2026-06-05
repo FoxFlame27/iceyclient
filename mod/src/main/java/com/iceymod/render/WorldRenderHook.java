@@ -55,6 +55,17 @@ public final class WorldRenderHook {
         return register("AFTER_TRANSLUCENT", handler);
     }
 
+    /** Fabric API's "after everything visible" phase. On
+     *  fabric-rendering-v1 16.x (MC 1.21.11) this is the only post-pass
+     *  injection point left — AFTER_TRANSLUCENT was removed from the
+     *  WorldRenderEvents class (verified at runtime via
+     *  NoSuchFieldException). LAST exists on every fabric-rendering-v1
+     *  version we ship for, so it's the right primary target for
+     *  overlays (health bars, waypoints, etc.). */
+    public static boolean registerLast(Consumer<Ctx> handler) {
+        return register("LAST", handler);
+    }
+
     private static boolean register(String fieldName, Consumer<Ctx> handler) {
         Class<?> eventsClass = null;
         for (String path : EVENTS_PATHS) {
