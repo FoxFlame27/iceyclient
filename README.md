@@ -30,6 +30,27 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.23
+
+**Bars are now fixed size at every distance, and the projected anchor moved up so the bar sits just above the username nameplate instead of overlapping or floating high above.**
+
+### Fixed-size bars ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+User feedback after 1.86.22: "make it have the same size ALWAYS — now it's bigger far away and from close it's super small". Distance scaling actively worked against readability because the player model already shrinks with distance — a 28-pixel bar above a 15-pixel-tall far player looks oversized, while a 50-pixel bar above an 80-pixel-tall close player looks puny.
+
+Dropped distance scaling entirely. Two new constants:
+
+```java
+private static final int BAR_WIDTH  = 60;
+private static final int BAR_HEIGHT = 6;
+```
+
+Same `60×6` pixel bar for every entity regardless of how far away. Black 1px border, dark gray empty bg, ARGB color fill (green/yellow/gold/red), numeric label `42/42` always shown above. Matches vanilla nameplate behaviour — those don't scale with distance either; the world-space billboarding handles apparent size.
+
+### Bar position: just above the nametag ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+`Y_OFFSET` bumped from `0.15` to `0.65` world units so the projected anchor point lands just above the vanilla username nameplate (which sits at +0.5). Bar now draws from there with `by = y - barH` — a clean small gap above the username text, not overlapping it and not floating high above the player.
+
 ## What's new in v1.86.22
 
 **1.86.21 confirmed the entityPos fix works — bars now appear above the right players. This build shrinks them and brings them closer to the heads.**

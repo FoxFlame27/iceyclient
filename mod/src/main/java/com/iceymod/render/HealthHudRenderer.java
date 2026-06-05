@@ -91,10 +91,17 @@ public final class HealthHudRenderer {
     /** Max distance to render the bar (config-able later). */
     private static final double MAX_DIST = 30.0;
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
-    /** Vertical offset above the entity's bbox top. Small so the bar
-     *  sits visually near the head, with the on-screen offset added
-     *  on top giving just enough gap above the username nameplate. */
-    private static final float Y_OFFSET = 0.15f;
+    /** Vertical offset above the entity's bbox top. Tuned so the
+     *  projected point lands just above the vanilla username
+     *  nameplate (which sits at +0.5), giving the bar a clean spot
+     *  to draw with a small screen-space gap. */
+    private static final float Y_OFFSET = 0.65f;
+    /** Fixed bar size — no distance scaling. User feedback was that
+     *  scaled bars looked "huge far away, super small close"; a
+     *  constant-pixel bar reads consistently at every range and
+     *  matches the vanilla nameplate behaviour. */
+    private static final int BAR_WIDTH  = 60;
+    private static final int BAR_HEIGHT = 6;
     /** Per-tick lerp factor for the animated fill — 5% means the bar
      *  catches up to a sudden HP change over about 20 ticks (1 second). */
     private static final float LERP_FACTOR = 0.05f;
@@ -226,22 +233,16 @@ public final class HealthHudRenderer {
                 double sx = halfW + Math.tan(Math.toRadians(dYaw)) / tanHalfH * halfW;
                 double sy = halfH + Math.tan(Math.toRadians(dPitch)) / tanHalfV * halfH;
 
-                // Compact pixel-quad bar — half the 1.86.20 size since
-                // the user reported them as "huge". Distance scaling
-                // keeps far entities from getting unreadable.
+                // Fixed-size pixel-quad bar — same dimensions every
+                // frame for every entity regardless of distance.
                 float ratio = MathHelper.clamp(displayed / max, 0f, 1f);
                 int barColor = healthColorArgb(ratio);
-                double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                double scale = MathHelper.clamp(1.0 - dist / (MAX_DIST * 2.0), 0.55, 1.0);
-                int barW = (int) Math.max(28, Math.round(50 * scale));
-                int barH = (int) Math.max(3,  Math.round(5  * scale));
-
+                int barW = BAR_WIDTH;
+                int barH = BAR_HEIGHT;
                 int x = (int) Math.round(sx);
                 int y = (int) Math.round(sy);
                 int bx = x - barW / 2;
-                // Sit right above the username nameplate — small gap
-                // (was -12, way too high).
-                int by = y - barH - 2;
+                int by = y - barH;
                 int fillW = Math.round(barW * ratio);
 
                 // Black 1px border → dark bg → color fill.
@@ -251,14 +252,11 @@ public final class HealthHudRenderer {
                     drawContext.fill(bx, by, bx + fillW, by + barH, barColor);
                 }
 
-                // Small numeric label above the bar — only when close
-                // enough to be readable.
-                if (scale > 0.70) {
-                    String hpText = String.format("%.0f/%.0f", displayed, max);
-                    int textW = tr.getWidth(hpText);
-                    drawContext.drawTextWithShadow(tr, hpText,
-                            x - textW / 2, by - 10, 0xFFFFFFFF);
-                }
+                // Numeric label above the bar — always shown.
+                String hpText = String.format("%.0f/%.0f", displayed, max);
+                int textW = tr.getWidth(hpText);
+                drawContext.drawTextWithShadow(tr, hpText,
+                        x - textW / 2, by - 10, 0xFFFFFFFF);
 
                 if (drewCount == 0) { firstDebugX = sx; firstDebugY = sy; }
                 drewCount++;
