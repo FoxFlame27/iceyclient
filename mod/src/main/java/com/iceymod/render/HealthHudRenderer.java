@@ -226,45 +226,54 @@ public final class HealthHudRenderer {
                 double sy = halfH + Math.tan(Math.toRadians(dPitch)) / tanHalfV * halfH;
 
                 // ── Pixel-quad bar with distance-based scaling ───
-                // Text bars (█████░░░) couldn't be sized down for far
-                // entities — every bar looked the same huge size
-                // regardless of distance. Pixel quads via
-                // drawContext.fill let us scale width/height by
-                // distance so the bar feels attached to the entity.
+                // Bigger base size than v1.86.19 (60×6 → 96×10) plus
+                // brighter colors and an accent-blue outer ring so the
+                // bar pops against the world. Distance scaling is also
+                // less aggressive (floor 0.50 → bars never get below
+                // 48×5 px) so far-but-visible entities still show.
                 float ratio = MathHelper.clamp(displayed / max, 0f, 1f);
                 int barColor = healthColorArgb(ratio);
-
-                // Distance scale: 1.0 right next to the camera,
-                // ~0.25 at MAX_DIST. Linear with a floor so far bars
-                // don't disappear into 1-pixel slivers.
                 double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                double scale = MathHelper.clamp(1.0 - dist / (MAX_DIST * 1.4), 0.28, 1.0);
-                int barW = (int) Math.max(18, Math.round(60 * scale));
-                int barH = (int) Math.max(3,  Math.round(6  * scale));
+                double scale = MathHelper.clamp(1.0 - dist / (MAX_DIST * 1.8), 0.50, 1.0);
+                int barW = (int) Math.max(48, Math.round(96 * scale));
+                int barH = (int) Math.max(5,  Math.round(10 * scale));
 
                 int x = (int) Math.round(sx);
                 int y = (int) Math.round(sy);
                 int bx = x - barW / 2;
-                // Sit visually above the username nameplate. -6 leaves
-                // a small gap above the projected head point.
-                int by = y - barH - 6;
+                // Sit clearly above the username nameplate.
+                int by = y - barH - 12;
                 int fillW = Math.round(barW * ratio);
 
-                // 1px black border via outer fill, then dark bg, then color fill.
+                // Outer accent ring (2px) — makes the bar visible against
+                // any background, doubles as a "this is a HUD overlay"
+                // visual signature.
+                drawContext.fill(bx - 2, by - 2, bx + barW + 2, by + barH + 2, 0xFF1d4ed8);
+                // Black inner border (1px).
                 drawContext.fill(bx - 1, by - 1, bx + barW + 1, by + barH + 1, 0xFF000000);
-                drawContext.fill(bx, by, bx + barW, by + barH, 0xFF1a1a22);
+                // Dark gray empty-bar background.
+                drawContext.fill(bx, by, bx + barW, by + barH, 0xFF2a2a35);
+                // Filled portion (HP color).
                 if (fillW > 0) {
                     drawContext.fill(bx, by, bx + fillW, by + barH, barColor);
                 }
 
-                // Numeric label only when close enough to be readable.
-                if (scale > 0.55) {
-                    String hpText = String.format("%.0f/%.0f", displayed, max);
-                    int textW = tr.getWidth(hpText);
-                    drawContext.drawTextWithShadow(tr, hpText,
-                            x - textW / 2, by - 10, 0xFFFFFFFF);
-                }
+                // Numeric label always shown — small text, easier to
+                // read what's at full HP at a glance.
+                String hpText = String.format("%.0f/%.0f", displayed, max);
+                int textW = tr.getWidth(hpText);
+                drawContext.drawTextWithShadow(tr, hpText,
+                        x - textW / 2, by - 11, 0xFFFFFFFF);
 
+                // First-frame only: log positions for the first 5 ents.
+                if (!loggedFirstFrame && drewCount < 5) {
+                    System.out.println("[IceyMod] HUD ent #" + drewCount
+                            + ": world=(" + ((int) entityPos.x) + "," + ((int) entityPos.y) + "," + ((int) entityPos.z)
+                            + ") dist=" + ((int) dist)
+                            + " dYaw=" + ((int) dYaw) + " dPitch=" + ((int) dPitch)
+                            + " screen=(" + ((int) sx) + "," + ((int) sy) + ")"
+                            + " bar=(" + bx + "," + by + " " + barW + "x" + barH + ")");
+                }
                 if (drewCount == 0) { firstDebugX = sx; firstDebugY = sy; }
                 drewCount++;
             }

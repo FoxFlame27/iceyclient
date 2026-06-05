@@ -30,6 +30,47 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.20
+
+**Health bars bumped up significantly so they're actually visible (1.86.19's 60×6 floor at 18×3 was too small to spot on a 427×240 viewport), bright accent ring added for contrast, numeric label always shown, and first-frame log dumps positions of the first 5 entities for diagnosis. Install cards bumped up again.**
+
+### Bigger, more visible bars ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+1.86.19 made the bars too small in the name of distance scaling — user reported seeing nothing at all. Re-tuned:
+
+- Base bar: **96×10** (was 60×6)
+- Min bar at max distance: **48×5** (was 18×3)
+- Distance scaling floor: **50%** (was 28%) — far entities still get readable bars
+- Outer **accent-blue ring** (`#1d4ed8`, 2px) so the bar pops against any world background
+- Black 1px border + dark gray empty bg + colored fill
+- **Numeric label always shown** (was hidden when far) — `42/42` underneath the bar at all distances
+
+### First-frame entity log dump ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+If the bars still aren't where they should be, the first-frame log now dumps each of the first 5 entities:
+
+```
+[IceyMod] HUD ent #0: world=(123,64,-45) dist=12 dYaw=3 dPitch=-1 screen=(241,127) bar=(217,107 96x10)
+[IceyMod] HUD ent #1: world=(127,64,-47) dist=8 dYaw=-2 dPitch=0 screen=(207,123) bar=(159,103 96x10)
+...
+```
+
+That tells us per-entity:
+- world position
+- distance from camera
+- angular delta from camera direction
+- where it projected to on screen
+- where the bar quad was drawn
+
+If `screen=(...)` shows on-screen coords (within 0 to sw/sh) and the user still doesn't see the bar there, the issue is a draw-pipeline problem (drawContext.fill on 1.21.11 not landing on the screen target). If screen coords are off-screen, the projection math itself needs more work.
+
+### Install cards bumped up again ([home.css](src/styles/home.css))
+
+- Width: `clamp(300px, 26vw, 460px)` (was `clamp(260px, 22vw, 380px)`)
+- Image height: `clamp(150px, 15vw, 240px)` (was `clamp(120px, 13vw, 200px)`)
+- Version overlay: `clamp(28px, 2.8vw, 44px)` (was `clamp(24px, 2.4vw, 36px)`)
+- Name 16px / 700 (was 15px / 700)
+
 ## What's new in v1.86.19
 
 **Health bars are now pixel-quad rectangles instead of text characters, scaled by distance — a player 30 blocks away gets a small bar attached to their model, not a huge `[████████]` text strip that looks the same size as one 3 blocks away. Plus the Liquid install cards bumped back up to a medium footer-strip size.**

@@ -437,40 +437,40 @@
   padding-bottom: 6px;
 }
 .home-liquid-installs .home-inst-card {
-  width: clamp(260px, 22vw, 380px);
-  min-width: clamp(260px, 22vw, 380px);
-  border-radius: 16px;
+  width: clamp(300px, 26vw, 460px);
+  min-width: clamp(300px, 26vw, 460px);
+  border-radius: 18px;
   border-width: 1.5px;
 }
 .home-liquid-installs .home-inst-card-img {
-  height: clamp(120px, 13vw, 200px);
-  border-radius: 15px 15px 0 0;
+  height: clamp(150px, 15vw, 240px);
+  border-radius: 17px 17px 0 0;
 }
 .home-liquid-installs .home-inst-card-version-overlay {
-  font-size: clamp(24px, 2.4vw, 36px);
+  font-size: clamp(28px, 2.8vw, 44px);
   text-shadow: 0 2px 12px rgba(0,0,0,0.9);
 }
 .home-liquid-installs .home-inst-card-body {
-  padding: 12px 16px;
+  padding: 14px 18px;
   gap: 6px;
 }
 .home-liquid-installs .home-inst-card-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
 }
 .home-liquid-installs .home-inst-card-platform {
   font-size: 10px;
-  padding: 3px 9px;
+  padding: 3px 10px;
 }
 .home-liquid-installs .home-inst-card-check {
-  width: 22px;
-  height: 22px;
-  top: 8px;
-  right: 8px;
+  width: 24px;
+  height: 24px;
+  top: 9px;
+  right: 9px;
 }
 .home-liquid-installs .home-inst-empty {
   font-size: 12px;
-  padding: 14px;
+  padding: 16px;
 }
 
 /* Bare logo image — no frame, no background — floats freely with a
