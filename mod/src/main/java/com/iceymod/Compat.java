@@ -37,7 +37,10 @@ public final class Compat {
     private Compat() {}
 
     /** Camera position. 1.21.8 had {@code getPos()}; 1.21.11 removed it.
-     *  Falls back to reading the {@code pos} field directly. */
+     *  Falls back to reading the {@code pos} field by NAME (not just
+     *  "first Vec3d field" — Camera has multiple Vec3d fields including
+     *  focusedEntityPos / lastPos / etc., and grabbing the wrong one
+     *  produces silently-broken world-space projections). */
     public static Vec3d cameraPos(Camera cam) {
         if (cam == null) return Vec3d.ZERO;
         // Method first (faster than field lookup on hot path)
@@ -45,7 +48,18 @@ public final class Compat {
             Object v = cam.getClass().getMethod("getPos").invoke(cam);
             if (v instanceof Vec3d vd) return vd;
         } catch (Throwable ignored) {}
-        // Field fallback — Camera.pos is private but accessible via reflection
+        // Field fallback — match the field NAMED "pos" specifically.
+        try {
+            for (Field f : Camera.class.getDeclaredFields()) {
+                if (f.getType() == Vec3d.class && "pos".equals(f.getName())) {
+                    f.setAccessible(true);
+                    Object v = f.get(cam);
+                    if (v instanceof Vec3d vd) return vd;
+                }
+            }
+        } catch (Throwable ignored) {}
+        // Last resort: any Vec3d field. Better than ZERO if the obf
+        // name changed, even if not the right field.
         try {
             for (Field f : Camera.class.getDeclaredFields()) {
                 if (f.getType() == Vec3d.class) {
@@ -59,11 +73,15 @@ public final class Compat {
     }
 
     /** Entity position. 1.21.8 used {@code getPos()}; 1.21.11 split it
-     *  into {@code getSyncedPos()} / {@code getLastRenderPos()}. Try
-     *  each, fall through to the {@code pos} field. */
+     *  into {@code getSyncedPos()} / {@code getLastRenderPos()}. Prefer
+     *  {@code getLastRenderPos()} when available because that's the
+     *  interpolated position the world renderer uses for the current
+     *  frame — using {@code getSyncedPos} (the server-tick position)
+     *  for HUD projection makes the bar lag the on-screen entity by
+     *  one tick per move. */
     public static Vec3d entityPos(Entity entity) {
         if (entity == null) return Vec3d.ZERO;
-        for (String name : new String[] {"getPos", "getSyncedPos", "getLastRenderPos"}) {
+        for (String name : new String[] {"getLastRenderPos", "getPos", "getSyncedPos"}) {
             try {
                 Method m = entity.getClass().getMethod(name);
                 Object v = m.invoke(entity);

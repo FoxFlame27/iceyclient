@@ -259,6 +259,29 @@ public final class HealthHudRenderer {
                     + " on " + sw + "x" + sh + " fov=" + fovV
                     + " camYaw=" + camYaw + " camPitch=" + camPitch + ")");
         }
+
+        // ── Live on-screen diagnostic banner ───────────────────────
+        // We're flying blind on what's going wrong — logs say N
+        // entities were drawn but the user sees nothing. The banner
+        // tells us in real time:
+        //   - Is DrawContext actually rendering to screen? (If user
+        //     sees the banner at all → yes.)
+        //   - How many entities passed filtering this frame?
+        //   - Where did the first one project?
+        //   - What's the current camera yaw/pitch?
+        // Toggled by the PlayerHealthModule's enabled flag — when the
+        // module is on, this banner is on, so it goes away when the
+        // user turns the health HUD off.
+        if (showPlayers || showMobs) {
+            String banner = String.format(
+                    "[Icey] HP HUD: %d ents, first@(%d,%d), cam y=%.0f p=%.0f, scr %dx%d",
+                    drewCount, (int) firstDebugX, (int) firstDebugY,
+                    camYaw, camPitch, sw, sh);
+            try {
+                drawContext.drawTextWithShadow(tr, net.minecraft.text.Text.literal("§b" + banner),
+                        4, 4, 0xFFFFFFFF);
+            } catch (Throwable ignored) {}
+        }
     }
 
     /** Read the current FOV from GameOptions. Two yarn shapes:

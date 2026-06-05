@@ -30,6 +30,45 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.16
+
+**Diagnostic on-screen banner for the HealthHud, Compat fixes for the reflection-based camera/entity position lookups, installation cards back on the Liquid home, and the 4 menu buttons reverted to their original fixed size.**
+
+### HealthHud diagnostic banner ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+v1.86.15's log showed `(32, 520) on 427x240 camYaw=179.93 camPitch=-0.87` — the first entity projected 280px below the bottom of the screen with the camera looking horizontally. Despite 13 entities going through `drawTextWithShadow`, the user reports seeing nothing.
+
+We're flying blind on what's actually failing — projection math, the DrawContext call itself, or something else in the 1.21.11 HUD pipeline. So this build adds a live on-screen banner at (4, 4) showing:
+
+```
+[Icey] HP HUD: 13 ents, first@(32,520), cam y=179.93 p=-0.87, scr 427x240
+```
+
+If the banner shows up, the DrawContext is rendering and the only thing left to fix is the projection math. If the banner doesn't show up, the issue is the draw pipeline itself (HudRenderCallback may be deprecated in fabric-rendering-v1 16.x) and we need to switch to HudElementRegistry or a mixin. Either way, the next iteration is targeted instead of guessing.
+
+### Compat reflection fixes ([Compat.java](mod/src/main/java/com/iceymod/Compat.java))
+
+Two latent bugs in the reflection-based field lookups:
+
+- **`cameraPos`** walked Camera's declared fields and returned the *first* `Vec3d` field it found. Camera has multiple `Vec3d` fields (`pos`, `focusedEntityPos`, possibly `lastPos`), and the declaration order isn't guaranteed — we could end up using `focusedEntityPos` as the camera position, which is the *target* of a focused-entity camera, not the camera itself. Garbage in → garbage projection. Fix: match the field *named* `"pos"` specifically, fall back to "any Vec3d" only as last resort.
+- **`entityPos`** tried `getPos` → `getSyncedPos` → `getLastRenderPos` in that order. On 1.21.11 `getPos` is gone, so we landed on `getSyncedPos` — the *server-tick* position, which lags the rendering frame by up to one tick. Use `getLastRenderPos` first (the interpolated render-time position MC actually draws the entity at) so the bar tracks the on-screen entity instead of where the server thinks they were a tick ago.
+
+### Liquid home: installations cards back, menu buttons original size ([home.js](src/pages/home.js), [home.css](src/styles/home.css))
+
+The 1.86.14 build scaled the menu buttons up via `clamp()` for big screens. User feedback: the bigger sizing wasn't wanted — the 4 boxes should be the same fixed size as before. Reverted all menu sizing (`liquid-menu-icon`, `liquid-menu-title`, `liquid-menu-sub`, button padding) to the original fixed values.
+
+Also added the **installations cards row** to the Liquid hero, matching the Classic home layout. The grid is now:
+
+```
++---------------------+---------------------+
+|        menu         |        logo         |
++---------------------+---------------------+
+|       installations cards row             |
++---------------------+---------------------+
+```
+
+The cards container uses the exact same `#home-inst-cards` ID as the Classic layout, so the existing `_loadHomeInstallations()` populates it for free — no JS changes needed.
+
 ## What's new in v1.86.15
 
 **Health nameplate projection rewritten with angle math (atan2 + tan) instead of quaternion-conjugate camera-local rotation. v1.86.13's runtime log decisively proved the quaternion approach was broken.**

@@ -92,6 +92,16 @@ async function HomePageInit() {
           <span class="home-timer-value" id="home-timer-value">00:00:00</span>
         </div>
       </div>
+
+      <!-- Installations cards across the bottom — same #home-inst-cards
+           container the Classic layout uses, so _loadHomeInstallations()
+           wires it up automatically. -->
+      <div class="home-liquid-installs">
+        <div class="home-inst-header">
+          <span class="home-inst-title">Your Installations</span>
+        </div>
+        <div class="home-inst-cards" id="home-inst-cards"></div>
+      </div>
     </div>
   `;
 

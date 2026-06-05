@@ -256,33 +256,37 @@
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) 1fr;
-  gap: clamp(28px, 4vw, 80px);
+  grid-template-columns: minmax(380px, 1fr) 1fr;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "menu logo"
+    "installs installs";
+  gap: clamp(20px, 2.5vw, 48px);
   width: 100%;
   height: 100%;
-  padding: clamp(40px, 5vh, 80px) clamp(32px, 5vw, 96px) clamp(24px, 3vh, 56px);
+  padding: clamp(28px, 3.5vh, 56px) clamp(28px, 4vw, 72px) clamp(20px, 2.5vh, 36px);
   align-items: center;
-  /* Cap how wide everything spreads on ultrawides so the menu and
-     logo stay paired visually instead of drifting to opposite edges. */
   max-width: 1700px;
   margin: 0 auto;
 }
 
 .home-liquid-menu {
+  grid-area: menu;
   display: flex;
   flex-direction: column;
-  gap: clamp(14px, 1.4vw, 22px);
+  gap: 14px;
   width: 100%;
-  max-width: clamp(480px, 36vw, 720px);
+  max-width: 540px;
   justify-self: end;
+  align-self: center;
 }
 
 .liquid-menu-btn {
   display: grid;
-  grid-template-columns: clamp(64px, 5vw, 88px) 1fr 24px;
+  grid-template-columns: 64px 1fr 24px;
   align-items: center;
-  gap: clamp(18px, 1.8vw, 26px);
-  padding: clamp(18px, 2vh, 28px) clamp(22px, 2vw, 32px);
+  gap: 18px;
+  padding: 18px 22px;
   background: linear-gradient(135deg, rgba(13,20,36,0.78) 0%, rgba(8,12,24,0.68) 100%);
   border: 1px solid rgba(91,200,245,0.14);
   border-radius: 16px;
@@ -319,9 +323,9 @@
 .liquid-menu-btn:active { transform: translateX(2px) scale(0.99); }
 
 .liquid-menu-icon {
-  width: clamp(64px, 5vw, 88px);
-  height: clamp(64px, 5vw, 88px);
-  border-radius: clamp(14px, 1.2vw, 18px);
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
   background: linear-gradient(135deg, rgba(91,200,245,0.18), rgba(91,200,245,0.04));
   border: 1px solid rgba(91,200,245,0.2);
   display: flex;
@@ -341,7 +345,7 @@
 
 .liquid-menu-title {
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  font-size: clamp(18px, 1.5vw, 24px);
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -351,7 +355,7 @@
 
 .liquid-menu-sub {
   margin-top: 4px;
-  font-size: clamp(11px, 0.85vw, 14px);
+  font-size: 12px;
   letter-spacing: 0.04em;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -393,13 +397,36 @@
 
 /* Right side: big logo + tagline + (optional) playtime */
 .home-liquid-side {
+  grid-area: logo;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: 24px;
+  gap: 14px;
+  padding: 12px;
   position: relative;
+  align-self: center;
+}
+
+/* Installations row across the bottom of the Liquid hero, matching
+   the Classic layout's bottom installations bar. Uses the exact
+   same #home-inst-cards container ID so home.js's existing
+   _loadHomeInstallations() populates it for free. */
+.home-liquid-installs {
+  grid-area: installs;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(91,200,245,0.08);
+}
+.home-liquid-installs .home-inst-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.home-liquid-installs .home-inst-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+  color: var(--accent); text-transform: uppercase;
 }
 
 /* Bare logo image — no frame, no background — floats freely with a
