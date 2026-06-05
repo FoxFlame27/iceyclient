@@ -30,6 +30,43 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.14
+
+**Account button now opens a proper centered modal listing every account (switch / add / remove), and the Liquid home page actually fills the screen on big monitors — buttons, logo, and gutters all scale.**
+
+### Account picker modal ([home.js](src/pages/home.js), [home.css](src/styles/home.css))
+
+The previous build wired the Liquid Account button to `_toggleProfileDropdown()` — the existing titlebar dropdown in the top-right. Problem: when you click "Account" on the home page, your eyes are in the center-left, and the dropdown popping out 1600px away in the corner reads as "nothing happened." User reported "the account button doesn't work."
+
+Fix: dedicated `_openAccountPicker()` modal that opens centered, right where the user is looking. Mirrors the titlebar dropdown UX but as a self-contained modal:
+
+- **Active account header** — 56px skin head + username + MS/Cracked badge + "Active Account" label.
+- **Switch to** — list of every other saved account with their skin head, name, type badge, and an X to remove. Click to switch.
+- **+ Add Microsoft / + Add Cracked** — same flow as the titlebar buttons.
+- **Manage Skin / Log Out** — secondary actions at the bottom.
+
+Wired functions: `_liquidSwitchAccount`, `_liquidRemoveAccount`, `_liquidAddMicrosoft`, `_liquidAddCracked`, `_liquidLogout`. Each calls the existing `window.icey.*` IPC handlers — no new main-process code needed. After every switch/add/remove, the home page re-renders so the Account card's skin head + subtitle update immediately.
+
+Styled with a glassy gradient panel matching the rest of the Liquid theme; max-width clamps to `clamp(380px, 32vw, 480px)` so it doesn't get cartoonishly wide on monitors.
+
+### Liquid home actually fills big screens ([home.css](src/styles/home.css))
+
+On a 2560×1440 monitor the 1.86.13 home page left the menu + logo clustered in the middle-left at laptop-sized proportions. Fixed by switching every fixed pixel value to `clamp()`:
+
+- Outer padding: `clamp(40px, 5vh, 80px)` top / `clamp(32px, 5vw, 96px)` sides — proper breathing room without floating in space
+- Grid gap between menu and logo: `clamp(28px, 4vw, 80px)` — scales with width
+- Menu column max-width: `clamp(480px, 36vw, 720px)` (was hard 540px)
+- Menu icon tile: `clamp(64px, 5vw, 88px)`
+- Menu icon glyph: `60%` of tile (was fixed 36px)
+- Menu title text: `clamp(18px, 1.5vw, 24px)`
+- Menu subtitle: `clamp(11px, 0.85vw, 14px)`
+- Button vertical padding: `clamp(18px, 2vh, 28px)`
+- Logo image: `clamp(220px, 28vw, 440px)` (was 280px max)
+- "ICEY CLIENT" wordmark: `clamp(28px, 3.4vw, 56px)`
+- Outer container: `max-width: 1700px` + `margin: 0 auto` so on ultrawides the menu and logo stay paired visually instead of drifting to opposite edges of the screen
+
+Net result: on a 1366px laptop the layout looks identical to before. On a 2560px monitor every element grows ~50-60% so the home page reads as deliberately sized for the screen, not floating in negative space.
+
 ## What's new in v1.86.13
 
 **Health HUD now renders via the 2D HUD pipeline — the world-render approach is fundamentally broken on 1.21.11 and no flush/layer/phase tweak fixes it. Plus Liquid-theme polish based on first-run feedback.**

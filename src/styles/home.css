@@ -256,29 +256,33 @@
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(340px, 1fr) 1fr;
-  gap: 28px;
+  grid-template-columns: minmax(420px, 1fr) 1fr;
+  gap: clamp(28px, 4vw, 80px);
   width: 100%;
   height: 100%;
-  padding: 36px 28px 24px;
+  padding: clamp(40px, 5vh, 80px) clamp(32px, 5vw, 96px) clamp(24px, 3vh, 56px);
   align-items: center;
+  /* Cap how wide everything spreads on ultrawides so the menu and
+     logo stay paired visually instead of drifting to opposite edges. */
+  max-width: 1700px;
+  margin: 0 auto;
 }
 
 .home-liquid-menu {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 540px;
+  gap: clamp(14px, 1.4vw, 22px);
   width: 100%;
+  max-width: clamp(480px, 36vw, 720px);
   justify-self: end;
 }
 
 .liquid-menu-btn {
   display: grid;
-  grid-template-columns: 64px 1fr 24px;
+  grid-template-columns: clamp(64px, 5vw, 88px) 1fr 24px;
   align-items: center;
-  gap: 18px;
-  padding: 18px 22px;
+  gap: clamp(18px, 1.8vw, 26px);
+  padding: clamp(18px, 2vh, 28px) clamp(22px, 2vw, 32px);
   background: linear-gradient(135deg, rgba(13,20,36,0.78) 0%, rgba(8,12,24,0.68) 100%);
   border: 1px solid rgba(91,200,245,0.14);
   border-radius: 16px;
@@ -315,9 +319,9 @@
 .liquid-menu-btn:active { transform: translateX(2px) scale(0.99); }
 
 .liquid-menu-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 14px;
+  width: clamp(64px, 5vw, 88px);
+  height: clamp(64px, 5vw, 88px);
+  border-radius: clamp(14px, 1.2vw, 18px);
   background: linear-gradient(135deg, rgba(91,200,245,0.18), rgba(91,200,245,0.04));
   border: 1px solid rgba(91,200,245,0.2);
   display: flex;
@@ -326,12 +330,18 @@
   color: var(--accent);
   flex-shrink: 0;
 }
+.liquid-menu-icon img,
+.liquid-menu-icon svg {
+  width: 60%;
+  height: 60%;
+  object-fit: contain;
+}
 
 .liquid-menu-text { min-width: 0; }
 
 .liquid-menu-title {
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  font-size: 18px;
+  font-size: clamp(18px, 1.5vw, 24px);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -341,7 +351,7 @@
 
 .liquid-menu-sub {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: clamp(11px, 0.85vw, 14px);
   letter-spacing: 0.04em;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -393,19 +403,20 @@
 }
 
 /* Bare logo image — no frame, no background — floats freely with a
-   soft drop-shadow glow. */
+   soft drop-shadow glow. Sized to fill the right half of the hero
+   on big monitors without overwhelming it. */
 .home-liquid-logo-img {
-  width: clamp(180px, 22vw, 280px);
+  width: clamp(220px, 28vw, 440px);
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 12px 36px rgba(91,200,245,0.45))
-          drop-shadow(0 0 64px rgba(91,200,245,0.18));
+  filter: drop-shadow(0 16px 48px rgba(91,200,245,0.5))
+          drop-shadow(0 0 96px rgba(91,200,245,0.22));
   animation: heroFloat 6s ease-in-out infinite;
 }
 
 .home-liquid-title {
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  font-size: clamp(28px, 3vw, 42px);
+  font-size: clamp(28px, 3.4vw, 56px);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -459,4 +470,156 @@
   object-fit: contain;
   image-rendering: pixelated;
   border-radius: 10px;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Account picker modal — opened from the Liquid Account button.
+   Centered modal (uses the existing modal-overlay infrastructure),
+   so it's where the user is looking instead of a far-off corner.
+   ─────────────────────────────────────────────────────────────── */
+.acct-picker {
+  width: clamp(380px, 32vw, 480px);
+  padding: 20px 22px 18px;
+  background: linear-gradient(135deg, rgba(13,20,36,0.96), rgba(8,12,24,0.94));
+  border: 1px solid rgba(91,200,245,0.22);
+  border-radius: 18px;
+  color: var(--text-primary);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(91,200,245,0.06) inset;
+}
+.acct-picker-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.acct-picker-title {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 20px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.acct-active {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px;
+  background: rgba(91,200,245,0.08);
+  border: 1px solid rgba(91,200,245,0.2);
+  border-radius: 14px;
+}
+.acct-active-avatar {
+  width: 56px; height: 56px; border-radius: 12px;
+  image-rendering: pixelated;
+  background: rgba(91,200,245,0.05);
+}
+.acct-active-name {
+  font-size: 16px; font-weight: 700; color: #fff;
+  display: flex; align-items: center; gap: 8px;
+}
+.acct-active-label {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-secondary); margin-top: 2px;
+}
+
+.acct-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin: 18px 0 8px;
+}
+
+.acct-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 240px; overflow-y: auto;
+}
+.acct-row {
+  display: flex; gap: 6px; align-items: center;
+}
+.acct-switch {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;
+  color: var(--text-primary); cursor: pointer;
+  transition: all 0.2s ease;
+}
+.acct-switch:hover {
+  background: rgba(91,200,245,0.1);
+  border-color: rgba(91,200,245,0.3);
+}
+.acct-avatar {
+  width: 28px; height: 28px; border-radius: 6px;
+  image-rendering: pixelated;
+}
+.acct-name {
+  font-size: 14px; font-weight: 600; flex: 1; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.acct-remove {
+  background: none; border: 1px solid rgba(255,255,255,0.08);
+  width: 30px; height: 30px; border-radius: 8px;
+  color: rgba(255,255,255,0.4); font-size: 16px; cursor: pointer;
+  transition: all 0.2s ease;
+}
+.acct-remove:hover {
+  color: var(--red); border-color: rgba(239,68,68,0.4);
+  background: rgba(239,68,68,0.08);
+}
+
+.acct-type {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  padding: 2px 6px; border-radius: 4px;
+}
+.acct-type.ms { background: rgba(91,200,245,0.18); color: var(--accent); }
+.acct-type.offline { background: rgba(120,120,130,0.18); color: var(--text-secondary); }
+.acct-expired {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(239,68,68,0.18); color: var(--red);
+}
+
+.acct-divider {
+  height: 1px; background: rgba(255,255,255,0.06);
+  margin: 16px 0 12px;
+}
+
+.acct-add-row {
+  display: flex; gap: 8px;
+}
+.acct-add-btn {
+  flex: 1; padding: 10px 12px;
+  border-radius: 10px; border: 1px solid rgba(91,200,245,0.22);
+  background: rgba(91,200,245,0.06); color: var(--accent);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s ease;
+}
+.acct-add-btn:hover {
+  background: rgba(91,200,245,0.18);
+  border-color: rgba(91,200,245,0.45);
+}
+.acct-add-btn.cracked {
+  border-color: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-secondary);
+}
+.acct-add-btn.cracked:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text-primary);
+}
+.acct-maxed {
+  font-size: 12px; color: var(--text-muted); text-align: center;
+  padding: 10px; border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 10px;
+}
+
+.acct-footer {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 12px;
+}
+.acct-secondary {
+  padding: 9px 12px; font-size: 12px; font-weight: 600;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02); color: var(--text-secondary);
+  cursor: pointer; transition: all 0.2s ease;
+}
+.acct-secondary:hover {
+  background: rgba(255,255,255,0.06); color: var(--text-primary);
+}
+.acct-secondary.danger:hover {
+  background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.3);
+  color: var(--red);
 }

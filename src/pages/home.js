@@ -349,15 +349,129 @@ async function _homeUpdateLaunchButton(state, showTimer) {
   }
 }
 
-// Liquid Account button — toggles the existing titlebar profile
-// dropdown (account switch + add) instead of building a duplicate UI.
-function _liquidOpenAccount() {
-  if (typeof _toggleProfileDropdown === 'function') {
-    _toggleProfileDropdown();
-  } else {
-    const dd = document.getElementById('titlebar-profile-dropdown');
-    if (dd) dd.classList.toggle('hidden');
-  }
+// Liquid Account button — opens a dedicated centered modal listing all
+// accounts. The titlebar dropdown lives at the top-right of the screen
+// and is easy to miss when the user clicks Account on the home page,
+// so this surface keeps the action local to where they clicked.
+async function _liquidOpenAccount() {
+  let accountsData = { activeUuid: null, accounts: [], maxAccounts: 5 };
+  try { accountsData = await window.icey.getAccounts(); } catch (_) {}
+  const accounts = accountsData.accounts || [];
+  const activeUuid = accountsData.activeUuid;
+  const active = accounts.find(a => a.uuid === activeUuid) || null;
+  const others = accounts.filter(a => a.uuid !== activeUuid);
+  const atMax = accounts.length >= (accountsData.maxAccounts || 5);
+
+  const esc = (s) => String(s || '').replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  const attr = (s) => String(s || '').replace(/"/g, '&quot;');
+  const typeBadge = (t) => t === 'offline'
+    ? '<span class="acct-type offline">Cracked</span>'
+    : '<span class="acct-type ms">MS</span>';
+
+  const headerHtml = active
+    ? `<div class="acct-active">
+         <img class="acct-active-avatar" src="https://mineskin.eu/helm/${attr(active.username)}/64.png" alt="">
+         <div class="acct-active-info">
+           <div class="acct-active-name">${esc(active.username)} ${typeBadge(active.type)}</div>
+           <div class="acct-active-label">Active Account</div>
+         </div>
+       </div>`
+    : `<div class="acct-active">
+         <div class="acct-active-info">
+           <div class="acct-active-name">No active account</div>
+           <div class="acct-active-label">${others.length} saved</div>
+         </div>
+       </div>`;
+
+  const othersHtml = others.length === 0 ? '' : `
+    <div class="acct-section-label">Switch to</div>
+    <div class="acct-list">
+      ${others.map(a => `
+        <div class="acct-row">
+          <button class="acct-switch" onclick="_liquidSwitchAccount('${attr(a.uuid)}')">
+            <img class="acct-avatar" src="https://mineskin.eu/helm/${attr(a.username)}/32.png" alt="">
+            <span class="acct-name">${esc(a.username)}</span>
+            ${typeBadge(a.type)}
+            ${a.expired ? '<span class="acct-expired">expired</span>' : ''}
+          </button>
+          <button class="acct-remove" title="Remove" onclick="event.stopPropagation(); _liquidRemoveAccount('${attr(a.uuid)}')">&times;</button>
+        </div>
+      `).join('')}
+    </div>`;
+
+  const addHtml = atMax
+    ? `<div class="acct-maxed">Max ${accountsData.maxAccounts} accounts. Remove one to add another.</div>`
+    : `<div class="acct-add-row">
+         <button class="acct-add-btn ms" onclick="_liquidAddMicrosoft()">+ Add Microsoft</button>
+         <button class="acct-add-btn cracked" onclick="_liquidAddCracked()">+ Add Cracked</button>
+       </div>`;
+
+  const footerHtml = active
+    ? `<div class="acct-footer">
+         <button class="acct-secondary" onclick="closeModal(); switchPage('skins');">Manage Skin</button>
+         <button class="acct-secondary danger" onclick="_liquidLogout()">Log out of ${esc(active.username)}</button>
+       </div>`
+    : '';
+
+  showModal(`
+    <div class="acct-picker">
+      <div class="acct-picker-header">
+        <div class="acct-picker-title">Account</div>
+        <button class="modal-close" onclick="closeModal()">
+          <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+      </div>
+      ${headerHtml}
+      ${othersHtml}
+      <div class="acct-divider"></div>
+      ${addHtml}
+      ${footerHtml}
+    </div>
+  `);
+}
+
+async function _liquidSwitchAccount(uuid) {
+  const result = await window.icey.switchAccount(uuid);
+  if (result.error) { Toast.error(result.error); return; }
+  Toast.success('Switched to ' + result.active.username);
+  await SettingsManager.set('username', result.active.username);
+  if (typeof loadNavProfile === 'function') loadNavProfile();
+  closeModal();
+  HomePageInit().catch(() => {});
+}
+
+async function _liquidRemoveAccount(uuid) {
+  const result = await window.icey.removeAccount(uuid);
+  if (result.error) { Toast.error(result.error); return; }
+  Toast.info('Account removed');
+  if (typeof loadNavProfile === 'function') loadNavProfile();
+  _liquidOpenAccount();
+}
+
+async function _liquidAddMicrosoft() {
+  closeModal();
+  const result = await window.icey.msLogin();
+  if (result.error) { Toast.error(result.error); return; }
+  Toast.success('Added ' + result.username);
+  await SettingsManager.set('username', result.username);
+  if (typeof loadNavProfile === 'function') loadNavProfile();
+  HomePageInit().catch(() => {});
+}
+
+function _liquidAddCracked() {
+  closeModal();
+  // Re-use the existing offline-account prompt from app.js
+  if (typeof _promptAddOffline === 'function') _promptAddOffline();
+}
+
+async function _liquidLogout() {
+  const r = await window.icey.msLogout();
+  if (r && r.error) { Toast.error(r.error); return; }
+  Toast.info('Logged out');
+  if (typeof loadNavProfile === 'function') loadNavProfile();
+  closeModal();
+  HomePageInit().catch(() => {});
 }
 
 async function HomePlayClick() {
