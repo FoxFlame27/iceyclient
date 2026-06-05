@@ -30,6 +30,29 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.27
+
+**Bar + label moved UNDER the vanilla username nameplate (instead of above), matching vanilla's "name on top, HP indicator below" pattern.**
+
+### Vanilla-style stacking ([HealthHudRenderer.java](mod/src/main/java/com/iceymod/render/HealthHudRenderer.java))
+
+User: "make the design like that and UNDER THE NAME TAG" — referencing vanilla's `FlareFlame` + `24 ❤` layout where HP info sits below the name.
+
+- **`Y_OFFSET = 0.5`** — projected anchor lands at the vanilla nametag's world position (entity head + 0.5). My rendering uses the same projected screen Y as vanilla starts the nametag text from.
+- **Bar at `by = y + 10`** — 10 pixels below the projected anchor, clearing the ~9-pixel-tall vanilla username text with a 1-pixel gap.
+- **Label at `by + barH + 1`** — `14/20` text right below the bar.
+
+Final layout (top to bottom):
+
+```
+FlareFlame      ← vanilla nametag
+████░░          ← my bar (32×3)
+14/20           ← my label
+   ▓            ← entity head
+```
+
+Combined with the 1.86.26 10-block render range, the bar only appears once you're close enough that the layout reads cleanly — same as how vanilla nametags work.
+
 ## What's new in v1.86.26
 
 **Render range cut from 30 blocks → 10 blocks. Bars now only show on entities close enough that the fixed-pixel size looks proportional, matching vanilla nameplate fade-out behaviour.**

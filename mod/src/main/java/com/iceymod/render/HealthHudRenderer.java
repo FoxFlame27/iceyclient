@@ -94,11 +94,13 @@ public final class HealthHudRenderer {
      *  ("always loaded, only visible up close"). */
     private static final double MAX_DIST = 10.0;
     private static final double MAX_DIST_SQ = MAX_DIST * MAX_DIST;
-    /** Vertical offset above the entity's bbox top. Zero = projected
-     *  anchor sits right at the head, below the vanilla username
-     *  nameplate (which is at +0.5). Bar then draws just above the
-     *  head with a tight 1-pixel gap. */
-    private static final float Y_OFFSET = 0.0f;
+    /** Vertical offset above the entity's bbox top. 0.5 matches the
+     *  vanilla username nameplate world position exactly — my
+     *  projection will land at the same screen Y as the nametag, and
+     *  the bar/label draws <i>below</i> that line so it sits under
+     *  the username text, mirroring vanilla's "name on top, HP
+     *  indicator below" layout. */
+    private static final float Y_OFFSET = 0.5f;
     /** Fixed bar size — no distance scaling. Slim 32×3 strip. */
     private static final int BAR_WIDTH  = 32;
     private static final int BAR_HEIGHT = 3;
@@ -235,6 +237,9 @@ public final class HealthHudRenderer {
 
                 // Fixed-size pixel-quad bar — same dimensions every
                 // frame for every entity regardless of distance.
+                // Vanilla-style layout: bar + label sit BELOW the
+                // username nameplate (which is drawn at the same
+                // projected position because Y_OFFSET == 0.5).
                 float ratio = MathHelper.clamp(displayed / max, 0f, 1f);
                 int barColor = healthColorArgb(ratio);
                 int barW = BAR_WIDTH;
@@ -242,8 +247,9 @@ public final class HealthHudRenderer {
                 int x = (int) Math.round(sx);
                 int y = (int) Math.round(sy);
                 int bx = x - barW / 2;
-                // 1-pixel gap above the head (projected anchor).
-                int by = y - barH - 1;
+                // 10 px below the projected nametag anchor — clears the
+                // ~9-pixel-tall vanilla username text with a 1-px gap.
+                int by = y + 10;
                 int fillW = Math.round(barW * ratio);
 
                 // Black 1px border → dark bg → color fill.
@@ -253,11 +259,11 @@ public final class HealthHudRenderer {
                     drawContext.fill(bx, by, bx + fillW, by + barH, barColor);
                 }
 
-                // Numeric "14/20" label above the bar — always shown.
+                // Numeric "14/20" label just BELOW the bar.
                 String hpText = String.format("%.0f/%.0f", displayed, max);
                 int textW = tr.getWidth(hpText);
                 drawContext.drawTextWithShadow(tr, hpText,
-                        x - textW / 2, by - 10, 0xFFFFFFFF);
+                        x - textW / 2, by + barH + 1, 0xFFFFFFFF);
 
                 if (drewCount == 0) { firstDebugX = sx; firstDebugY = sy; }
                 drewCount++;
