@@ -83,6 +83,10 @@ contextBridge.exposeInMainWorld('icey', {
   uploadSkinFromUrl: (url, variant) => ipcRenderer.invoke('upload-skin-from-url', url, variant),
   getMcProfile: () => ipcRenderer.invoke('get-mc-profile'),
 
+  // Info page — skin download + cape upload
+  downloadSkinPng: (username) => ipcRenderer.invoke('download-skin-png', username),
+  installCustomCape: (bytes, originalName) => ipcRenderer.invoke('install-custom-cape', bytes, originalName),
+
   // Window controls
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   maximizeWindow: () => ipcRenderer.send('window-maximize'),

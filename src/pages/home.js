@@ -419,7 +419,7 @@ async function _liquidOpenAccount() {
 
   const footerHtml = active
     ? `<div class="acct-footer">
-         <button class="acct-secondary" onclick="closeModal(); switchPage('skins');">Manage Skin</button>
+         <button class="acct-secondary" onclick="closeModal(); switchPage('skins');">Open Info</button>
          <button class="acct-secondary danger" onclick="_liquidLogout()">Log out of ${esc(active.username)}</button>
        </div>`
     : '';

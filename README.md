@@ -30,6 +30,41 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.32
+
+**"Skins" page is now "Info" — 3-column layout: skin browser + download PNG on the left, drag/drop cape upload in the middle, server list with IP-copy bar on the right. Same icon in the nav, works in both Classic and Liquid themes.**
+
+### Why
+
+User feedback after the v1.86.30/31 ships: rename the Skins page to Info; on the new Info page:
+- **Left**: skin searcher (smaller than before) + a Download as 64×64 PNG button.
+- **Middle**: drag-and-drop or click-to-pick a 64×32 cape PNG and install it locally.
+- **Right**: 10 default servers + a search/IP-copy bar.
+
+### Nav + plumbing
+
+- `index.html` — nav tab tooltip renamed to "Info" (the page DOM id stays `page-skins` so every `switchPage('skins')` call across the codebase keeps working).
+- Account picker modal + titlebar profile dropdown — `Manage Skin` button label renamed to `Open Info`.
+
+### New IPC handlers ([main.js](main.js), [preload.js](preload.js))
+
+- **`download-skin-png(username)`** — resolves the username → UUID via `api.mojang.com/users/profiles/minecraft/<name>`, fetches the session profile → decodes the textures payload → extracts the SKIN url. Opens a Save dialog (default filename `<username>.png`), streams the raw 64×64 PNG to the chosen path. Returns `{success, savedTo}` or `{error}` / `{canceled}`.
+- **`install-custom-cape(bytes, originalName)`** — writes the uploaded PNG (as `Uint8Array` from the renderer) to `<mcDir>/assets/skins/<sanitized-name>.png`. Sanitizes the filename (strips path separators, force-`.png`), creates the directory if missing. User-renames after the fact to overwrite a specific vanilla cape file.
+
+Both registered next to the existing `get-mc-profile` handler. Exposed on `window.icey` as `downloadSkinPng(username)` and `installCustomCape(bytes, originalName)`.
+
+### Info page UI ([skins.js](src/pages/skins.js), [skins.css](src/styles/skins.css))
+
+`.info-page` is a column flex with a header + 3-column `.info-grid` (`1.1fr 1fr 1.1fr`, collapses to single-column under 980px). Three `.info-panel` cards with a glassy gradient bg, accent inner ring shadow, 18px radius:
+
+- **Skin panel** — search row (icon + input + "Go") → skin card showing the mineskin.eu armor render → name → `Body / Bust / Head` view tabs → primary accent-filled "Download 64×64 PNG" button. Disabled state when no player has been looked up yet.
+- **Cape panel** — big drag-and-drop dashed box with cloud-upload SVG, "Drop a 64×32 PNG here / …or click to choose a file" + a "Choose file" button (hidden `<input type="file" accept="image/png">`). Drag-over adds a `.drag` class for the visual lift. Below: an explainer note about the local-override trick (writes to `.minecraft/assets/skins/`, only you can see it). Status line below that flips green on success or red on error.
+- **Servers panel** — bigger search row (`.info-search-row-lg`) with an Enter-to-copy IP input + "Copy" button → 10 default servers (Hypixel, Mineplex, CubeCraft, ManaCube, MCCentral, Lunar Network, The Hive, PvP Legacy, Badlion, mcpvp.club) as compact rows with mcsrvstat.us favicons, name, IP, copy-icon affordance. Click anywhere on the row to copy.
+
+### Theming
+
+All CSS uses CSS variables (`--accent`, `--text-primary`, etc.), `rgba` overlays, and the existing glassy-card patterns from the rest of the launcher. No layout-specific quirks — the page-container in both Classic (sidebar-left) and Liquid (bottom-nav) layouts just gives this page whatever width it has, and the grid handles the rest.
+
 ## What's new in v1.86.31
 
 **HUD module settings now actually save to disk. Color picker also loses the preset palette row and gets a chunkier green Save button.**

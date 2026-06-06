@@ -3306,6 +3306,74 @@ app.whenReady().then(() => {
     } catch (_) { return null; }
   });
 
+  // Info page — download a player's 64x64 raw skin PNG via Save dialog.
+  // Uses Mojang's session profile endpoint to resolve the texture URL,
+  // then streams the PNG to the user's chosen path.
+  ipcMain.handle('download-skin-png', async (_, username) => {
+    try {
+      const name = String(username || '').trim();
+      if (!name) return { error: 'No username' };
+      // 1) Resolve UUID
+      const profileResp = await httpGet('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name));
+      const uuid = profileResp && profileResp.id;
+      if (!uuid) return { error: 'No Minecraft account found for ' + name };
+      // 2) Get session profile (contains textures payload)
+      const sessProfile = await httpGet('https://sessionserver.mojang.com/session/minecraft/profile/' + uuid);
+      const propValue = sessProfile?.properties?.find(p => p.name === 'textures')?.value;
+      if (!propValue) return { error: 'No texture data for ' + name };
+      const textures = JSON.parse(Buffer.from(propValue, 'base64').toString('utf8'));
+      const skinUrl = textures?.textures?.SKIN?.url;
+      if (!skinUrl) return { error: 'No skin URL for ' + name };
+      // 3) Save dialog
+      const win = BrowserWindow.getFocusedWindow() || mainWindow;
+      const sel = await dialog.showSaveDialog(win, {
+        title: 'Save ' + name + " skin as 64x64 PNG",
+        defaultPath: name + '.png',
+        filters: [{ name: 'PNG image', extensions: ['png'] }]
+      });
+      if (sel.canceled || !sel.filePath) return { canceled: true };
+      // 4) Download PNG
+      await new Promise((resolve, reject) => {
+        const proto = skinUrl.startsWith('https') ? https : http;
+        proto.get(skinUrl, { headers: { 'User-Agent': 'IceyClient/1.0' } }, (res) => {
+          if (res.statusCode !== 200) { reject(new Error('HTTP ' + res.statusCode)); return; }
+          const out = fs.createWriteStream(sel.filePath);
+          res.pipe(out);
+          out.on('finish', () => out.close(resolve));
+          out.on('error', reject);
+        }).on('error', reject);
+      });
+      return { success: true, savedTo: sel.filePath };
+    } catch (e) {
+      log('warn', 'download-skin-png failed: ' + e.message);
+      return { error: e.message };
+    }
+  });
+
+  // Info page — install a user-uploaded cape PNG into the standard
+  // .minecraft/assets/skins/ folder so MC picks it up as a local
+  // texture override. Writes with the original filename (sanitized);
+  // the user can rename later to overwrite a specific cape file.
+  ipcMain.handle('install-custom-cape', async (_, bytes, originalName) => {
+    try {
+      if (!bytes || !bytes.length) return { error: 'Empty file' };
+      const mcDir = getDefaultMcDir();
+      const skinsDir = path.join(mcDir, 'assets', 'skins');
+      try { fs.mkdirSync(skinsDir, { recursive: true }); } catch (_) {}
+      // Sanitize filename — strip path separators, force .png ext.
+      let safe = String(originalName || 'iceyclient-cape.png')
+                   .replace(/[\\/]/g, '_')
+                   .replace(/[^A-Za-z0-9._-]/g, '_');
+      if (!/\.png$/i.test(safe)) safe = safe.replace(/\.[^.]*$/, '') + '.png';
+      const dest = path.join(skinsDir, safe);
+      fs.writeFileSync(dest, Buffer.from(bytes));
+      return { success: true, savedTo: dest };
+    } catch (e) {
+      log('warn', 'install-custom-cape failed: ' + e.message);
+      return { error: e.message };
+    }
+  });
+
   // Download libraries into real .minecraft/libraries from version JSON URL
   ipcMain.handle('download-mc-libraries', async (_, versionJsonUrl) => {
     const mcDir = getDefaultMcDir();

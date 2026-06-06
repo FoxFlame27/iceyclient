@@ -167,7 +167,7 @@ async function _updateProfileDropdown(auth) {
   `;
 
   const footerHtml = auth ? `
-    <button class="titlebar-dropdown-btn" onclick="switchPage('skins'); _toggleProfileDropdown();">Manage Skin</button>
+    <button class="titlebar-dropdown-btn" onclick="switchPage('skins'); _toggleProfileDropdown();">Open Info</button>
     <button class="titlebar-dropdown-btn logout" onclick="_navLogout()">Log Out of ${_escapeHtml(auth.username)}</button>
   ` : '';
 
