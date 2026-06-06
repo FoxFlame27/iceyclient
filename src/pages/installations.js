@@ -21,13 +21,13 @@ async function InstallationsPageInit() {
       <div class="installations-inner">
         <div class="installations-header">
           <h1 class="installations-title">Installations</h1>
-          <button class="btn-create-install" onclick="_importWorldFromHeader()">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Import World
-          </button>
-          <button class="btn-create-install" onclick="showCreateInstallModal()">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <button class="install-action-btn install-action-btn-primary" onclick="showCreateInstallModal()">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Installation
+          </button>
+          <button class="install-action-btn install-action-btn-secondary" onclick="_importWorldFromHeader()">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import World
           </button>
         </div>
         <div class="installations-grid" id="installations-grid"></div>

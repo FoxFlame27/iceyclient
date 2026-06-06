@@ -30,6 +30,25 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.30
+
+**Installations page restyle: bigger cards, swapped button order, and a proper primary/secondary button hierarchy instead of two identical-looking ghost buttons.**
+
+### Bigger cards ([installations.css](src/styles/installations.css))
+
+The card grid was `clamp(210px, 18vw, 260px)` columns with `min-height: 240px` cards — way too small on a 2560px monitor where 260×264 looks like thumbnails. Bumped to `clamp(280px, 24vw, 360px)` columns with `min-height: 320px`, `max-height: 440px` cards. Border radius up from 18 to 20, gap up from `clamp(12, 1.5vw, 20)` to `clamp(16, 2vw, 28)`.
+
+### Buttons: swap + restyle ([installations.js](src/pages/installations.js), [installations.css](src/styles/installations.css))
+
+Previously the header had two identical-looking outlined buttons: `Import World` on the left, `New Installation` on the right — both the same shape, color, weight. Visually they reads as "two equal options" but really `New Installation` is the 95%-of-the-time action and `Import World` is a power-user thing.
+
+Switched positions and split into a clear primary/secondary hierarchy:
+
+- **`install-action-btn-primary` (New Installation, now on the left)** — filled accent-gradient background (`linear-gradient(135deg, --accent, --accent-bright)`), dark text for contrast, glow shadow `0 6px 18px rgba(91,200,245,0.32)`, hover lifts 2px with deeper glow. Reads as the main CTA.
+- **`install-action-btn-secondary` (Import World, now on the right)** — glassy `rgba(13,20,36,0.7)` background with `12px` blur, subtle accent-tinted border, primary text color. Hovers to accent-color + accent-tinted bg + lift.
+
+Both 12×22 padding, 14px radius, 700 weight, gap-10 to their icons. Same shape so they feel like a paired set, but distinct enough that primary clearly wins the visual hierarchy. Legacy `.btn-create-install` class kept (any stray callers get the primary look).
+
 ## What's new in v1.86.29
 
 **Health Indicators toggle promoted to main Settings, sitting next to the Skin Changer toggle. Works exactly like Skin Changer — flip it off and the jar comes out of `mods/` on next launch.**
