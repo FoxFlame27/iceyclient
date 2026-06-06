@@ -1,20 +1,31 @@
-// The page id is still "skins" internally to avoid renaming every
-// switchPage('skins') call across the codebase, but the visible label
-// is "Info" — a 3-column layout: skin search + download (left), cape
-// upload (middle), server browser (right).
+// Info page (DOM id is still "skins" internally to avoid having to
+// rename every switchPage('skins') call site). Asymmetric layout:
+// skin viewer + cape upload float on the LEFT against the page
+// background with no card-boxes around them; the server list sits as
+// a long vertical strip on the TOP-RIGHT, also box-less.
 let _skinsLookupName = '';
 
 const _infoDefaultServers = [
-  { name: 'Hypixel', address: 'mc.hypixel.net' },
-  { name: 'Mineplex', address: 'us.mineplex.com' },
-  { name: 'CubeCraft', address: 'play.cubecraft.net' },
-  { name: 'ManaCube', address: 'play.manacube.com' },
-  { name: 'MCCentral', address: 'mccentral.org' },
-  { name: 'Lunar Network', address: 'lunar.gg' },
-  { name: 'The Hive', address: 'geo.hivebedrock.network' },
-  { name: 'PvP Legacy', address: 'pvplegacy.net' },
-  { name: 'Badlion', address: 'play.badlion.net' },
-  { name: 'mcpvp.club', address: 'mcpvp.club' },
+  { name: 'Hypixel',           address: 'mc.hypixel.net' },
+  { name: 'Mineplex',          address: 'us.mineplex.com' },
+  { name: 'CubeCraft',         address: 'play.cubecraft.net' },
+  { name: 'ManaCube',          address: 'play.manacube.com' },
+  { name: 'MCCentral',         address: 'mccentral.org' },
+  { name: 'Lunar Network',     address: 'lunar.gg' },
+  { name: 'The Hive',          address: 'geo.hivebedrock.network' },
+  { name: 'PvP Legacy',        address: 'pvplegacy.net' },
+  { name: 'Badlion',           address: 'play.badlion.net' },
+  { name: 'mcpvp.club',        address: 'mcpvp.club' },
+  { name: '2b2t',              address: '2b2t.org' },
+  { name: 'WynnCraft',         address: 'play.wynncraft.com' },
+  { name: 'Pixelmon Reforged', address: 'play.pixelmonreforged.com' },
+  { name: 'Universocraft',     address: 'universocraft.com' },
+  { name: 'Donut SMP',         address: 'donutsmp.net' },
+  { name: 'Crystal PvP',       address: 'play.crystalpvp.cc' },
+  { name: 'EarthSMP',          address: 'play.earthsmp.com' },
+  { name: 'Loyisa',            address: 'play.loyisa.com' },
+  { name: 'CivClassic',        address: 'civclassic.com' },
+  { name: 'Constantiam',       address: 'constantiam.net' },
 ];
 
 async function SkinsPageInit() {
@@ -27,63 +38,75 @@ async function SkinsPageInit() {
     <div class="info-page">
       <div class="info-header">
         <h1 class="info-title">Info</h1>
-        <div class="info-sub">Skin browser · custom cape · server picker</div>
       </div>
 
-      <div class="info-grid">
+      <div class="info-body">
+        <div class="info-left-col">
 
-        <!-- LEFT: skin viewer + download -->
-        <div class="info-panel info-skin-panel">
-          <div class="info-panel-title">Skin Browser</div>
-          <div class="info-search-row">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input class="info-search-input" type="text" id="info-skin-search" placeholder="Username..." value="${_escAttr(displayName)}" spellcheck="false" maxlength="16" onkeydown="if(event.key==='Enter') _infoSkinLookup()">
-            <button class="info-search-btn" onclick="_infoSkinLookup()">Go</button>
+          <!-- Skin viewer — top of the left column, NO bg box.
+               Search input is slim and inline, viewer is small. -->
+          <div class="info-skin-block">
+            <div class="info-skin-search">
+              <input class="info-skin-input" type="text" id="info-skin-search" placeholder="Username..." value="${_escAttr(displayName)}" spellcheck="false" maxlength="16" onkeydown="if(event.key==='Enter') _infoSkinLookup()">
+              <button class="info-skin-go" onclick="_infoSkinLookup()" title="Search">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </button>
+            </div>
+            <div class="info-skin-stage" id="info-skin-stage">
+              ${displayName
+                ? `<img class="info-skin-img" id="info-skin-img" src="https://mineskin.eu/armor/body/${encodeURIComponent(displayName)}/160.png" alt="Skin">`
+                : '<div class="info-skin-empty">Search a player</div>'}
+            </div>
+            <div class="info-skin-meta">
+              <div class="info-skin-name" id="info-skin-name">${_escHtml(displayName)}</div>
+              <div class="info-skin-views" id="info-skin-views" ${displayName ? '' : 'style="display:none"'}>
+                <button class="info-view-btn active" onclick="_infoSkinView('body', this)">Body</button>
+                <button class="info-view-btn" onclick="_infoSkinView('bust', this)">Bust</button>
+                <button class="info-view-btn" onclick="_infoSkinView('head', this)">Head</button>
+              </div>
+            </div>
+            <button class="info-dl-btn" id="info-download-btn" onclick="_infoDownloadSkin()" ${displayName ? '' : 'disabled'}>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download 64×64
+            </button>
           </div>
-          <div class="info-skin-card" id="info-skin-card">
-            ${displayName
-              ? `<img class="info-skin-img" id="info-skin-img" src="https://mineskin.eu/armor/body/${encodeURIComponent(displayName)}/200.png" alt="Skin">`
-              : '<div class="info-skin-empty">Search for a player to see their skin</div>'}
+
+          <!-- Cape upload — small drop zone, Icey logo as the visual
+               anchor inside. Still no bg box around the whole block. -->
+          <div class="info-cape-block">
+            <div class="info-cape-drop" id="info-cape-drop"
+                 ondragover="event.preventDefault(); this.classList.add('drag')"
+                 ondragleave="this.classList.remove('drag')"
+                 ondrop="_infoCapeDrop(event)"
+                 onclick="document.getElementById('info-cape-file').click()">
+              <img class="info-cape-logo" src="assets/icon.png" alt="" onerror="this.style.display='none'">
+              <div class="info-cape-text">
+                <div class="info-cape-title">Drop a 64×32 cape PNG</div>
+                <div class="info-cape-sub">…or click to pick a file</div>
+              </div>
+              <input type="file" id="info-cape-file" accept="image/png" style="display:none" onchange="_infoCapeFile(event)">
+            </div>
+            <div class="info-cape-status" id="info-cape-status"></div>
+            <div class="info-cape-note">
+              Saves your PNG to <code>.minecraft/assets/skins/</code>.
+              <strong>Heads-up:</strong> this folder is Mojang's
+              hash-keyed texture cache — to actually see the cape
+              in-game we need a small iceymod patch that injects it
+              as your player texture. Coming next release.
+            </div>
           </div>
-          <div class="info-skin-name" id="info-skin-name">${_escHtml(displayName)}</div>
-          <div class="info-skin-views" id="info-skin-views" ${displayName ? '' : 'style="display:none"'}>
-            <button class="info-view-btn active" onclick="_infoSkinView('body', this)">Body</button>
-            <button class="info-view-btn" onclick="_infoSkinView('bust', this)">Bust</button>
-            <button class="info-view-btn" onclick="_infoSkinView('head', this)">Head</button>
-          </div>
-          <button class="info-primary-btn" id="info-download-btn" onclick="_infoDownloadSkin()" ${displayName ? '' : 'disabled'}>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download 64×64 PNG
-          </button>
+
         </div>
 
-        <!-- MIDDLE: cape upload -->
-        <div class="info-panel info-cape-panel">
-          <div class="info-panel-title">Custom Cape (Local)</div>
-          <div class="info-cape-drop" id="info-cape-drop" ondragover="event.preventDefault(); this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="_infoCapeDrop(event)">
-            <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <div class="info-cape-drop-title">Drop a 64×32 PNG here</div>
-            <div class="info-cape-drop-sub">…or click to choose a file</div>
-            <input type="file" id="info-cape-file" accept="image/png" style="display:none" onchange="_infoCapeFile(event)">
-            <button class="info-secondary-btn" onclick="document.getElementById('info-cape-file').click()">Choose file</button>
+        <!-- Server list — top-right, no bg, long vertical strip. -->
+        <div class="info-servers-col">
+          <div class="info-servers-head">
+            <div class="info-servers-title">Servers</div>
+            <div class="info-servers-sub">${_infoDefaultServers.length} listed · click to copy IP</div>
           </div>
-          <div class="info-cape-note">
-            Drops the PNG into <code>.minecraft/assets/skins/</code>. To override a specific vanilla cape, rename the file to match one of the existing cape files in that folder. Only you can see it — it's a local texture override, not a Mojang upload.
-          </div>
-          <div class="info-cape-status" id="info-cape-status"></div>
-        </div>
-
-        <!-- RIGHT: servers -->
-        <div class="info-panel info-servers-panel">
-          <div class="info-panel-title">Servers</div>
-          <div class="info-search-row info-search-row-lg">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input class="info-search-input" type="text" id="info-server-search" placeholder="Type a server IP..." spellcheck="false" onkeydown="if(event.key==='Enter') _infoAddServer()">
-            <button class="info-search-btn" onclick="_infoAddServer()">Copy</button>
+          <div class="info-server-search">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="info-server-input" type="text" id="info-server-search" placeholder="Search or paste an IP..." spellcheck="false" oninput="_infoFilterServers(this.value)" onkeydown="if(event.key==='Enter') _infoAddServer()">
           </div>
           <div class="info-server-list" id="info-server-list"></div>
         </div>
@@ -104,11 +127,11 @@ function _infoSkinLookup() {
   const name = input?.value.trim();
   if (!name) { Toast.error('Enter a username'); return; }
   _skinsLookupName = name;
-  const card = document.getElementById('info-skin-card');
+  const stage = document.getElementById('info-skin-stage');
   const nameEl = document.getElementById('info-skin-name');
   const views = document.getElementById('info-skin-views');
   const dl = document.getElementById('info-download-btn');
-  if (card) card.innerHTML = `<img class="info-skin-img" id="info-skin-img" src="https://mineskin.eu/armor/body/${encodeURIComponent(name)}/200.png" alt="Skin" onerror="_infoSkinLookupError()">`;
+  if (stage) stage.innerHTML = `<img class="info-skin-img" id="info-skin-img" src="https://mineskin.eu/armor/body/${encodeURIComponent(name)}/160.png" alt="Skin" onerror="_infoSkinLookupError()">`;
   if (nameEl) nameEl.textContent = name;
   if (views) views.style.display = 'flex';
   if (dl) dl.disabled = false;
@@ -122,9 +145,9 @@ function _infoSkinView(view, btn) {
   if (!img || !_skinsLookupName) return;
   const name = encodeURIComponent(_skinsLookupName);
   const urls = {
-    body: `https://mineskin.eu/armor/body/${name}/200.png`,
-    bust: `https://mineskin.eu/armor/bust/${name}/200.png`,
-    head: `https://mineskin.eu/headhelm/${name}/200.png`
+    body: `https://mineskin.eu/armor/body/${name}/160.png`,
+    bust: `https://mineskin.eu/armor/bust/${name}/160.png`,
+    head: `https://mineskin.eu/headhelm/${name}/160.png`
   };
   img.src = urls[view] || urls.body;
 }
@@ -170,21 +193,29 @@ async function _infoCapeInstall(file) {
   }
 }
 
-// ── Server browser ─────────────────────────────────────────────
-function _infoRenderServers() {
+// ── Server list ────────────────────────────────────────────────
+function _infoRenderServers(filter) {
   const container = document.getElementById('info-server-list');
   if (!container) return;
-  container.innerHTML = _infoDefaultServers.map(s => `
+  const f = (filter || '').toLowerCase().trim();
+  const items = f
+    ? _infoDefaultServers.filter(s => s.name.toLowerCase().includes(f) || s.address.toLowerCase().includes(f))
+    : _infoDefaultServers;
+  if (items.length === 0) {
+    container.innerHTML = `<div class="info-server-empty">No match — press Enter to copy "${_escHtml(filter)}"</div>`;
+    return;
+  }
+  container.innerHTML = items.map(s => `
     <div class="info-server-row" onclick="_infoCopyServerIp('${_escAttr(s.address)}')">
-      <img class="info-server-icon" src="https://api.mcsrvstat.us/icon/${encodeURIComponent(s.address)}" alt="">
+      <img class="info-server-icon" src="https://api.mcsrvstat.us/icon/${encodeURIComponent(s.address)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
       <div class="info-server-text">
         <div class="info-server-name">${_escHtml(s.name)}</div>
         <div class="info-server-ip">${_escHtml(s.address)}</div>
       </div>
-      <svg class="info-server-copy" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
     </div>
   `).join('');
 }
+function _infoFilterServers(q) { _infoRenderServers(q); }
 function _infoCopyServerIp(addr) {
   navigator.clipboard.writeText(addr);
   Toast.success('Copied ' + addr);

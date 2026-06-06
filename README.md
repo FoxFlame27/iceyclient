@@ -30,6 +30,26 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.33
+
+**Info page redesigned to be asymmetric and box-free: skin viewer floats on the page background top-left (no card), cape upload is a small dashed strip below it with the Icey logo as the visual anchor, and the server list expanded to 20 servers as a flat vertical list on the top-right. Also an honest note on the cape limitation.**
+
+### Layout changes ([skins.js](src/pages/skins.js), [skins.css](src/styles/skins.css))
+
+User feedback on v1.86.32: "I don't like the design AT ALL — too symmetrical, kill all the boxes." Reworked:
+
+- **No more `.info-panel` glass cards.** Every section now sits directly on the page-container's background image (the panorama snow scene). Text gets a drop-shadow so it stays readable; nothing has a surround.
+- **Two-column flex** with the skin + cape block taking a 220–320px column on the LEFT, server list taking a matching 220–320px column on the RIGHT (`margin-left: auto` pushes it to the far edge). Center stays empty — that's the asymmetry.
+- **Skin block** — slim 160px-wide pixelated render with a heavy drop-shadow + a faint accent glow underneath, username + Body/Bust/Head tabs inline below it, "Download 64×64" CTA aligned left. No background, no border.
+- **Cape block** — compact dashed-bordered drop strip (1.5px dashed accent) with the **Icey panda logo** (`assets/icon.png`) as the visual anchor on the left, title + subtitle to the right. Click the whole strip OR drag a PNG onto it.
+- **Server list** — bumped from 10 → **20 servers** (Hypixel, Mineplex, CubeCraft, ManaCube, MCCentral, Lunar Network, The Hive, PvP Legacy, Badlion, mcpvp.club, 2b2t, WynnCraft, Pixelmon Reforged, Universocraft, Donut SMP, Crystal PvP, EarthSMP, Loyisa, CivClassic, Constantiam). Each row is just `[favicon] [name + ip]` with a faint hover tint — no row backgrounds, no borders, no copy-icon clutter. Live search filters as you type; if no match, hitting Enter copies the typed text as a custom IP.
+
+### Cape: honest limitation ([skins.js](src/pages/skins.js))
+
+User reported "I don't see any CAPE" after installing one. The reality: that `.minecraft/assets/skins/` folder is Mojang's **hash-keyed texture cache** — dropping a PNG with any filename does nothing because MC only loads textures from there by their session-server-resolved hash. The "rename and override" trick on tutorials online doesn't actually work for capes.
+
+To actually show a custom cape in-game we need a small iceymod patch that injects the uploaded PNG as the local player's cape texture via a mixin into `AbstractClientPlayerEntity.getSkinTextures()`. Marked the cape note in the UI as "coming next release" — the upload IPC still works (writes the file) but the in-game render side is the missing piece. Will land in v1.86.34.
+
 ## What's new in v1.86.32
 
 **"Skins" page is now "Info" — 3-column layout: skin browser + download PNG on the left, drag/drop cape upload in the middle, server list with IP-copy bar on the right. Same icon in the nav, works in both Classic and Liquid themes.**
