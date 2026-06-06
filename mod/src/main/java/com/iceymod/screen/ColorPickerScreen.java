@@ -93,29 +93,24 @@ public class ColorPickerScreen extends Screen {
         addDrawableChild(hexField);
         y += sh + gap * 2;
 
-        // Palette quick-pick row — vanilla ButtonWidgets so it fits the rest
-        int palCount = ColorSetting.PALETTE.length;
-        int palBtnW = Math.max(24, col / palCount - 2);
-        for (int i = 0; i < palCount; i++) {
-            final int packedPalette = ColorSetting.PALETTE[i];
-            ButtonWidget pb = ButtonWidget.builder(
-                Text.literal("■"), // filled square glyph, colored via label
-                btn -> { unpack(packedPalette); syncSliders(); syncHex(); }
-            ).dimensions(x + i * (palBtnW + 2), y, palBtnW, sh).build();
-            addDrawableChild(pb);
-        }
-        y += sh + gap * 2;
-
+        // Palette quick-pick row removed — user feedback: too cluttered,
+        // and the hex field above is already a faster way to type a
+        // known value. Save button now sits directly under the hex
+        // input, taller (24px) so it's clearly the primary action.
+        int saveH = 24;
         addDrawableChild(ButtonWidget.builder(
-            Text.literal("Save"),
+            Text.literal("§a§lSave"),
             btn -> {
                 int packed = pack();
                 if (setting != null) setting.set(packed);
                 if (onApply != null) onApply.accept(packed);
+                // Persist to disk — without this the color is held in
+                // memory only and reverts on next MC launch.
+                try { com.iceymod.hud.HudManager.save(); } catch (Throwable ignored) {}
                 client.setScreen(parent);
             }
-        ).dimensions(x, y, col, sh).build());
-        y += sh + gap;
+        ).dimensions(x, y, col, saveH).build());
+        y += saveH + gap;
 
         ButtonWidget resetBtn = ButtonWidget.builder(
             Text.literal("Reset to Default"),

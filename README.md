@@ -30,6 +30,25 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.31
+
+**HUD module settings now actually save to disk. Color picker also loses the preset palette row and gets a chunkier green Save button.**
+
+### Settings persist on change ([ModuleSettingsScreen.java](mod/src/main/java/com/iceymod/screen/ModuleSettingsScreen.java), [ColorPickerScreen.java](mod/src/main/java/com/iceymod/screen/ColorPickerScreen.java))
+
+The bug: `Setting.set(T)` only updates the in-memory value — nothing persisted. So toggling a bool, cycling an enum, or changing a color through the picker would look right *that session*, but `HudManager.save()` was never called and on next MC launch everything reverted to whatever was last loaded from disk.
+
+Fix: call `HudManager.save()` after every mutation:
+
+- **ModuleSettingsScreen.onClick** — every cycle/toggle that lands on a non-color setting now writes the config out to disk before returning. Color settings hand off to ColorPickerScreen which persists on its own Save click (no double-save).
+- **ColorPickerScreen Save button** — calls `HudManager.save()` before `client.setScreen(parent)`, so the new ARGB value is committed to `iceymod-hud.json` (or whatever the config name is) before the screen closes.
+
+### Color picker: presets out, Save button up ([ColorPickerScreen.java](mod/src/main/java/com/iceymod/screen/ColorPickerScreen.java))
+
+Removed the palette quick-pick row (`■ ■ ■ ■ ■ ■` colored squares from `ColorSetting.PALETTE`) per user request — the hex input field directly above already does the same job faster if you know a value, and the row was crowding the Save button below it.
+
+Save button bumped from `sh=20` to `saveH=24` pixels tall and gets the `§a§lSave` label (bold green) so it reads as the obvious primary action instead of looking like one more grey button in a stack.
+
 ## What's new in v1.86.30
 
 **Installations page restyle: bigger cards, swapped button order, and a proper primary/secondary button hierarchy instead of two identical-looking ghost buttons.**

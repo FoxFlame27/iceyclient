@@ -96,9 +96,13 @@ public class ModuleSettingsScreen extends Screen {
             // Opens the full RGB + hex picker instead of cycling the preset
             // palette — any ARGB value is reachable and the swatch updates live.
             client.setScreen(new ColorPickerScreen(cs, this));
+            return; // ColorPickerScreen persists on its own Save click.
         } else if (setting instanceof EnumSetting es) {
             es.cycle();
         }
+        // Persist after every mutation — without this the new value
+        // lives in memory only and reverts on next MC launch.
+        try { com.iceymod.hud.HudManager.save(); } catch (Throwable ignored) {}
     }
 
     private Text formatLabel(Setting<?> setting) {
