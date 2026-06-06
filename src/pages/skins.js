@@ -88,11 +88,11 @@ async function SkinsPageInit() {
             </div>
             <div class="info-cape-status" id="info-cape-status"></div>
             <div class="info-cape-note">
-              Saves your PNG to <code>.minecraft/assets/skins/</code>.
-              <strong>Heads-up:</strong> this folder is Mojang's
-              hash-keyed texture cache — to actually see the cape
-              in-game we need a small iceymod patch that injects it
-              as your player texture. Coming next release.
+              Copies your PNG to every installation's
+              <code>game/config/iceyclient/cape.png</code> and to
+              <code>.minecraft/assets/skins/</code>. The in-game
+              render needs the iceymod mixin landing in v1.86.34 to
+              actually inject it as your local cape texture.
             </div>
           </div>
 
@@ -184,8 +184,11 @@ async function _infoCapeInstall(file) {
       if (status) status.innerHTML = '<span class="info-cape-err">Failed: ' + _escHtml(res.error) + '</span>';
       Toast.error('Cape install failed: ' + res.error);
     } else {
-      if (status) status.innerHTML = '<span class="info-cape-ok">Saved to ' + _escHtml(res.savedTo) + '</span>';
-      Toast.success('Cape installed');
+      const count = res?.copies || 1;
+      const installs = res?.installCount || 0;
+      const summary = `Copied to ${installs} installation${installs === 1 ? '' : 's'} + global .minecraft`;
+      if (status) status.innerHTML = '<span class="info-cape-ok">' + _escHtml(summary) + '</span>';
+      Toast.success('Cape installed (' + count + ' cop' + (count === 1 ? 'y' : 'ies') + ')');
     }
   } catch (e) {
     if (status) status.innerHTML = '<span class="info-cape-err">Failed: ' + _escHtml(e.message) + '</span>';

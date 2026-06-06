@@ -3350,24 +3350,77 @@ app.whenReady().then(() => {
     }
   });
 
-  // Info page — install a user-uploaded cape PNG into the standard
-  // .minecraft/assets/skins/ folder so MC picks it up as a local
-  // texture override. Writes with the original filename (sanitized);
-  // the user can rename later to overwrite a specific cape file.
+  // Info page — install a user-uploaded cape PNG.
+  //
+  // The launcher uses per-installation game dirs (each install
+  // launches with --gameDir ~/.iceyclient/installations/<id>/game),
+  // NOT the global ~/.minecraft. Writing only to the global
+  // .minecraft/assets/skins would put the file in a folder MC isn't
+  // even reading from when launching through Icey Client.
+  //
+  // Strategy: write the cape to a known iceymod-conventional path
+  // under EVERY installation's game dir:
+  //     <gameDir>/config/iceyclient/cape.png
+  // The (upcoming) iceymod mixin reads from this path and injects it
+  // as the local player's cape texture client-side. Writing to all
+  // installs means whichever one the user launches, the cape is
+  // already there — no per-install selector UI needed.
+  //
+  // Also still drops a copy in the global .minecraft/assets/skins/
+  // for users who launch through the vanilla launcher and want to
+  // try the "rename to a vanilla cache hash" trick manually.
   ipcMain.handle('install-custom-cape', async (_, bytes, originalName) => {
     try {
       if (!bytes || !bytes.length) return { error: 'Empty file' };
-      const mcDir = getDefaultMcDir();
-      const skinsDir = path.join(mcDir, 'assets', 'skins');
-      try { fs.mkdirSync(skinsDir, { recursive: true }); } catch (_) {}
+      const buf = Buffer.from(bytes);
+
       // Sanitize filename — strip path separators, force .png ext.
       let safe = String(originalName || 'iceyclient-cape.png')
                    .replace(/[\\/]/g, '_')
                    .replace(/[^A-Za-z0-9._-]/g, '_');
       if (!/\.png$/i.test(safe)) safe = safe.replace(/\.[^.]*$/, '') + '.png';
-      const dest = path.join(skinsDir, safe);
-      fs.writeFileSync(dest, Buffer.from(bytes));
-      return { success: true, savedTo: dest };
+
+      const installs = readInstallations();
+      const written = [];
+
+      // 1) Per-installation iceymod cape path (the one that will
+      //    actually drive the in-game render via the mixin).
+      for (const inst of installs) {
+        try {
+          const capeDir = path.join(INSTALLATIONS_DIR, inst.id, 'game', 'config', 'iceyclient');
+          fs.mkdirSync(capeDir, { recursive: true });
+          const dest = path.join(capeDir, 'cape.png');
+          fs.writeFileSync(dest, buf);
+          // Also keep the user's original-named copy alongside in case
+          // they want multiple cape options.
+          if (safe !== 'cape.png') {
+            try { fs.writeFileSync(path.join(capeDir, safe), buf); } catch (_) {}
+          }
+          written.push(dest);
+        } catch (e) {
+          log('warn', 'cape install for installation ' + inst.id + ' failed: ' + e.message);
+        }
+      }
+
+      // 2) Global .minecraft/assets/skins/ — manual-rename escape
+      //    hatch for users who know the cape-hash trick.
+      try {
+        const skinsDir = path.join(getDefaultMcDir(), 'assets', 'skins');
+        fs.mkdirSync(skinsDir, { recursive: true });
+        const dest = path.join(skinsDir, safe);
+        fs.writeFileSync(dest, buf);
+        written.push(dest);
+      } catch (e) {
+        log('warn', 'cape install to global .minecraft failed: ' + e.message);
+      }
+
+      if (written.length === 0) return { error: 'No installations to write to' };
+      return {
+        success: true,
+        savedTo: written[0],
+        installCount: installs.length,
+        copies: written.length
+      };
     } catch (e) {
       log('warn', 'install-custom-cape failed: ' + e.message);
       return { error: e.message };

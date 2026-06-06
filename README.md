@@ -30,6 +30,32 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.34
+
+**Cape install now writes to the right path — per-installation game dir, not global `.minecraft`. User caught this: Icey Client launches each installation with `--gameDir ~/.iceyclient/installations/<id>/game/`, so the previous global-write was going to a folder MC wasn't even reading from at launch.**
+
+### The fix ([main.js](main.js))
+
+`install-custom-cape` now writes to:
+
+1. **`<INSTALLATIONS_DIR>/<id>/game/config/iceyclient/cape.png`** for every saved installation. This is the path the upcoming iceymod cape-mixin will read from to inject the texture client-side. Writing to all installs means whichever one the user launches, the cape is already where the mixin expects it — no per-install picker UI needed.
+2. **Original-named copy alongside** (e.g. `MyCape.png`) so users can keep multiple cape options under `config/iceyclient/`.
+3. **`<global .minecraft>/assets/skins/<sanitized-name>.png`** as an escape hatch for users running through the vanilla launcher or wanting to try the manual cape-hash-rename trick.
+
+Path platform breakdown (the user's other catch):
+
+- **Linux** — `~/.iceyclient/installations/<id>/game/...` and `~/.minecraft/...`
+- **macOS** — `~/.iceyclient/installations/<id>/game/...` and `~/Library/Application Support/minecraft/...`
+- **Windows** — `%USERPROFILE%\.iceyclient\installations\<id>\game\...` and `%APPDATA%\.minecraft\...`
+
+`getDefaultMcDir()` already handles the cross-platform global path; the per-installation path is constant under `~/.iceyclient/` on all three.
+
+### UI updates ([skins.js](src/pages/skins.js))
+
+- Cape note text updated to accurately describe the new copy strategy (`game/config/iceyclient/cape.png` + global skins folder).
+- Success toast now reports `Cape installed (N copies)` and the status line shows `Copied to N installations + global .minecraft`.
+- Mixin work moved to v1.86.35.
+
 ## What's new in v1.86.33
 
 **Info page redesigned to be asymmetric and box-free: skin viewer floats on the page background top-left (no card), cape upload is a small dashed strip below it with the Icey logo as the visual anchor, and the server list expanded to 20 servers as a flat vertical list on the top-right. Also an honest note on the cape limitation.**
