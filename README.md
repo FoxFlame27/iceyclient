@@ -30,6 +30,61 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.47
+
+**v1.86.46 found the cape slot correctly (`assetCount=3 assetPositionalIdx=1 -> targetIdx=1`) but all 4 wrapper-construction strategies returned null. The wrapper class isn't an Identifier, doesn't have a `ctor(Identifier)`, isn't a record, and has no Identifier field. We need to see its actual shape. v1.86.47 dumps everything — constructors, fields, current values, methods, isRecord, isInterface, superclass — so v1.86.48 can target the right strategy.**
+
+### What v1.86.46 log told us
+
+```
+[IceyMod] CapeMixin.swap: idCount=0 assetCount=3 ... assetPositionalIdx=1 -> targetIdx=1
+    -> all strategies exhausted, returning null
+```
+
+Positional logic ✓. But the four strategies didn't fit:
+- Not Identifier itself
+- No 1-arg ctor accepting Identifier
+- Not a record (or wcomps was null)
+- No Identifier field to set
+
+The class is `net.minecraft.class_12079$class_12081` — a nested class introduced in MC 1.21.10's texture-system refactor. Without knowing its shape I'm shooting in the dark.
+
+### v1.86.47 introspection dump ([AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+Before trying any strategy, log:
+
+```
+Wrapper introspection:
+  declaredType=...      <- the type from comps[i].getType()
+  runtimeType=...       <- the actual instance class (might be a subclass)
+  isRecord=... isInterface=... superclass=...
+  constructors:
+    public/private/...class_12079$class_12081(<param types>)
+    ...
+  declared fields:
+    <name>: <type> = <runtimeType:value>
+    ...
+  declared methods (zero-arg returning Identifier/String):
+    ...
+```
+
+This dump reveals:
+- Real concrete subclass if the field is declared as an abstract base
+- Every ctor signature so we know how to call it
+- Every field with its current value — including the Identifier inside (if it's stored as a field)
+- Public zero-arg getters returning Identifier or String — Mojang's common pattern for sealed wrapper classes
+
+All four strategies now also use **`runtimeType`** instead of `wrapperType` for ctor/field lookups, so they see the concrete class's members not the abstract declared one.
+
+### Next iteration
+
+When you send the v1.86.47 log, the wrapper introspection dump will tell me:
+- If it has e.g. `class_12079$class_12081(Identifier, String)` → strategy 2 just needs to accept multi-arg
+- If it has `public Identifier id()` getter and a `private final Identifier id` field → strategy 3 needs to check `isRecord` on the runtime type, OR strategy 4 needs to actually work
+- If it's a sealed interface with concrete subclasses like `PathAsset` and `SkinTextureAsset` → I'll instantiate the right subclass
+
+The fix is one log away.
+
 ## What's new in v1.86.46
 
 **Real cape fix: 1.21.10+ Mojang refactored `PlayerSkin` — the record no longer holds raw `Identifier`s, it holds a NEW texture-wrapper class. The v1.86.45 diagnostic finally exposed this. Fixed by walking the wrapper's inner structure to swap the Identifier inside.**

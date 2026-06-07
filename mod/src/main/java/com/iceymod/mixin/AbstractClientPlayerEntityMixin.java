@@ -193,14 +193,63 @@ public abstract class AbstractClientPlayerEntityMixin {
                                                      Object existingWrapper,
                                                      Identifier customCape,
                                                      StringBuilder dbg) {
+        // Always log the runtime type — declared type might be an
+        // abstract/sealed supertype while the instance is a concrete
+        // subclass. Subsequent reflection should target the concrete
+        // class, not the declared one.
+        Class<?> runtimeType = existingWrapper != null ? existingWrapper.getClass() : wrapperType;
+
+        if (dbg != null) {
+            dbg.append("    Wrapper introspection:\n");
+            dbg.append("      declaredType=").append(wrapperType.getName()).append('\n');
+            dbg.append("      runtimeType=").append(runtimeType.getName()).append('\n');
+            dbg.append("      isRecord=").append(runtimeType.isRecord())
+               .append(" isInterface=").append(runtimeType.isInterface())
+               .append(" superclass=").append(runtimeType.getSuperclass() != null ? runtimeType.getSuperclass().getName() : "null").append('\n');
+
+            dbg.append("      constructors:\n");
+            for (Constructor<?> c : runtimeType.getDeclaredConstructors()) {
+                dbg.append("        ").append(c.toString()).append('\n');
+            }
+
+            dbg.append("      declared fields:\n");
+            for (java.lang.reflect.Field f : runtimeType.getDeclaredFields()) {
+                String val;
+                try {
+                    f.setAccessible(true);
+                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                        val = "(static)";
+                    } else {
+                        Object v = f.get(existingWrapper);
+                        val = v == null ? "null" : (v.getClass().getName() + ":" + String.valueOf(v));
+                    }
+                } catch (Throwable t) {
+                    val = "(inaccessible: " + t.getClass().getSimpleName() + ")";
+                }
+                dbg.append("        ").append(f.getName())
+                   .append(": ").append(f.getType().getName())
+                   .append(" = ").append(val).append('\n');
+            }
+
+            dbg.append("      declared methods (public, returning Identifier-like or string):\n");
+            for (java.lang.reflect.Method m : runtimeType.getDeclaredMethods()) {
+                if (m.getParameterCount() == 0 && !java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
+                    Class<?> rt = m.getReturnType();
+                    if (isIdentifierType(rt) || rt == String.class || rt.getName().contains("class_2960")) {
+                        dbg.append("        ").append(m.getName()).append("():").append(rt.getName()).append('\n');
+                    }
+                }
+            }
+        }
+
         // Strategy 1: it's already an Identifier — just hand it back.
-        if (isIdentifierType(wrapperType)) {
+        if (isIdentifierType(wrapperType) || isIdentifierType(runtimeType)) {
             if (dbg != null) dbg.append("    -> strategy: Identifier passthrough\n");
             return customCape;
         }
 
         // Strategy 2: ctor(Identifier).
-        for (Constructor<?> ctor : wrapperType.getDeclaredConstructors()) {
+        for (Constructor<?> ctor : runtimeType.getDeclaredConstructors()) {
             Class<?>[] params = ctor.getParameterTypes();
             if (params.length == 1 && isIdentifierType(params[0])) {
                 try {
@@ -215,7 +264,7 @@ public abstract class AbstractClientPlayerEntityMixin {
         }
 
         // Strategy 3: it's a record — copy + swap.
-        RecordComponent[] wcomps = wrapperType.getRecordComponents();
+        RecordComponent[] wcomps = runtimeType.getRecordComponents();
         if (wcomps != null && wcomps.length > 0) {
             if (dbg != null) {
                 dbg.append("    -> wrapper is a record with ").append(wcomps.length)
@@ -238,7 +287,7 @@ public abstract class AbstractClientPlayerEntityMixin {
                 }
                 if (idIdx >= 0) {
                     wargs[idIdx] = customCape;
-                    Constructor<?> ctor = wrapperType.getDeclaredConstructor(wparams);
+                    Constructor<?> ctor = runtimeType.getDeclaredConstructor(wparams);
                     ctor.setAccessible(true);
                     Object wrapper = ctor.newInstance(wargs);
                     if (dbg != null) dbg.append("    -> strategy: record copy+swap at idx ").append(idIdx).append("\n");
@@ -254,7 +303,7 @@ public abstract class AbstractClientPlayerEntityMixin {
         // Strategy 4: walk declared fields, find one of Identifier type,
         // try to overwrite via reflection. Last resort.
         try {
-            for (java.lang.reflect.Field f : wrapperType.getDeclaredFields()) {
+            for (java.lang.reflect.Field f : runtimeType.getDeclaredFields()) {
                 if (isIdentifierType(f.getType()) && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
                     f.setAccessible(true);
                     f.set(existingWrapper, customCape);
