@@ -10,6 +10,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * Loads the user-uploaded cape PNG from
@@ -117,7 +118,14 @@ public final class CapeLoader {
             try (ByteArrayInputStream in = new ByteArrayInputStream(bytes)) {
                 img = NativeImage.read(in);
             }
-            NativeImageBackedTexture tex = new NativeImageBackedTexture(img);
+            // 1.21.10+ removed the single-arg (NativeImage) ctor —
+            // it now requires a name supplier first (used by the
+            // texture manager for debug labels / leak diagnostics).
+            // The Supplier<String> form is stable on both 1.21.8 and
+            // 1.21.11 so the same source compiles for both matrix
+            // jars.
+            Supplier<String> labelSupplier = () -> "iceymod_local_cape";
+            NativeImageBackedTexture tex = new NativeImageBackedTexture(labelSupplier, img);
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc == null || mc.getTextureManager() == null) return null;
             mc.getTextureManager().registerTexture(CAPE_ID, tex);

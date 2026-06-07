@@ -30,6 +30,35 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.38
+
+**CI build fix for the v1.86.35 cape mixin — `NativeImageBackedTexture` constructor signature shifted in 1.21.10+.**
+
+### The failure ([CapeLoader.java](mod/src/main/java/com/iceymod/cape/CapeLoader.java))
+
+CI matrix log from v1.86.37 build:
+
+```
+CapeLoader.java:120: error: no suitable constructor found for NativeImageBackedTexture(NativeImage)
+    constructor NativeImageBackedTexture(Supplier<String>,NativeImage) is not applicable
+      (actual and formal argument lists differ in length)
+    constructor NativeImageBackedTexture(String,int,int,boolean) is not applicable ...
+    constructor NativeImageBackedTexture(Supplier<String>,int,int,boolean) is not applicable ...
+```
+
+1.21.10+ removed the single-arg `NativeImageBackedTexture(NativeImage)` constructor. The current shape is `(Supplier<String> nameSupplier, NativeImage image)` — the name supplier provides a debug label that the texture manager uses for leak diagnostics + logging.
+
+### Fix
+
+```java
+import java.util.function.Supplier;
+// ...
+Supplier<String> labelSupplier = () -> "iceymod_local_cape";
+NativeImageBackedTexture tex = new NativeImageBackedTexture(labelSupplier, img);
+```
+
+The `Supplier<String>` form is stable on both 1.21.8 and 1.21.11 yarn — same source compiles for both matrix jars now.
+
 ## What's new in v1.86.37
 
 **Page titles now use the home-page wordmark treatment (Outfit gradient, big + uppercase + drop-shadow) and the Settings page rows transform into the Liquid menu-card pattern — each setting becomes its own glassy stacked card with hover slide-right + accent glow. No icons added.**
