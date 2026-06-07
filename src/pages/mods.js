@@ -61,12 +61,24 @@ async function _renderModsMainView(page, installations) {
           <button class="mods-tab active" data-tab="mods" onclick="_switchModsTab('mods', this)">Mods</button>
           <button class="mods-tab" data-tab="shaders" onclick="_switchModsTab('shaders', this)">Shaders</button>
         </div>
-        <div class="mods-install-selector">
-          <label class="mods-selector-label">Installing to</label>
-          <select class="mods-selector-select" id="mods-install-select" onchange="_modsChangeInstallation(this.value)">
-            ${instOptions}
-          </select>
+      </div>
+
+      <!-- Centered install picker button — opens a popover with all installations. -->
+      <div class="mods-install-row">
+        <button class="mods-install-btn" id="mods-install-btn" type="button" onclick="_modsToggleInstallMenu(event)" aria-haspopup="listbox" aria-expanded="false">
+          <span class="mods-install-btn-label">Installing to</span>
+          <span class="mods-install-btn-value" id="mods-install-btn-value">—</span>
+          <svg class="mods-install-btn-caret" viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+            <polyline points="2,4 6,8 10,4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="mods-install-menu" id="mods-install-menu" role="listbox" hidden>
+          ${instOptions.replace(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g, (_m, v, t) =>
+            `<button type="button" class="mods-install-menu-item" data-install-id="${v}" onclick="_modsPickInstallation('${v.replace(/'/g, "\\'")}')">${t}</button>`)}
         </div>
+        <select class="mods-install-select-hidden" id="mods-install-select" onchange="_modsChangeInstallation(this.value)" hidden>
+          ${instOptions}
+        </select>
       </div>
 
       <div class="mods-split" id="mods-split" data-search="false">
@@ -113,6 +125,7 @@ async function _renderModsMainView(page, installations) {
 
   _setupModsDropzone();
   _refreshInstalledMods();
+  _syncModsInstallBtn();
 
   // Right-column browse auto-loads trending so the panel isn't
   // empty when you arrive on the page. Defer to avoid blocking
@@ -205,6 +218,60 @@ async function _modsChangeInstallation(id) {
   const installations = await window.icey.getInstallations();
   _modsActiveInstallation = installations.find(i => i.id === id) || installations[0];
   _refreshInstalledMods();
+  _syncModsInstallBtn();
+}
+
+// Sync the centered button's label to the active install name.
+function _syncModsInstallBtn() {
+  const valEl = document.getElementById('mods-install-btn-value');
+  const sel = document.getElementById('mods-install-select');
+  if (valEl && _modsActiveInstallation) {
+    valEl.textContent = _modsActiveInstallation.name || '—';
+  }
+  if (sel && _modsActiveInstallation) sel.value = _modsActiveInstallation.id;
+  const menu = document.getElementById('mods-install-menu');
+  if (menu) {
+    menu.querySelectorAll('.mods-install-menu-item').forEach(b => {
+      b.classList.toggle('active', _modsActiveInstallation && b.dataset.installId === _modsActiveInstallation.id);
+    });
+  }
+}
+
+function _modsToggleInstallMenu(ev) {
+  ev?.stopPropagation();
+  const menu = document.getElementById('mods-install-menu');
+  const btn = document.getElementById('mods-install-btn');
+  if (!menu || !btn) return;
+  const open = !menu.hasAttribute('hidden');
+  if (open) {
+    menu.setAttribute('hidden', '');
+    btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', _modsInstallMenuOutsideClick, true);
+  } else {
+    _syncModsInstallBtn();
+    menu.removeAttribute('hidden');
+    btn.setAttribute('aria-expanded', 'true');
+    setTimeout(() => document.addEventListener('click', _modsInstallMenuOutsideClick, true), 0);
+  }
+}
+
+function _modsInstallMenuOutsideClick(ev) {
+  const menu = document.getElementById('mods-install-menu');
+  const btn = document.getElementById('mods-install-btn');
+  if (!menu || !btn) return;
+  if (menu.contains(ev.target) || btn.contains(ev.target)) return;
+  menu.setAttribute('hidden', '');
+  btn.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', _modsInstallMenuOutsideClick, true);
+}
+
+function _modsPickInstallation(id) {
+  _modsChangeInstallation(id);
+  const menu = document.getElementById('mods-install-menu');
+  const btn = document.getElementById('mods-install-btn');
+  if (menu) menu.setAttribute('hidden', '');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', _modsInstallMenuOutsideClick, true);
 }
 
 function _setupModsDropzone() {

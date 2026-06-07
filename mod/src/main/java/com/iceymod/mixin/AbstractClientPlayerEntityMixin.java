@@ -48,6 +48,7 @@ public abstract class AbstractClientPlayerEntityMixin {
     private static boolean iceymod$mixinFiredLogged = false;
     private static boolean iceymod$swapSuccessLogged = false;
     private static boolean iceymod$recordShapeLogged = false;
+    private static boolean iceymod$swapDiagLogged = false;
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Inject(
@@ -75,6 +76,8 @@ public abstract class AbstractClientPlayerEntityMixin {
 
             if (!iceymod$recordShapeLogged) {
                 StringBuilder sb = new StringBuilder();
+                sb.append("[IceyMod] CapeMixin: Identifier.class at runtime = ")
+                  .append(Identifier.class.getName()).append('\n');
                 sb.append("[IceyMod] CapeMixin: original record = ").append(original.getClass().getName());
                 RecordComponent[] comps = original.getClass().getRecordComponents();
                 if (comps == null) {
@@ -83,7 +86,7 @@ public abstract class AbstractClientPlayerEntityMixin {
                     sb.append(" components=[");
                     for (int i = 0; i < comps.length; i++) {
                         if (i > 0) sb.append(", ");
-                        sb.append(comps[i].getName()).append(':').append(comps[i].getType().getSimpleName());
+                        sb.append(comps[i].getName()).append(':').append(comps[i].getType().getName());
                     }
                     sb.append("]");
                 }
@@ -136,14 +139,39 @@ public abstract class AbstractClientPlayerEntityMixin {
      *       that as the fallback.</li>
      * </ol>
      */
+    /**
+     * Defensive {@code Identifier}-type check. Class identity (==)
+     * should work in a remapped production jar, but we ALSO match by
+     * full name and simple name as a safety net for any classloader
+     * weirdness or unmapped-jar edge case.
+     */
+    private static boolean isIdentifierType(Class<?> t) {
+        if (t == null) return false;
+        if (t == Identifier.class) return true;
+        String fq = t.getName();
+        if (fq.equals(Identifier.class.getName())) return true;
+        // Common intermediary + yarn forms.
+        if (fq.equals("net.minecraft.class_12081")) return true;
+        if (fq.equals("net.minecraft.util.Identifier")) return true;
+        return false;
+    }
+
     private static Object swapCapeFieldReflective(Object original, Identifier customCape) throws Throwable {
         Class<?> cls = original.getClass();
         RecordComponent[] comps = cls.getRecordComponents();
-        if (comps == null || comps.length == 0) return null;
+        if (comps == null || comps.length == 0) {
+            if (!iceymod$swapDiagLogged) {
+                System.out.println("[IceyMod] CapeMixin.swap: NOT a record (comps null/empty), bailing");
+                iceymod$swapDiagLogged = true;
+            }
+            return null;
+        }
 
-        // Pass 1 — collect values + paramTypes; note name-match index
-        // AND positional 2nd-Identifier index in case the names are
-        // synthetic.
+        StringBuilder dbg = iceymod$swapDiagLogged ? null : new StringBuilder();
+        if (dbg != null) {
+            dbg.append("[IceyMod] CapeMixin.swap: scanning ").append(comps.length).append(" components\n");
+        }
+
         Object[] args = new Object[comps.length];
         Class<?>[] paramTypes = new Class<?>[comps.length];
         int nameMatchIdx = -1;
@@ -154,7 +182,13 @@ public abstract class AbstractClientPlayerEntityMixin {
             RecordComponent rc = comps[i];
             paramTypes[i] = rc.getType();
             args[i] = rc.getAccessor().invoke(original);
-            if (rc.getType() == Identifier.class) {
+            boolean isId = isIdentifierType(rc.getType());
+            if (dbg != null) {
+                dbg.append("  [").append(i).append("] name=").append(rc.getName())
+                   .append(" type=").append(rc.getType().getName())
+                   .append(" isIdentifier=").append(isId).append('\n');
+            }
+            if (isId) {
                 identifierCount++;
                 if (identifierCount == 2 && positionalCapeIdx < 0) {
                     positionalCapeIdx = i;
@@ -166,6 +200,15 @@ public abstract class AbstractClientPlayerEntityMixin {
         }
 
         int targetIdx = nameMatchIdx >= 0 ? nameMatchIdx : positionalCapeIdx;
+        if (dbg != null) {
+            dbg.append("[IceyMod] CapeMixin.swap: identifierCount=").append(identifierCount)
+               .append(" nameMatchIdx=").append(nameMatchIdx)
+               .append(" positionalCapeIdx=").append(positionalCapeIdx)
+               .append(" targetIdx=").append(targetIdx);
+            System.out.println(dbg.toString());
+            iceymod$swapDiagLogged = true;
+        }
+
         if (targetIdx < 0) return null;
         args[targetIdx] = customCape;
 

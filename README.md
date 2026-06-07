@@ -30,6 +30,53 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.45
+
+**Two things: (1) Cape mixin now has bulletproof Identifier matching + per-component diagnostic so we see EXACTLY why each component is or isn't accepted. (2) The Mods page "Installing to" dropdown is replaced with a nice centered pill button + popover, like the Create Installation button.**
+
+### Cape — defensive matching + verbose diagnostic
+
+Your v1.86.44 log STILL showed `reflection found no cape field to swap`. Two possible reasons:
+
+1. **Stale install** — your launcher's bundled iceymod jar pre-dated v1.86.43's positional fix.
+2. **`rc.getType() == Identifier.class` returns false at runtime** — classloader edge case where the remapped Identifier class object isn't the same instance as `Identifier.class` evaluates to.
+
+To rule out #2, the swap method matches Identifier FOUR ways:
+
+```java
+if (t == Identifier.class) return true;                                    // identity
+if (t.getName().equals(Identifier.class.getName())) return true;           // same FQN
+if (t.getName().equals("net.minecraft.class_12081")) return true;          // intermediary
+if (t.getName().equals("net.minecraft.util.Identifier")) return true;      // yarn
+```
+
+The new diagnostic prints **every component** + the comparison result:
+
+```
+[IceyMod] CapeMixin: Identifier.class at runtime = <FQN>
+[IceyMod] CapeMixin.swap: scanning 5 components
+  [0] name=comp_1626 type=net.minecraft.class_12081 isIdentifier=true
+  [1] name=comp_1627 type=net.minecraft.class_12081 isIdentifier=true
+  [2] name=comp_1628 type=net.minecraft.class_12081 isIdentifier=true
+  [3] name=comp_1629 type=net.minecraft.class_7920 isIdentifier=false
+  [4] name=comp_1630 type=boolean isIdentifier=false
+[IceyMod] CapeMixin.swap: identifierCount=3 nameMatchIdx=-1 positionalCapeIdx=1 targetIdx=1
+[IceyMod] CapeMixin: cape swap SUCCESS for local player
+```
+
+If a step is still off, the diagnostic now tells us EXACTLY which one. No more guessing.
+
+### Mods page Install-to picker — centered pill button ([mods.js](src/pages/mods.js), [mods.css](src/styles/mods.css))
+
+Old layout: tiny `<select>` glued to top-right next to account dropdown — ugly, hard to find. New layout:
+
+- **Removed** inline selector from top bar.
+- **Added** centered `.mods-install-btn` pill below Mods/Shaders tabs: gradient accent background, rounded 999px, label `INSTALLING TO` + accent-gradient value name + chevron caret.
+- **Click → popover menu** with all installations as buttons; active install highlighted; click outside closes.
+- Hidden `<select>` keeps `_modsChangeInstallation` IPC flow intact.
+
+Front-and-center, looks like the Create Installation button.
+
 ## What's new in v1.86.44
 
 **Account head avatars across the launcher now render with the outer skin layer (hat / hood / etc.). Switched all 8 places that used `mineskin.eu/helm/<name>/<size>.png` to `nmsr.nickac.dev/face/<name>?overlay=true`.**
