@@ -30,6 +30,36 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.39
+
+**Pull the cape mixin out of the build to unblock CI. The `SkinTextures` class doesn't exist at `net.minecraft.client.util.SkinTextures` on 1.21.11 — it either moved or got renamed (probably to `PlayerSkin`). Cape feature is paused, not abandoned.**
+
+### What failed
+
+CI log from v1.86.38:
+
+```
+AbstractClientPlayerEntityMixin.java:6: error: cannot find symbol
+  symbol:   class SkinTextures
+  location: package net.minecraft.client.util
+```
+
+The cape mixin was written against an assumed `SkinTextures` record location/name. 1.21.11 yarn moved or renamed the class. Speculating the new package and pushing untested would just produce another red build.
+
+### What changed
+
+- **Deleted** [AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/) (the broken mixin).
+- **Removed** the mixin entry from [iceymod.mixins.json](mod/src/main/resources/iceymod.mixins.json).
+- **Kept** [CapeLoader.java](mod/src/main/java/com/iceymod/cape/CapeLoader.java) intact — the file-watch + texture-registration logic is correct, only the *injection point* into the player's skin record needs the right type. Re-wiring it is a one-file change once I can verify the 1.21.11 `PlayerSkin` shape against the actual yarn mappings.
+
+### What still works
+
+- The launcher's cape **upload** flow (Info page → drop a 64×32 PNG → IPC copies to `<gameDir>/config/iceyclient/cape.png` for every installation + global `.minecraft/assets/skins/`).
+- HealthIndicators bundle + bars from v1.86.28.
+- Everything else.
+
+Just the in-game render is paused. Pickup expected v1.86.40 once I can confirm whether the cape-bearing record on 1.21.11 is `PlayerSkin` (probable new name), `SkinTextures` in a different package, or something else.
+
 ## What's new in v1.86.38
 
 **CI build fix for the v1.86.35 cape mixin — `NativeImageBackedTexture` constructor signature shifted in 1.21.10+.**
