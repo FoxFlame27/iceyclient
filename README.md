@@ -30,6 +30,46 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.49
+
+**Both at once.** Cape: three more defensive swap strategies stacked on top of v1.86.47's introspection. Badge: full TAB-render mixin + network client wired. Nameplate badge intentionally deferred — needs a TAB-mixin success signal first to know which yarn method names actually attach on 1.21.11.
+
+### Cape — 3 more strategies (now 7 total) ([AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+Strategies 1–4 were tried in v1.86.46 and all returned null on the 1.21.11 texture-wrapper. Added:
+
+5. **Multi-arg constructor with type-matched fill** — any ctor with at least one Identifier param. Other args resolved by walking the existing wrapper's declared fields and matching by type.
+6. **Static factory method** — any `static T of(Identifier, ...)`-shaped method on the wrapper class itself. Mojang's common pattern for sealed types.
+7. **Inherited field overwrite** — if the wrapper inherits the Identifier field from a base class (rather than declaring it directly), the strategy walks the superclass chain to find it.
+
+Plus a helper `findFieldValueByType()` that pulls existing values from the wrapper to fill other ctor args by type. Records, regular classes, sealed-type concrete subclasses all benefit.
+
+If 5/6/7 still all return null, the v1.86.47 introspection log (constructors + fields + methods + isRecord + superclass) gives a fully concrete answer for v1.86.50.
+
+### Icey Network — mod-side client ([IceyNetwork.java](mod/src/main/java/com/iceymod/network/IceyNetwork.java))
+
+- `isOnline(uuid)` — non-blocking. Returns last-known presence + schedules a background refresh if stale.
+- `warmPresence(set)` — batch warm the cache (called by the TAB mixin when it first opens).
+- `fetchCape(uuid)` — synchronous PNG fetch (background-thread only).
+- All HTTP runs on virtual threads. Render thread never blocks. Crude JSON parser tuned to the worker's exact response shape — no Gson dep.
+
+### TAB badge ([PlayerListHudMixin.java](mod/src/main/java/com/iceymod/mixin/PlayerListHudMixin.java))
+
+Mixes `PlayerListHud`:
+
+- **`render` HEAD inject** — warms the presence cache for every player on the server (debounced to once per 30s so we don't spam the worker).
+- **`renderLatencyIcon` HEAD inject** — for each player row, if `IceyNetwork.isOnline(uuid)` returns true, draws an 8×8 `iceymod:icon.png` badge to the left of the ping icon. Bundled with the mod since v1.86.10 — no new asset.
+
+Both mixin methods use `require = 0` + multi-candidate method names (`renderLatencyIcon` / `method_1759` / `method_1735`) so yarn renames between 1.21.x point releases silently no-op rather than crashing the mod load.
+
+### Nameplate — deferred to v1.86.50
+
+The TAB mixin is "shoot wide and see what attaches." Once the launch log confirms which method name the TAB inject actually bound to (look for the badge rendering OR no crash), I'll know how aggressive to be with the nameplate mixin's targeting. Shipping a half-blind nameplate mixin alongside risks doubling the noise without doubling the signal.
+
+### Backend reminder
+
+The launcher still needs you to deploy the Cloudflare Worker from [backend/](backend/) for ANY of this to work end-to-end. Until then: the TAB mixin runs, presence lookups fail silently (no badges drawn), local cape still works.
+
 ## What's new in v1.86.48
 
 **Icey Network — Phase 1 (backend + launcher).** Cloudflare Worker that hosts custom capes + tracks which players are currently using Icey Client, plus launcher integration that uploads your cape on install and heartbeats while MC is running. Mod-side (per-player cape + TAB/nameplate badges) ships next once the v1.86.47 wrapper introspection log lands.

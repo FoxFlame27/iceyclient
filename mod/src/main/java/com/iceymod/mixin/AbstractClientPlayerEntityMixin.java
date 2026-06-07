@@ -315,7 +315,114 @@ public abstract class AbstractClientPlayerEntityMixin {
             if (dbg != null) dbg.append("    -> field overwrite failed: ").append(t).append('\n');
         }
 
+        // Strategy 5: multi-arg constructor where at least one param is
+        // Identifier. Fill the other args by type-matching against the
+        // existing wrapper's declared fields (works whether the wrapper
+        // is a record, a regular class, or a Mojang-style data carrier).
+        for (Constructor<?> ctor : runtimeType.getDeclaredConstructors()) {
+            Class<?>[] params = ctor.getParameterTypes();
+            if (params.length < 1 || params.length > 8) continue;
+            int idIdx = -1;
+            for (int p = 0; p < params.length; p++) {
+                if (isIdentifierType(params[p])) { idIdx = p; break; }
+            }
+            if (idIdx < 0) continue;
+            try {
+                Object[] args = new Object[params.length];
+                args[idIdx] = customCape;
+                // Fill other params by looking for declared fields with
+                // matching types on the existing wrapper.
+                for (int p = 0; p < params.length; p++) {
+                    if (p == idIdx) continue;
+                    args[p] = findFieldValueByType(existingWrapper, params[p]);
+                }
+                ctor.setAccessible(true);
+                Object wrapper = ctor.newInstance(args);
+                if (dbg != null) {
+                    dbg.append("    -> strategy: multi-arg ctor(arity=").append(params.length)
+                       .append(", idIdx=").append(idIdx).append(")\n");
+                }
+                return wrapper;
+            } catch (Throwable t) {
+                if (dbg != null) dbg.append("    -> multi-arg ctor failed: ").append(t).append('\n');
+            }
+        }
+
+        // Strategy 6: static factory method on the wrapper class
+        // returning the same type and taking an Identifier as first
+        // param. Mojang's "Resource.of(...)" pattern.
+        for (java.lang.reflect.Method m : runtimeType.getDeclaredMethods()) {
+            if (!java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
+            if (!runtimeType.isAssignableFrom(m.getReturnType())) continue;
+            Class<?>[] params = m.getParameterTypes();
+            if (params.length < 1 || params.length > 8) continue;
+            if (!isIdentifierType(params[0])) continue;
+            try {
+                Object[] args = new Object[params.length];
+                args[0] = customCape;
+                for (int p = 1; p < params.length; p++) {
+                    args[p] = findFieldValueByType(existingWrapper, params[p]);
+                }
+                m.setAccessible(true);
+                Object wrapper = m.invoke(null, args);
+                if (dbg != null) {
+                    dbg.append("    -> strategy: static factory ").append(m.getName())
+                       .append("(arity=").append(params.length).append(")\n");
+                }
+                return wrapper;
+            } catch (Throwable t) {
+                if (dbg != null) dbg.append("    -> static factory ").append(m.getName()).append(" failed: ").append(t).append('\n');
+            }
+        }
+
+        // Strategy 7: walk superclass fields too (the wrapper might
+        // inherit the Identifier field from a base class).
+        try {
+            Class<?> c = runtimeType.getSuperclass();
+            while (c != null && c != Object.class) {
+                for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                    if (isIdentifierType(f.getType()) && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                        f.setAccessible(true);
+                        f.set(existingWrapper, customCape);
+                        if (dbg != null) dbg.append("    -> strategy: inherited field overwrite at ").append(c.getName()).append('.').append(f.getName()).append("\n");
+                        return existingWrapper;
+                    }
+                }
+                c = c.getSuperclass();
+            }
+        } catch (Throwable t) {
+            if (dbg != null) dbg.append("    -> inherited field overwrite failed: ").append(t).append('\n');
+        }
+
         if (dbg != null) dbg.append("    -> all strategies exhausted, returning null\n");
+        return null;
+    }
+
+    /**
+     * Find any declared field on {@code obj} whose type is assignable
+     * to {@code paramType}, return its value. Used by multi-arg ctor
+     * strategies to recover the existing wrapper's other args.
+     */
+    private static Object findFieldValueByType(Object obj, Class<?> paramType) {
+        if (obj == null) return null;
+        Class<?> c = obj.getClass();
+        while (c != null && c != Object.class) {
+            for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                if (!paramType.isAssignableFrom(f.getType())) continue;
+                try {
+                    f.setAccessible(true);
+                    return f.get(obj);
+                } catch (Throwable ignored) {}
+            }
+            c = c.getSuperclass();
+        }
+        // Type fallback for primitives — return defaults.
+        if (paramType == boolean.class) return Boolean.FALSE;
+        if (paramType == int.class) return 0;
+        if (paramType == long.class) return 0L;
+        if (paramType == float.class) return 0f;
+        if (paramType == double.class) return 0d;
         return null;
     }
 

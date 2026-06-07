@@ -29,6 +29,54 @@ const ICEY_NETWORK_BASE_URL =
 let presenceHeartbeatTimer = null;
 const presenceActiveUuids = new Set();
 
+// ── Icey network: helpers (module-scope so launchMinecraft can
+//    reach them — earlier they lived inside app.whenReady() which
+//    caused "startPresenceHeartbeat is not defined" at launch). ─
+async function pingPresence(uuid) {
+  try {
+    const url = `${ICEY_NETWORK_BASE_URL}/presence/${encodeURIComponent(uuid)}`;
+    await fetch(url, { method: 'POST' });
+  } catch (e) {
+    log('warn', 'presence ping failed for ' + uuid + ': ' + e.message);
+  }
+}
+function startPresenceHeartbeat(uuid) {
+  try {
+    const settings = readSettings();
+    if (settings.iceyNetworkPresence === false) return;
+  } catch (_) {}
+  presenceActiveUuids.add(uuid);
+  pingPresence(uuid);
+  if (presenceHeartbeatTimer) return;
+  presenceHeartbeatTimer = setInterval(() => {
+    for (const u of presenceActiveUuids) pingPresence(u);
+  }, 60_000);
+}
+function stopPresenceHeartbeat(uuid) {
+  if (uuid) presenceActiveUuids.delete(uuid);
+  if (presenceActiveUuids.size === 0 && presenceHeartbeatTimer) {
+    clearInterval(presenceHeartbeatTimer);
+    presenceHeartbeatTimer = null;
+  }
+}
+async function uploadCapeToNetwork(uuid, buf) {
+  try {
+    if (!uuid || !buf || !buf.length) return;
+    const settings = readSettings();
+    if (settings.iceyNetworkCapeShare === false) return;
+    const url = `${ICEY_NETWORK_BASE_URL}/capes/${encodeURIComponent(uuid)}`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'content-type': 'image/png' },
+      body: buf,
+    });
+    if (!res.ok) log('warn', `cape network upload returned ${res.status}`);
+    else log('info', `cape uploaded to Icey network for ${uuid}`);
+  } catch (e) {
+    log('warn', 'cape network upload failed: ' + e.message);
+  }
+}
+
 // ── Paths ──────────────────────────────────────────────
 function getDataDir() {
   if (process.platform === 'win32') {
@@ -3400,65 +3448,6 @@ app.whenReady().then(() => {
   // Also still drops a copy in the global .minecraft/assets/skins/
   // for users who launch through the vanilla launcher and want to
   // try the "rename to a vanilla cache hash" trick manually.
-  // ── Icey network: presence heartbeat ─────────────────
-  // The mod queries /presence?uuids=... to know which other players
-  // in the world are running Icey Client (so it can draw the badge
-  // next to their name + fetch their cape). Each Icey Client launcher
-  // keeps its signed-in account "alive" by POSTing to /presence/:uuid
-  // every 60s while MC is running; the worker stores it with 90s TTL.
-  async function pingPresence(uuid) {
-    try {
-      const url = `${ICEY_NETWORK_BASE_URL}/presence/${encodeURIComponent(uuid)}`;
-      await fetch(url, { method: 'POST' });
-    } catch (e) {
-      log('warn', 'presence ping failed for ' + uuid + ': ' + e.message);
-    }
-  }
-  function startPresenceHeartbeat(uuid) {
-    try {
-      const settings = readSettings();
-      if (settings.iceyNetworkPresence === false) return;
-    } catch (_) {}
-    presenceActiveUuids.add(uuid);
-    // Immediate ping so the worker knows we're online ASAP.
-    pingPresence(uuid);
-    if (presenceHeartbeatTimer) return;
-    presenceHeartbeatTimer = setInterval(() => {
-      for (const u of presenceActiveUuids) pingPresence(u);
-    }, 60_000);
-  }
-  function stopPresenceHeartbeat(uuid) {
-    if (uuid) presenceActiveUuids.delete(uuid);
-    if (presenceActiveUuids.size === 0 && presenceHeartbeatTimer) {
-      clearInterval(presenceHeartbeatTimer);
-      presenceHeartbeatTimer = null;
-    }
-  }
-
-  // Best-effort PUT of the cape PNG to the Icey network backend so
-  // other Icey Client users see it. Failure is logged but never
-  // surfaced — local cape works regardless.
-  async function uploadCapeToNetwork(uuid, buf) {
-    try {
-      if (!uuid || !buf || !buf.length) return;
-      const settings = readSettings();
-      if (settings.iceyNetworkCapeShare === false) return;
-      const url = `${ICEY_NETWORK_BASE_URL}/capes/${encodeURIComponent(uuid)}`;
-      const res = await fetch(url, {
-        method: 'PUT',
-        headers: { 'content-type': 'image/png' },
-        body: buf,
-      });
-      if (!res.ok) {
-        log('warn', `cape network upload returned ${res.status}`);
-      } else {
-        log('info', `cape uploaded to Icey network for ${uuid}`);
-      }
-    } catch (e) {
-      log('warn', 'cape network upload failed: ' + e.message);
-    }
-  }
-
   ipcMain.handle('install-custom-cape', async (_, bytes, originalName) => {
     try {
       if (!bytes || !bytes.length) return { error: 'Empty file' };

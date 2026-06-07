@@ -12,7 +12,8 @@
     "KeyboardInputMixin",
     "EntityIsGlowingMixin",
     "SplashTextMixin",
-    "AbstractClientPlayerEntityMixin"
+    "AbstractClientPlayerEntityMixin",
+    "PlayerListHudMixin"
   ],
   "injectors": {
     "defaultRequire": 1
