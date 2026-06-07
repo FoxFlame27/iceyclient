@@ -71,7 +71,7 @@ async function HomePageInit() {
         <button class="liquid-menu-btn" onclick="_liquidOpenAccount()">
           <div class="liquid-menu-icon liquid-menu-icon-skin">
             ${_liquidAuthUser
-              ? `<img src="https://mineskin.eu/helm/${encodeURIComponent(_liquidAuthUser)}/56.png" alt="${_liquidAuthUser}" onerror="this.style.display='none'">`
+              ? `<img src="https://nmsr.nickac.dev/face/${encodeURIComponent(_liquidAuthUser)}?overlay=true" alt="${_liquidAuthUser}" onerror="this.style.display='none'">`
               : `<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>`}
           </div>
           <div class="liquid-menu-text">
@@ -381,7 +381,7 @@ async function _liquidOpenAccount() {
 
   const headerHtml = active
     ? `<div class="acct-active">
-         <img class="acct-active-avatar" src="https://mineskin.eu/helm/${attr(active.username)}/64.png" alt="">
+         <img class="acct-active-avatar" src="https://nmsr.nickac.dev/face/${attr(active.username)}?overlay=true" alt="">
          <div class="acct-active-info">
            <div class="acct-active-name">${esc(active.username)} ${typeBadge(active.type)}</div>
            <div class="acct-active-label">Active Account</div>
@@ -400,7 +400,7 @@ async function _liquidOpenAccount() {
       ${others.map(a => `
         <div class="acct-row">
           <button class="acct-switch" onclick="_liquidSwitchAccount('${attr(a.uuid)}')">
-            <img class="acct-avatar" src="https://mineskin.eu/helm/${attr(a.username)}/32.png" alt="">
+            <img class="acct-avatar" src="https://nmsr.nickac.dev/face/${attr(a.username)}?overlay=true" alt="">
             <span class="acct-name">${esc(a.username)}</span>
             ${typeBadge(a.type)}
             ${a.expired ? '<span class="acct-expired">expired</span>' : ''}

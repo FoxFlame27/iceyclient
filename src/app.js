@@ -70,7 +70,7 @@ async function loadNavProfile() {
   if (container) {
     if (auth && auth.username) {
       container.innerHTML = `
-        <img class="nav-profile-avatar" src="https://mineskin.eu/helm/${auth.username}/40.png" alt="${auth.username}" title="Click to switch account" onclick="_toggleProfileDropdown()">
+        <img class="nav-profile-avatar" src="https://nmsr.nickac.dev/face/${auth.username}?overlay=true" alt="${auth.username}" title="Click to switch account" onclick="_toggleProfileDropdown()">
         <div class="nav-profile-name" onclick="_toggleProfileDropdown()" style="cursor:pointer">${auth.username}</div>
       `;
     } else if (hasSavedAccounts) {
@@ -93,14 +93,14 @@ async function loadNavProfile() {
   if (titlebarProfile) {
     if (auth && auth.username) {
       titlebarProfile.innerHTML = `
-        <img class="titlebar-profile-head" src="https://mineskin.eu/helm/${auth.username}/24.png" alt="${auth.username}" onclick="_toggleProfileDropdown()">
+        <img class="titlebar-profile-head" src="https://nmsr.nickac.dev/face/${auth.username}?overlay=true" alt="${auth.username}" onclick="_toggleProfileDropdown()">
       `;
       _updateProfileDropdown(auth);
     } else if (hasSavedAccounts) {
       // Generic Steve head — clickable so user can reach the dropdown to
       // switch to / remove a saved account.
       titlebarProfile.innerHTML = `
-        <img class="titlebar-profile-head" src="https://mineskin.eu/helm/MHF_Steve/24.png" alt="Manage accounts" title="Manage accounts" onclick="_toggleProfileDropdown()">
+        <img class="titlebar-profile-head" src="https://nmsr.nickac.dev/face/MHF_Steve?overlay=true" alt="Manage accounts" title="Manage accounts" onclick="_toggleProfileDropdown()">
       `;
       _updateProfileDropdown(null);
     } else {
@@ -133,7 +133,7 @@ async function _updateProfileDropdown(auth) {
   const otherAccountsHtml = others.map(a => `
     <div class="titlebar-account-row">
       <button class="titlebar-dropdown-btn titlebar-account-switch" onclick="_switchAccount('${_escapeAttr(a.uuid)}')">
-        <img class="titlebar-account-avatar" src="https://mineskin.eu/helm/${_escapeAttr(a.username)}/22.png" alt="">
+        <img class="titlebar-account-avatar" src="https://nmsr.nickac.dev/face/${_escapeAttr(a.username)}?overlay=true" alt="">
         <span class="titlebar-account-name">${_escapeHtml(a.username)}</span>
         ${typeBadge(a.type)}
         ${a.expired ? '<span class="titlebar-account-badge">expired</span>' : ''}
@@ -151,7 +151,7 @@ async function _updateProfileDropdown(auth) {
 
   const headerHtml = auth ? `
     <div class="titlebar-dropdown-user">
-      <img class="titlebar-dropdown-avatar" src="https://mineskin.eu/helm/${_escapeAttr(auth.username)}/36.png" alt="">
+      <img class="titlebar-dropdown-avatar" src="https://nmsr.nickac.dev/face/${_escapeAttr(auth.username)}?overlay=true" alt="">
       <div class="titlebar-dropdown-info">
         <div class="titlebar-dropdown-name">${_escapeHtml(auth.username)} ${typeBadge(activeFull.type)}</div>
         <div class="titlebar-dropdown-label">Active Account</div>

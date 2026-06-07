@@ -30,6 +30,33 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.44
+
+**Account head avatars across the launcher now render with the outer skin layer (hat / hood / etc.). Switched all 8 places that used `mineskin.eu/helm/<name>/<size>.png` to `nmsr.nickac.dev/face/<name>?overlay=true`.**
+
+### Why
+
+User: "also make the head for accounts with outerlayers and no cape :(". The old `mineskin.eu/helm` rendered an inconsistent helm overlay (sometimes hat-less); NMSR's `/face` endpoint with `overlay=true` reliably renders the head with the 2nd skin layer (hat / hood / glasses) on every account.
+
+### Where
+
+All 8 spots:
+
+- **[app.js:73](src/app.js)** — sidebar profile avatar (logged-in account, opens picker on click).
+- **[app.js:96](src/app.js)** — titlebar profile head (right side of titlebar).
+- **[app.js:103](src/app.js)** — titlebar profile head placeholder when no auth (`MHF_Steve` default).
+- **[app.js:136](src/app.js)** — account dropdown switch list (other accounts).
+- **[app.js:154](src/app.js)** — account dropdown header (current active account).
+- **[home.js:74](src/pages/home.js)** — Liquid home Account button skin head.
+- **[home.js:384](src/pages/home.js)** — Account picker modal active-account header.
+- **[home.js:403](src/pages/home.js)** — Account picker modal switch-to row.
+
+URL format change: `https://mineskin.eu/helm/<name>/<size>.png` → `https://nmsr.nickac.dev/face/<name>?overlay=true`. The CSS sizes the `<img>` so dropping the size suffix from the URL doesn't matter.
+
+### Cape note
+
+v1.86.43's positional-swap fix is shipped — the user's v1.86.42 log showed `reflection found no cape field to swap` because the build they ran predates the positional fallback. Once the v1.86.43 CI matrix jar lands and the launcher updates, the cape should swap on the next world load.
+
 ## What's new in v1.86.43
 
 **Cape mixin actually swaps now (positional fallback when names are obfuscated), skin viewer renders WITH overlay via NMSR, every search bar loses its black wrapper box and becomes a naked underlined input.**
