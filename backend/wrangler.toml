@@ -1,0 +1,21 @@
+name = "icey-client-network"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Cape PNG storage. Create with:
+#   wrangler r2 bucket create icey-capes
+[[r2_buckets]]
+binding = "CAPES"
+bucket_name = "icey-capes"
+
+# Presence (online/offline ticker). Create with:
+#   wrangler kv:namespace create ICEY_PRESENCE
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "PRESENCE"
+id = "REPLACE_ME_WITH_KV_NAMESPACE_ID"
+
+# Optional: custom domain. After deploying, run:
+#   wrangler deploy
+# and either use the auto-assigned <name>.<subdomain>.workers.dev URL,
+# or attach a custom domain in the Cloudflare dashboard.

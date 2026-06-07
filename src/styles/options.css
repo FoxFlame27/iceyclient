@@ -655,3 +655,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Section heading between toggle-rows — used to group the Icey
+   Network toggles together so they read as one community feature,
+   not three unrelated switches. */
+.options-section-heading {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, var(--accent), var(--accent-bright));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 18px 0 8px;
+}

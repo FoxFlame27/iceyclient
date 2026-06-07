@@ -30,6 +30,11 @@ async function _renderMainOptions(page, settings) {
   const skinChangerEnabled = !!settings.skinChangerEnabled;
   const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
   const closeOnStart = !!settings.closeLauncherOnStart;
+  // Icey network — community features. Default-on, can be turned off
+  // by privacy-conscious users.
+  const networkCapeShare = settings.iceyNetworkCapeShare !== false;
+  const networkPresence = settings.iceyNetworkPresence !== false;
+  const networkShowBadges = settings.iceyNetworkShowBadges !== false;
   // Layout theme: 'classic' (sidebar left) or 'liquid' (bottom nav +
   // 4-button home). The default is 'classic' so existing users don't
   // get a surprise UI rearrangement on first launch after upgrading.
@@ -170,6 +175,45 @@ async function _renderMainOptions(page, settings) {
                       onclick="_optSetAccent('${c.value}', this)"></button>
             `).join('')}
           </div>
+        </div>
+      </div>
+
+      <!-- Icey Network — community sync. Three soft toggles.
+           Lets users opt out of any of the three independently.
+           All default-on so the network is populated by default. -->
+      <div class="options-section-heading">Icey Network</div>
+      <div class="options-toggle-row">
+        <div class="options-toggle-card ${networkCapeShare ? 'on' : 'off'}" onclick="_optToggleFeature('iceyNetworkCapeShare', ${!networkCapeShare})">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Share Cape</div>
+            <div class="options-toggle-desc">Other Icey Client users see your cape</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${networkCapeShare ? 'checked' : ''} onchange="_optToggleFeature('iceyNetworkCapeShare', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="options-toggle-card ${networkPresence ? 'on' : 'off'}" onclick="_optToggleFeature('iceyNetworkPresence', ${!networkPresence})">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Show Online</div>
+            <div class="options-toggle-desc">Broadcast that you're using Icey Client</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${networkPresence ? 'checked' : ''} onchange="_optToggleFeature('iceyNetworkPresence', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="options-toggle-card ${networkShowBadges ? 'on' : 'off'}" onclick="_optToggleFeature('iceyNetworkShowBadges', ${!networkShowBadges})">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Show Badges</div>
+            <div class="options-toggle-desc">See Icey logos on other players in-game</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${networkShowBadges ? 'checked' : ''} onchange="_optToggleFeature('iceyNetworkShowBadges', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </div>
     </div>

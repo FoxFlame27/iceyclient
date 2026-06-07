@@ -30,6 +30,62 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.48
+
+**Icey Network — Phase 1 (backend + launcher).** Cloudflare Worker that hosts custom capes + tracks which players are currently using Icey Client, plus launcher integration that uploads your cape on install and heartbeats while MC is running. Mod-side (per-player cape + TAB/nameplate badges) ships next once the v1.86.47 wrapper introspection log lands.
+
+### Architecture
+
+The community features ("other Icey Client users see my cape" + "I see Icey logos next to their names") need state shared between players. Done with one tiny Worker:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `PUT` | `/capes/:uuid` | Launcher uploads PNG after local cape install. R2 storage, ≤64 KB. |
+| `GET` | `/capes/:uuid` | Mod fetches a remote player's cape on join. 404 if none. |
+| `POST` | `/presence/:uuid` | Launcher heartbeats every 60s while MC is running. KV with 90s TTL. |
+| `GET` | `/presence?uuids=a,b,c` | Mod batch-checks who in the player list is using Icey. |
+
+Code: [backend/worker.js](backend/worker.js), config: [backend/wrangler.toml](backend/wrangler.toml), deploy steps: [backend/README.md](backend/README.md).
+
+### Auth posture (MVP)
+
+Open. Worst case: someone overwrites a stranger's cape PNG or marks a stranger as "online". Both annoying, neither catastrophic. Signed-token flow (Mojang session → short-lived bearer) is a follow-up.
+
+### Launcher integration ([main.js](main.js))
+
+- **`uploadCapeToNetwork()`** — fires after every `install-custom-cape` IPC if the signed-in account has a UUID. Best-effort, never blocks the local cape install.
+- **`startPresenceHeartbeat()` / `stopPresenceHeartbeat()`** — kicks off a 60s interval when MC launches with an MSA account, stops when the last MC process for that UUID exits. Skipped for offline accounts (synthesized UUIDs mean nothing on the network).
+- Both honor the new settings toggles — turning either off becomes a no-op.
+
+### Settings UI ([options.js](src/pages/options.js))
+
+New **Icey Network** section in Settings with three toggles, all default-on:
+
+- **Share Cape** — PUT my cape PNG to the backend so others see it.
+- **Show Online** — POST presence heartbeat so others see my badge.
+- **Show Badges** — (mod-side, ships in Phase 2) Render Icey logos next to other Icey Client users in TAB + nameplate.
+
+### What's next (Phase 2 — mod side)
+
+Per-player cape fetch + TAB/nameplate badge mixin. Both depend on v1.86.47's wrapper introspection log answering how `class_12079$class_12081` is constructed. Once that log lands and v1.86.48 (or .49) wires the wrapper-construction fix, the mod will:
+
+1. On player join: GET `/capes/<uuid>` → if 200, register the PNG as that player's cape texture, swap via the same mixin path we just built.
+2. On HUD render: batch GET `/presence?uuids=...` for everyone in the world → mark Icey users with a flag.
+3. Mixin `PlayerListHud` (TAB) + `EntityRenderer` (nameplate) to draw the Icey logo next to flagged players' names.
+
+### Deploying the backend
+
+```sh
+cd backend
+npm i -g wrangler
+wrangler login
+wrangler r2 bucket create icey-capes
+wrangler kv:namespace create ICEY_PRESENCE   # paste the id into wrangler.toml
+wrangler deploy
+```
+
+Once deployed, set `ICEY_NETWORK_BASE_URL` to your `<name>.workers.dev` URL (or custom domain) in `main.js` and redeploy. Until then the launcher tries to PUT to a placeholder URL and fails silently — local cape still works.
+
 ## What's new in v1.86.47
 
 **v1.86.46 found the cape slot correctly (`assetCount=3 assetPositionalIdx=1 -> targetIdx=1`) but all 4 wrapper-construction strategies returned null. The wrapper class isn't an Identifier, doesn't have a `ctor(Identifier)`, isn't a record, and has no Identifier field. We need to see its actual shape. v1.86.47 dumps everything — constructors, fields, current values, methods, isRecord, isInterface, superclass — so v1.86.48 can target the right strategy.**

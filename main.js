@@ -14,6 +14,21 @@ let mainWindow = null;
 const mcProcesses = new Map();
 let mcLaunchCounter = 0;
 
+// ── Icey Client network backend ────────────────────────
+// Cloudflare Worker that hosts cape PNGs + presence heartbeats so
+// other Icey Client users see each other's capes and online badges.
+// See backend/README.md for deploy steps. Override with the
+// ICEY_NETWORK_BASE_URL env var when developing against a local
+// wrangler dev server (e.g. http://localhost:8787).
+const ICEY_NETWORK_BASE_URL =
+  process.env.ICEY_NETWORK_BASE_URL ||
+  'https://icey-client-network.iceyclient.workers.dev';
+
+// In-memory presence heartbeat. Started when MC launches with a
+// signed-in account, stopped when the last MC process exits.
+let presenceHeartbeatTimer = null;
+const presenceActiveUuids = new Set();
+
 // ── Paths ──────────────────────────────────────────────
 function getDataDir() {
   if (process.platform === 'win32') {
@@ -185,7 +200,11 @@ function getDefaultSettings() {
     language: 'en',
     uiSounds: true,
     volume: 60,
-    uuid: crypto.randomUUID()
+    uuid: crypto.randomUUID(),
+    // Icey network — community features. Both default on.
+    iceyNetworkCapeShare: true,        // PUT cape to backend after upload
+    iceyNetworkPresence: true,         // POST presence heartbeat while MC is running
+    iceyNetworkShowBadges: true        // (read by mod) draw Icey badge next to other players
   };
 }
 
@@ -1380,7 +1399,13 @@ function launchMinecraft(installationId) {
       // a crash-log modal if MC exits with a non-zero code.
       const tail = [];
       const pushTail = (line) => { tail.push(line); if (tail.length > 120) tail.shift(); };
-      mcProcesses.set(launchId, { proc, installationId, username: launchUsername, tail });
+      mcProcesses.set(launchId, { proc, installationId, username: launchUsername, uuid: launchUuid, tail });
+      // Start Icey-network presence heartbeat for this player. Only
+      // for online MSA accounts (offline accounts have synthesized
+      // UUIDs that mean nothing on the network).
+      if (launchUserType === 'msa' && launchUuid) {
+        startPresenceHeartbeat(launchUuid);
+      }
 
       proc.stdout.on('data', (data) => {
         const text = data.toString().trim();
@@ -1410,12 +1435,18 @@ function launchMinecraft(installationId) {
       proc.on('error', (err) => {
         log('error', `MC #${launchId} process error: ` + err.message);
         mcProcesses.delete(launchId);
+        if (!Array.from(mcProcesses.values()).some(p => p.uuid === launchUuid)) {
+          stopPresenceHeartbeat(launchUuid);
+        }
         if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-error', message: err.message, launchId });
       });
 
       proc.on('close', (code) => {
         log('info', `MC #${launchId} (${launchUsername}) exited with code ${code}`);
         mcProcesses.delete(launchId);
+        if (!Array.from(mcProcesses.values()).some(p => p.uuid === launchUuid)) {
+          stopPresenceHeartbeat(launchUuid);
+        }
         if (mainWindow) {
           mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code, launchId });
 
@@ -3369,6 +3400,65 @@ app.whenReady().then(() => {
   // Also still drops a copy in the global .minecraft/assets/skins/
   // for users who launch through the vanilla launcher and want to
   // try the "rename to a vanilla cache hash" trick manually.
+  // ── Icey network: presence heartbeat ─────────────────
+  // The mod queries /presence?uuids=... to know which other players
+  // in the world are running Icey Client (so it can draw the badge
+  // next to their name + fetch their cape). Each Icey Client launcher
+  // keeps its signed-in account "alive" by POSTing to /presence/:uuid
+  // every 60s while MC is running; the worker stores it with 90s TTL.
+  async function pingPresence(uuid) {
+    try {
+      const url = `${ICEY_NETWORK_BASE_URL}/presence/${encodeURIComponent(uuid)}`;
+      await fetch(url, { method: 'POST' });
+    } catch (e) {
+      log('warn', 'presence ping failed for ' + uuid + ': ' + e.message);
+    }
+  }
+  function startPresenceHeartbeat(uuid) {
+    try {
+      const settings = readSettings();
+      if (settings.iceyNetworkPresence === false) return;
+    } catch (_) {}
+    presenceActiveUuids.add(uuid);
+    // Immediate ping so the worker knows we're online ASAP.
+    pingPresence(uuid);
+    if (presenceHeartbeatTimer) return;
+    presenceHeartbeatTimer = setInterval(() => {
+      for (const u of presenceActiveUuids) pingPresence(u);
+    }, 60_000);
+  }
+  function stopPresenceHeartbeat(uuid) {
+    if (uuid) presenceActiveUuids.delete(uuid);
+    if (presenceActiveUuids.size === 0 && presenceHeartbeatTimer) {
+      clearInterval(presenceHeartbeatTimer);
+      presenceHeartbeatTimer = null;
+    }
+  }
+
+  // Best-effort PUT of the cape PNG to the Icey network backend so
+  // other Icey Client users see it. Failure is logged but never
+  // surfaced — local cape works regardless.
+  async function uploadCapeToNetwork(uuid, buf) {
+    try {
+      if (!uuid || !buf || !buf.length) return;
+      const settings = readSettings();
+      if (settings.iceyNetworkCapeShare === false) return;
+      const url = `${ICEY_NETWORK_BASE_URL}/capes/${encodeURIComponent(uuid)}`;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'content-type': 'image/png' },
+        body: buf,
+      });
+      if (!res.ok) {
+        log('warn', `cape network upload returned ${res.status}`);
+      } else {
+        log('info', `cape uploaded to Icey network for ${uuid}`);
+      }
+    } catch (e) {
+      log('warn', 'cape network upload failed: ' + e.message);
+    }
+  }
+
   ipcMain.handle('install-custom-cape', async (_, bytes, originalName) => {
     try {
       if (!bytes || !bytes.length) return { error: 'Empty file' };
@@ -3415,6 +3505,17 @@ app.whenReady().then(() => {
       }
 
       if (written.length === 0) return { error: 'No installations to write to' };
+
+      // Fire-and-forget upload to the Icey network so other Icey
+      // Client players can see this cape. Use the currently
+      // signed-in account's UUID — if no auth, skip.
+      try {
+        const auth = readAuth();
+        if (auth && auth.uuid) {
+          uploadCapeToNetwork(auth.uuid, buf);
+        }
+      } catch (_) {}
+
       return {
         success: true,
         savedTo: written[0],
