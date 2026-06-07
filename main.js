@@ -3427,6 +3427,45 @@ app.whenReady().then(() => {
     }
   });
 
+  // Info page — open the per-installation cape folder so the user
+  // can see / rename their cape PNG. Prefers the active installation;
+  // falls back to the first one.
+  ipcMain.handle('open-cape-folder', () => {
+    try {
+      const installs = readInstallations();
+      if (!installs.length) return { error: 'No installations' };
+      const target = installs.find(i => i.selected) || installs[0];
+      const capeDir = path.join(INSTALLATIONS_DIR, target.id, 'game', 'config', 'iceyclient');
+      try { fs.mkdirSync(capeDir, { recursive: true }); } catch (_) {}
+      shell.openPath(capeDir);
+      return { success: true, path: capeDir };
+    } catch (e) {
+      return { error: e.message };
+    }
+  });
+
+  // Info page — proxy mcsrvstat.us so renderer can query any IP for
+  // live player count + icon without CORS / fetch trouble. Returns
+  // the parsed JSON, an error, or null on network failure.
+  ipcMain.handle('query-server-status', async (_, address) => {
+    const ip = String(address || '').trim();
+    if (!ip) return { error: 'Empty IP' };
+    try {
+      const data = await new Promise((resolve, reject) => {
+        https.get('https://api.mcsrvstat.us/3/' + encodeURIComponent(ip), {
+          headers: { 'User-Agent': 'IceyClient/1.0' }
+        }, (res) => {
+          let body = '';
+          res.on('data', c => body += c);
+          res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
+        }).on('error', reject);
+      });
+      return data;
+    } catch (e) {
+      return { error: e.message };
+    }
+  });
+
   // Download libraries into real .minecraft/libraries from version JSON URL
   ipcMain.handle('download-mc-libraries', async (_, versionJsonUrl) => {
     const mcDir = getDefaultMcDir();

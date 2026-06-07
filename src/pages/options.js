@@ -34,6 +34,17 @@ async function _renderMainOptions(page, settings) {
   // 4-button home). The default is 'classic' so existing users don't
   // get a surprise UI rearrangement on first launch after upgrading.
   const layoutTheme = settings.layoutTheme === 'liquid' ? 'liquid' : 'classic';
+  // Accent color — promoted out of Advanced Settings → Appearance so
+  // it lives alongside Health Indicators / Close on Launch in the
+  // main toggle row grid.
+  const accentColor = settings.accentColor || '#5bc8f5';
+  const accentChoices = [
+    { name: 'Ice Blue', value: '#5bc8f5' },
+    { name: 'Purple',   value: '#a78bfa' },
+    { name: 'Green',    value: '#4ade80' },
+    { name: 'Orange',   value: '#fb923c' },
+    { name: 'Pink',     value: '#f472b6' }
+  ];
 
   // Load panorama catalog if not cached
   if (!_optionsPanoramaCache) {
@@ -140,6 +151,25 @@ async function _renderMainOptions(page, settings) {
             <input type="checkbox" ${layoutTheme === 'liquid' ? 'checked' : ''} onchange="_optSetLayoutTheme(this.checked ? 'liquid' : 'classic')">
             <span class="toggle-slider"></span>
           </label>
+        </div>
+
+        <!-- Accent color picker — promoted out of Advanced.
+             5 small swatches inside the toggle-card shape; clicking
+             a swatch sets it as the active accent and updates the
+             ring without re-rendering the whole settings page. -->
+        <div class="options-toggle-card options-accent-card on">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Accent Color</div>
+            <div class="options-toggle-desc">UI highlight + button glow</div>
+          </div>
+          <div class="options-accent-swatches" onclick="event.stopPropagation();">
+            ${accentChoices.map(c => `
+              <button class="options-accent-swatch ${c.value === accentColor ? 'selected' : ''}"
+                      style="background:${c.value}"
+                      title="${c.name}"
+                      onclick="_optSetAccent('${c.value}', this)"></button>
+            `).join('')}
+          </div>
         </div>
       </div>
     </div>
@@ -302,19 +332,6 @@ function _renderAdvancedOptions(page, settings) {
                 <span class="toggle-slider"></span>
               </label>
               <span style="font-size:12px;color:var(--text-muted);min-width:36px;">${currentTheme === 'light' ? 'Light' : 'Dark'}</span>
-            </div>
-          </div>
-          <div class="options-row">
-            <div class="options-row-label"><span class="options-row-name">Accent Color</span></div>
-            <div class="options-row-control">
-              <div class="color-swatches">
-                ${accentColors.map(c => `
-                  <div class="color-swatch ${c.value === currentAccent ? 'selected' : ''}"
-                       style="background:${c.value};color:${c.value}"
-                       title="${c.name}"
-                       onclick="_optSetAccent('${c.value}', this)"></div>
-                `).join('')}
-              </div>
             </div>
           </div>
           <div class="options-row">
@@ -623,7 +640,9 @@ async function _optSetTheme(isLight) {
 }
 async function _optSetAccent(color, el) {
   await SettingsManager.set('accentColor', color);
-  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  // Clear previous selection on both the old Advanced swatches (if
+  // the Advanced screen is open) AND the new main-Settings swatches.
+  document.querySelectorAll('.color-swatch, .options-accent-swatch').forEach(s => s.classList.remove('selected'));
   if (el) el.classList.add('selected');
 }
 async function _optSetBgOpacity(val) {

@@ -30,6 +30,69 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.40
+
+**Big batch: accent color promoted to main Settings, toggle row grid fixed (closes the Windows "can't see Close on Launch" bug), Info page gets a big live playtime counter + 2× skin viewer + 2× server column + dynamic IP search with live status / add-to-featured + open-cape-folder button. Cape mixin re-introduced with reflection so it works across yarn class renames. F4 freecam gets diagnostic logging for Windows.**
+
+### Settings: accent color + toggle row fix ([options.js](src/pages/options.js), [options.css](src/styles/options.css))
+
+- **Accent color** picker (the 5 swatches) promoted out of Advanced → Appearance into the main Settings page, sitting in the toggle row next to Health Indicators / Close on Launch / Change Theme.
+- **Toggle row grid** switched from `grid-template-columns: 1fr 1fr` (2-col fixed) to `repeat(auto-fit, minmax(220px, 1fr))`. The 2-col grid wrapped the 3rd card to its own row, and on narrow Windows viewports that wrapped row pushed Close on Launch below the scroll area — invisible without scrolling. auto-fit always shows 3-2-1 columns depending on width with no orphan rows.
+- New `.options-accent-card` + `.options-accent-swatch` styles — 22×22 rounded squares with ring outline on the selected one, scale-on-hover.
+- `_optSetAccent` updated to clear selection on both the old `.color-swatch` (Advanced) and new `.options-accent-swatch` classes.
+
+### Info page: playtime counter ([skins.js](src/pages/skins.js), [skins.css](src/styles/skins.css))
+
+New **middle column** between the left (skin/cape) and right (servers) columns. Huge gradient `Outfit` counter in DD HH MM SS format ("3d 4h 22m 17s") with leading-zero suppression — first 60s shows just "12s", first hour shows "3m 4s", etc. Tabular-nums so the digits don't hop sideways as seconds tick.
+
+Live tick at 1 Hz reads `settings.totalPlaytime` plus the current MC session elapsed (if MC is running) so the counter ticks UP during a session.
+
+Label above ("YOU HAVE PLAYED FOR") and foot below ("ON ICEY CLIENT") in 11-13px uppercase tracking.
+
+### Info page: 2× skin + 2× server column
+
+- Skin viewer max-width bumped 160 → **320px**, max-height 220 → 420px. Drop-shadow + accent-glow strengthened to keep the silhouette readable.
+- Left column width clamp(220, 22vw, 320) → **clamp(360, 30vw, 540)**.
+- Right server column width clamp(220, 22vw, 320) → **clamp(360, 32vw, 540)**.
+
+### Info page: dynamic server search ([skins.js](src/pages/skins.js), [main.js](main.js), [preload.js](preload.js))
+
+The server search bar now does a live mcsrvstat.us lookup on ANY IP, not just filtering the featured list. New IPC: `query-server-status` proxies the API call so the renderer doesn't need to wrestle with CORS.
+
+- **Debounced 400ms** after typing — typing fast doesn't fire 30 requests.
+- **Looks-like-IP heuristic**: only fires a live lookup if the query contains a `.` or `:`. Otherwise just filters the featured list by name.
+- **Result row** above the featured list: bigger 28×28 favicon, server name, live `● N / M online` + first 36 chars of MOTD, or `Offline` in red.
+- **`+` button** on the result row → adds to featured (persisted to `settings.featuredServers`).
+- **`×` button** on every featured row → removes from featured.
+- Featured list persisted in settings; first run seeds from the 20-server default list.
+
+### Info page: cape folder button ([skins.js](src/pages/skins.js), [main.js](main.js))
+
+Small folder icon button next to the cape drop strip. Click → opens `<INSTALLATIONS_DIR>/<selected install id>/game/config/iceyclient/` in the OS file explorer so you can see / rename / swap your cape PNG without leaving the launcher. New IPC: `open-cape-folder`.
+
+### Cape mixin re-introduced with reflective field swap ([AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+v1.86.39 pulled the mixin to unblock CI because the `SkinTextures` class wasn't at `net.minecraft.client.util` on 1.21.11. Now back with a fully version-portable approach:
+
+- **No `SkinTextures` / `PlayerSkin` import** — uses raw `Object` for the return value.
+- **Multiple method-name candidates** in the `@Inject`: `{"getSkinTextures", "getSkin", "method_52814"}`. Whichever exists on the running yarn version is the one we attach to. `require = 0` means a missing target is a silent no-op.
+- **Reflection over `RecordComponent`s** on whatever record gets returned. Walks the components, finds any `Identifier`-typed one whose name contains "cape" (case-insensitive), constructs a new record via the canonical constructor with that field swapped to our local cape `Identifier`.
+- Local-player-only guard still in place; remote players keep their Mojang cape.
+
+So this build should compile + work on both 1.21.8 and 1.21.11 yarn matrices without me having to verify the exact class name — the reflection layer absorbs the rename.
+
+### F4 freecam diagnostic ([FreecamModule.java](mod/src/main/java/com/iceymod/hud/modules/FreecamModule.java))
+
+User reported F4 freecam doesn't move on Windows. The freecam reads `c.options.forwardKey.isPressed()` etc. — same code path on every OS, so something subtle is happening. Added a once-per-activation log line that fires the first frame `W` is held after entering freecam:
+
+```
+[IceyMod] FreecamModule keys (W held): fwd=true back=false ... sprint=false
+```
+
+If `fwd=false` while the user is actively pressing W, that confirms the bug is at the KeyBinding-state layer (likely a Windows-specific input handling thing) and we go fix from there. If `fwd=true` but the camera doesn't move, the bug is in the movement math.
+
+`loggedKeyState` reset on freecam toggle-off so each session gets a fresh diagnostic line.
+
 ## What's new in v1.86.39
 
 **Pull the cape mixin out of the build to unblock CI. The `SkinTextures` class doesn't exist at `net.minecraft.client.util.SkinTextures` on 1.21.11 — it either moved or got renamed (probably to `PlayerSkin`). Cape feature is paused, not abandoned.**

@@ -56,10 +56,68 @@
   align-items: flex-start;
 }
 
-/* ── LEFT column: skin block (top) + cape block (below it) ── */
+/* ── MIDDLE column: huge live playtime counter ── */
+.info-middle-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  align-self: center;
+  padding: 0 clamp(12px, 2vw, 40px);
+  gap: 8px;
+}
+.info-playtime-label {
+  font-size: clamp(11px, 0.9vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+}
+.info-playtime-counter {
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-size: clamp(36px, 5vw, 78px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #f1f5f9 0%, var(--accent-frost, #bae6fd) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 6px 32px rgba(0,0,0,0.55);
+  line-height: 1.05;
+  /* Make the digit widths consistent so the counter doesn't
+     hop sideways every time the seconds tick. */
+  font-variant-numeric: tabular-nums;
+}
+.info-playtime-foot {
+  font-size: clamp(10px, 0.85vw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-shadow: 0 1px 5px rgba(0,0,0,0.55);
+  margin-top: 2px;
+}
+
+/* Collapse the middle column visually on narrow widths so it doesn't
+   crowd the left + right columns. It still appears in DOM but moves
+   above the skin/cape block. */
+@media (max-width: 980px) {
+  .info-middle-col {
+    width: 100%;
+    order: -1;
+    padding: 12px 0;
+  }
+}
+
+/* ── LEFT column: skin block (top) + cape block (below it) ──
+   Bumped 2x from clamp(220, 22vw, 320) per user. */
 .info-left-col {
   flex: 0 0 auto;
-  width: clamp(220px, 22vw, 320px);
+  width: clamp(360px, 30vw, 540px);
   display: flex;
   flex-direction: column;
   gap: clamp(20px, 2vw, 32px);
@@ -119,11 +177,12 @@
   /* No background, no border — image floats on the page bg. */
 }
 .info-skin-img {
-  max-width: 160px;
-  max-height: 220px;
+  /* 2x bigger per user. */
+  max-width: 320px;
+  max-height: 420px;
   image-rendering: pixelated;
-  filter: drop-shadow(0 12px 28px rgba(0,0,0,0.55))
-          drop-shadow(0 0 14px rgba(91,200,245,0.18));
+  filter: drop-shadow(0 14px 36px rgba(0,0,0,0.6))
+          drop-shadow(0 0 22px rgba(91,200,245,0.22));
 }
 .info-skin-empty {
   font-size: 12px;
@@ -282,10 +341,10 @@
   font-size: 9px;
 }
 
-/* ── RIGHT column: server list ── */
+/* ── RIGHT column: server list. 2x wider per user. ── */
 .info-servers-col {
   flex: 0 0 auto;
-  width: clamp(220px, 22vw, 320px);
+  width: clamp(360px, 32vw, 540px);
   margin-left: auto;
   display: flex;
   flex-direction: column;
@@ -399,6 +458,89 @@
   color: var(--text-muted);
   font-style: italic;
   padding: 16px 6px;
+}
+
+/* Cape: row with the drop strip + open-folder button to its right. */
+.info-cape-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.info-cape-row .info-cape-drop { flex: 1; min-width: 0; }
+.info-cape-folder-btn {
+  flex-shrink: 0;
+  width: 44px;
+  background: rgba(0,0,0,0.45);
+  border: 1.5px solid rgba(91,200,245,0.22);
+  color: var(--accent);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.info-cape-folder-btn:hover {
+  background: rgba(91,200,245,0.18);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* Server search result row — slightly bigger icon + live status */
+.info-server-row-result {
+  background: rgba(91,200,245,0.06);
+  border: 1px solid rgba(91,200,245,0.2);
+  border-radius: 9px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.info-server-icon-lg {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 6px;
+}
+.info-server-text {
+  cursor: pointer;
+}
+.info-server-live { color: var(--green, #4ade80); font-weight: 700; }
+.info-server-offline { color: var(--red, #ef4444); font-weight: 700; }
+.info-server-loading {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 6px;
+}
+
+/* +/× action buttons on server rows */
+.info-server-action {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.4);
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  opacity: 0;
+}
+.info-server-row:hover .info-server-action { opacity: 1; }
+.info-server-row-result .info-server-action { opacity: 1; }
+.info-server-action.add:hover {
+  background: rgba(74,222,128,0.18);
+  border-color: rgba(74,222,128,0.5);
+  color: var(--green, #4ade80);
+}
+.info-server-action.remove:hover {
+  background: rgba(239,68,68,0.18);
+  border-color: rgba(239,68,68,0.5);
+  color: var(--red, #ef4444);
 }
 
 /* Collapse to stacked single column on narrow windows */

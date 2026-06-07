@@ -424,11 +424,50 @@
   font-size: 12px;
 }
 
-/* Feature toggle row */
+/* Feature toggle row.
+   1fr 1fr produced an inconsistent layout when there were 3 cards
+   in a row (top: Icey Mods + Skin Changer + Health Indicators; or
+   bottom: Close on Launch + Change Theme + Accent Color). The third
+   card wrapped to its own row alone, and on Windows narrow viewports
+   could push that wrapped card below the visible scroll area —
+   user couldn't see "Close on Launch" at all.
+   auto-fit + minmax means cards arrange as 3 columns on wide
+   screens, 2 on medium, 1 on narrow — every card always visible. */
 .options-toggle-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
+}
+
+/* Accent color swatches inside a toggle card */
+.options-accent-card .options-toggle-body {
+  flex: 1;
+  min-width: 0;
+}
+.options-accent-swatches {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.options-accent-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid rgba(255,255,255,0.12);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.18s ease, border-color 0.18s ease,
+              box-shadow 0.18s ease;
+}
+.options-accent-swatch:hover {
+  transform: scale(1.12);
+  border-color: rgba(255,255,255,0.4);
+}
+.options-accent-swatch.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.4),
+              0 0 12px currentColor;
+  transform: scale(1.15);
 }
 .options-toggle-card {
   display: flex;

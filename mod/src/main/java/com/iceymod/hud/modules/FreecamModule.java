@@ -39,6 +39,11 @@ public class FreecamModule extends HudModule {
     private static FreecamModule INSTANCE;
     private static long lastFrameNanos = 0L;
     private static boolean loggedFirstUpdate = false;
+    /** Once-per-activation diagnostic for the Windows freecam-can't-
+     *  move bug — prints the KeyBinding state the first frame the
+     *  user holds W after entering freecam. Reset when freecam
+     *  toggles off. */
+    private static boolean loggedKeyState = false;
 
     public FreecamModule() {
         super("freecam", "Freecam", 0, 0);
@@ -96,6 +101,8 @@ public class FreecamModule extends HudModule {
     public void stop(MinecraftClient client) {
         if (!active) return;
         active = false;
+        loggedFirstUpdate = false;
+        loggedKeyState = false;
         if (savedPerspective != null && client != null && client.options != null) {
             client.options.setPerspective(savedPerspective);
         }
@@ -165,6 +172,18 @@ public class FreecamModule extends HudModule {
             try { up     = c.options.jumpKey.isPressed();    } catch (Throwable t) { up = false; }
             try { down   = c.options.sneakKey.isPressed();   } catch (Throwable t) { down = false; }
             try { sprint = c.options.sprintKey.isPressed();  } catch (Throwable t) { sprint = false; }
+
+            // Once-per-activation diagnostic — prints the key state
+            // the first frame W is held after entering freecam. If
+            // movement on Windows is broken because KeyBinding state
+            // is stale at this point, the log will show fwd=false
+            // even when the user is pressing W.
+            if (!loggedKeyState && fwd) {
+                System.out.println("[IceyMod] FreecamModule keys (W held): fwd=" + fwd
+                        + " back=" + back + " left=" + left + " right=" + right
+                        + " up=" + up + " down=" + down + " sprint=" + sprint);
+                loggedKeyState = true;
+            }
 
             // moveSpeed setting is "blocks per tick"; 20 ticks/sec → blocks/sec.
             double speed = INSTANCE.moveSpeed.get() * 20.0;

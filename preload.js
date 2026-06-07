@@ -86,6 +86,8 @@ contextBridge.exposeInMainWorld('icey', {
   // Info page — skin download + cape upload
   downloadSkinPng: (username) => ipcRenderer.invoke('download-skin-png', username),
   installCustomCape: (bytes, originalName) => ipcRenderer.invoke('install-custom-cape', bytes, originalName),
+  openCapeFolder: () => ipcRenderer.invoke('open-cape-folder'),
+  queryServerStatus: (address) => ipcRenderer.invoke('query-server-status', address),
 
   // Window controls
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
