@@ -30,6 +30,46 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.41
+
+**Mods page rebuilt as a 70/30 split (50/50 in search mode), Info page rolled back to a smaller skin column + bigger server rows + square search bars, and `backdrop-filter` blur stripped from every card to address the sluggishness/unresponsiveness user reported.**
+
+### Mods page v2 ([mods.js](src/pages/mods.js), [mods.css](src/styles/mods.css))
+
+Old layout was three vertically-stacked sections (dropzone full-width → browse button → installed list) and a separate full-page "browse mode" you had to swap in/out of. New v2:
+
+- **Single unified split** — installed list always on the LEFT (70%), upload + browse always on the RIGHT (30%). No more browse-mode page swap.
+- **Search triggers 50/50** — the moment the user types in the browse search input, `[data-search="true"]` flips on the `.mods-split` grid and CSS transitions `grid-template-columns: 7fr 3fr` → `1fr 1fr` over 350ms. Clear the input → back to 70/30.
+- **Top bar** — tabs (Mods | Shaders) on the left, installation selector on the right.
+- **LEFT col** — section title with the same accent-gradient Outfit treatment from v1.86.37 + a live count + a scrollable installed list.
+- **RIGHT col** — compact upload tile at top (smaller than the old full-width dropzone) + Browse block with search input + 4 filter pills (All / Mods / RP / Shaders) + scrollable results with infinite scroll.
+- `_modsSearchDebounced` now also flips the split's `data-search` attribute.
+- Trending mods auto-load 50ms after page mount so the browse panel isn't empty when you arrive.
+- Legacy classes (`.mods-dropzone-full`, `.mods-main-actions`, `.mods-installed-section`) are hidden inside `.mods-main-view-v2` so any stale callers don't double-render.
+
+### Info page rollback ([skins.css](src/styles/skins.css))
+
+User pushback on v1.86.40's 2× changes — pulled back:
+
+- **Left col**: width clamp(360, 30vw, 540) → **clamp(240, 22vw, 380)** (slightly bigger than the v1.86.33 original, not 2×).
+- **Skin viewer**: 320×420 → **220×300** (smaller than v1.86.40, slightly bigger than the v1.86.33 original).
+- **Right server col**: clamp(360, 32vw, 540) → **clamp(300, 28vw, 460)** (still bigger than original, narrower than v1.86.40).
+- **Server rows**: padding 6/8 → **12/14**, icon 22×22 → **36×36**, name font 12 → **14px**, ip font 10 → **12px**, 2-pixel margin between name and IP. Each row now feels chunky and easy to click.
+- **Hover treatment**: 2px accent left-border slide + accent-tinted background, instead of just transform.
+- **Search bars** (both skin lookup and server lookup) → `border-radius: 0` per user request. The "Go" button next to the skin search loses its rounded corners too. Server search vertical padding bumped to make the bar feel less squished.
+
+### Performance: backdrop-filter blur removed across cards ([pages-polish.css](src/styles/pages-polish.css), [skins.css](src/styles/skins.css))
+
+User reported "Icey Client is super slow and doesn't respond". Likely cause: every glassy card in the polish layer was using `backdrop-filter: blur(14px)` (and inputs used 8px, secondary buttons used 10px). Electron / Chromium GPU-blurs are cheap individually but stack badly when dozens of overlapping cards (Settings rows, mod entries, server list, etc.) all have one. Removing them across the board:
+
+- `pages-polish.css` card block — backdrop-blur removed. Card bg opacity bumped 0.82/0.7 → 0.88/0.78 to compensate.
+- `pages-polish.css` outlined buttons — backdrop-blur removed, bg opacity 0.7 → 0.8.
+- `pages-polish.css` settings rows — backdrop-blur removed.
+- `pages-polish.css` inputs — backdrop-blur removed, bg 0.45 → 0.55.
+- `skins.css` skin/server search bars — backdrop-blur removed.
+
+The visual difference is minimal (slightly less translucent against the panorama background) and the GPU load is dramatically lower.
+
 ## What's new in v1.86.40
 
 **Big batch: accent color promoted to main Settings, toggle row grid fixed (closes the Windows "can't see Close on Launch" bug), Info page gets a big live playtime counter + 2× skin viewer + 2× server column + dynamic IP search with live status / add-to-featured + open-cape-folder button. Cape mixin re-introduced with reflection so it works across yarn class renames. F4 freecam gets diagnostic logging for Windows.**

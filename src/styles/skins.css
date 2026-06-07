@@ -114,10 +114,11 @@
 }
 
 /* ── LEFT column: skin block (top) + cape block (below it) ──
-   Bumped 2x from clamp(220, 22vw, 320) per user. */
+   User pushback: 2x was too big. Back to "slightly bigger than the
+   original 220-320 col" — 240-380. */
 .info-left-col {
   flex: 0 0 auto;
-  width: clamp(360px, 30vw, 540px);
+  width: clamp(240px, 22vw, 380px);
   display: flex;
   flex-direction: column;
   gap: clamp(20px, 2vw, 32px);
@@ -133,13 +134,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(0,0,0,0.55);
+  background: rgba(0,0,0,0.6);
   border: 1px solid rgba(91,200,245,0.22);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 4px 4px 4px 10px;
   width: 100%;
   box-sizing: border-box;
-  backdrop-filter: blur(8px);
 }
 .info-skin-input {
   flex: 1;
@@ -157,7 +157,7 @@
   background: var(--accent-dim);
   border: 1px solid rgba(91,200,245,0.4);
   color: var(--accent);
-  border-radius: 7px;
+  border-radius: 0;
   padding: 5px 9px;
   cursor: pointer;
   display: flex;
@@ -177,12 +177,12 @@
   /* No background, no border — image floats on the page bg. */
 }
 .info-skin-img {
-  /* 2x bigger per user. */
-  max-width: 320px;
-  max-height: 420px;
+  /* Pulled back from 320 — slightly bigger than original 160. */
+  max-width: 220px;
+  max-height: 300px;
   image-rendering: pixelated;
-  filter: drop-shadow(0 14px 36px rgba(0,0,0,0.6))
-          drop-shadow(0 0 22px rgba(91,200,245,0.22));
+  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.55))
+          drop-shadow(0 0 18px rgba(91,200,245,0.2));
 }
 .info-skin-empty {
   font-size: 12px;
@@ -341,14 +341,15 @@
   font-size: 9px;
 }
 
-/* ── RIGHT column: server list. 2x wider per user. ── */
+/* ── RIGHT column: server list. Slightly wider than original
+   to fit the now-bigger server rows. ── */
 .info-servers-col {
   flex: 0 0 auto;
-  width: clamp(360px, 32vw, 540px);
+  width: clamp(300px, 28vw, 460px);
   margin-left: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   max-height: 100%;
   min-height: 0;
 }
@@ -378,13 +379,12 @@
 .info-server-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: rgba(0,0,0,0.55);
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.6);
   border: 1px solid rgba(91,200,245,0.22);
-  border-radius: 9px;
+  border-radius: 0;
   color: var(--text-muted);
-  backdrop-filter: blur(8px);
 }
 .info-server-input {
   flex: 1;
@@ -392,8 +392,8 @@
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 11px;
-  padding: 3px 0;
+  font-size: 13px;
+  padding: 4px 0;
   min-width: 0;
 }
 .info-server-input::placeholder { color: var(--text-muted); }
@@ -412,46 +412,50 @@
 .info-server-row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 8px;
-  border-radius: 7px;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 0;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.15s ease;
-  /* No bg / border by default — just text on the page bg.
-     Hover gives a faint accent tint. */
+  background: rgba(0,0,0,0.42);
+  border-left: 2px solid transparent;
 }
 .info-server-row:hover {
-  background: rgba(91,200,245,0.12);
+  background: rgba(91,200,245,0.14);
+  border-left-color: var(--accent);
   transform: translateX(2px);
 }
 
 .info-server-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 0;
   image-rendering: pixelated;
   flex-shrink: 0;
+  background: rgba(255,255,255,0.04);
 }
 .info-server-text {
   flex: 1;
   min-width: 0;
 }
 .info-server-name {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  letter-spacing: 0.01em;
 }
 .info-server-ip {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-secondary);
   font-family: 'Inter', monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 2px;
 }
 .info-server-empty {
   font-size: 11px;

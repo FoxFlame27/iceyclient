@@ -811,3 +811,201 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ───────────────────────────────────────────────────────────────
+   v1.86.41 Mods page v2 layout.
+   Single unified split — installed list on the LEFT (70% default,
+   50% when searching), upload + browse on the RIGHT (30% default,
+   50% when searching). No more separate "browse mode" full-page
+   swap; everything's always visible.
+   ─────────────────────────────────────────────────────────────── */
+.mods-main-view-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Top bar — tabs + installation selector inline */
+.mods-main-view-v2 .mods-top-bar {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.mods-main-view-v2 .mods-install-selector {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mods-main-view-v2 .mods-selector-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.mods-main-view-v2 .mods-selector-select {
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(91,200,245,0.22);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Split layout — the meat of the v2 page */
+.mods-split {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  transition: grid-template-columns 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mods-split[data-search="true"] {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mods-left-col,
+.mods-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* LEFT column: installed list. Stays as a vertical scrolling list. */
+.mods-main-view-v2 .mods-section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.mods-main-view-v2 .mods-section-title {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, var(--accent), var(--accent-bright));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.mods-main-view-v2 .mods-section-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.mods-main-view-v2 .mods-installed-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* RIGHT column: upload + browse */
+.mods-main-view-v2 .mods-dropzone-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px;
+  background: rgba(0,0,0,0.42);
+  border: 1.5px dashed rgba(91,200,245,0.35);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease,
+              transform 0.18s ease;
+  flex-shrink: 0;
+}
+.mods-main-view-v2 .mods-dropzone-mini:hover,
+.mods-main-view-v2 .mods-dropzone-mini.dragover {
+  background: rgba(91,200,245,0.12);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.mods-main-view-v2 .mods-dropzone-mini .mods-dropzone-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+.mods-main-view-v2 .mods-dropzone-mini .mods-dropzone-subtext {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+.mods-main-view-v2 .mods-browse-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+.mods-main-view-v2 .mods-browse-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(91,200,245,0.22);
+  color: var(--text-muted);
+}
+.mods-main-view-v2 .mods-browse-search input {
+  flex: 1;
+  background: transparent !important;
+  border: none !important;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 2px 0;
+  min-width: 0;
+}
+.mods-main-view-v2 .mods-search-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.mods-main-view-v2 .mods-filter-pills {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(91,200,245,0.12);
+}
+.mods-main-view-v2 .mods-filter-pill {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 6px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mods-main-view-v2 .mods-filter-pill:hover {
+  color: var(--text-primary);
+}
+.mods-main-view-v2 .mods-filter-pill.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.mods-main-view-v2 .mods-browse-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Hide the legacy main-view structure if it ever renders again. */
+.mods-main-view-v2 .mods-dropzone-full,
+.mods-main-view-v2 .mods-main-actions,
+.mods-main-view-v2 .mods-installed-section { display: none; }

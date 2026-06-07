@@ -55,7 +55,12 @@
   -webkit-text-fill-color: transparent;
 }
 
-/* ── Glassy cards across pages ── */
+/* ── Glassy cards across pages ──
+   Performance: dropped backdrop-filter blur from this layer in
+   v1.86.41 — stacking 14px GPU blurs on every card on every page
+   was making the launcher feel laggy on weaker machines. The
+   gradient bg + soft shadow already gives the glass look without
+   the GPU cost. */
 .options-card,
 .console-output,
 .console-placeholder,
@@ -64,13 +69,11 @@
 .options-small-card,
 .options-toggle-card,
 .options-panorama-card {
-  background: linear-gradient(135deg, rgba(13,20,36,0.82), rgba(8,12,24,0.7)) !important;
+  background: linear-gradient(135deg, rgba(13,20,36,0.88), rgba(8,12,24,0.78)) !important;
   border: 1px solid rgba(91,200,245,0.18) !important;
   border-radius: 18px !important;
   box-shadow: 0 8px 28px rgba(0,0,0,0.42),
               0 0 0 1px rgba(91,200,245,0.05) inset !important;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 /* Installation card stays at the chunky 20px radius from v1.86.30 */
@@ -111,17 +114,16 @@
   box-shadow: 0 8px 22px rgba(91,200,245,0.45) !important;
 }
 
-/* ── Outlined / secondary buttons ── */
+/* ── Outlined / secondary buttons (no backdrop-blur, perf) ── */
 .options-btn,
 .console-btn,
 .btn-goto-installations {
-  background: rgba(13,20,36,0.7) !important;
+  background: rgba(13,20,36,0.8) !important;
   border: 1.5px solid rgba(91,200,245,0.22) !important;
   color: var(--text-primary) !important;
   border-radius: 12px !important;
   padding: 9px 16px !important;
   font-weight: 600 !important;
-  backdrop-filter: blur(10px);
   transition: background 0.18s ease, border-color 0.18s ease,
               color 0.18s ease, transform 0.18s ease !important;
 }
@@ -178,11 +180,10 @@
               0 0 0 1px rgba(91,200,245,0.06) inset !important;
 }
 
-/* ── Inputs: glassier bg, softer focus glow ── */
+/* ── Inputs: solid darker bg (perf — backdrop-blur dropped) ── */
 input, textarea, select {
-  background: rgba(0,0,0,0.45) !important;
+  background: rgba(0,0,0,0.55) !important;
   border-color: rgba(91,200,245,0.18) !important;
-  backdrop-filter: blur(8px);
   transition: border-color 0.2s ease, box-shadow 0.2s ease,
               background 0.2s ease !important;
 }
@@ -256,7 +257,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .options-section .options-row {
-  background: linear-gradient(135deg, rgba(13,20,36,0.82) 0%, rgba(8,12,24,0.7) 100%) !important;
+  background: linear-gradient(135deg, rgba(13,20,36,0.88) 0%, rgba(8,12,24,0.78) 100%) !important;
   border: 1px solid rgba(91,200,245,0.16) !important;
   border-radius: 14px !important;
   padding: 14px 20px !important;
@@ -268,8 +269,6 @@ input:focus, textarea:focus, select:focus {
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
               border-color 0.22s ease,
               box-shadow 0.22s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .options-section .options-row:hover {

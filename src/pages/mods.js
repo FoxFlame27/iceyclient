@@ -50,53 +50,85 @@ async function _renderModsMainView(page, installations) {
     return `<option value="${inst.id}" ${sel}>${label}</option>`;
   }).join('');
 
+  // v2 layout: unified 70/30 split. Installed list always on the
+  // left (70%), upload + browse search always on the right (30%).
+  // When the user types in the browse search the right column
+  // expands to 50% via a data-search attribute that the CSS reads.
   page.innerHTML = `
-    <div class="mods-main-view">
-      <div class="mods-tab-bar">
-        <button class="mods-tab active" data-tab="mods" onclick="_switchModsTab('mods', this)">
-          <img src="assets/fabric-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
-          Mods
-        </button>
-        <button class="mods-tab" data-tab="shaders" onclick="_switchModsTab('shaders', this)">
-          <img src="assets/shaders-icon.png" width="16" height="16" style="image-rendering:pixelated;object-fit:contain;">
-          Shaders
-        </button>
-      </div>
-      <div class="mods-install-selector">
-        <label class="mods-selector-label">Installing to:</label>
-        <select class="mods-selector-select" id="mods-install-select" onchange="_modsChangeInstallation(this.value)">
-          ${instOptions}
-        </select>
-      </div>
-      <div class="mods-dropzone-full" id="mods-dropzone" onclick="_modsBrowseFiles()">
-        <div class="mods-plus-icon">
-          <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
+    <div class="mods-main-view-v2">
+      <div class="mods-top-bar">
+        <div class="mods-tab-bar">
+          <button class="mods-tab active" data-tab="mods" onclick="_switchModsTab('mods', this)">Mods</button>
+          <button class="mods-tab" data-tab="shaders" onclick="_switchModsTab('shaders', this)">Shaders</button>
         </div>
-        <div class="mods-dropzone-text">Click to add mods or resource packs</div>
-        <div class="mods-dropzone-subtext">or drag and drop .jar / .zip files here</div>
-      </div>
-      <div class="mods-main-actions">
-        <button class="btn-mods-browse" onclick="_enterModsBrowse()">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          Browse Mods & Resource Packs
-        </button>
-      </div>
-      <div class="mods-installed-section" id="mods-installed-section">
-        <div class="mods-section-header">
-          <div class="mods-section-title">Installed</div>
-          <span class="mods-section-count" id="mods-installed-count">0</span>
+        <div class="mods-install-selector">
+          <label class="mods-selector-label">Installing to</label>
+          <select class="mods-selector-select" id="mods-install-select" onchange="_modsChangeInstallation(this.value)">
+            ${instOptions}
+          </select>
         </div>
-        <div id="mods-installed-list" class="mods-installed-list"></div>
+      </div>
+
+      <div class="mods-split" id="mods-split" data-search="false">
+        <!-- LEFT 70% (50% in search mode): installed list. -->
+        <div class="mods-left-col">
+          <div class="mods-section-header">
+            <div class="mods-section-title">Installed</div>
+            <span class="mods-section-count" id="mods-installed-count">0</span>
+          </div>
+          <div id="mods-installed-list" class="mods-installed-list"></div>
+        </div>
+
+        <!-- RIGHT 30% (50% in search mode): upload + browse. -->
+        <div class="mods-right-col">
+          <div class="mods-dropzone-mini" id="mods-dropzone" onclick="_modsBrowseFiles()">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <div class="mods-dropzone-text">Upload</div>
+            <div class="mods-dropzone-subtext">click or drag .jar / .zip</div>
+          </div>
+
+          <div class="mods-browse-block">
+            <div class="mods-section-title">Browse</div>
+            <div class="mods-browse-search">
+              <svg class="mods-search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="text" id="mods-search-input" placeholder="Search Modrinth & CurseForge..." oninput="_modsSearchDebounced()">
+            </div>
+            <div class="mods-filter-pills">
+              <button class="mods-filter-pill active" data-filter="all" onclick="_setModsFilter('all', this)">All</button>
+              <button class="mods-filter-pill" data-filter="mod" onclick="_setModsFilter('mod', this)">Mods</button>
+              <button class="mods-filter-pill" data-filter="resourcepack" onclick="_setModsFilter('resourcepack', this)">RP</button>
+              <button class="mods-filter-pill" data-filter="shader" onclick="_setModsFilter('shader', this)">Shaders</button>
+            </div>
+            <div id="mods-browse-results" class="mods-browse-list"></div>
+            <div id="mods-load-more" class="mods-load-more" style="display:none;">Loading more...</div>
+          </div>
+        </div>
       </div>
     </div>
   `;
 
   _setupModsDropzone();
   _refreshInstalledMods();
+
+  // Right-column browse auto-loads trending so the panel isn't
+  // empty when you arrive on the page. Defer to avoid blocking
+  // the initial render.
+  setTimeout(() => { try { _loadTrendingMods(); } catch (_) {} }, 50);
+
+  // Infinite scroll inside the right-column browse list.
+  const browseList = document.getElementById('mods-browse-results');
+  if (browseList && !browseList.dataset.scrollWired) {
+    browseList.dataset.scrollWired = '1';
+    browseList.addEventListener('scroll', () => {
+      if (_modsLoading || !_modsHasMore) return;
+      const { scrollTop, scrollHeight, clientHeight } = browseList;
+      if (scrollTop + clientHeight >= scrollHeight - 200) _loadMoreMods();
+    });
+  }
 }
 
 function _enterModsBrowse() {
@@ -261,6 +293,9 @@ function _modsSearchDebounced() {
   const input = document.getElementById('mods-search-input');
   if (!input) return;
   const query = input.value.trim();
+  // Flip the split to 50/50 when the user starts typing; back to 70/30 when empty.
+  const split = document.getElementById('mods-split');
+  if (split) split.dataset.search = query ? 'true' : 'false';
   if (!query) {
     _loadTrendingMods();
     return;
