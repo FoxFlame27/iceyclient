@@ -30,6 +30,53 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.46
+
+**Real cape fix: 1.21.10+ Mojang refactored `PlayerSkin` — the record no longer holds raw `Identifier`s, it holds a NEW texture-wrapper class. The v1.86.45 diagnostic finally exposed this. Fixed by walking the wrapper's inner structure to swap the Identifier inside.**
+
+### What the v1.86.45 log showed
+
+```
+[IceyMod] CapeMixin: Identifier.class at runtime = net.minecraft.class_2960
+[IceyMod] CapeMixin.swap: scanning 5 components
+  [0] name=comp_1626 type=net.minecraft.class_12079$class_12081 isIdentifier=false
+  [1] name=comp_1627 type=net.minecraft.class_12079$class_12081 isIdentifier=false
+  [2] name=comp_1628 type=net.minecraft.class_12079$class_12081 isIdentifier=false
+  [3] name=comp_1629 type=net.minecraft.class_7920 isIdentifier=false
+  [4] name=comp_1630 type=boolean isIdentifier=false
+[IceyMod] CapeMixin.swap: idCount=0 ... targetIdx=-1
+```
+
+`Identifier` at runtime is `class_2960` (correct — that's the actual yarn-mapped name). But the record components are `class_12079$class_12081` — a **wrapper** class introduced in MC 1.21.10's texture-system refactor. The wrapper holds an Identifier internally plus extra metadata.
+
+My v1.86.45 check `t == Identifier.class` correctly returned false for every component — because there literally are no `Identifier` components anymore. The whole positional-Identifier fallback was looking for something that no longer exists in this shape.
+
+### Fix: detect wrappers + reconstruct ([AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+Added a second positional strategy: **2nd asset-wrapper** (anything non-primitive, non-enum, non-String). The body/cape/elytra trio share the same wrapper type, so the cape is the 2nd of three consecutive wrappers.
+
+Once the target wrapper slot is identified, `buildWrapperWithIdentifier()` tries four strategies in order to produce a new wrapper carrying our custom cape Identifier:
+
+1. **Passthrough** — if the slot type IS Identifier, just return our cape (legacy path).
+2. **`ctor(Identifier)`** — if the wrapper has a single-arg Identifier constructor, call it.
+3. **Record copy+swap** — if the wrapper is a record, walk its components, copy them all, swap the inner Identifier component for our cape, rebuild via the canonical constructor.
+4. **Field overwrite** — last resort, reflectively set the first Identifier field on the existing wrapper (most likely fails because records are immutable, but worth trying).
+
+Each strategy logs which one it tried + which one succeeded. Same per-component diagnostic for the wrapper's inner shape too — if strategy 3 trips, we'll see exactly what the wrapper looks like inside.
+
+### Expected log next launch
+
+```
+CapeMixin.swap: idCount=0 assetCount=3 ... assetPositionalIdx=1 -> targetIdx=1
+  -> wrapper is a record with N components, attempting copy+swap
+    [0] <name>:net.minecraft.class_2960
+    ...
+  -> strategy: record copy+swap at idx 0
+CapeMixin: cape swap SUCCESS for local player
+```
+
+And the cape should actually render on your character.
+
 ## What's new in v1.86.45
 
 **Two things: (1) Cape mixin now has bulletproof Identifier matching + per-component diagnostic so we see EXACTLY why each component is or isn't accepted. (2) The Mods page "Installing to" dropdown is replaced with a nice centered pill button + popover, like the Create Installation button.**

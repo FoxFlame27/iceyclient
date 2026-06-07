@@ -156,6 +156,120 @@ public abstract class AbstractClientPlayerEntityMixin {
         return false;
     }
 
+    /**
+     * Heuristic: is {@code t} "asset-shaped"? In MC 1.21.10+ the skin
+     * record carries texture-wrapper objects (e.g.
+     * {@code class_12079$class_12081}) instead of raw Identifiers.
+     * Anything that isn't a primitive, enum, String, or boxed type is
+     * a candidate wrapper.
+     */
+    private static boolean isAssetCandidate(Class<?> t) {
+        if (t == null) return false;
+        if (t.isPrimitive() || t.isEnum() || t == String.class) return false;
+        if (t == Boolean.class || t == Integer.class || t == Long.class
+            || t == Float.class || t == Double.class) return false;
+        if (isIdentifierType(t)) return true;       // legacy direct Identifier
+        return true;                                // anything else: probably a texture wrapper
+    }
+
+    /**
+     * Given a wrapper class (the cape's container in the skin record)
+     * and the existing wrapper instance, build a NEW wrapper instance
+     * that carries our custom cape {@link Identifier}.
+     *
+     * <h3>Strategies (in order)</h3>
+     * <ol>
+     *   <li>{@code Identifier} itself — just return {@code customCape}.</li>
+     *   <li>Single-arg ctor taking an {@code Identifier} — call it.</li>
+     *   <li>The wrapper is a record — copy components, swap any
+     *       {@code Identifier} field for our cape, rebuild.</li>
+     *   <li>Walk fields and swap the first {@code Identifier} field
+     *       via {@code Field.setAccessible} (records are usually
+     *       immutable, but worth a try as a last resort — wrapped in
+     *       try/catch so we don't crash if it's truly final).</li>
+     * </ol>
+     */
+    private static Object buildWrapperWithIdentifier(Class<?> wrapperType,
+                                                     Object existingWrapper,
+                                                     Identifier customCape,
+                                                     StringBuilder dbg) {
+        // Strategy 1: it's already an Identifier — just hand it back.
+        if (isIdentifierType(wrapperType)) {
+            if (dbg != null) dbg.append("    -> strategy: Identifier passthrough\n");
+            return customCape;
+        }
+
+        // Strategy 2: ctor(Identifier).
+        for (Constructor<?> ctor : wrapperType.getDeclaredConstructors()) {
+            Class<?>[] params = ctor.getParameterTypes();
+            if (params.length == 1 && isIdentifierType(params[0])) {
+                try {
+                    ctor.setAccessible(true);
+                    Object wrapper = ctor.newInstance(customCape);
+                    if (dbg != null) dbg.append("    -> strategy: ctor(Identifier)\n");
+                    return wrapper;
+                } catch (Throwable t) {
+                    if (dbg != null) dbg.append("    -> strategy ctor(Identifier) failed: ").append(t).append('\n');
+                }
+            }
+        }
+
+        // Strategy 3: it's a record — copy + swap.
+        RecordComponent[] wcomps = wrapperType.getRecordComponents();
+        if (wcomps != null && wcomps.length > 0) {
+            if (dbg != null) {
+                dbg.append("    -> wrapper is a record with ").append(wcomps.length)
+                   .append(" components, attempting copy+swap\n");
+                for (int k = 0; k < wcomps.length; k++) {
+                    dbg.append("      [").append(k).append("] ").append(wcomps[k].getName())
+                       .append(':').append(wcomps[k].getType().getName()).append('\n');
+                }
+            }
+            try {
+                Object[] wargs = new Object[wcomps.length];
+                Class<?>[] wparams = new Class<?>[wcomps.length];
+                int idIdx = -1;
+                for (int j = 0; j < wcomps.length; j++) {
+                    wparams[j] = wcomps[j].getType();
+                    wargs[j] = wcomps[j].getAccessor().invoke(existingWrapper);
+                    if (idIdx < 0 && isIdentifierType(wcomps[j].getType())) {
+                        idIdx = j;
+                    }
+                }
+                if (idIdx >= 0) {
+                    wargs[idIdx] = customCape;
+                    Constructor<?> ctor = wrapperType.getDeclaredConstructor(wparams);
+                    ctor.setAccessible(true);
+                    Object wrapper = ctor.newInstance(wargs);
+                    if (dbg != null) dbg.append("    -> strategy: record copy+swap at idx ").append(idIdx).append("\n");
+                    return wrapper;
+                } else if (dbg != null) {
+                    dbg.append("    -> record has no Identifier component, falling through\n");
+                }
+            } catch (Throwable t) {
+                if (dbg != null) dbg.append("    -> record copy+swap failed: ").append(t).append('\n');
+            }
+        }
+
+        // Strategy 4: walk declared fields, find one of Identifier type,
+        // try to overwrite via reflection. Last resort.
+        try {
+            for (java.lang.reflect.Field f : wrapperType.getDeclaredFields()) {
+                if (isIdentifierType(f.getType()) && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                    f.setAccessible(true);
+                    f.set(existingWrapper, customCape);
+                    if (dbg != null) dbg.append("    -> strategy: field overwrite at ").append(f.getName()).append("\n");
+                    return existingWrapper;
+                }
+            }
+        } catch (Throwable t) {
+            if (dbg != null) dbg.append("    -> field overwrite failed: ").append(t).append('\n');
+        }
+
+        if (dbg != null) dbg.append("    -> all strategies exhausted, returning null\n");
+        return null;
+    }
+
     private static Object swapCapeFieldReflective(Object original, Identifier customCape) throws Throwable {
         Class<?> cls = original.getClass();
         RecordComponent[] comps = cls.getRecordComponents();
@@ -174,43 +288,81 @@ public abstract class AbstractClientPlayerEntityMixin {
 
         Object[] args = new Object[comps.length];
         Class<?>[] paramTypes = new Class<?>[comps.length];
+
         int nameMatchIdx = -1;
-        int positionalCapeIdx = -1;
-        int identifierCount = 0;
+        int idPositionalIdx = -1;       // 2nd Identifier
+        int assetPositionalIdx = -1;    // 2nd asset-shaped wrapper (1.21.10+ shape)
+        int idCount = 0;
+        int assetCount = 0;
+        Class<?> firstAssetType = null;
 
         for (int i = 0; i < comps.length; i++) {
             RecordComponent rc = comps[i];
             paramTypes[i] = rc.getType();
             args[i] = rc.getAccessor().invoke(original);
-            boolean isId = isIdentifierType(rc.getType());
+            Class<?> t = rc.getType();
+            boolean isId = isIdentifierType(t);
+            boolean isAsset = !isId && isAssetCandidate(t);
             if (dbg != null) {
                 dbg.append("  [").append(i).append("] name=").append(rc.getName())
-                   .append(" type=").append(rc.getType().getName())
-                   .append(" isIdentifier=").append(isId).append('\n');
+                   .append(" type=").append(t.getName())
+                   .append(" isIdentifier=").append(isId)
+                   .append(" isAsset=").append(isAsset).append('\n');
             }
             if (isId) {
-                identifierCount++;
-                if (identifierCount == 2 && positionalCapeIdx < 0) {
-                    positionalCapeIdx = i;
+                idCount++;
+                if (idCount == 2 && idPositionalIdx < 0) idPositionalIdx = i;
+                if (nameMatchIdx < 0 && rc.getName().toLowerCase().contains("cape")) nameMatchIdx = i;
+            } else if (isAsset) {
+                if (firstAssetType == null) firstAssetType = t;
+                // Only count consecutive same-typed wrappers — they're the
+                // body/cape/elytra trio. A differently-typed field (Model,
+                // boolean) breaks the streak naturally because isAsset is
+                // false for those.
+                if (t.equals(firstAssetType)) {
+                    assetCount++;
+                    if (assetCount == 2 && assetPositionalIdx < 0) assetPositionalIdx = i;
                 }
-                if (nameMatchIdx < 0 && rc.getName().toLowerCase().contains("cape")) {
-                    nameMatchIdx = i;
-                }
+                if (nameMatchIdx < 0 && rc.getName().toLowerCase().contains("cape")) nameMatchIdx = i;
             }
         }
 
-        int targetIdx = nameMatchIdx >= 0 ? nameMatchIdx : positionalCapeIdx;
+        // Pick target: explicit "cape" name wins; else 2nd Identifier
+        // (legacy shapes); else 2nd asset-wrapper (1.21.10+ shape).
+        int targetIdx = nameMatchIdx >= 0 ? nameMatchIdx
+                      : idPositionalIdx >= 0 ? idPositionalIdx
+                      : assetPositionalIdx;
         if (dbg != null) {
-            dbg.append("[IceyMod] CapeMixin.swap: identifierCount=").append(identifierCount)
+            dbg.append("[IceyMod] CapeMixin.swap: idCount=").append(idCount)
+               .append(" assetCount=").append(assetCount)
                .append(" nameMatchIdx=").append(nameMatchIdx)
-               .append(" positionalCapeIdx=").append(positionalCapeIdx)
-               .append(" targetIdx=").append(targetIdx);
+               .append(" idPositionalIdx=").append(idPositionalIdx)
+               .append(" assetPositionalIdx=").append(assetPositionalIdx)
+               .append(" -> targetIdx=").append(targetIdx).append('\n');
+        }
+
+        if (targetIdx < 0) {
+            if (dbg != null) { System.out.println(dbg.toString()); iceymod$swapDiagLogged = true; }
+            return null;
+        }
+
+        // Build the replacement value for the chosen slot.
+        Class<?> targetType = comps[targetIdx].getType();
+        Object newValue = buildWrapperWithIdentifier(targetType, args[targetIdx], customCape, dbg);
+        if (newValue == null) {
+            if (dbg != null) {
+                dbg.append("[IceyMod] CapeMixin.swap: buildWrapperWithIdentifier returned null\n");
+                System.out.println(dbg.toString());
+                iceymod$swapDiagLogged = true;
+            }
+            return null;
+        }
+        args[targetIdx] = newValue;
+
+        if (dbg != null) {
             System.out.println(dbg.toString());
             iceymod$swapDiagLogged = true;
         }
-
-        if (targetIdx < 0) return null;
-        args[targetIdx] = customCape;
 
         Constructor<?> ctor = cls.getDeclaredConstructor(paramTypes);
         ctor.setAccessible(true);
