@@ -30,6 +30,60 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.42
+
+**Cape still not showing up — adding comprehensive diagnostic logging at every step of the pipeline so the next log run tells us exactly where it's breaking. Plus one extra method-name candidate (`getPlayerSkin`) to widen the mixin attachment net.**
+
+### Why diagnostic-only this round
+
+User: "CAPE STILL NOT WORKING I STILL SE MY DEFAULT MC CAPE". With the v1.86.40 reflective mixin, the cape pipeline has four places it can fail silently:
+
+1. **CapeLoader can't find the PNG** — path mismatch between what the launcher writes and what `FabricLoader.getInstance().getGameDir()` resolves to at runtime.
+2. **CapeLoader loads it but TextureManager.registerTexture quietly fails** — texture not actually registered.
+3. **Mixin doesn't attach to any of the listed method-name candidates** (`getSkinTextures`, `getSkin`, `getPlayerSkin`, `method_52814`) → silent no-op because `require = 0`.
+4. **Mixin attaches and fires, but the reflection over RecordComponents finds no `Identifier`-typed component named `cape*`** — record shape on 1.21.11 is different than expected.
+
+We're flying blind without telemetry. This release adds prints at each checkpoint.
+
+### CapeLoader logging ([CapeLoader.java](mod/src/main/java/com/iceymod/cape/CapeLoader.java))
+
+First call to `getCapeIdentifier()` prints:
+
+```
+[IceyMod] CapeLoader.getCapeIdentifier: path=<resolved path> exists=<true/false>
+```
+
+### Mixin logging ([AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+Each one fires once per session:
+
+```
+[IceyMod] CapeMixin: injector firing for the first time
+[IceyMod] CapeMixin: original record = <FQ class name> components=[<n0>:<t0>, <n1>:<t1>, ...]
+[IceyMod] CapeMixin: cape swap SUCCESS for local player
+```
+
+OR if the reflection can't find a cape Identifier field:
+
+```
+[IceyMod] CapeMixin: reflection found no cape field to swap (record class: ...)
+```
+
+Together these answer:
+
+- **No "injector firing" line** → mixin isn't attaching (need to add the actual 1.21.11 method name to the candidate list).
+- **"original record = ..."** line tells us the actual class name AND every component's name + type. If the cape field is named differently than `cape*`, the next iteration can target that name. If it's a `String` URL instead of `Identifier`, we need a different swap strategy.
+- **"cape swap SUCCESS"** → the mixin is doing its job. If you STILL don't see the cape after that, the bug is on the rendering side (LRU texture cache eating our Identifier).
+- **"no cape field to swap"** with the components list above → I'll know exactly which field to target by name in v1.86.43.
+
+### Wider mixin net
+
+Added `getPlayerSkin` to the candidate list. Now: `{"getSkinTextures", "getSkin", "getPlayerSkin", "method_52814"}`. Whichever exists on 1.21.11 yarn will catch.
+
+### What to do
+
+Launch MC 1.21.11 once this build lands, get into a world (so the player record is queried by the renderer), and send the log. The four lines above will tell us exactly what to fix in v1.86.43.
+
 ## What's new in v1.86.41
 
 **Mods page rebuilt as a 70/30 split (50/50 in search mode), Info page rolled back to a smaller skin column + bigger server rows + square search bars, and `backdrop-filter` blur stripped from every card to address the sluggishness/unresponsiveness user reported.**

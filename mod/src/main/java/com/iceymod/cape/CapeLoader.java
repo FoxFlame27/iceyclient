@@ -49,6 +49,7 @@ public final class CapeLoader {
     private static long lastFileCheck = 0L;
     private static long lastFileMtime = 0L;
     private static boolean noCapeReported = false;
+    private static boolean debugLogged = false;
 
     private CapeLoader() {}
 
@@ -65,7 +66,12 @@ public final class CapeLoader {
         lastFileCheck = now;
 
         Path capePath = capeFilePath();
-        if (capePath == null || !Files.isRegularFile(capePath)) {
+        boolean exists = capePath != null && Files.isRegularFile(capePath);
+        if (!debugLogged) {
+            System.out.println("[IceyMod] CapeLoader.getCapeIdentifier: path=" + capePath + " exists=" + exists);
+            debugLogged = true;
+        }
+        if (!exists) {
             if (CACHED.get() != null) {
                 // File deleted while running — clear cache.
                 CACHED.set(null);

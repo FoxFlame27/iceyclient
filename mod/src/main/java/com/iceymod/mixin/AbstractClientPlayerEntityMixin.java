@@ -45,15 +45,24 @@ import java.lang.reflect.RecordComponent;
 @Mixin(AbstractClientPlayerEntity.class)
 public abstract class AbstractClientPlayerEntityMixin {
 
+    private static boolean iceymod$mixinFiredLogged = false;
+    private static boolean iceymod$swapSuccessLogged = false;
+    private static boolean iceymod$recordShapeLogged = false;
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Inject(
-        method = {"getSkinTextures", "getSkin", "method_52814"},
+        method = {"getSkinTextures", "getSkin", "getPlayerSkin", "method_52814"},
         at = @At("RETURN"),
         cancellable = true,
         require = 0
     )
     private void iceymod$injectLocalCape(CallbackInfoReturnable cir) {
         try {
+            if (!iceymod$mixinFiredLogged) {
+                System.out.println("[IceyMod] CapeMixin: injector firing for the first time");
+                iceymod$mixinFiredLogged = true;
+            }
+
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc == null || mc.player == null) return;
             if (((Object) this) != mc.player) return;
@@ -64,13 +73,39 @@ public abstract class AbstractClientPlayerEntityMixin {
             Object original = cir.getReturnValue();
             if (original == null) return;
 
+            if (!iceymod$recordShapeLogged) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("[IceyMod] CapeMixin: original record = ").append(original.getClass().getName());
+                RecordComponent[] comps = original.getClass().getRecordComponents();
+                if (comps == null) {
+                    sb.append(" (not a record!)");
+                } else {
+                    sb.append(" components=[");
+                    for (int i = 0; i < comps.length; i++) {
+                        if (i > 0) sb.append(", ");
+                        sb.append(comps[i].getName()).append(':').append(comps[i].getType().getSimpleName());
+                    }
+                    sb.append("]");
+                }
+                System.out.println(sb.toString());
+                iceymod$recordShapeLogged = true;
+            }
+
             Object modified = swapCapeFieldReflective(original, customCape);
             if (modified != null) {
                 cir.setReturnValue(modified);
+                if (!iceymod$swapSuccessLogged) {
+                    System.out.println("[IceyMod] CapeMixin: cape swap SUCCESS for local player");
+                    iceymod$swapSuccessLogged = true;
+                }
+            } else if (!iceymod$swapSuccessLogged) {
+                // Log once if reflection couldn't find a cape field to swap.
+                System.out.println("[IceyMod] CapeMixin: reflection found no cape field to swap "
+                        + "(record class: " + original.getClass().getName() + ")");
+                iceymod$swapSuccessLogged = true;
             }
         } catch (Throwable t) {
-            // Silent fall-through — better the original cape than a
-            // crashed render loop for the whole session.
+            System.out.println("[IceyMod] CapeMixin error: " + t);
         }
     }
 
