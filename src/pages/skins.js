@@ -89,10 +89,10 @@ async function SkinsPageInit() {
             <div class="info-cape-status" id="info-cape-status"></div>
             <div class="info-cape-note">
               Copies your PNG to every installation's
-              <code>game/config/iceyclient/cape.png</code> and to
-              <code>.minecraft/assets/skins/</code>. The in-game
-              render needs the iceymod mixin landing in v1.86.34 to
-              actually inject it as your local cape texture.
+              <code>game/config/iceyclient/cape.png</code>. iceymod
+              picks it up at launch and injects it as your local
+              cape — only you see it. Drop a new PNG anytime to
+              swap mid-session.
             </div>
           </div>
 

@@ -30,6 +30,55 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.35
+
+**Custom cape now actually shows up on your player in-game. iceymod mixin into `AbstractClientPlayerEntity.getSkinTextures()` swaps in the uploaded PNG as the local player's cape — no rename, no hash-matching, no Mojang upload required.**
+
+### Why the rename trick wasn't needed after all
+
+User suggested we might need to rename the cape file to match a vanilla cape filename. That approach (the one all the random "drop PNG in `assets/skins/`" tutorials describe) works against Mojang's hash-keyed texture cache — files there get resolved by SHA-1 hash, not arbitrary name, so any random rename only works if you happen to overwrite the exact hash file your character's existing cape resolves to. Brittle, version-specific, often broken.
+
+The mixin route sidesteps the whole hash mechanism: we register OUR PNG as our OWN named texture and tell MC "the local player's cape is *this* identifier" at the API level above the asset cache.
+
+### CapeLoader ([CapeLoader.java](mod/src/main/java/com/iceymod/cape/CapeLoader.java))
+
+Singleton texture-lifecycle service:
+
+- **Source path**: `FabricLoader.getInstance().getGameDir().resolve("config/iceyclient/cape.png")` — same path the launcher writes to from v1.86.34.
+- **Lazy init** on first `getCapeIdentifier()` call. Reads PNG bytes → `NativeImage.read(ByteArrayInputStream)` → `NativeImageBackedTexture` → `MinecraftClient.getTextureManager().registerTexture(Identifier.of("iceymod", "local_cape"), tex)`. Returns the identifier.
+- **3-second mtime poll** — re-checks file modified-time on every call; rebuilds the texture if changed. So dropping a new PNG into the config folder hot-swaps the cape mid-session without needing an MC restart.
+- **File deleted** while running → cache cleared → mixin falls through to original Mojang cape.
+- Every failure path returns null so the mixin defers to vanilla — never crashes the render loop.
+
+### AbstractClientPlayerEntityMixin ([AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+`@Inject(method = "getSkinTextures", at = @At("RETURN"), cancellable = true)`:
+
+```java
+if (this != mc.player) return;                 // local player only
+Identifier customCape = CapeLoader.getCapeIdentifier();
+if (customCape == null) return;
+SkinTextures original = cir.getReturnValue();
+SkinTextures modified = new SkinTextures(
+    original.texture(), original.textureUrl(),
+    customCape,                                // ← our cape
+    original.elytraTexture(), original.model(), original.secure()
+);
+cir.setReturnValue(modified);
+```
+
+`SkinTextures` is a record (immutable), so we construct a new one with the cape field swapped. The `this != mc.player` guard ensures **only your client sees your cape** — remote players on the server are untouched, exactly the "local cape preview" experience users want.
+
+The whole body is wrapped in try/catch returning silently — better to fall through to the original cape than crash player rendering for a whole session if anything in the load path breaks.
+
+Registered in [iceymod.mixins.json](mod/src/main/resources/iceymod.mixins.json) under `client`.
+
+### Renaming the file: not needed
+
+Per the user's follow-up: the launcher writes to `config/iceyclient/cape.png` specifically (a name we chose, not a vanilla one) and the mixin reads from that exact path. No matching against vanilla cape filenames, no hash-cache jiggery-pokery. Drop any 64×32 PNG → it just works.
+
+The original-named copy alongside (e.g. `MyCape.png`) is kept as a personal archive if the user wants to swap between multiple capes — they just rename whichever one they want active to `cape.png`.
+
 ## What's new in v1.86.34
 
 **Cape install now writes to the right path — per-installation game dir, not global `.minecraft`. User caught this: Icey Client launches each installation with `--gameDir ~/.iceyclient/installations/<id>/game/`, so the previous global-write was going to a folder MC wasn't even reading from at launch.**

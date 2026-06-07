@@ -11,7 +11,8 @@
     "CameraMixin",
     "KeyboardInputMixin",
     "EntityIsGlowingMixin",
-    "SplashTextMixin"
+    "SplashTextMixin",
+    "AbstractClientPlayerEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1
