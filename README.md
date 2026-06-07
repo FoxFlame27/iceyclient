@@ -30,6 +30,34 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.36
+
+**All non-home pages (Installations, Mods, Settings, Console, Info) get the Liquid-home aesthetic applied via a single shared `pages-polish.css` override layer. No icons added (per user request), no DOM changes, no per-page CSS file edits — just one new stylesheet loaded last in `index.html`.**
+
+### Approach ([pages-polish.css](src/styles/pages-polish.css), [index.html](src/index.html))
+
+The per-page CSS files (`mods.css` 813 lines, `installations.css` 883, `options.css` 618, `console.css` 120) were rough/inconsistent compared to the new Liquid home. Rewriting all four would be ~1500 lines of diff for a visual pass. Instead — single overrides file loaded *last* in `index.html` so its rules win the cascade against everything that came before.
+
+### What changes
+
+- **Page titles** (`.installations-title`, `.mods-browse-title`, `.options-v2-title`, `.console-title`) → frost gradient text + strong drop-shadow so they read cleanly against the panorama background, matching `.home-liquid-title` from the home page.
+- **Section subtitles** (`.mods-section-title`, `.options-section-title`) → accent gradient (cyan → bright-cyan), bumped to 800 weight + 0.18em tracking. Looks like the labels above the Liquid bottom-nav cards.
+- **All `card`-style panels** (`.options-card`, `.options-small-card`, `.options-toggle-card`, `.options-panorama-card`, `.install-card`, `.console-output`, `.console-placeholder`, `.mods-tab-bar`) → glassy `linear-gradient(135deg, rgba(13,20,36,0.82), rgba(8,12,24,0.7))` bg, accent-tinted border, 18px radius, soft inner ring + deeper outer shadow, `backdrop-filter: blur(14px)`.
+- **Hover lifts** on clickable cards → `translateY(-3px)` + brighter accent border + accent glow shadow.
+- **Buttons**: primary CTAs (`.btn-create-install`, `.options-btn-primary`, `.mods-action-btn-primary`) get the **accent-gradient pill** treatment from v1.86.30 — dark text for contrast, 0 4px 14px glow shadow, hover lifts 1px. Secondary/outlined (`.options-btn`, `.console-btn`, `.btn-goto-installations`) get **glassy outlined**: `rgba(13,20,36,0.7)` bg with `backdrop-filter: blur(10px)`, accent-tinted border, primary text. Hover fills with accent tint + lifts.
+- **Mods tab bar** → bigger padding (6px), 14px radius, active tab uses the **accent gradient** (same as primary buttons) with a glow shadow instead of the flat accent fill.
+- **Settings rows** → 60px tall (was 56), 22px horizontal padding (was 20), border-bottom switched to a 6%-accent line (subtle, not the harder `--border` rgb).
+- **Inputs** → glassier `rgba(0,0,0,0.45)` bg, accent-tinted border, focus produces a 3px soft accent ring instead of the harder default.
+- **Console output** → heavier glass (`rgba(0,0,0,0.62)`) + accent-tinted inner ring + deeper outer shadow.
+
+### Targeted, no icons
+
+Per the explicit user note: no icons added anywhere in this pass. Every change is colors, gradients, shadows, radii, padding — visual polish only. The existing icon usage on each page (mod thumbnails, install card images, etc.) is untouched.
+
+### Why one file instead of editing per-page CSS
+
+Faster to iterate (one file, one diff, easy to revert), keeps the existing per-page files as the canonical source of structure, and means the next time a single-page rewrite happens it doesn't fight with this layer. If a specific page eventually deserves a full rewrite (Mods is the most likely candidate), the polish layer can be partly removed at the same time without touching the others.
+
 ## What's new in v1.86.35
 
 **Custom cape now actually shows up on your player in-game. iceymod mixin into `AbstractClientPlayerEntity.getSkinTextures()` swaps in the uploaded PNG as the local player's cape — no rename, no hash-matching, no Mojang upload required.**

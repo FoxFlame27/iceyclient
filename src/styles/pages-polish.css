@@ -1,0 +1,201 @@
+/* ───────────────────────────────────────────────────────────────
+   v1.86.36 page polish — Liquid-home aesthetic applied across the
+   non-home pages (Mods, Installations, Settings, Console, Info).
+   Loaded LAST in index.html so it overrides per-page CSS without
+   the per-page files needing edits.
+
+   What this layer changes:
+     - Page titles: frost-gradient text + drop-shadow for legibility
+       against the panorama background.
+     - Cards: glassier, larger border radius (16 → 20), softer inner
+       accent ring, deeper outer shadow.
+     - Buttons: primary CTAs get the accent gradient pill (matches
+       the install-action-btn-primary from v1.86.30), outlined
+       secondary CTAs get the glassy treatment.
+     - Tab bars + section headers: cleaner active states, accent
+       underline instead of solid fills where appropriate.
+     - Inputs: glassier bg, softer focus ring.
+
+   Targeted classes per page (no DOM changes anywhere):
+     Installations: .installations-title, .install-card
+     Mods:          .mods-browse-title, .mods-guard-title, .mods-tab,
+                    .mods-tab-bar, .mods-section-title, .btn-goto-installations
+     Settings:      .options-v2-title, .options-section-title,
+                    .options-card, .options-row, .options-btn
+     Console:       .console-title, .console-output, .console-btn,
+                    .console-placeholder
+   ─────────────────────────────────────────────────────────────── */
+
+/* ── Big page titles: frost-gradient text + dropshadow ── */
+.installations-title,
+.mods-browse-title,
+.mods-guard-title,
+.options-v2-title,
+.console-title,
+.skins-title,
+.info-title {
+  background: linear-gradient(180deg, #f1f5f9 0%, var(--accent-frost, #bae6fd) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.005em;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+}
+
+/* Section subtitles (the "INSTALLED MODS / BROWSE / etc.") */
+.mods-section-title,
+.options-section-title {
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-bright, #38bdf8) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Glassy cards across pages ── */
+.options-card,
+.console-output,
+.console-placeholder,
+.mods-tab-bar,
+.install-card,
+.options-small-card,
+.options-toggle-card,
+.options-panorama-card {
+  background: linear-gradient(135deg, rgba(13,20,36,0.82), rgba(8,12,24,0.7)) !important;
+  border: 1px solid rgba(91,200,245,0.18) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.42),
+              0 0 0 1px rgba(91,200,245,0.05) inset !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Installation card stays at the chunky 20px radius from v1.86.30 */
+.install-card { border-radius: 20px !important; }
+
+/* Hover lifts on clickable cards */
+.install-card:hover,
+.options-toggle-card:hover,
+.options-small-card:hover,
+.options-panorama-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(91,200,245,0.4) !important;
+  box-shadow: 0 14px 36px rgba(0,0,0,0.5),
+              0 0 24px rgba(91,200,245,0.18),
+              0 0 0 1px rgba(91,200,245,0.08) inset !important;
+  transition: transform 0.22s ease, border-color 0.22s ease,
+              box-shadow 0.22s ease;
+}
+
+/* ── Buttons: primary CTAs ── */
+.options-btn-primary,
+.btn-create-install,
+.mods-action-btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-bright, #38bdf8)) !important;
+  color: #0a0e1a !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 10px 18px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  box-shadow: 0 4px 14px rgba(91,200,245,0.3) !important;
+  transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+.options-btn-primary:hover,
+.btn-create-install:hover,
+.mods-action-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(91,200,245,0.45) !important;
+}
+
+/* ── Outlined / secondary buttons ── */
+.options-btn,
+.console-btn,
+.btn-goto-installations {
+  background: rgba(13,20,36,0.7) !important;
+  border: 1.5px solid rgba(91,200,245,0.22) !important;
+  color: var(--text-primary) !important;
+  border-radius: 12px !important;
+  padding: 9px 16px !important;
+  font-weight: 600 !important;
+  backdrop-filter: blur(10px);
+  transition: background 0.18s ease, border-color 0.18s ease,
+              color 0.18s ease, transform 0.18s ease !important;
+}
+.options-btn:hover,
+.console-btn:hover,
+.btn-goto-installations:hover {
+  background: rgba(91,200,245,0.12) !important;
+  border-color: rgba(91,200,245,0.5) !important;
+  color: var(--accent) !important;
+  transform: translateY(-1px);
+}
+
+/* ── Mods tab bar: cleaner active state ── */
+.mods-tab-bar {
+  padding: 6px !important;
+  border-radius: 14px !important;
+  gap: 4px;
+}
+.mods-tab {
+  padding: 9px 22px !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+  transition: background 0.18s ease, color 0.18s ease !important;
+}
+.mods-tab.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-bright, #38bdf8)) !important;
+  color: #0a0e1a !important;
+  box-shadow: 0 4px 14px rgba(91,200,245,0.28) !important;
+}
+.mods-tab:hover:not(.active) {
+  background: rgba(91,200,245,0.08) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ── Options page: cleaner row dividers + section spacing ── */
+.options-section { margin-bottom: 32px !important; }
+.options-row {
+  padding: 0 22px !important;
+  height: 60px !important;
+  border-bottom: 1px solid rgba(91,200,245,0.06) !important;
+}
+.options-row-name {
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+}
+
+/* ── Console: heavier glass, brighter accent on output area ── */
+.console-output {
+  background: rgba(0,0,0,0.62) !important;
+  border-radius: 18px !important;
+  border-color: rgba(91,200,245,0.16) !important;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.55),
+              0 0 0 1px rgba(91,200,245,0.06) inset !important;
+}
+
+/* ── Inputs: glassier bg, softer focus glow ── */
+input, textarea, select {
+  background: rgba(0,0,0,0.45) !important;
+  border-color: rgba(91,200,245,0.18) !important;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease,
+              background 0.2s ease !important;
+}
+input:focus, textarea:focus, select:focus {
+  background: rgba(0,0,0,0.55) !important;
+  border-color: rgba(91,200,245,0.55) !important;
+  box-shadow: 0 0 0 3px rgba(91,200,245,0.18) !important;
+}
+
+/* ── Larger page header padding/top so titles breathe ── */
+.installations-header,
+.mods-browse-header,
+.options-v2-header,
+.console-header {
+  padding-top: 8px;
+}
