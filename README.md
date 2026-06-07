@@ -30,6 +30,47 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.37
+
+**Page titles now use the home-page wordmark treatment (Outfit gradient, big + uppercase + drop-shadow) and the Settings page rows transform into the Liquid menu-card pattern — each setting becomes its own glassy stacked card with hover slide-right + accent glow. No icons added.**
+
+### Hero titles ([pages-polish.css](src/styles/pages-polish.css))
+
+Targets: `.installations-title`, `.mods-browse-title`, `.options-v2-title`, `.console-title`, `.info-title`, `.mods-guard-title`. Mirrors `.home-liquid-title` from the Liquid home wordmark:
+
+```css
+font-family: 'Outfit', 'Inter', sans-serif;
+font-size: clamp(28px, 3vw, 44px);
+font-weight: 800;
+letter-spacing: 0.04em;
+text-transform: uppercase;
+background: linear-gradient(180deg, #f1f5f9, var(--accent-frost));
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+text-shadow: 0 4px 24px rgba(0,0,0,0.55);
+```
+
+So "Installations" / "Settings" / "Mods" / "Console" / "Info" all render as the same big frost-gradient wordmark the home page uses for "ICEY CLIENT", scaled down a notch and lowercased to title-case via DOM, then forced uppercase by CSS.
+
+### Settings rows → Liquid card stack ([pages-polish.css](src/styles/pages-polish.css))
+
+Previously: Settings used `.options-card` (one glass panel) with multiple `.options-row` elements inside, separated by border-bottom — table-style. Looked tidy but doesn't match the home page's stacked-card visual.
+
+Now via scoped overrides:
+
+- `.options-section .options-card` → transparent wrapper, no border / shadow / bg / radius. Becomes a flex column with 10px gap.
+- `.options-section .options-row` → each row gets its OWN `linear-gradient(135deg, rgba(13,20,36,0.82), rgba(8,12,24,0.7))` card with accent-tinted border, 14px radius, soft inner ring + 4px outer shadow, `backdrop-filter: blur(10px)`, min-height 64px, 14×20 padding.
+- Hover: `translateX(4px)` slide-right + brighter accent border + 18px accent glow — same hover signature as the Liquid menu buttons on the home page.
+- Row title bumped to Outfit / 14.5px / 700 weight.
+- Row description below: 12px secondary, 2px top gap.
+- `.options-row-expandable` (JVM args) keeps its growable layout.
+
+The "Top row" (Playtime + Advanced) and the toggle-card rows (Icey Mods / Skin Changer / Health Indicators / Close on Launch / Change Theme) already look correct from v1.86.36 — untouched.
+
+### No icons (per explicit user note)
+
+Every change in this pass is colors, gradients, font, weight, padding, shadow, hover behavior. No new `<svg>` or `<img>` markup, no per-page JS edits. The Liquid menu-button pattern includes an icon tile by default; this implementation drops that and just uses title-on-top / description-below text layout inside the same card shape.
+
 ## What's new in v1.86.36
 
 **All non-home pages (Installations, Mods, Settings, Console, Info) get the Liquid-home aesthetic applied via a single shared `pages-polish.css` override layer. No icons added (per user request), no DOM changes, no per-page CSS file edits — just one new stylesheet loaded last in `index.html`.**

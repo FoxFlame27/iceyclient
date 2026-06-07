@@ -199,3 +199,113 @@ input:focus, textarea:focus, select:focus {
 .console-header {
   padding-top: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   v1.86.37 hero-title + Liquid-card list pattern.
+
+   "make it like good, like with the home page with that nice font
+   under the logo there and the boxes under each other look nice"
+
+   1. Page titles get the home-page wordmark treatment: Outfit font,
+      big, gradient, uppercase, drop-shadow.
+   2. Stacked-list cards get the Liquid menu-btn treatment — each
+      row becomes its own glassy card with hover slide-right + glow.
+      Specifically the Settings .options-row and the Mods section
+      lists.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Page wordmark-style titles ── */
+.installations-title,
+.mods-browse-title,
+.options-v2-title,
+.console-title,
+.info-title,
+.mods-guard-title {
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif !important;
+  font-size: clamp(28px, 3vw, 44px) !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  /* Frost gradient already set by the v1.86.36 block above —
+     keeping it here so this whole sub-block is self-contained. */
+  background: linear-gradient(180deg, #f1f5f9 0%, var(--accent-frost, #bae6fd) 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: 0 4px 24px rgba(0,0,0,0.55);
+  line-height: 1.05 !important;
+}
+
+/* ── Liquid-card list pattern applied to Settings rows ──
+   Each .options-row used to be a table-style row with a
+   border-bottom separator. Now: the outer .options-card becomes a
+   transparent flex column container, and each row becomes its OWN
+   glassy card with hover slide-right + accent glow — exactly the
+   Liquid menu-btn shape, without icons. */
+.options-section .options-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: visible !important;
+}
+
+.options-section .options-row {
+  background: linear-gradient(135deg, rgba(13,20,36,0.82) 0%, rgba(8,12,24,0.7) 100%) !important;
+  border: 1px solid rgba(91,200,245,0.16) !important;
+  border-radius: 14px !important;
+  padding: 14px 20px !important;
+  height: auto !important;
+  min-height: 64px;
+  border-bottom: none !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.28),
+              0 0 0 1px rgba(91,200,245,0.04) inset;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.22s ease,
+              box-shadow 0.22s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.options-section .options-row:hover {
+  transform: translateX(4px);
+  border-color: rgba(91,200,245,0.42) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.4),
+              0 0 18px rgba(91,200,245,0.18),
+              0 0 0 1px rgba(91,200,245,0.08) inset;
+}
+
+/* Title gets a notch more weight inside the cards */
+.options-section .options-row-name {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  color: var(--text-primary) !important;
+}
+.options-section .options-row-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Expandable row (JVM args) — same card treatment but it grows
+   when expanded; preserve that. */
+.options-section .options-row-expandable {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* The "Top row" (Playtime + Advanced) and toggle cards already
+   look right — no change needed. */
+
+/* ── Mods section header titles: same Outfit-uppercase treatment ── */
+.mods-section-title {
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+  font-size: 12px !important;
+}
