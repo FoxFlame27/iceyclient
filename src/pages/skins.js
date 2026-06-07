@@ -66,7 +66,7 @@ async function SkinsPageInit() {
             </div>
             <div class="info-skin-stage" id="info-skin-stage">
               ${displayName
-                ? `<img class="info-skin-img" id="info-skin-img" src="https://mineskin.eu/armor/body/${encodeURIComponent(displayName)}/160.png" alt="Skin">`
+                ? `<img class="info-skin-img" id="info-skin-img" src="https://nmsr.nickac.dev/fullbody/${encodeURIComponent(displayName)}?overlay=true" alt="Skin">`
                 : '<div class="info-skin-empty">Search a player</div>'}
             </div>
             <div class="info-skin-meta">
@@ -196,7 +196,7 @@ function _infoSkinLookup() {
   const nameEl = document.getElementById('info-skin-name');
   const views = document.getElementById('info-skin-views');
   const dl = document.getElementById('info-download-btn');
-  if (stage) stage.innerHTML = `<img class="info-skin-img" id="info-skin-img" src="https://mineskin.eu/armor/body/${encodeURIComponent(name)}/160.png" alt="Skin" onerror="_infoSkinLookupError()">`;
+  if (stage) stage.innerHTML = `<img class="info-skin-img" id="info-skin-img" src="https://nmsr.nickac.dev/fullbody/${encodeURIComponent(name)}?overlay=true" alt="Skin" onerror="_infoSkinLookupError()">`;
   if (nameEl) nameEl.textContent = name;
   if (views) views.style.display = 'flex';
   if (dl) dl.disabled = false;
@@ -210,9 +210,9 @@ function _infoSkinView(view, btn) {
   if (!img || !_skinsLookupName) return;
   const name = encodeURIComponent(_skinsLookupName);
   const urls = {
-    body: `https://mineskin.eu/armor/body/${name}/160.png`,
-    bust: `https://mineskin.eu/armor/bust/${name}/160.png`,
-    head: `https://mineskin.eu/headhelm/${name}/160.png`
+    body: `https://nmsr.nickac.dev/fullbody/${name}?overlay=true`,
+    bust: `https://nmsr.nickac.dev/bust/${name}?overlay=true`,
+    head: `https://nmsr.nickac.dev/face/${name}?overlay=true`
   };
   img.src = urls[view] || urls.body;
 }

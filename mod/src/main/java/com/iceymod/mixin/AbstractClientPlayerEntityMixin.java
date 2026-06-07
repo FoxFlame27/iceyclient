@@ -110,39 +110,64 @@ public abstract class AbstractClientPlayerEntityMixin {
     }
 
     /**
-     * Walk the record components of {@code original}, find any
-     * {@code Identifier}-typed component named "cape*" (case-
-     * insensitive), and construct a new record of the same type with
-     * that field swapped for {@code customCape}. All other fields
-     * carry over unchanged.
+     * Walk the record components of {@code original}, find the cape
+     * {@link Identifier} field, and construct a new record of the
+     * same type with that field swapped for {@code customCape}.
      *
-     * <p>Returns null if {@code original} isn't a record, or has no
-     * cape-named identifier component, or the canonical constructor
-     * isn't accessible — the mixin then leaves the original alone.
+     * <h3>Strategy</h3>
+     * <ol>
+     *   <li><b>Name-based</b> — look for any {@code Identifier} field
+     *       whose component name contains "cape" (case-insensitive).
+     *       Works in dev with yarn mappings.</li>
+     *   <li><b>Position-based (runtime fallback)</b> — at runtime MC's
+     *       classes carry obfuscated synthetic component names
+     *       (e.g. {@code comp_1627}) so the name match fails. The cape
+     *       is then identified by its <b>position</b> in the record:
+     *       <ul>
+     *         <li>1.21.x {@code PlayerSkin}: {@code (Identifier body,
+     *             Identifier cape, Identifier elytra, Model, boolean)}
+     *             — cape is the 2nd Identifier component.</li>
+     *         <li>1.20.5+ {@code SkinTextures}: {@code (Identifier
+     *             texture, String url, Identifier capeTexture,
+     *             Identifier elytraTexture, Model, boolean)} — cape
+     *             is the 2nd Identifier component.</li>
+     *       </ul>
+     *       Either shape, the second {@code Identifier} = cape. We use
+     *       that as the fallback.</li>
+     * </ol>
      */
     private static Object swapCapeFieldReflective(Object original, Identifier customCape) throws Throwable {
         Class<?> cls = original.getClass();
         RecordComponent[] comps = cls.getRecordComponents();
         if (comps == null || comps.length == 0) return null;
 
+        // Pass 1 — collect values + paramTypes; note name-match index
+        // AND positional 2nd-Identifier index in case the names are
+        // synthetic.
         Object[] args = new Object[comps.length];
         Class<?>[] paramTypes = new Class<?>[comps.length];
-        boolean foundCape = false;
+        int nameMatchIdx = -1;
+        int positionalCapeIdx = -1;
+        int identifierCount = 0;
 
         for (int i = 0; i < comps.length; i++) {
             RecordComponent rc = comps[i];
             paramTypes[i] = rc.getType();
-            Object val = rc.getAccessor().invoke(original);
-            String name = rc.getName().toLowerCase();
-            boolean isCapeField = rc.getType() == Identifier.class && name.contains("cape");
-            if (isCapeField) {
-                args[i] = customCape;
-                foundCape = true;
-            } else {
-                args[i] = val;
+            args[i] = rc.getAccessor().invoke(original);
+            if (rc.getType() == Identifier.class) {
+                identifierCount++;
+                if (identifierCount == 2 && positionalCapeIdx < 0) {
+                    positionalCapeIdx = i;
+                }
+                if (nameMatchIdx < 0 && rc.getName().toLowerCase().contains("cape")) {
+                    nameMatchIdx = i;
+                }
             }
         }
-        if (!foundCape) return null;
+
+        int targetIdx = nameMatchIdx >= 0 ? nameMatchIdx : positionalCapeIdx;
+        if (targetIdx < 0) return null;
+        args[targetIdx] = customCape;
 
         Constructor<?> ctor = cls.getDeclaredConstructor(paramTypes);
         ctor.setAccessible(true);

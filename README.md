@@ -30,6 +30,81 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.43
+
+**Cape mixin actually swaps now (positional fallback when names are obfuscated), skin viewer renders WITH overlay via NMSR, every search bar loses its black wrapper box and becomes a naked underlined input.**
+
+### Cape swap by Identifier position (the v1.86.42 diagnostic answer)
+
+Mixin attaches + file found + texture registered ✓ — the swap was missing because runtime record fields carry synthetic names like `comp_1627`, not yarn names like `capeTexture`, so my "name contains cape" match never fired. Switched to:
+
+1. **Name match** (primary) — works in dev with yarn mappings.
+2. **Position match** (runtime fallback) — both record shapes carry the cape as the **2nd `Identifier`** component, so we swap whichever Identifier sits in that position when the name match misses.
+
+Your `class_8685` log showed exactly the [Id, Id, Id, Model, boolean] shape — fix targets `comp_1627`.
+
+### Skin viewer: outer layer via NMSR ([skins.js](src/pages/skins.js))
+
+Skin URLs switched from `mineskin.eu/armor/...` to **`nmsr.nickac.dev/{fullbody,bust,face}/<name>?overlay=true`**. NMSR explicitly renders with the outer skin layer (hat / jacket / sleeves / pants 2nd layer), and is faster and more reliable than mineskin.eu's render endpoint.
+
+### Search bars: no more wrapper boxes ([skins.css](src/styles/skins.css), [mods.css](src/styles/mods.css))
+
+Per "remove THOSE EVERYWHERE" — the dark `rgba(0,0,0,0.6)` boxes with accent borders around search bars are gone. The inputs themselves now carry a thin `1px solid rgba(91,200,245,0.3)` underline that brightens to full accent on focus. Applied to:
+
+- `.info-skin-search` (Info page skin lookup)
+- `.info-server-search` (Info page server lookup)
+- `.mods-main-view-v2 .mods-browse-search` (Mods page browse)
+
+Cleaner, matches the naked-on-bg aesthetic of the Info page.
+
+## What's new in v1.86.42
+
+**Cape now actually swaps in-game. The v1.86.42 diagnostic showed exactly where the pipeline was breaking — fixed with one positional fallback in the reflection swap.**
+
+### What the v1.86.42 log told us
+
+```
+CapeMixin: injector firing for the first time
+CapeLoader.getCapeIdentifier: path=.../config/iceyclient/cape.png exists=true
+CapeLoader: registered custom cape
+CapeMixin: original record = net.minecraft.class_8685
+  components=[comp_1626:class_12081, comp_1627:class_12081,
+              comp_1628:class_12081, comp_1629:class_7920,
+              comp_1630:boolean]
+CapeMixin: reflection found no cape field to swap
+```
+
+Mixin attached ✓, file found ✓, texture registered ✓, original record returned ✓. The swap **failed** because my reflection matched by component **name** containing "cape" — but at runtime the obfuscated record class (`class_8685`) carries **synthetic accessor names** like `comp_1627`, not the yarn field name `capeTexture`. Same yarn-vs-intermediary trap as the v1.86.21 entityPos fix.
+
+### Fix: positional fallback ([AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+Both record shapes have the cape as the **second `Identifier`** in the record:
+
+- 1.21.x **`PlayerSkin`**: `(Identifier body, Identifier cape, Identifier elytra, Model, boolean)` — cape at Identifier index 2.
+- 1.20.5+ **`SkinTextures`**: `(Identifier texture, String url, Identifier capeTexture, Identifier elytraTexture, Model, boolean)` — cape at Identifier index 2.
+
+So:
+
+```java
+int targetIdx = nameMatchIdx >= 0 ? nameMatchIdx : positionalCapeIdx;
+```
+
+- **Primary**: name match (works in dev with yarn mappings active, future-proofs against record reorderings).
+- **Fallback**: 2nd Identifier component by position (the actual runtime path on shipped jars).
+
+Matches the components in your log (`comp_1626`, `comp_1627`, `comp_1628`, all `class_12081` = `Identifier`) → cape = `comp_1627` (Identifier index 2) → swapped to our custom cape.
+
+### Expected log next launch
+
+```
+CapeMixin: injector firing for the first time
+CapeLoader: registered custom cape from ...
+CapeMixin: original record = net.minecraft.class_8685 components=[...]
+CapeMixin: cape swap SUCCESS for local player
+```
+
+And the cape should appear on your character model.
+
 ## What's new in v1.86.42
 
 **Cape still not showing up — adding comprehensive diagnostic logging at every step of the pipeline so the next log run tells us exactly where it's breaking. Plus one extra method-name candidate (`getPlayerSkin`) to widen the mixin attachment net.**

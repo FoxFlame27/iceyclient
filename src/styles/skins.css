@@ -130,14 +130,16 @@
   flex-direction: column;
   gap: 8px;
 }
+/* No wrapper box anymore — flex container is transparent, the input
+   carries its own thin underline so the wrapper isn't ugly. */
 .info-skin-search {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(0,0,0,0.6);
-  border: 1px solid rgba(91,200,245,0.22);
+  background: transparent;
+  border: none;
   border-radius: 0;
-  padding: 4px 4px 4px 10px;
+  padding: 0;
   width: 100%;
   box-sizing: border-box;
 }
@@ -145,12 +147,17 @@
   flex: 1;
   background: transparent;
   border: none;
+  border-bottom: 1px solid rgba(91,200,245,0.3);
   outline: none;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  padding: 4px 0;
+  padding: 6px 2px;
   min-width: 0;
+  transition: border-color 0.15s ease;
+}
+.info-skin-input:focus {
+  border-bottom-color: var(--accent);
 }
 .info-skin-input::placeholder { color: var(--text-muted); }
 .info-skin-go {
@@ -376,13 +383,15 @@
   text-transform: uppercase;
 }
 
+/* Same naked-input treatment as the skin search — no wrapper box,
+   just a thin underline directly on the input. */
 .info-server-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: rgba(0,0,0,0.6);
-  border: 1px solid rgba(91,200,245,0.22);
+  padding: 0;
+  background: transparent;
+  border: none;
   border-radius: 0;
   color: var(--text-muted);
 }
@@ -390,12 +399,15 @@
   flex: 1;
   background: transparent;
   border: none;
+  border-bottom: 1px solid rgba(91,200,245,0.3);
   outline: none;
   color: var(--text-primary);
   font-size: 13px;
-  padding: 4px 0;
+  padding: 6px 2px;
   min-width: 0;
+  transition: border-color 0.15s ease;
 }
+.info-server-input:focus { border-bottom-color: var(--accent); }
 .info-server-input::placeholder { color: var(--text-muted); }
 
 .info-server-list {

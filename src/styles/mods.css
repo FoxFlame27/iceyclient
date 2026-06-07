@@ -948,24 +948,31 @@
   flex: 1;
   min-height: 0;
 }
+/* Naked input — no wrapper box (per user feedback "remove THOSE
+   EVERYWHERE"), just a thin accent underline. */
 .mods-main-view-v2 .mods-browse-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
-  background: rgba(0,0,0,0.55);
-  border: 1px solid rgba(91,200,245,0.22);
+  padding: 0;
+  background: transparent;
+  border: none;
   color: var(--text-muted);
 }
 .mods-main-view-v2 .mods-browse-search input {
   flex: 1;
   background: transparent !important;
   border: none !important;
+  border-bottom: 1px solid rgba(91,200,245,0.3) !important;
   outline: none;
   color: var(--text-primary);
-  font-size: 12px;
-  padding: 2px 0;
+  font-size: 13px;
+  padding: 6px 2px;
   min-width: 0;
+  transition: border-color 0.15s ease !important;
+}
+.mods-main-view-v2 .mods-browse-search input:focus {
+  border-bottom-color: var(--accent) !important;
 }
 .mods-main-view-v2 .mods-search-icon {
   flex-shrink: 0;
