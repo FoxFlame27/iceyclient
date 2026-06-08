@@ -30,6 +30,23 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.53
+
+**Build fix.** Authlib's `GameProfile` UUID accessor isn't `id()` either. Pinning a compile-time name has burned us twice in a row — `getId()` → `id()` → still wrong. Going reflective for the accessor too.
+
+```
+PlayerListHudMixin.java:61: cannot find symbol
+  e.getProfile().id()
+                ^ method id()
+                location: class GameProfile
+```
+
+### Fix
+
+`iceymod$profileUuid(GameProfile)` walks a name list — `id`, `getId`, `getProfileId`, `uuid`, `getUuid` — calling whichever exists, falling back to scanning declared `UUID` fields if none match. Both call sites (TAB render warmup + per-row badge draw) go through it.
+
+Misses cost one `NoSuchMethodException` per call; hits are cached by the JIT. Authlib can rename it again and we won't notice.
+
 ## What's new in v1.86.52
 
 **Build fix.** `GameProfile.getId()` doesn't exist on the modern Authlib bundled with 1.21.11 — it's a record now, accessor is `id()`. Swapped all 3 usages.

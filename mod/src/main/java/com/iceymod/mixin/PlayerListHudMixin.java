@@ -58,9 +58,9 @@ public abstract class PlayerListHudMixin {
             // want to flood the worker with a request per frame.
             Set<UUID> playerUuids = new HashSet<>();
             for (PlayerListEntry e : mc.player.networkHandler.getPlayerList()) {
-                if (e != null && e.getProfile() != null && e.getProfile().id() != null) {
-                    playerUuids.add(e.getProfile().id());
-                }
+                if (e == null || e.getProfile() == null) continue;
+                UUID uu = iceymod$profileUuid(e.getProfile());
+                if (uu != null) playerUuids.add(uu);
             }
             if (!iceymod$warmedThisOpen) {
                 IceyNetwork.warmPresence(playerUuids);
@@ -93,7 +93,7 @@ public abstract class PlayerListHudMixin {
     private void iceymod$drawBadge(DrawContext ctx, int width, int x, int y, PlayerListEntry entry, CallbackInfo ci) {
         try {
             if (entry == null || entry.getProfile() == null) return;
-            UUID uuid = entry.getProfile().id();
+            UUID uuid = iceymod$profileUuid(entry.getProfile());
             if (uuid == null) return;
             if (!IceyNetwork.isOnline(uuid)) return;
 
@@ -133,6 +133,44 @@ public abstract class PlayerListHudMixin {
         try {
             iceymod$cachedDrawTexture.invoke(ctx, iceymod$cachedPipeline, tex, x, y, 0f, 0f, w, h, w, h);
         } catch (Throwable ignored) {}
+    }
+
+    /**
+     * Pull the UUID off a GameProfile-shaped object without pinning a
+     * compile-time accessor name. Authlib has cycled through
+     * {@code getId()} / {@code id()} / {@code getProfileId()} /
+     * {@code uuid()} across recent versions, and Loom remaps based on
+     * whatever Authlib version the dev environment shipped — so the
+     * compile-time name is whatever-yarn-says-this-week.
+     *
+     * <p>We just try the half-dozen common names by reflection. Misses
+     * cost a {@code NoSuchMethodException} once per call site; hits
+     * are cached implicitly by the JIT.
+     */
+    private static UUID iceymod$profileUuid(Object profile) {
+        if (profile == null) return null;
+        Class<?> c = profile.getClass();
+        String[] names = { "id", "getId", "getProfileId", "uuid", "getUuid" };
+        for (String n : names) {
+            try {
+                java.lang.reflect.Method m = c.getMethod(n);
+                if (m.getReturnType() == UUID.class) {
+                    Object v = m.invoke(profile);
+                    if (v instanceof UUID u) return u;
+                }
+            } catch (ReflectiveOperationException ignored) {}
+        }
+        // Field fallback — record-style classes may expose the field
+        // even if the accessor name keeps moving.
+        try {
+            for (java.lang.reflect.Field f : c.getFields()) {
+                if (f.getType() == UUID.class) {
+                    Object v = f.get(profile);
+                    if (v instanceof UUID u) return u;
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {}
+        return null;
     }
 
     private static Object iceymod$resolvePipeline(Class<?> pipelineType) {
