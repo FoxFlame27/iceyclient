@@ -1453,6 +1453,18 @@ function launchMinecraft(installationId) {
       // UUIDs that mean nothing on the network).
       if (launchUserType === 'msa' && launchUuid) {
         startPresenceHeartbeat(launchUuid);
+        // Auto-sync the locally-stored cape PNG to the backend so
+        // capes uploaded BEFORE the backend existed still reach the
+        // network without the user having to re-upload. Best-effort.
+        try {
+          const capePath = path.join(INSTALLATIONS_DIR, installationId, 'game', 'config', 'iceyclient', 'cape.png');
+          if (fs.existsSync(capePath)) {
+            const buf = fs.readFileSync(capePath);
+            uploadCapeToNetwork(launchUuid, buf);
+          }
+        } catch (e) {
+          log('warn', 'cape auto-sync on launch failed: ' + e.message);
+        }
       }
 
       proc.stdout.on('data', (data) => {

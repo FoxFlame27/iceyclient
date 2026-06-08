@@ -46,6 +46,14 @@ const presence = new Map(); // uuid -> lastPing ms
 
 const app = express();
 
+// One-line request log so journalctl shows live traffic — every
+// PUT /capes, POST /presence, GET /presence shows up as a tagged
+// line we can grep / tail.
+app.use((req, _res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // CORS for the launcher (Electron renderer issues fetch from a
 // file:// origin — without the wildcard the browser blocks the
 // response even though Electron doesn't actually need it for IPC,
