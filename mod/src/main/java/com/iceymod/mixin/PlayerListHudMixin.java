@@ -152,7 +152,7 @@ public abstract class PlayerListHudMixin {
                         java.lang.reflect.Field fld = c.getField(f);
                         Object v = fld.get(null);
                         if (v != null) return v;
-                    } catch (NoSuchFieldException ignored) {}
+                    } catch (ReflectiveOperationException ignored) {}
                 }
             } catch (ClassNotFoundException ignored) {}
         }

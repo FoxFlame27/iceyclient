@@ -30,6 +30,18 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.51
+
+**Build fix follow-up.** v1.86.50's catch was too narrow — `Field.get(null)` also throws `IllegalAccessException` (checked). Widened to `ReflectiveOperationException` which is the common parent of both `NoSuchFieldException` and `IllegalAccessException`.
+
+```
+PlayerListHudMixin.java:153: error: unreported exception
+IllegalAccessException; must be caught or declared to be thrown
+                        Object v = fld.get(null);
+```
+
+Single-character behavioral diff (the `ignored` swallow is the same), just makes the compiler happy.
+
 ## What's new in v1.86.50
 
 **Build fix only.** v1.86.49 didn't compile on 1.21.11: `DrawContext.drawTexture` lost its old `(Identifier, int...)` overloads — every signature now requires a `RenderPipeline` as first arg. Switched to reflective lookup so the badge code works without pinning the (volatile) `RenderPipeline` package name at compile time.
