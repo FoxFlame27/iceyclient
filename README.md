@@ -30,6 +30,67 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.56
+
+**Phase 2 — everything.** Remote-player capes, nameplate badges, TAB infrastructure all wired and ready. Need the backend deployed to actually function.
+
+### Cape WORKS on local player ([v1.86.55 log proof](#))
+
+```
+CapeMixin.swap: cape slot null, using sibling [0] as template
+  runtimeType=class_12079$class_10726 (isRecord=true)
+  constructors: public class_10726(class_2960)
+  -> strategy: ctor(Identifier)
+CapeMixin: cape swap SUCCESS for local player
+```
+
+15 versions of iteration paid off. Strategy 2 (single-arg `Identifier` ctor) fits the concrete record type once the sibling-template fallback gives the introspection something real to look at.
+
+### v1.86.56 changes
+
+#### Remote-player cape ([RemoteCapeManager.java](mod/src/main/java/com/iceymod/network/RemoteCapeManager.java), [AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+- **Mixin now runs for every player**, not just `mc.player`. Local → uses `CapeLoader` as before. Remote → `RemoteCapeManager.getCapeIdentifier(uuid)`.
+- `RemoteCapeManager` is a UUID→Identifier cache. On miss, schedules a virtual-thread fetch from `IceyNetwork.fetchCape(uuid)`, decodes the PNG, registers it via `NativeImageBackedTexture` on the render thread, populates the cache. Negative cache for 404s so we don't re-fetch known-missing capes.
+- The same proven swap pipeline (sibling template → strategy 2 → `ctor(Identifier)`) handles remote capes identically.
+
+#### Nameplate badge ([IceyBadgeHud.java](mod/src/main/java/com/iceymod/hud/IceyBadgeHud.java))
+
+- Registered as a `HudRenderCallback` (always-stable fabric API, no yarn name churn).
+- Every frame: walks every player in the world, projects head position to screen using yaw/pitch/FOV math (positions via `entity.getX()/Y()/Z()` — intermediary-stable, no reflection like the bad old health-HUD attempt).
+- For each Icey Client user (per `IceyNetwork.isOnline(uuid)`), draws an 8×8 `iceymod:icon.png` ~28px above their nametag.
+- Uses the same reflective `DrawContext.drawTexture` lookup as the TAB mixin so the 1.21.11 `RenderPipeline` signature change doesn't bite us.
+
+#### Build tag bumped to v1.86.56
+
+Startup banner says `[IceyMod] booted (build tag: v1.86.56)`.
+
+### What you need to do to see anything
+
+The backend isn't deployed. Without it, `IceyNetwork.isOnline(uuid)` always returns false → no remote capes, no badges. Deploy steps in [backend/README.md](backend/README.md):
+
+```sh
+cd backend
+wrangler login
+wrangler r2 bucket create icey-capes
+wrangler kv:namespace create ICEY_PRESENCE
+# paste the namespace id into wrangler.toml
+wrangler deploy
+```
+
+Send me the `<name>.workers.dev` URL it prints. I'll bump `ICEY_NETWORK_BASE_URL` in `main.js` to match. After that:
+
+1. Launcher PUTs your cape to the worker on every cape install.
+2. Launcher heartbeats your UUID to the worker while MC runs.
+3. Other Icey Client users on the same server will see your cape + badge.
+4. You'll see theirs.
+
+### Known gaps for v1.86.57+
+
+- TAB badge mixin's method-name candidates may still not bind on 1.21.11. Diagnostic prints added in v1.86.55 will tell us. If absent, widen candidate list.
+- Projection math is approximate — badge position drifts a bit at extreme angles. Acceptable for v1.
+- Cape mixin builds a new record every render call. ~30 reflective ops/call × visible players × 60fps. Cache the Constructor + targetIdx after first success if profiling shows it matters.
+
 ## What's new in v1.86.55
 
 **Diagnostics only — the v1.86.54 cape fix isn't reaching your launcher.** Your last two logs are byte-for-byte the v1.86.49/.50/.51/.52/.53 output — no `cape slot null, using sibling [0]`, no `enclosing factory`, no `dynamic Proxy`. CI v1.86.54 is built but your launcher's bundled iceymod jar hasn't picked it up.

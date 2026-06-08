@@ -1,9 +1,12 @@
 package com.iceymod.mixin;
 
 import com.iceymod.cape.CapeLoader;
+import com.iceymod.network.IceyNetwork;
+import com.iceymod.network.RemoteCapeManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.util.Identifier;
+import java.util.UUID;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -66,9 +69,22 @@ public abstract class AbstractClientPlayerEntityMixin {
 
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc == null || mc.player == null) return;
-            if (((Object) this) != mc.player) return;
 
-            Identifier customCape = CapeLoader.getCapeIdentifier();
+            // v1.86.56: now runs for every player, not just the local
+            // one. Local → uses CapeLoader (user's PNG). Remote → only
+            // if the network says this UUID is an Icey Client user
+            // AND we have their cape cached. First render after a join
+            // is a no-op while the fetch is in flight.
+            Identifier customCape;
+            if (((Object) this) == mc.player) {
+                customCape = CapeLoader.getCapeIdentifier();
+            } else {
+                AbstractClientPlayerEntity self =
+                    (AbstractClientPlayerEntity) (Object) this;
+                UUID uuid = self.getUuid();
+                if (uuid == null || !IceyNetwork.isOnline(uuid)) return;
+                customCape = RemoteCapeManager.getCapeIdentifier(uuid);
+            }
             if (customCape == null) return;
 
             Object original = cir.getReturnValue();
