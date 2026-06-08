@@ -58,8 +58,8 @@ public abstract class PlayerListHudMixin {
             // want to flood the worker with a request per frame.
             Set<UUID> playerUuids = new HashSet<>();
             for (PlayerListEntry e : mc.player.networkHandler.getPlayerList()) {
-                if (e != null && e.getProfile() != null && e.getProfile().getId() != null) {
-                    playerUuids.add(e.getProfile().getId());
+                if (e != null && e.getProfile() != null && e.getProfile().id() != null) {
+                    playerUuids.add(e.getProfile().id());
                 }
             }
             if (!iceymod$warmedThisOpen) {
@@ -93,7 +93,7 @@ public abstract class PlayerListHudMixin {
     private void iceymod$drawBadge(DrawContext ctx, int width, int x, int y, PlayerListEntry entry, CallbackInfo ci) {
         try {
             if (entry == null || entry.getProfile() == null) return;
-            UUID uuid = entry.getProfile().getId();
+            UUID uuid = entry.getProfile().id();
             if (uuid == null) return;
             if (!IceyNetwork.isOnline(uuid)) return;
 

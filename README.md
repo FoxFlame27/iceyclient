@@ -30,6 +30,19 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.52
+
+**Build fix.** `GameProfile.getId()` doesn't exist on the modern Authlib bundled with 1.21.11 — it's a record now, accessor is `id()`. Swapped all 3 usages.
+
+```
+PlayerListHudMixin.java:61: cannot find symbol
+  e.getProfile().getId()
+                ^ method getId()
+                location: class GameProfile
+```
+
+3-char diff per call site, no behavior change.
+
 ## What's new in v1.86.51
 
 **Build fix follow-up.** v1.86.50's catch was too narrow — `Field.get(null)` also throws `IllegalAccessException` (checked). Widened to `ReflectiveOperationException` which is the common parent of both `NoSuchFieldException` and `IllegalAccessException`.
