@@ -1,0 +1,12 @@
+{
+  "name": "icey-client-network-server",
+  "version": "1.0.0",
+  "description": "Self-hosted Node.js variant of the Icey Client network backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.1"
+  }
+}
