@@ -30,6 +30,25 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.57
+
+**Build fix.** `Camera.getPos()` doesn't exist on 1.21.11. Mojang's renamed the camera accessors again (pattern: `getX()` → `x()`). Going reflective for the camera too — same approach as the GameProfile fix in v1.86.53.
+
+```
+IceyBadgeHud.java:59: cannot find symbol
+  Vec3d camPos = cam.getPos();
+                    ^ method getPos()
+                    location: variable cam of type Camera
+```
+
+### Fix ([IceyBadgeHud.java](mod/src/main/java/com/iceymod/hud/IceyBadgeHud.java))
+
+Two helpers:
+- `invokeCameraVec3d(Camera)` — tries `getPos / pos / getPosition / position`, falls back to declared-field scan for any `Vec3d` field.
+- `invokeCameraFloat(Camera, base)` — tries `<base> / get<Base> / <base>Degrees`, declared-field scan as last resort. Used for both `yaw` and `pitch`.
+
+If any of them return null the badge HUD silently no-ops that frame. No crashes.
+
 ## What's new in v1.86.56
 
 **Phase 2 — everything.** Remote-player capes, nameplate badges, TAB infrastructure all wired and ready. Need the backend deployed to actually function.

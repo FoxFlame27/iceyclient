@@ -54,11 +54,16 @@ public final class IceyBadgeHud {
         if (mc == null || mc.player == null || mc.world == null) return;
         if (mc.gameRenderer == null) return;
         Camera cam = mc.gameRenderer.getCamera();
-        if (cam == null || !cam.isReady()) return;
+        if (cam == null) return;
 
-        Vec3d camPos = cam.getPos();
-        double yawRad = Math.toRadians(cam.getYaw());
-        double pitchRad = Math.toRadians(cam.getPitch());
+        // Camera accessor names move across point releases (getPos vs
+        // pos, getYaw vs yaw, etc.). Pull via reflection.
+        Vec3d camPos = invokeCameraVec3d(cam);
+        Float yawF = invokeCameraFloat(cam, "yaw");
+        Float pitchF = invokeCameraFloat(cam, "pitch");
+        if (camPos == null || yawF == null || pitchF == null) return;
+        double yawRad = Math.toRadians(yawF);
+        double pitchRad = Math.toRadians(pitchF);
         double cy = Math.cos(yawRad), sy = Math.sin(yawRad);
         double cp = Math.cos(pitchRad), sp = Math.sin(pitchRad);
 
@@ -128,6 +133,63 @@ public final class IceyBadgeHud {
         try {
             cachedDrawTexture.invoke(ctx, cachedPipeline, tex, x, y, 0f, 0f, w, h, w, h);
         } catch (Throwable ignored) {}
+    }
+
+    /**
+     * Pull the camera's position Vec3d via whichever accessor exists
+     * on the running MC version. Walks {@code getPos / pos /
+     * getPosition / position}; falls back to scanning declared fields
+     * for a Vec3d-typed one.
+     */
+    private static Vec3d invokeCameraVec3d(Camera cam) {
+        String[] names = { "getPos", "pos", "getPosition", "position" };
+        for (String n : names) {
+            try {
+                Method m = Camera.class.getMethod(n);
+                if (m.getReturnType() == Vec3d.class) {
+                    Object v = m.invoke(cam);
+                    if (v instanceof Vec3d vv) return vv;
+                }
+            } catch (ReflectiveOperationException ignored) {}
+        }
+        try {
+            for (Field f : Camera.class.getDeclaredFields()) {
+                if (f.getType() == Vec3d.class) {
+                    f.setAccessible(true);
+                    Object v = f.get(cam);
+                    if (v instanceof Vec3d vv) return vv;
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {}
+        return null;
+    }
+
+    /**
+     * Pull a float-returning Camera accessor by base name. Tries
+     * {@code base}, {@code getBase}, {@code base + "Degrees"} — covers
+     * yaw / getYaw / pitch / getPitch / etc.
+     */
+    private static Float invokeCameraFloat(Camera cam, String base) {
+        String cap = Character.toUpperCase(base.charAt(0)) + base.substring(1);
+        String[] names = { base, "get" + cap, base + "Degrees" };
+        for (String n : names) {
+            try {
+                Method m = Camera.class.getMethod(n);
+                if (m.getReturnType() == float.class) {
+                    return (Float) m.invoke(cam);
+                }
+            } catch (ReflectiveOperationException ignored) {}
+        }
+        try {
+            for (Field f : Camera.class.getDeclaredFields()) {
+                if (f.getType() == float.class
+                    && f.getName().toLowerCase().contains(base.toLowerCase())) {
+                    f.setAccessible(true);
+                    return f.getFloat(cam);
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {}
+        return null;
     }
 
     private static Object resolvePipeline(Class<?> pipelineType) {
