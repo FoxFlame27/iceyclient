@@ -30,6 +30,61 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.54
+
+**Cape wrapper finally cracked.** The v1.86.49 introspection nailed the exact shape of `class_12079$class_12081` — it's an INTERFACE with a single Identifier accessor, and the cape slot in the record is NULL for accounts without a Mojang cape. v1.86.54 adds the three fixes that follow from that fact.
+
+### What the introspection revealed
+
+```
+Wrapper introspection:
+  declaredType=net.minecraft.class_12079$class_12081
+  runtimeType=net.minecraft.class_12079$class_12081     ← same → fell back to declared
+  isRecord=false isInterface=true superclass=null        ← it's an INTERFACE
+  constructors: <empty>                                  ← interfaces have none
+  declared fields: <empty>                               ← same
+  declared methods: comp_3627():net.minecraft.class_2960 ← single Identifier accessor
+```
+
+Reading this:
+
+1. **The cape slot is NULL** for accounts without a Mojang cape (your skin in the prelaunch log is a vanilla MS account skin URL → no Mojang-issued cape). My code did `runtimeType = existingWrapper != null ? existingWrapper.getClass() : wrapperType`. Wrapper was null → fell back to the interface itself → no constructors, no fields. Strategies 2/3/4/5/6/7 all needed concrete-class metadata to work.
+2. **`class_12079$class_12081` is the interface, not the concrete record.** The actual cape instances are nested implementations (the body slot — comps[0] — has one).
+3. **The accessor `comp_3627()` returning `class_2960`** confirms a single Identifier is what the interface contract is about. A Java dynamic Proxy returning customCape from that accessor IS a valid implementation.
+
+### Three fixes ([AbstractClientPlayerEntityMixin.java](mod/src/main/java/com/iceymod/mixin/AbstractClientPlayerEntityMixin.java))
+
+**A. Sibling-template fallback.** When the cape slot is null, scan the original record for another slot of the same type (body — `comps[0]` — is always populated) and use *its* runtime instance as `existingWrapper` for the builder. Now strategies 2/3/4/5/6/7 get the concrete class to clone from instead of the bare interface.
+
+**B. Strategy 8 — enclosing-class static factory.** `class_12079$class_12081` is nested inside `class_12079`. Many Mojang sealed/wrapper types host factory methods on the OUTER class (`class_12079.of(Identifier)`). Walk the outer's declared static methods for one returning the wrapper type, taking Identifier as first arg.
+
+**C. Strategy 9 — Java dynamic Proxy.** If the wrapper is an interface and nothing else worked, build a `Proxy.newProxyInstance` that:
+- Returns `customCape` from any zero-arg method returning Identifier (the `comp_3627`-style accessor).
+- Delegates other methods to the sibling-template wrapper if present.
+- Returns sensible defaults (null / 0 / false) otherwise.
+
+A proxy is bytecode-equivalent to a class that implements the interface — record canonical constructors should accept it wherever they accept the real implementation.
+
+### Expected log next launch
+
+```
+CapeMixin.swap: cape slot null, using sibling [0] as template
+Wrapper introspection:
+  runtimeType=<concrete class — finally>
+  isRecord=<probably true>
+  ...
+  -> strategy: record copy+swap  (or enclosing factory, or proxy)
+CapeMixin: cape swap SUCCESS for local player
+```
+
+And the cape actually renders. If strategy 8 or 9 succeeds the log marks which one.
+
+### TAB badge — open TAB next test
+
+Your v1.86.49 log shows no `PlayerListHudMixin` output at all. Two possibilities: (1) you didn't open TAB during the test, (2) the mixin method-name candidates didn't match on 1.21.11. Open TAB explicitly on the next launch and:
+- If you see ANY presence-related warning in the log → mixin attached, just needs backend deploy.
+- If you see nothing → none of `render` / `method_1750` matched. I'll need to widen the candidate list in v1.86.55.
+
 ## What's new in v1.86.53
 
 **Build fix.** Authlib's `GameProfile` UUID accessor isn't `id()` either. Pinning a compile-time name has burned us twice in a row — `getId()` → `id()` → still wrong. Going reflective for the accessor too.

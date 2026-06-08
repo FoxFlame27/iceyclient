@@ -394,6 +394,76 @@ public abstract class AbstractClientPlayerEntityMixin {
             if (dbg != null) dbg.append("    -> inherited field overwrite failed: ").append(t).append('\n');
         }
 
+        // Strategy 8: enclosing-class static factory. The wrapper is
+        // a nested type (class_12079$class_12081 — inner of class_12079);
+        // the outer often hosts the constructor / factory. Look for any
+        // static method on the ENCLOSING class returning something
+        // assignable to wrapperType, taking an Identifier as first arg.
+        Class<?> enclosing = wrapperType.getEnclosingClass();
+        if (enclosing != null) {
+            for (java.lang.reflect.Method m : enclosing.getDeclaredMethods()) {
+                if (!java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
+                if (!wrapperType.isAssignableFrom(m.getReturnType())) continue;
+                Class<?>[] params = m.getParameterTypes();
+                if (params.length < 1 || params.length > 8) continue;
+                if (!isIdentifierType(params[0])) continue;
+                try {
+                    Object[] args = new Object[params.length];
+                    args[0] = customCape;
+                    for (int p = 1; p < params.length; p++) {
+                        args[p] = findFieldValueByType(existingWrapper, params[p]);
+                    }
+                    m.setAccessible(true);
+                    Object wrapper = m.invoke(null, args);
+                    if (dbg != null) dbg.append("    -> strategy: enclosing factory ").append(enclosing.getName()).append('.').append(m.getName()).append("\n");
+                    return wrapper;
+                } catch (Throwable t) {
+                    if (dbg != null) dbg.append("    -> enclosing factory ").append(m.getName()).append(" failed: ").append(t).append('\n');
+                }
+            }
+        }
+
+        // Strategy 9: Java dynamic Proxy on the interface. The
+        // introspection log showed class_12079$class_12081 is an
+        // interface with a single Identifier-returning accessor
+        // (comp_NNNN). A proxy implementing the interface that returns
+        // customCape from that accessor is a valid wrapper at the
+        // record-canonical-constructor's API surface.
+        if (wrapperType.isInterface()) {
+            try {
+                final Object delegate = existingWrapper;
+                Object wrapper = java.lang.reflect.Proxy.newProxyInstance(
+                    wrapperType.getClassLoader(),
+                    new Class<?>[]{ wrapperType },
+                    (proxy, method, invokeArgs) -> {
+                        // Any zero-arg method returning Identifier: hand
+                        // back the custom cape. Other methods: delegate
+                        // to the existing wrapper if we have one; else
+                        // return a sensible default.
+                        if (method.getParameterCount() == 0 && isIdentifierType(method.getReturnType())) {
+                            return customCape;
+                        }
+                        if (delegate != null) {
+                            try { return method.invoke(delegate, invokeArgs); }
+                            catch (Throwable ignored) {}
+                        }
+                        Class<?> rt = method.getReturnType();
+                        if (rt == void.class) return null;
+                        if (rt == boolean.class) return Boolean.FALSE;
+                        if (rt == int.class) return 0;
+                        if (rt == long.class) return 0L;
+                        if (rt == float.class) return 0f;
+                        if (rt == double.class) return 0d;
+                        return null;
+                    }
+                );
+                if (dbg != null) dbg.append("    -> strategy: dynamic Proxy on interface\n");
+                return wrapper;
+            } catch (Throwable t) {
+                if (dbg != null) dbg.append("    -> dynamic Proxy failed: ").append(t).append('\n');
+            }
+        }
+
         if (dbg != null) dbg.append("    -> all strategies exhausted, returning null\n");
         return null;
     }
@@ -503,8 +573,24 @@ public abstract class AbstractClientPlayerEntityMixin {
         }
 
         // Build the replacement value for the chosen slot.
+        // The cape slot is null for accounts without a Mojang cape —
+        // we can't introspect what we don't have. Fall back to a
+        // sibling slot of the same type (body is always populated)
+        // so buildWrapperWithIdentifier has a concrete runtime class
+        // to clone from.
         Class<?> targetType = comps[targetIdx].getType();
-        Object newValue = buildWrapperWithIdentifier(targetType, args[targetIdx], customCape, dbg);
+        Object existingForBuild = args[targetIdx];
+        if (existingForBuild == null) {
+            for (int i = 0; i < comps.length; i++) {
+                if (i == targetIdx) continue;
+                if (comps[i].getType() == targetType && args[i] != null) {
+                    existingForBuild = args[i];
+                    if (dbg != null) dbg.append("[IceyMod] CapeMixin.swap: cape slot null, using sibling [").append(i).append("] as template\n");
+                    break;
+                }
+            }
+        }
+        Object newValue = buildWrapperWithIdentifier(targetType, existingForBuild, customCape, dbg);
         if (newValue == null) {
             if (dbg != null) {
                 dbg.append("[IceyMod] CapeMixin.swap: buildWrapperWithIdentifier returned null\n");
