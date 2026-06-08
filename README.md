@@ -30,6 +30,25 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.55
+
+**Diagnostics only — the v1.86.54 cape fix isn't reaching your launcher.** Your last two logs are byte-for-byte the v1.86.49/.50/.51/.52/.53 output — no `cape slot null, using sibling [0]`, no `enclosing factory`, no `dynamic Proxy`. CI v1.86.54 is built but your launcher's bundled iceymod jar hasn't picked it up.
+
+v1.86.55 adds three diagnostics so we can verify which build is actually loaded:
+
+1. **Startup banner** — `[IceyMod] booted (build tag: v1.86.55)` printed on mod init. If you launch and see anything other than `v1.86.55`, the launcher is serving a stale jar.
+2. **`PlayerListHudMixin: render injector attached and firing`** — first time TAB renders. Silent absence = the `render` mixin didn't bind, need wider candidate list.
+3. **`PlayerListHudMixin: badge injector attached and firing`** — first time the per-row helper renders. Silent absence = the `renderLatencyIcon` mixin didn't bind.
+
+### What to do
+
+1. Wait for v1.86.55 CI to land.
+2. Fully quit the launcher (not just close the window — make sure it's not in the dock).
+3. Reopen the launcher → launch MC → join a server → **hold TAB for ~3 seconds**.
+4. Send the log.
+
+I'll look for `build tag: v1.86.55` first. If it says anything else, the launcher needs to refresh its bundled mod jar. If it says `v1.86.55` and the cape STILL fails, then v1.86.54's strategies didn't fit and we'll iterate from the new dump. If we see the two `PlayerListHudMixin` lines we know the badge path is live.
+
 ## What's new in v1.86.54
 
 **Cape wrapper finally cracked.** The v1.86.49 introspection nailed the exact shape of `class_12079$class_12081` — it's an INTERFACE with a single Identifier accessor, and the cape slot in the record is NULL for accounts without a Mojang cape. v1.86.54 adds the three fixes that follow from that fact.

@@ -32,6 +32,8 @@ public abstract class PlayerListHudMixin {
 
     private static final Identifier ICEY_BADGE = Identifier.of("iceymod", "icon.png");
     private static boolean iceymod$warmedThisOpen = false;
+    private static boolean iceymod$renderInjectLogged = false;
+    private static boolean iceymod$badgeInjectLogged = false;
 
     /**
      * Fires every TAB render frame. We:
@@ -50,6 +52,10 @@ public abstract class PlayerListHudMixin {
         require = 0
     )
     private void iceymod$onRender(DrawContext ctx, int scaledWindowWidth, net.minecraft.scoreboard.Scoreboard scoreboard, net.minecraft.scoreboard.ScoreboardObjective objective, CallbackInfo ci) {
+        if (!iceymod$renderInjectLogged) {
+            System.out.println("[IceyMod] PlayerListHudMixin: render injector attached and firing");
+            iceymod$renderInjectLogged = true;
+        }
         try {
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc == null || mc.player == null || mc.world == null) return;
@@ -91,6 +97,10 @@ public abstract class PlayerListHudMixin {
         require = 0
     )
     private void iceymod$drawBadge(DrawContext ctx, int width, int x, int y, PlayerListEntry entry, CallbackInfo ci) {
+        if (!iceymod$badgeInjectLogged) {
+            System.out.println("[IceyMod] PlayerListHudMixin: badge injector attached and firing");
+            iceymod$badgeInjectLogged = true;
+        }
         try {
             if (entry == null || entry.getProfile() == null) return;
             UUID uuid = iceymod$profileUuid(entry.getProfile());
