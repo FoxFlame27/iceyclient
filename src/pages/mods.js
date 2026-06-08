@@ -142,6 +142,25 @@ async function _renderModsMainView(page, installations) {
       if (scrollTop + clientHeight >= scrollHeight - 200) _loadMoreMods();
     });
   }
+
+  // Delegated Install click handler — was missing in the v2 layout
+  // ("press Install does nothing"). The legacy _renderModsBrowse
+  // wired this on its own container; v2 has its own #mods-browse-results
+  // so we need to attach it here too.
+  if (browseList && !browseList.dataset.installListenerAttached) {
+    browseList.dataset.installListenerAttached = '1';
+    browseList.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-install-mod');
+      if (!btn) return;
+      _installModFromSearch(
+        btn,
+        btn.dataset.source,
+        btn.dataset.modId,
+        btn.dataset.modName,
+        btn.dataset.projectType
+      );
+    });
+  }
 }
 
 function _enterModsBrowse() {

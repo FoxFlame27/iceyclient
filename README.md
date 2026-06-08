@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.58
+
+**Fix: Browse mods "Install" button did nothing on the v2 layout.** The delegated click handler was wired on the legacy `_renderModsBrowse` container but never on the new v2 `#mods-browse-results` inside `_renderModsMainView`. So when you typed in the right-column browse search, results showed up but the Install button was a dead click. Added the same delegated handler to the v2 setup. Idempotent flag (`dataset.installListenerAttached`) prevents double-binding on re-renders.
+
 ## What's new in v1.86.57
 
 **Build fix.** `Camera.getPos()` doesn't exist on 1.21.11. Mojang's renamed the camera accessors again (pattern: `getX()` → `x()`). Going reflective for the camera too — same approach as the GameProfile fix in v1.86.53.
