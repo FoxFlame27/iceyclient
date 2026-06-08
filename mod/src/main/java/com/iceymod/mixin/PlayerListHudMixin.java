@@ -97,8 +97,65 @@ public abstract class PlayerListHudMixin {
             if (uuid == null) return;
             if (!IceyNetwork.isOnline(uuid)) return;
 
-            // Draw the 8x8 badge to the LEFT of the ping/name cell.
-            ctx.drawTexture(ICEY_BADGE, x - 10, y, 0, 0, 8, 8, 8, 8);
+            // 1.21.11 changed DrawContext.drawTexture's signature to
+            // require a RenderPipeline as first arg. The package layout
+            // for RenderPipeline / RenderPipelines varies across point
+            // releases. Use reflection to find a compatible overload +
+            // a sensible default pipeline constant, all at runtime —
+            // safer than pinning compile-time imports.
+            iceymod$drawTextureReflective(ctx, ICEY_BADGE, x - 10, y, 8, 8);
         } catch (Throwable ignored) {}
+    }
+
+    private static java.lang.reflect.Method iceymod$cachedDrawTexture;
+    private static Object iceymod$cachedPipeline;
+    private static boolean iceymod$drawLookupTried;
+
+    /** Find DrawContext.drawTexture(RenderPipeline, Identifier, ...) + a pipeline, cache, invoke. */
+    private static void iceymod$drawTextureReflective(DrawContext ctx, Identifier tex, int x, int y, int w, int h) {
+        if (!iceymod$drawLookupTried) {
+            iceymod$drawLookupTried = true;
+            try {
+                for (java.lang.reflect.Method m : DrawContext.class.getMethods()) {
+                    if (!m.getName().equals("drawTexture")) continue;
+                    Class<?>[] p = m.getParameterTypes();
+                    if (p.length != 10) continue;
+                    if (p[1] != Identifier.class) continue;
+                    if (p[2] != int.class || p[3] != int.class) continue;
+                    if (p[4] != float.class || p[5] != float.class) continue;
+                    iceymod$cachedDrawTexture = m;
+                    iceymod$cachedPipeline = iceymod$resolvePipeline(p[0]);
+                    break;
+                }
+            } catch (Throwable ignored) {}
+        }
+        if (iceymod$cachedDrawTexture == null || iceymod$cachedPipeline == null) return;
+        try {
+            iceymod$cachedDrawTexture.invoke(ctx, iceymod$cachedPipeline, tex, x, y, 0f, 0f, w, h, w, h);
+        } catch (Throwable ignored) {}
+    }
+
+    private static Object iceymod$resolvePipeline(Class<?> pipelineType) {
+        String pkg = pipelineType.getPackage() != null ? pipelineType.getPackage().getName() : "";
+        String[] holders = {
+            pkg + ".RenderPipelines",
+            "net.minecraft.client.gl.RenderPipelines",
+            "net.minecraft.client.render.RenderPipelines",
+            "com.mojang.blaze3d.pipeline.RenderPipelines"
+        };
+        String[] fields = { "GUI_TEXTURED", "GUI", "MAIN_TARGET", "POSITION_TEX" };
+        for (String h : holders) {
+            try {
+                Class<?> c = Class.forName(h);
+                for (String f : fields) {
+                    try {
+                        java.lang.reflect.Field fld = c.getField(f);
+                        Object v = fld.get(null);
+                        if (v != null) return v;
+                    } catch (NoSuchFieldException ignored) {}
+                }
+            } catch (ClassNotFoundException ignored) {}
+        }
+        return null;
     }
 }

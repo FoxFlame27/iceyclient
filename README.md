@@ -30,6 +30,25 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.50
+
+**Build fix only.** v1.86.49 didn't compile on 1.21.11: `DrawContext.drawTexture` lost its old `(Identifier, int...)` overloads — every signature now requires a `RenderPipeline` as first arg. Switched to reflective lookup so the badge code works without pinning the (volatile) `RenderPipeline` package name at compile time.
+
+### Build failure ([compileJava log](mod/build/reports/problems/problems-report.html))
+
+```
+PlayerListHudMixin.java:101: error: no suitable method found for
+  drawTexture(Identifier,int,int,int,int,int,int,int,int)
+  method DrawContext.drawTexture(RenderPipeline,Identifier,int,int,
+    float,float,int,int,int,int) is not applicable ...
+```
+
+### Fix ([PlayerListHudMixin.java](mod/src/main/java/com/iceymod/mixin/PlayerListHudMixin.java))
+
+At first badge-draw call, walk `DrawContext.class.getMethods()` for a `drawTexture` overload that matches `(<pipeline-class>, Identifier, int, int, float, float, int, int, int, int)`. Cache the method + a default pipeline (`GUI_TEXTURED` / `GUI` / `MAIN_TARGET` / `POSITION_TEX`, searched across `RenderPipelines` candidates including the package the `RenderPipeline` class lives in). Subsequent draws are direct `Method.invoke` calls.
+
+Side benefit: same approach handles any future signature drift across 1.21.x — when Mojang reshuffles the params again, only the 4-line `for` loop has to change.
+
 ## What's new in v1.86.49
 
 **Both at once.** Cape: three more defensive swap strategies stacked on top of v1.86.47's introspection. Badge: full TAB-render mixin + network client wired. Nameplate badge intentionally deferred — needs a TAB-mixin success signal first to know which yarn method names actually attach on 1.21.11.
