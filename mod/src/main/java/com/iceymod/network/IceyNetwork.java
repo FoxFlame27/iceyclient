@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class IceyNetwork {
 
-    private static final String BASE_URL = "https://icey-client-network.iceyclient.workers.dev";
+    private static final String BASE_URL = "http://138.199.163.183:8787";
     private static final long PRESENCE_TTL_MS = 60_000;
     private static final HttpClient HTTP = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5))

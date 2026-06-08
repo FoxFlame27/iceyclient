@@ -22,7 +22,7 @@ let mcLaunchCounter = 0;
 // wrangler dev server (e.g. http://localhost:8787).
 const ICEY_NETWORK_BASE_URL =
   process.env.ICEY_NETWORK_BASE_URL ||
-  'https://icey-client-network.iceyclient.workers.dev';
+  'http://138.199.163.183:8787';
 
 // In-memory presence heartbeat. Started when MC launches with a
 // signed-in account, stopped when the last MC process exits.

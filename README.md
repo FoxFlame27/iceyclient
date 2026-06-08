@@ -30,6 +30,28 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.59
+
+**Network is live.** Self-hosted Express backend deployed on Hetzner VPS at `138.199.163.183:8787`. Both launcher and mod now point at it.
+
+- `main.js`: `ICEY_NETWORK_BASE_URL = 'http://138.199.163.183:8787'`
+- `IceyNetwork.java`: `BASE_URL = "http://138.199.163.183:8787"`
+- Mod startup banner bumped to `v1.86.59`.
+
+### What now works (once CI lands + you relaunch + 2 accounts test)
+
+- **Launcher**: PUTs your cape PNG to `/capes/<uuid>` after every cape install. POSTs `/presence/<uuid>` every 60s while MC is running.
+- **Mod**: GETs `/presence?uuids=...` when other players are in the world. Active Icey users get a badge above their nametag. Their cape PNG is fetched from `/capes/<uuid>` and applied via the same `ctor(Identifier)` swap the local cape uses.
+
+### Two-account test
+
+1. Wait for v1.86.59 CI mod jar.
+2. Launch your 1st account in Icey Client. Make sure a cape PNG is uploaded.
+3. Launch your 2nd account in Icey Client on the same server.
+4. Look at your 1st account in-world from the 2nd — should see the cape + the Icey badge above the nametag.
+
+Send the v1.86.59 log if anything looks off. The IceyBadgeHud and RemoteCapeManager print diagnostics on first activity per session.
+
 ## What's new in v1.86.58
 
 **Fix: Browse mods "Install" button did nothing on the v2 layout.** The delegated click handler was wired on the legacy `_renderModsBrowse` container but never on the new v2 `#mods-browse-results` inside `_renderModsMainView`. So when you typed in the right-column browse search, results showed up but the Install button was a dead click. Added the same delegated handler to the v2 setup. Idempotent flag (`dataset.installListenerAttached`) prevents double-binding on re-renders.
