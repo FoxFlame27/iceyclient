@@ -13,7 +13,8 @@
     "EntityIsGlowingMixin",
     "SplashTextMixin",
     "AbstractClientPlayerEntityMixin",
-    "PlayerListHudMixin"
+    "PlayerListHudMixin",
+    "PlayerNameBadgeMixin"
   ],
   "injectors": {
     "defaultRequire": 1
