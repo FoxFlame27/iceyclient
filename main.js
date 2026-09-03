@@ -1206,6 +1206,10 @@ function launchMinecraft(installationId) {
         log('warn', 'Fabric loader check failed: ' + e.message);
       }
 
+      // 5b) Mods that can't run on this OS at all (e.g. 'splashscreen'
+      // deadlocks macOS). Applies to anything in mods/, however it got there.
+      try { _sweepPlatformIncompatibleMods(modsDir); } catch (_) {}
+
       // 6) Some mods need a newer Java than the game itself (C2ME on
       // 1.21.11 wants 22+). Bump to the LTS that covers it.
       try {
@@ -2427,6 +2431,36 @@ function _requiredJavaFromMods(modsDir) {
 // under Options → Resource Packs if you want the 3D armor look.
 const JAVASTUFF_PACK_FILE = 'JavaAndStuff-1.3.2.mrpack';
 const JAVASTUFF_ARMOR_PACK_RE = /armor|3d trims/i;
+// Mods that can never work on a given OS. 'splashscreen' opens a Java AWT
+// window; on macOS Minecraft runs with -XstartOnFirstThread, so AWT's event
+// loop never runs and Window.dispose() waits forever — the game freezes
+// right after mod init with no error. Matched by mod id (from the jar) or
+// by filename prefix (before download).
+const PLATFORM_INCOMPATIBLE_MODS = {
+  darwin: [{ id: 'splashscreen', file: /^splashscreen[-_.]/i, why: 'freezes Minecraft on macOS (AWT window + -XstartOnFirstThread)' }],
+};
+
+function _platformIncompatible(modId, filename) {
+  const list = PLATFORM_INCOMPATIBLE_MODS[process.platform] || [];
+  return list.find(m => (modId && m.id === modId) || (filename && m.file.test(filename))) || null;
+}
+
+// Remove any jar in modsDir that can't run on this OS. Returns removed names.
+function _sweepPlatformIncompatibleMods(modsDir) {
+  const removed = [];
+  const list = PLATFORM_INCOMPATIBLE_MODS[process.platform] || [];
+  if (!list.length) return removed;
+  try {
+    for (const f of fs.readdirSync(modsDir)) {
+      if (!f.endsWith('.jar')) continue;
+      let hit = _platformIncompatible(null, f);
+      if (!hit) { const meta = _readFabricModMeta(path.join(modsDir, f)); hit = meta ? _platformIncompatible(meta.id, null) : null; }
+      if (!hit) continue;
+      try { fs.unlinkSync(path.join(modsDir, f)); removed.push(f); _mcConsole(`Removed ${f} — ${hit.why}`, 'warn'); } catch (_) {}
+    }
+  } catch (_) {}
+  return removed;
+}
 const JAVASTUFF_SKIP_OVERRIDES = /^(options\.txt|replace-lines\.ps1|fixresourcepacks.*\.bat|logo\.png)$/i;
 
 function _javaStuffPackPath() {
@@ -2508,6 +2542,10 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
       if (!relPath || relPath.includes('..')) continue;
       const folder = relPath.split('/')[0];
       const originalName = relPath.split('/').pop();
+      if (folder === 'mods' && _platformIncompatible(null, originalName)) {
+        skipped.push(originalName + ' (not usable on this OS)');
+        continue;
+      }
       const dlUrl = (f.downloads || [])[0] || '';
       const m = dlUrl.match(/cdn\.modrinth\.com\/data\/([^/]+)\/versions\/([^/]+)\//);
       let res = null;
@@ -2519,10 +2557,22 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
           res = await _resolveModForMc(m[1], mcVersion, loader);
           if (!res) { skipped.push(originalName); continue; }
         }
+        if (folder === 'mods' && _platformIncompatible(null, res.filename)) {
+          skipped.push(res.filename + ' (not usable on this OS)');
+          continue;
+        }
         const destPath = path.join(installGameDir, folder, res.filename);
         await _installResolvedFile(res, destPath);
         installed.add(folder + '/' + res.filename);
         if (folder === 'mods') {
+          const dlMeta = _readFabricModMeta(destPath);
+          const bad = dlMeta ? _platformIncompatible(dlMeta.id, null) : null;
+          if (bad) {
+            try { fs.unlinkSync(destPath); } catch (_) {}
+            installed.delete(folder + '/' + res.filename);
+            skipped.push(res.filename + ' (not usable on this OS)');
+            continue;
+          }
           packMods.set(res.filename, { projectId: res.projectId || (m ? m[1] : null), versionId: res.versionId || null, folder });
           // Drop older duplicates of the same mod id (user copies or a
           // previous pack version). Launcher-managed Icey*.jar copies

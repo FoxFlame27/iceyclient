@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.65
+
+**Fix: game froze forever after mod loading on macOS with Java & Stuff.** The pack's `splashscreen` mod opens a Java AWT window; on macOS Minecraft runs with `-XstartOnFirstThread`, so AWT's event loop never runs and the mod's `dispose()` waits for an event that never arrives. The log stopped right after "Created config watch service" with the CPU still busy. The launcher now knows which mods can't run on which OS: it skips them when installing the pack and removes any copy already sitting in `mods/`, with a console line saying why.
+
 ## What's new in v1.86.64
 
 **Fix: "Incompatible mods found!" after enabling Java & Stuff on 1.21.11.** Re-matching the pack to another Minecraft version picked the newest build of every mod independently, which is not always a coherent set (Sodium 0.8.14 declares it breaks Iris ≤ 1.10.7; SodiumCoreShaderSupport pins Sodium 0.8.12; C2ME needs Java 22+).
