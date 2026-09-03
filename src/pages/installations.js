@@ -727,13 +727,22 @@ async function _submitCreateInstallation() {
     progressBar.style.width = '70%';
 
     const instId = name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
+    // A freshly created installation becomes the selected one, so the
+    // Home LAUNCH button and the Mods page pick it up immediately instead
+    // of the user having to click it a second time.
+    try {
+      const existing = await window.icey.getInstallations();
+      for (const other of existing) {
+        if (other.selected) { other.selected = false; await window.icey.saveInstallation(other); }
+      }
+    } catch (_) {}
     const installation = {
       id: instId,
       name: name,
       version: version,
       platform: _createPlatform,
       fabricActive: false,
-      selected: false,
+      selected: true,
       image: null,
       createdAt: Date.now()
     };

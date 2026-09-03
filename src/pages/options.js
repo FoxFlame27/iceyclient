@@ -29,6 +29,7 @@ async function _renderMainOptions(page, settings) {
   const iceyModsEnabled = settings.iceyModsEnabled !== false;
   const skinChangerEnabled = !!settings.skinChangerEnabled;
   const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
+  const javaStuffEnabled = !!settings.javaStuffEnabled;
   const closeOnStart = !!settings.closeLauncherOnStart;
   // Icey network — community features. Default-on, can be turned off
   // by privacy-conscious users.
@@ -110,9 +111,10 @@ async function _renderMainOptions(page, settings) {
         </div>
 
         <div class="options-toggle-card ${skinChangerEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('skinChangerEnabled', ${!skinChangerEnabled})">
+          <img class="options-toggle-icon" src="assets/mods/skinshuffle.png" alt="SkinShuffle">
           <div class="options-toggle-body">
             <div class="options-toggle-name">Skin Changer</div>
-            <div class="options-toggle-desc">In-game skin swap mod</div>
+            <div class="options-toggle-desc">In-game skin swap mod (SkinShuffle)</div>
           </div>
           <label class="toggle" onclick="event.stopPropagation();">
             <input type="checkbox" ${skinChangerEnabled ? 'checked' : ''} onchange="_optToggleFeature('skinChangerEnabled', this.checked)">
@@ -121,12 +123,28 @@ async function _renderMainOptions(page, settings) {
         </div>
 
         <div class="options-toggle-card ${healthIndicatorsEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('healthIndicatorsEnabled', ${!healthIndicatorsEnabled})">
+          <img class="options-toggle-icon" src="assets/mods/healthindicators.png" alt="Health Indicators">
           <div class="options-toggle-body">
             <div class="options-toggle-name">Health Indicators</div>
             <div class="options-toggle-desc">HP bars above player + mob heads</div>
           </div>
           <label class="toggle" onclick="event.stopPropagation();">
             <input type="checkbox" ${healthIndicatorsEnabled ? 'checked' : ''} onchange="_optToggleFeature('healthIndicatorsEnabled', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Modpack row -->
+      <div class="options-toggle-row">
+        <div class="options-toggle-card ${javaStuffEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('javaStuffEnabled', ${!javaStuffEnabled})">
+          <img class="options-toggle-icon" src="assets/mods/javastuff.png" alt="Java &amp; Stuff">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Java &amp; Stuff</div>
+            <div class="options-toggle-desc">Actions &amp; Stuff-style animations, 3D items, shaders &amp; sounds. Fabric only. Armor packs stay off — enable in-game.</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${javaStuffEnabled ? 'checked' : ''} onchange="_optToggleFeature('javaStuffEnabled', this.checked)">
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -301,7 +319,17 @@ async function _optSelectPanorama(filename) {
 }
 
 async function _optToggleFeature(key, value) {
-  await SettingsManager.set(key, value);
+  const updates = { [key]: value };
+  // Health Indicators depends on Architectury. Keep the two in lockstep:
+  // turning HI off also turns its dependency off (no orphaned jar), and
+  // turning HI on brings the dependency back so it can actually load.
+  if (key === 'healthIndicatorsEnabled') updates.architecturyEnabled = value;
+  await SettingsManager.setMultiple(updates);
+  if (key === 'healthIndicatorsEnabled') {
+    Toast.info(value ? 'Health Indicators + Architectury on' : 'Health Indicators + Architectury off');
+  } else if (key === 'javaStuffEnabled') {
+    Toast.info(value ? 'Java & Stuff will install on next launch (first time takes a few minutes)' : 'Java & Stuff will be removed on next launch');
+  }
   _optionsRender();
 }
 
@@ -468,15 +496,22 @@ function _renderAdvancedOptions(page, settings) {
         <div class="options-section-title">Bundled Mods</div>
         <div class="options-card">
           <div class="options-row">
+            <img class="options-row-icon" src="assets/mods/architectury.png" alt="Architectury">
             <div class="options-row-label">
               <span class="options-row-name">Architectury</span>
-              <span class="options-row-desc">Required by HealthIndicators. On by default; turn off only if you're managing your own architectury jar.</span>
+              <span class="options-row-desc">Dependency of Health Indicators — follows that toggle automatically. Turn off only if you manage your own architectury jar.</span>
             </div>
             <div class="options-row-control">
               <label class="toggle">
                 <input type="checkbox" ${settings.architecturyEnabled !== false ? 'checked' : ''} onchange="_optSet('architecturyEnabled', this.checked)">
                 <span class="toggle-slider"></span>
               </label>
+            </div>
+          </div>
+          <div class="options-row">
+            <div class="options-row-label">
+              <span class="options-row-name">Version matching</span>
+              <span class="options-row-desc">All bundled mods and their dependencies are fetched from Modrinth for the exact Minecraft version of the installation you launch, so new Minecraft releases work without a launcher update.</span>
             </div>
           </div>
         </div>
@@ -498,19 +533,6 @@ function _renderAdvancedOptions(page, settings) {
         </div>
       </div>
 
-      <div class="options-section">
-        <div class="options-section-title">Server Plugins</div>
-        <div class="options-card">
-          <div class="options-row">
-            <div class="options-row-label">
-              <span class="options-row-name">iceymod+</span>
-            </div>
-            <div class="options-row-control">
-              <button class="options-btn" id="opt-smp-download-btn" onclick="_optDownloadIceySmp()">Download iceymod+</button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   `;
   _optLoadAccount();
@@ -567,113 +589,6 @@ async function _optLogout() {
   Toast.info('Logged out');
   loadNavProfile();
   _optLoadAccount();
-}
-
-/**
- * Open a chooser modal: Mod (Fabric jar, singleplayer integrated server +
- * dedicated Fabric servers) or Datapack (vanilla server / any world with
- * cheats — works without Fabric).
- */
-async function _optDownloadIceySmp() {
-  showModal(`
-    <div class="import-pick-modal" style="width:420px;">
-      <div class="import-pick-header">
-        <h2 class="import-pick-title">iceymod+ install</h2>
-        <button class="modal-close" onclick="closeModal()">
-          <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
-        </button>
-      </div>
-      <p style="color:var(--text-secondary,#94a3b8);font-size:13px;line-height:1.5;margin:0 0 12px;">
-        Pick how you're using iceymod+. The mod has full features (steal-on-kill, combat tag, /icey commands). The datapack works on any vanilla server but only has count-tier auto-buffs.
-      </p>
-      <div style="display:flex;gap:8px;flex-direction:column;">
-        <button class="import-pick-item" id="smp-mod-btn">
-          <div class="import-pick-name">Server Mod (Fabric)</div>
-          <div class="import-pick-meta">Installs into your selected installation's mods/. Singleplayer ✓ · Fabric server ✓ · Full features</div>
-        </button>
-        <button class="import-pick-item" id="smp-datapack-btn">
-          <div class="import-pick-name">Server Pack (datapack)</div>
-          <div class="import-pick-meta">Downloads a zip. Drop into &lt;world&gt;/datapacks/. Vanilla server ✓ · No Fabric needed · Buffs only</div>
-        </button>
-      </div>
-    </div>
-  `);
-  document.getElementById('smp-mod-btn').addEventListener('click', () => { closeModal(); _optInstallIceySmpMod(); });
-  document.getElementById('smp-datapack-btn').addEventListener('click', () => { closeModal(); _optInstallIceySmpDatapack(); });
-}
-
-async function _optInstallIceySmpMod() {
-  try {
-    const installations = await window.icey.getInstallations();
-    const selected = installations.find(i => i.selected) || installations[0];
-    if (!selected) { Toast.error('Create an installation first'); return; }
-    if (selected.platform !== 'fabric') { Toast.error('The Mod option requires a Fabric installation. Use the Datapack option for vanilla.'); return; }
-
-    // Cleanup: nuke any stale iceysmp / iceymodplus jars first. Old
-    // failed-CI 404s saved as junk .jars block Fabric from picking up the
-    // real one, and old naming variants linger forever.
-    const cleanup = await window.icey.cleanupSmpMods(selected.id);
-    if (cleanup && cleanup.removed > 0) {
-      Toast.info('Removed ' + cleanup.removed + ' stale jar(s) before fresh install');
-    }
-
-    Toast.info('Downloading iceymod+ mod jar…');
-    const mcVer = _smpResolveBuildVersion(selected.version);
-    const filename = `iceymodplus-server-mod-mc${mcVer}-1.0.0.jar`;
-    const url = `https://github.com/Icey27055/iceyclient/releases/latest/download/${filename}`;
-    const gameDir = await window.icey.getInstallGameDir(selected.id);
-    const dest = gameDir + '/mods/' + filename;
-    const result = await window.icey.downloadFile(url, dest);
-    if (result && result.error) { Toast.error('Download failed: ' + result.error + ' — try the Server Pack (datapack) instead'); return; }
-
-    // Verify the download is a real jar, not a 404 HTML page silently saved.
-    const verify = await window.icey.verifyJar(dest, 5000);
-    if (verify && !verify.ok) {
-      Toast.error('Download returned a corrupt file (' + (verify.size || 0) + ' bytes) — the build may have failed for MC ' + mcVer + '. Try the Server Pack option.');
-      return;
-    }
-    Toast.success('Installed iceymod+ (' + (verify.size / 1024 | 0) + 'KB) — restart MC to enable');
-  } catch (e) {
-    Toast.error('Install failed: ' + (e && e.message ? e.message : e));
-  }
-}
-
-async function _optInstallIceySmpDatapack() {
-  try {
-    Toast.info('Downloading iceymod+ server pack…');
-    const filename = 'iceymodplus-server-pack-1.0.0.zip';
-    const url = `https://github.com/Icey27055/iceyclient/releases/latest/download/${filename}`;
-    const dataDir = await window.icey.getDataDir();
-    const dest = dataDir + '/downloads/' + filename;
-    const result = await window.icey.downloadFile(url, dest);
-    if (result && result.error) { Toast.error('Download failed: ' + result.error); return; }
-    Toast.success('Datapack downloaded — drop the zip into <world>/datapacks/');
-    window.icey.openFolder(dataDir + '/downloads');
-  } catch (e) {
-    Toast.error('Download failed: ' + (e && e.message ? e.message : e));
-  }
-}
-
-/** Map a user MC version (e.g. "1.21.7") to the build target we shipped
- *  (1.21, 1.21.5, 1.21.8, 1.21.11). Same-or-newer-patch within the same
- *  minor is compatible; we round down. */
-function _smpResolveBuildVersion(userVersion) {
-  const buildTargets = ['1.21', '1.21.5', '1.21.8', '1.21.11'];
-  const targetOrder = buildTargets.map(v => v.split('.').map(Number));
-  const userParts = String(userVersion || '').split('.').map(n => parseInt(n, 10) || 0);
-  // Walk from highest to lowest target; pick first one ≤ user version.
-  for (let i = targetOrder.length - 1; i >= 0; i--) {
-    const t = targetOrder[i];
-    if (_smpCmpVer(userParts, t) >= 0) return buildTargets[i];
-  }
-  return buildTargets[0]; // user is on something older than 1.21, fall back
-}
-function _smpCmpVer(a, b) {
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    const x = a[i] || 0, y = b[i] || 0;
-    if (x !== y) return x - y;
-  }
-  return 0;
 }
 
 async function _optSet(key, value) { await SettingsManager.set(key, value); }

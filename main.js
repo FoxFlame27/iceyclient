@@ -13,6 +13,7 @@ let mainWindow = null;
 // terminate the previous.
 const mcProcesses = new Map();
 let mcLaunchCounter = 0;
+let _installFabricLoader = null; // set once IPC handlers are registered
 
 // ── Icey Client network backend ────────────────────────
 // Cloudflare Worker that hosts cape PNGs + presence heartbeats so
@@ -543,6 +544,111 @@ function findPrismNatives(version) {
   return null;
 }
 
+// Locate the installed fabric-loader profile for this MC version and
+// collect its libraries (downloading any that are missing). Returns the
+// values launchMinecraft needs; falls back to vanilla when no loader dir exists.
+async function _loadFabricProfile(mcDir, version, libDir) {
+  let versionId = version;
+  let mainClass = 'net.minecraft.client.main.Main';
+  let extraJvmArgs = [];
+  let fabricLibs = [];
+      // Find fabric version directory
+      const versionsDir = path.join(mcDir, 'versions');
+      if (fs.existsSync(versionsDir)) {
+        // Match `fabric-loader-<loader>-<version>` exactly on the trailing
+        // version. `includes` would false-match shorter versions inside
+        // longer ones — e.g. version "1.21.1" finding "...-1.21.11", which
+        // pairs the wrong intermediary with the client jar and crashes
+        // TinyRemapper with "Unfixable conflicts" during deobfuscation.
+        const loaderVerOf = (d) => d.slice('fabric-loader-'.length, d.length - version.length - 1);
+        // Newest loader first (several may exist after an in-place upgrade).
+        const fabricDirs = fs.readdirSync(versionsDir)
+          .filter(d => d.startsWith('fabric-loader') && d.endsWith('-' + version))
+          .sort((a, b) => _compareVersions(_parseVersion(loaderVerOf(b)), _parseVersion(loaderVerOf(a))));
+        if (fabricDirs.length === 0) {
+          log('warn', 'No fabric-loader dir for MC ' + version + ' — install Fabric for this version (or recreate the installation)');
+          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'No Fabric loader installed for ' + version + ' — launching vanilla', level: 'warn' });
+        }
+        if (fabricDirs.length > 0) {
+          versionId = fabricDirs[0];
+          const fabricJsonPath = path.join(versionsDir, fabricDirs[0], fabricDirs[0] + '.json');
+          if (fs.existsSync(fabricJsonPath)) {
+            try {
+              const fabricJson = JSON.parse(fs.readFileSync(fabricJsonPath, 'utf-8'));
+              if (fabricJson.mainClass) mainClass = fabricJson.mainClass;
+              if (fabricJson.arguments?.jvm) {
+                extraJvmArgs = fabricJson.arguments.jvm.filter(a => typeof a === 'string');
+              }
+              if (fabricJson.libraries) {
+                const defaultLibDir = path.join(mcDir, 'libraries');
+                for (const lib of fabricJson.libraries) {
+                  if (lib.name) {
+                    const parts = lib.name.split(':');
+                    if (parts.length >= 3) {
+                      const gp = parts[0].replace(/\./g, path.sep);
+                      const jarName = `${parts[1]}-${parts[2]}.jar`;
+                      // Check both Prism libs and default .minecraft libs
+                      const candidates = [
+                        path.join(libDir, gp, parts[1], parts[2], jarName),
+                        path.join(defaultLibDir, gp, parts[1], parts[2], jarName)
+                      ];
+                      // Also try downloading if missing
+                      let found = false;
+                      for (const jarPath of candidates) {
+                        if (fs.existsSync(jarPath)) { fabricLibs.push(jarPath); found = true; break; }
+                      }
+                      if (!found && lib.url) {
+                        // Download from Fabric maven
+                        const mavenPath = gp.replace(/\\/g, '/') + '/' + parts[1] + '/' + parts[2] + '/' + jarName;
+                        const dlUrl = lib.url + mavenPath;
+                        const destPath = path.join(defaultLibDir, gp, parts[1], parts[2], jarName);
+                        try {
+                          await downloadFile(dlUrl, destPath);
+                          fabricLibs.push(destPath);
+                          found = true;
+                        } catch (e) {
+                          log('warn', 'Failed to download fabric lib: ' + lib.name);
+                        }
+                      }
+                      if (!found) log('warn', 'Fabric lib not found: ' + lib.name);
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              log('error', 'Failed to parse fabric json: ' + e.message);
+            }
+          }
+        }
+      }
+  return { versionId, mainClass, extraJvmArgs, fabricLibs };
+}
+
+// Add fabric libraries to the classpath, replacing vanilla duplicates
+// (e.g. asm-9.6 vs asm-9.9).
+function _mergeFabricLibsIntoClasspath(cpParts, fabricLibs) {
+    for (const fp of fabricLibs) {
+      if (cpParts.includes(fp)) continue;
+      // Extract artifact name from path (e.g. "asm" from ".../asm/9.9/asm-9.9.jar")
+      const fpParts = fp.replace(/\\/g, '/').split('/');
+      const fpJarName = fpParts[fpParts.length - 1]; // e.g. "asm-9.9.jar"
+      const fpArtifact = fpJarName.replace(/-[\d].*$/, ''); // e.g. "asm"
+      // Remove any vanilla version of the same artifact
+      const toRemove = [];
+      for (let i = 0; i < cpParts.length; i++) {
+        const cpJar = cpParts[i].replace(/\\/g, '/').split('/').pop();
+        const cpArtifact = cpJar.replace(/-[\d].*$/, '');
+        if (cpArtifact === fpArtifact && cpJar !== fpJarName) {
+          toRemove.push(i);
+        }
+      }
+      for (let i = toRemove.length - 1; i >= 0; i--) {
+        cpParts.splice(toRemove[i], 1);
+      }
+      cpParts.push(fp);
+    }
+}
+
 function launchMinecraft(installationId) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -604,71 +710,8 @@ function launchMinecraft(installationId) {
     let fabricLibs = [];
 
     if (installation.platform === 'fabric') {
-      // Find fabric version directory
-      const versionsDir = path.join(mcDir, 'versions');
-      if (fs.existsSync(versionsDir)) {
-        // Match `fabric-loader-<loader>-<version>` exactly on the trailing
-        // version. `includes` would false-match shorter versions inside
-        // longer ones — e.g. version "1.21.1" finding "...-1.21.11", which
-        // pairs the wrong intermediary with the client jar and crashes
-        // TinyRemapper with "Unfixable conflicts" during deobfuscation.
-        const fabricDirs = fs.readdirSync(versionsDir).filter(d => d.startsWith('fabric-loader') && d.endsWith('-' + version));
-        if (fabricDirs.length === 0) {
-          log('warn', 'No fabric-loader dir for MC ' + version + ' — install Fabric for this version (or recreate the installation)');
-          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'No Fabric loader installed for ' + version + ' — launching vanilla', level: 'warn' });
-        }
-        if (fabricDirs.length > 0) {
-          versionId = fabricDirs[0];
-          const fabricJsonPath = path.join(versionsDir, fabricDirs[0], fabricDirs[0] + '.json');
-          if (fs.existsSync(fabricJsonPath)) {
-            try {
-              const fabricJson = JSON.parse(fs.readFileSync(fabricJsonPath, 'utf-8'));
-              if (fabricJson.mainClass) mainClass = fabricJson.mainClass;
-              if (fabricJson.arguments?.jvm) {
-                extraJvmArgs = fabricJson.arguments.jvm.filter(a => typeof a === 'string');
-              }
-              if (fabricJson.libraries) {
-                const defaultLibDir = path.join(mcDir, 'libraries');
-                for (const lib of fabricJson.libraries) {
-                  if (lib.name) {
-                    const parts = lib.name.split(':');
-                    if (parts.length >= 3) {
-                      const gp = parts[0].replace(/\./g, path.sep);
-                      const jarName = `${parts[1]}-${parts[2]}.jar`;
-                      // Check both Prism libs and default .minecraft libs
-                      const candidates = [
-                        path.join(libDir, gp, parts[1], parts[2], jarName),
-                        path.join(defaultLibDir, gp, parts[1], parts[2], jarName)
-                      ];
-                      // Also try downloading if missing
-                      let found = false;
-                      for (const jarPath of candidates) {
-                        if (fs.existsSync(jarPath)) { fabricLibs.push(jarPath); found = true; break; }
-                      }
-                      if (!found && lib.url) {
-                        // Download from Fabric maven
-                        const mavenPath = gp.replace(/\\/g, '/') + '/' + parts[1] + '/' + parts[2] + '/' + jarName;
-                        const dlUrl = lib.url + mavenPath;
-                        const destPath = path.join(defaultLibDir, gp, parts[1], parts[2], jarName);
-                        try {
-                          await downloadFile(dlUrl, destPath);
-                          fabricLibs.push(destPath);
-                          found = true;
-                        } catch (e) {
-                          log('warn', 'Failed to download fabric lib: ' + lib.name);
-                        }
-                      }
-                      if (!found) log('warn', 'Fabric lib not found: ' + lib.name);
-                    }
-                  }
-                }
-              }
-            } catch (e) {
-              log('error', 'Failed to parse fabric json: ' + e.message);
-            }
-          }
-        }
-      }
+      const fp = await _loadFabricProfile(mcDir, version, libDir);
+      versionId = fp.versionId; mainClass = fp.mainClass; extraJvmArgs = fp.extraJvmArgs; fabricLibs = fp.fabricLibs;
     }
 
     // Read the vanilla version JSON for the library list
@@ -682,6 +725,17 @@ function launchMinecraft(installationId) {
       versionJson = JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
     } catch (e) {
       return reject(new Error('Failed to parse version JSON: ' + e.message));
+    }
+
+    // Java major required by this MC version (21 for 1.21.x, 25 for 26.x).
+    // Swap in / download a suitable runtime when the detected one is too old.
+    try {
+      const requiredJava = versionJson.javaVersion?.majorVersion || 0;
+      javaPath = await ensureJavaForVersion(javaPath, requiredJava);
+      log('info', '[LAUNCH] Java after version gate: ' + javaPath);
+    } catch (e) {
+      log('error', '[LAUNCH] ' + e.message);
+      return reject(e);
     }
 
     // Build classpath from version JSON (exact versions only — no conflicts)
@@ -818,27 +872,7 @@ function launchMinecraft(installationId) {
       }
     }
 
-    // Add fabric libraries, replacing vanilla duplicates (e.g. asm-9.6 vs asm-9.9)
-    for (const fp of fabricLibs) {
-      if (cpParts.includes(fp)) continue;
-      // Extract artifact name from path (e.g. "asm" from ".../asm/9.9/asm-9.9.jar")
-      const fpParts = fp.replace(/\\/g, '/').split('/');
-      const fpJarName = fpParts[fpParts.length - 1]; // e.g. "asm-9.9.jar"
-      const fpArtifact = fpJarName.replace(/-[\d].*$/, ''); // e.g. "asm"
-      // Remove any vanilla version of the same artifact
-      const toRemove = [];
-      for (let i = 0; i < cpParts.length; i++) {
-        const cpJar = cpParts[i].replace(/\\/g, '/').split('/').pop();
-        const cpArtifact = cpJar.replace(/-[\d].*$/, '');
-        if (cpArtifact === fpArtifact && cpJar !== fpJarName) {
-          toRemove.push(i);
-        }
-      }
-      for (let i = toRemove.length - 1; i >= 0; i--) {
-        cpParts.splice(toRemove[i], 1);
-      }
-      cpParts.push(fp);
-    }
+    _mergeFabricLibsIntoClasspath(cpParts, fabricLibs);
 
     // Add the client jar - download if missing
     const clientJar = path.join(mcDir, 'versions', version, version + '.jar');
@@ -946,6 +980,7 @@ function launchMinecraft(installationId) {
     const skinChangerEnabled = !!settings.skinChangerEnabled;
     const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
     const architecturyEnabled = settings.architecturyEnabled !== false;
+    const javaStuffEnabled = !!settings.javaStuffEnabled;
 
     // Panorama pack installs on ANY installation (vanilla or Fabric) because
     // it's just a resource pack — MC loads it regardless of mod loader.
@@ -996,12 +1031,14 @@ function launchMinecraft(installationId) {
       const modsDir = path.join(installGameDir, 'mods');
       fs.mkdirSync(modsDir, { recursive: true });
 
-      // 1) Install/UPDATE Icey mod jar (per-MC-version, matrix-built).
-      // Source compiles against all 4 yarn matrix variants; each jar
-      // references the correct method names natively. Naming scheme
-      // matches iceymodplus: iceymod-mc<MC_VER>-1.0.0.jar.
-      const modJarName = `iceymod-mc${installation.version}-1.0.0.jar`;
-      const destJar = path.join(modsDir, modJarName);
+      // 1) Install/UPDATE Icey mod jar. CI builds one jar per MC version
+      // (iceymod-mc<MC_VER>-1.0.0.jar). _pickIceyJar returns the exact
+      // build, or the closest lower build whose declared MC range still
+      // covers this version (1.21.9 / 1.21.10 use the 1.21.8 jar), or
+      // null on 26.x where yarn-built jars can't load at all.
+      const iceyJar = _pickIceyJar('client', installation.version);
+      const modJarName = iceyJar ? iceyJar.name : null;
+      const destJar = modJarName ? path.join(modsDir, modJarName) : null;
       try {
         // Clean up any stale iceymod jars (wrong MC version, or the old
         // single-jar "iceymod-1.0.0.jar" name from before the matrix build).
@@ -1015,98 +1052,48 @@ function launchMinecraft(installationId) {
       } catch (_) {}
 
       if (iceyModsEnabled) {
-        const searchPaths = [
-          path.join(__dirname, 'mod', 'build', 'libs', modJarName),
-          path.join(DATA_DIR, modJarName),
-          path.join(__dirname, 'resources', modJarName),
-        ];
-        let installed = false;
-        for (const src of searchPaths) {
-          if (fs.existsSync(src)) {
-            try {
-              const srcStat = fs.statSync(src);
-              const destStat = fs.existsSync(destJar) ? fs.statSync(destJar) : null;
-              if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
-                fs.copyFileSync(src, destJar);
-                log('info', 'Updated Icey mod to ' + destJar);
-                if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod updated', level: 'info' });
-              }
-              installed = true;
-            } catch (e) {
-              log('warn', 'Failed to install Icey mod: ' + e.message);
+        if (iceyJar) {
+          try {
+            const srcStat = fs.statSync(iceyJar.path);
+            const destStat = fs.existsSync(destJar) ? fs.statSync(destJar) : null;
+            if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+              fs.copyFileSync(iceyJar.path, destJar);
+              log('info', 'Updated Icey mod to ' + destJar);
+              _mcConsole(iceyJar.ver === installation.version
+                ? 'Icey mod updated'
+                : `Icey mod: using the ${iceyJar.ver} build on MC ${installation.version}`, 'info');
             }
-            break;
+          } catch (e) {
+            log('warn', 'Failed to install Icey mod: ' + e.message);
           }
-        }
-        if (!installed) {
+        } else if (!_isYarnEraVersion(installation.version)) {
+          log('warn', `Icey mod not available for MC ${installation.version} (new mapping system)`);
+          _mcConsole(`Icey mod isn't available for Minecraft ${installation.version} yet (Mojang changed the modding system in 26.1) — HUDs unavailable, everything else works`, 'warn');
+        } else {
           log('warn', `Icey mod (client) jar not bundled for MC ${installation.version}`);
-          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Icey mod not bundled for MC ${installation.version} — HUDs unavailable`, level: 'warn' });
+          _mcConsole(`Icey mod not bundled for MC ${installation.version} — HUDs unavailable`, 'warn');
         }
-      } else {
+      } else if (destJar) {
         try {
           if (fs.existsSync(destJar)) {
             fs.unlinkSync(destJar);
             log('info', 'Icey mod disabled by user — removed ' + modJarName);
-            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Icey mod disabled', level: 'info' });
+            _mcConsole('Icey mod disabled', 'info');
           }
         } catch (_) {}
       }
 
-      // 1b) Install iceymod+ (server-side mod) — per-MC-version jar. In
-      // singleplayer Minecraft's integrated server reads mods from the
-      // same mods/ folder as the client, so server-side commands
-      // (/skills, /leaderboard, /daily, /crate, etc.) only show up if
-      // iceymodplus is present. Without this block, singleplayer launches
-      // with iceymod (client) but no server mod → no commands.
+      // 1b) iceymod+ (the SMP server mod) is no longer shipped with the
+      // client. Sweep any copy an older launcher version dropped into
+      // mods/ so it can't crash a newer MC version.
       try {
-        const smpJarName = `iceymodplus-server-mod-mc${installation.version}-1.0.0.jar`;
-        const smpDest = path.join(modsDir, smpJarName);
-
-        // Clean up stale iceymodplus jars (wrong MC version).
         const smpPattern = /^(iceysmp|iceymodplus).*\.jar$/i;
         for (const f of fs.readdirSync(modsDir)) {
-          if (smpPattern.test(f) && f !== smpJarName) {
-            try {
-              fs.unlinkSync(path.join(modsDir, f));
-              log('info', 'Removed stale iceymod+ jar: ' + f);
-            } catch (_) {}
+          if (smpPattern.test(f)) {
+            try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed iceymod+ jar (no longer bundled): ' + f); } catch (_) {}
           }
         }
-
-        if (iceyModsEnabled) {
-          const smpSearchPaths = [
-            path.join(__dirname, 'mod-smp', 'build', 'libs', smpJarName),
-            path.join(__dirname, 'resources', smpJarName),
-            path.join(DATA_DIR, smpJarName),
-          ];
-          let installed = false;
-          for (const src of smpSearchPaths) {
-            if (fs.existsSync(src)) {
-              try {
-                const srcStat = fs.statSync(src);
-                const destStat = fs.existsSync(smpDest) ? fs.statSync(smpDest) : null;
-                if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
-                  fs.copyFileSync(src, smpDest);
-                  log('info', 'Installed iceymod+ to ' + smpDest);
-                  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'iceymod+ installed for ' + installation.version, level: 'info' });
-                }
-                installed = true;
-              } catch (e) {
-                log('warn', 'Failed to install iceymod+: ' + e.message);
-              }
-              break;
-            }
-          }
-          if (!installed) {
-            log('warn', `iceymod+ jar not bundled for MC ${installation.version} — commands won't be available in singleplayer`);
-            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: `iceymod+ not bundled for MC ${installation.version} — server commands unavailable`, level: 'warn' });
-          }
-        } else if (fs.existsSync(smpDest)) {
-          try { fs.unlinkSync(smpDest); log('info', 'Icey mods disabled — removed ' + smpJarName); } catch (_) {}
-        }
-      } catch (e) {
-        log('warn', 'iceymod+ install block failed: ' + e.message);
-      }
+      } catch (_) {}
 
       // 2) Install correct Fabric API for THIS MC version. Hardcoded version
       // maps drift fast and skip MC versions silently — query Modrinth for the
@@ -1167,148 +1154,64 @@ function launchMinecraft(installationId) {
         if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'No Fabric API for MC ' + installation.version + ' on Modrinth — skipping', level: 'warn' });
       }
 
-      // 3) Skin changer mod (SkinShuffle) — install or remove based on setting
-      const skinChangerJarName = 'IceySkinShuffle.jar';
-      const destSkinJar = path.join(modsDir, skinChangerJarName);
+      // 3) Settings-toggle mods (SkinShuffle, Architectury, Health
+      // Indicators) plus whatever they declare as hard dependencies on
+      // Modrinth (YACL, …). Each is resolved for THIS MC version, so the
+      // toggles keep working on new Minecraft releases without a launcher
+      // update. See _ensureBundledMods.
       try {
-        // Remove any stale skinshuffle jars we didn't name
-        for (const f of fs.readdirSync(modsDir)) {
-          if (/skinshuffle/i.test(f) && f !== skinChangerJarName) {
-            try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed stale skinshuffle: ' + f); } catch (_) {}
-          }
-        }
-      } catch (_) {}
-      if (skinChangerEnabled) {
-        // Pick correct jar by MC version
-        let skinSrcName;
-        if (installation.version === '1.21.11' || installation.version === '1.21.10' || installation.version === '1.21.9') {
-          skinSrcName = 'skinshuffle-2.10.2+1.21.11-fabric.jar';
-        } else {
-          skinSrcName = 'SkinShuffle-2.9.5+1.21.6.jar';
-        }
-        const skinSources = [
-          path.join(__dirname, 'resources', 'mods', 'skinshuffle', skinSrcName),
-          path.join(process.resourcesPath || '', 'mods', 'skinshuffle', skinSrcName),
-        ];
-        for (const src of skinSources) {
-          if (src && fs.existsSync(src)) {
-            try {
-              const srcStat = fs.statSync(src);
-              const destStat = fs.existsSync(destSkinJar) ? fs.statSync(destSkinJar) : null;
-              if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
-                fs.copyFileSync(src, destSkinJar);
-                log('info', 'Installed SkinShuffle: ' + skinSrcName);
-                if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'SkinShuffle installed', level: 'info' });
-              }
-            } catch (e) {
-              log('warn', 'SkinShuffle install failed: ' + e.message);
-            }
-            break;
-          }
-        }
-      } else {
-        try {
-          if (fs.existsSync(destSkinJar)) {
-            fs.unlinkSync(destSkinJar);
-            log('info', 'Skin changer disabled — removed SkinShuffle');
-          }
-        } catch (_) {}
+        const enabledKeys = new Set();
+        if (skinChangerEnabled) enabledKeys.add('skinshuffle');
+        if (iceyModsEnabled && healthIndicatorsEnabled) enabledKeys.add('healthindicators');
+        if (architecturyEnabled) enabledKeys.add('architectury');
+        await _ensureBundledMods(installGameDir, installation.version, enabledKeys);
+      } catch (e) {
+        log('warn', 'Bundled mods block failed: ' + e.message);
+        _mcConsole('Bundled mods: ' + e.message, 'warn');
       }
 
-      // 4) Architectury — Fabric/Forge compat layer. Bundled and
-      // installed by default because HealthIndicators (the
-      // health-bar mod we replaced our own Java renderer with)
-      // depends on it. Can be opted out in Advanced settings; if
-      // the user does, HealthIndicators won't load either.
+      // 4) Java & Stuff modpack (Settings toggle). Installs the pack's
+      // mods/resource packs/shaders into this installation, re-matched to
+      // its MC version. Armor-look packs stay disabled by default.
       try {
-        const archJarName = 'IceyArchitectury.jar';
-        const destArchJar = path.join(modsDir, archJarName);
-        // Clean up any stale architectury jars under different names so
-        // there's only ever one copy in the mods folder.
-        try {
-          for (const f of fs.readdirSync(modsDir)) {
-            if (/^architectury.*\.jar$/i.test(f) && f !== archJarName) {
-              try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed stale architectury: ' + f); } catch (_) {}
-            }
-          }
-        } catch (_) {}
-        if (architecturyEnabled) {
-          const archSources = [
-            path.join(__dirname, 'resources', 'mods', 'architectury', 'architectury-19.0.1-fabric.jar'),
-            path.join(process.resourcesPath || '', 'mods', 'architectury', 'architectury-19.0.1-fabric.jar'),
-          ];
-          for (const src of archSources) {
-            if (src && fs.existsSync(src)) {
-              try {
-                const srcStat = fs.statSync(src);
-                const destStat = fs.existsSync(destArchJar) ? fs.statSync(destArchJar) : null;
-                if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
-                  fs.copyFileSync(src, destArchJar);
-                  log('info', 'Installed architectury → ' + destArchJar);
-                  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'architectury installed', level: 'info' });
-                }
-              } catch (e) {
-                log('warn', 'architectury install failed: ' + e.message);
-              }
-              break;
-            }
-          }
-        } else if (fs.existsSync(destArchJar)) {
-          try { fs.unlinkSync(destArchJar); log('info', 'architectury disabled by user — removed'); } catch (_) {}
-        }
+        await _ensureJavaStuffPack(installGameDir, installation.version, javaStuffEnabled);
       } catch (e) {
-        log('warn', 'architectury install block failed: ' + e.message);
+        log('warn', 'Java & Stuff block failed: ' + e.message);
+        _mcConsole('Java & Stuff: ' + e.message, 'warn');
       }
 
-      // 5) HealthIndicators — replaces our removed Java HealthHudRenderer.
-      // Auto-installs alongside iceymod (gated on iceyModsEnabled by
-      // default, with an explicit per-feature healthIndicatorsEnabled
-      // override that defaults to true). Built for MC 1.21.11 (the only
-      // version the user runs); skipped silently on other versions.
+      // 5) Fabric loader floor. Newer mods (Health Indicators / SkinShuffle
+      // on 1.21.11+) require loader 0.18+, while installations created a
+      // while ago may still run 0.16. Upgrade in place, then reload the
+      // profile and re-merge its libraries into the classpath.
       try {
-        const hiJarName = 'IceyHealthIndicators.jar';
-        const destHiJar = path.join(modsDir, hiJarName);
-        try {
-          for (const f of fs.readdirSync(modsDir)) {
-            if (/^healthindicators.*\.jar$/i.test(f) && f !== hiJarName) {
-              try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed stale HealthIndicators: ' + f); } catch (_) {}
-            }
+        const needLoader = _requiredFabricLoader(modsDir);
+        const haveLoader = versionId.startsWith('fabric-loader-')
+          ? versionId.slice('fabric-loader-'.length, versionId.length - version.length - 1) : null;
+        if (needLoader && haveLoader && _installFabricLoader
+            && _compareVersions(_parseVersion(haveLoader), _parseVersion(needLoader)) < 0) {
+          _mcConsole(`Fabric loader ${haveLoader} is older than ${needLoader} required by your mods — updating`, 'warn');
+          const r = await _installFabricLoader(installation.id, version);
+          if (r && !r.error) {
+            for (const old of fabricLibs) { const i = cpParts.indexOf(old); if (i >= 0) cpParts.splice(i, 1); }
+            const fp = await _loadFabricProfile(mcDir, version, libDir);
+            versionId = fp.versionId; mainClass = fp.mainClass; extraJvmArgs = fp.extraJvmArgs; fabricLibs = fp.fabricLibs;
+            _mergeFabricLibsIntoClasspath(cpParts, fabricLibs);
+            _mcConsole('Fabric loader updated → ' + versionId, 'info');
+          } else {
+            _mcConsole('Fabric loader update failed: ' + (r && r.error), 'warn');
           }
-        } catch (_) {}
-        const wantHi = iceyModsEnabled && healthIndicatorsEnabled
-            && (installation.version === '1.21.11' || installation.version === '1.21.10');
-        if (wantHi) {
-          const hiSources = [
-            path.join(__dirname, 'resources', 'mods', 'healthindicators', 'HealthIndicators-21.11.1.jar'),
-            path.join(process.resourcesPath || '', 'mods', 'healthindicators', 'HealthIndicators-21.11.1.jar'),
-          ];
-          for (const src of hiSources) {
-            if (src && fs.existsSync(src)) {
-              try {
-                const srcStat = fs.statSync(src);
-                const destStat = fs.existsSync(destHiJar) ? fs.statSync(destHiJar) : null;
-                if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
-                  fs.copyFileSync(src, destHiJar);
-                  log('info', 'Installed HealthIndicators → ' + destHiJar);
-                  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'HealthIndicators installed', level: 'info' });
-                }
-              } catch (e) {
-                log('warn', 'HealthIndicators install failed: ' + e.message);
-              }
-              break;
-            }
-          }
-        } else if (fs.existsSync(destHiJar)) {
-          try { fs.unlinkSync(destHiJar); log('info', 'HealthIndicators disabled — removed'); } catch (_) {}
         }
       } catch (e) {
-        log('warn', 'HealthIndicators install block failed: ' + e.message);
+        log('warn', 'Fabric loader check failed: ' + e.message);
       }
 
       // Mod-compatibility check removed entirely — the fabric.mod.json
       // mcConstraint check produced false positives on mods that actually
       // work fine across adjacent MC versions. The launcher leaves every
       // mod file alone; manage them yourself from the Mods tab.
+    } else if (javaStuffEnabled || skinChangerEnabled) {
+      _mcConsole('Java & Stuff / Skin Changer need a Fabric installation — this one is vanilla, so they were skipped', 'warn');
     }
 
     // Build arguments
@@ -1552,6 +1455,854 @@ function launchMinecraft(installationId) {
       reject(fatalErr);
     }
   });
+}
+
+// ── Small helpers shared by the launch-time installers ────────────────
+function _mcConsole(message, level) {
+  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message, level: level || 'info' });
+}
+function _mcToast(message, level) {
+  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'toast', level: level || 'info', message });
+}
+
+function _fetchJson(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const doRequest = (requestUrl, redirects) => {
+      if (redirects > 5) return reject(new Error('Too many redirects'));
+      const proto = requestUrl.startsWith('https') ? https : http;
+      const req = proto.get(requestUrl, { headers: { 'User-Agent': 'IceyClient/1.0.0', 'Accept': 'application/json' } }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          return doRequest(res.headers.location, redirects + 1);
+        }
+        let data = '';
+        res.on('data', (c) => data += c);
+        res.on('end', () => {
+          if (res.statusCode !== 200) return reject(new Error('HTTP ' + res.statusCode));
+          try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+        });
+        res.on('error', reject);
+      });
+      req.on('error', reject);
+      req.setTimeout(timeoutMs || 15000, () => { req.destroy(); reject(new Error('timeout')); });
+    };
+    doRequest(url, 0);
+  });
+}
+
+function _sha1File(filePath) {
+  try { return crypto.createHash('sha1').update(fs.readFileSync(filePath)).digest('hex'); } catch (_) { return null; }
+}
+
+// Read fabric.mod.json out of a jar → { id, name, depends } or null.
+function _readFabricModMeta(jarPath) {
+  try {
+    const buf = fs.readFileSync(jarPath);
+    const raw = _extractFileFromZip(buf, 'fabric.mod.json');
+    if (!raw) return null;
+    const meta = JSON.parse(raw.toString('utf-8'));
+    return { id: meta.id || null, name: meta.name || null, depends: meta.depends || {} };
+  } catch (_) { return null; }
+}
+
+// Minecraft 26.1 dropped intermediary mappings — jars compiled against
+// yarn (everything the Icey CI builds today) can't load there at all.
+function _isYarnEraVersion(mcVersion) {
+  try { return _parseVersion(mcVersion)[0] < 26; } catch (_) { return true; }
+}
+
+// ── Java runtime management ──────────────────────────────────────────
+// Minecraft 1.21+ needs Java 21, and the 26.x line needs Java 25. The
+// version JSON tells us the required major; we make sure the java we
+// spawn is at least that, downloading a Temurin JRE into DATA_DIR/java
+// when nothing on the machine qualifies.
+function _javaMajorOf(javaPath) {
+  try {
+    const r = require('child_process').spawnSync(javaPath, ['-version'], { encoding: 'utf-8', timeout: 10000 });
+    const text = (r.stderr || '') + (r.stdout || '');
+    const m = text.match(/version "(\d+)(?:\.(\d+))?/);
+    if (!m) return 0;
+    const a = parseInt(m[1], 10);
+    return a === 1 ? parseInt(m[2] || '0', 10) : a;
+  } catch (_) { return 0; }
+}
+
+function _javaBinName() { return process.platform === 'win32' ? 'java.exe' : 'java'; }
+
+// Find a java binary somewhere under `root` (depth-limited).
+function _findJavaBinUnder(root, depth) {
+  if (!root || !fs.existsSync(root)) return null;
+  const direct = [
+    path.join(root, 'bin', _javaBinName()),
+    path.join(root, 'Contents', 'Home', 'bin', _javaBinName()),
+  ];
+  for (const p of direct) if (fs.existsSync(p)) return p;
+  if (depth <= 0) return null;
+  try {
+    for (const entry of fs.readdirSync(root)) {
+      const sub = path.join(root, entry);
+      try { if (!fs.statSync(sub).isDirectory()) continue; } catch (_) { continue; }
+      const found = _findJavaBinUnder(sub, depth - 1);
+      if (found) return found;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function _findJavaWithMajor(required) {
+  const candidates = [];
+  const pushDirChildren = (base) => {
+    try {
+      if (!base || !fs.existsSync(base)) return;
+      for (const entry of fs.readdirSync(base)) {
+        const bin = _findJavaBinUnder(path.join(base, entry), 1);
+        if (bin) candidates.push(bin);
+      }
+    } catch (_) {}
+  };
+  // Runtimes we downloaded ourselves
+  pushDirChildren(path.join(DATA_DIR, 'java'));
+  if (process.platform === 'darwin') {
+    try {
+      const home = execSync(`/usr/libexec/java_home -v ${required} 2>/dev/null`, { encoding: 'utf-8', timeout: 8000 }).trim();
+      if (home) candidates.push(path.join(home, 'bin', 'java'));
+    } catch (_) {}
+    pushDirChildren('/Library/Java/JavaVirtualMachines');
+    pushDirChildren(path.join(os.homedir(), 'Library', 'Java', 'JavaVirtualMachines'));
+    pushDirChildren('/opt/homebrew/opt');
+  } else if (process.platform === 'win32') {
+    const pf = [process.env.PROGRAMFILES || 'C:\\Program Files', process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)'];
+    for (const base of pf) {
+      for (const vendor of ['Java', 'Eclipse Adoptium', 'Microsoft', 'Zulu', 'BellSoft', 'Amazon Corretto', 'Eclipse Foundation']) {
+        pushDirChildren(path.join(base, vendor));
+      }
+    }
+  } else {
+    pushDirChildren('/usr/lib/jvm');
+    pushDirChildren('/usr/lib64/jvm');
+    pushDirChildren('/opt');
+  }
+  const seen = new Set();
+  let best = null;
+  for (const bin of candidates) {
+    if (seen.has(bin)) continue;
+    seen.add(bin);
+    const major = _javaMajorOf(bin);
+    if (major >= required && (!best || major < best.major)) best = { bin, major };
+  }
+  return best ? best.bin : null;
+}
+
+async function _downloadJavaRuntime(required) {
+  const osName = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'windows' : 'linux';
+  const arch = process.arch === 'arm64' ? 'aarch64' : 'x64';
+  const url = `https://api.adoptium.net/v3/binary/latest/${required}/ga/${osName}/${arch}/jre/hotspot/normal/eclipse`;
+  const javaRoot = path.join(DATA_DIR, 'java');
+  const destDir = path.join(javaRoot, `jre-${required}`);
+  const archive = path.join(javaRoot, `jre-${required}.` + (osName === 'windows' ? 'zip' : 'tar.gz'));
+  fs.mkdirSync(javaRoot, { recursive: true });
+  await downloadFile(url, archive);
+  try { fs.rmSync(destDir, { recursive: true, force: true }); } catch (_) {}
+  fs.mkdirSync(destDir, { recursive: true });
+  // `tar` handles both .tar.gz and .zip on macOS/Linux and on Windows 10+ (bsdtar).
+  execSync(`tar -xf "${archive}" -C "${destDir}"`, { timeout: 180000, stdio: 'ignore' });
+  try { fs.unlinkSync(archive); } catch (_) {}
+  const bin = _findJavaBinUnder(destDir, 3);
+  if (!bin) throw new Error('Downloaded runtime has no java binary');
+  if (process.platform !== 'win32') { try { fs.chmodSync(bin, 0o755); } catch (_) {} }
+  return bin;
+}
+
+async function ensureJavaForVersion(javaPath, requiredMajor) {
+  if (!requiredMajor) return javaPath;
+  const current = javaPath ? _javaMajorOf(javaPath) : 0;
+  if (current >= requiredMajor) return javaPath;
+  log('info', `[JAVA] Need Java ${requiredMajor}, have ${current || 'none'} — searching`);
+  _mcConsole(`This Minecraft version needs Java ${requiredMajor} (found Java ${current || 'none'}) — looking for a newer runtime`, 'warn');
+  const found = _findJavaWithMajor(requiredMajor);
+  if (found) {
+    _mcConsole('Using Java ' + _javaMajorOf(found) + ' at ' + found, 'info');
+    return found;
+  }
+  _mcToast(`Downloading Java ${requiredMajor} runtime (one-time, ~50 MB)…`, 'info');
+  _mcConsole(`Downloading Java ${requiredMajor} from Adoptium…`, 'info');
+  try {
+    const bin = await _downloadJavaRuntime(requiredMajor);
+    _mcConsole('Java ' + requiredMajor + ' installed at ' + bin, 'info');
+    return bin;
+  } catch (e) {
+    log('error', '[JAVA] Runtime download failed: ' + e.message);
+    throw new Error(`JAVA_TOO_OLD:${requiredMajor}:${current}`);
+  }
+}
+
+// ── Modrinth resolution with on-disk cache ────────────────────────────
+// DATA_DIR/modcache/resolve/<mcVersion>/<key>.json  → cached resolution
+// DATA_DIR/modcache/files/<filename>                → downloaded jar/zip
+// DATA_DIR/modcache/projects.json                   → project id → slug/title
+const MODCACHE_DIR = path.join(DATA_DIR, 'modcache');
+const MODCACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+// Dependencies the launcher already provides another way (Fabric API is
+// block 2 of the launch flow) or that aren't real mods.
+const MODRINTH_SKIP_DEPS = new Set(['P7dR8mSH' /* fabric-api */]);
+
+function _readJsonSafe(p) { try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch (_) { return null; } }
+function _writeJsonSafe(p, obj) { try { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, JSON.stringify(obj, null, 2)); } catch (_) {} }
+
+async function _modrinthProjectInfo(projectIdOrSlug) {
+  const cachePath = path.join(MODCACHE_DIR, 'projects.json');
+  const cache = _readJsonSafe(cachePath) || {};
+  if (cache[projectIdOrSlug]) return cache[projectIdOrSlug];
+  const p = await _fetchJson(`https://api.modrinth.com/v2/project/${encodeURIComponent(projectIdOrSlug)}`);
+  const info = { id: p.id, slug: p.slug, title: p.title, type: p.project_type };
+  cache[projectIdOrSlug] = info; cache[p.id] = info; cache[p.slug] = info;
+  _writeJsonSafe(cachePath, cache);
+  return info;
+}
+
+// Resolve the newest Modrinth version of a project for a given MC version.
+// loader: 'fabric' for mods, null for resource/shader packs. Returns
+// { projectId, slug, title, filename, url, sha1, versionId, versionNumber,
+//   dependencies:[{project_id, dependency_type}] } or null when the project
+// simply has no build for that MC version.
+async function _resolveModForMc(projectIdOrSlug, mcVersion, loader) {
+  const key = String(projectIdOrSlug).replace(/[^a-z0-9_\-]/gi, '_') + (loader ? '' : '.any');
+  const cachePath = path.join(MODCACHE_DIR, 'resolve', mcVersion, key + '.json');
+  const cached = _readJsonSafe(cachePath);
+  if (cached && cached.checkedAt && (Date.now() - cached.checkedAt) < MODCACHE_TTL_MS) return cached.result;
+  let url = `https://api.modrinth.com/v2/project/${encodeURIComponent(projectIdOrSlug)}/version?game_versions=[%22${encodeURIComponent(mcVersion)}%22]`;
+  if (loader) url += `&loaders=[%22${loader}%22]`;
+  try {
+    const versions = await _fetchJson(url);
+    let result = null;
+    if (Array.isArray(versions) && versions.length > 0) {
+      const v = versions.find(x => x.version_type === 'release') || versions[0];
+      const file = (v.files || []).find(f => f.primary) || (v.files || [])[0];
+      if (file && file.url && file.filename) {
+        let slug = null, title = null;
+        try { const info = await _modrinthProjectInfo(v.project_id); slug = info.slug; title = info.title; } catch (_) {}
+        result = {
+          projectId: v.project_id, slug, title,
+          filename: file.filename, url: file.url, sha1: file.hashes?.sha1 || null,
+          versionId: v.id, versionNumber: v.version_number,
+          dependencies: (v.dependencies || []).map(d => ({ project_id: d.project_id, dependency_type: d.dependency_type })),
+        };
+      }
+    }
+    _writeJsonSafe(cachePath, { checkedAt: Date.now(), result });
+    return result;
+  } catch (e) {
+    log('warn', `[MODRINTH] resolve ${projectIdOrSlug} for ${mcVersion} failed: ${e.message}`);
+    // Offline: reuse whatever we resolved last time, however old.
+    if (cached) return cached.result;
+    throw e;
+  }
+}
+
+// Download (or reuse from cache) a resolved file and place it at destPath.
+async function _installResolvedFile(res, destPath) {
+  const cacheFile = path.join(MODCACHE_DIR, 'files', res.filename);
+  let ok = fs.existsSync(cacheFile) && (!res.sha1 || _sha1File(cacheFile) === res.sha1);
+  if (!ok) {
+    await downloadFile(res.url, cacheFile);
+    if (res.sha1 && _sha1File(cacheFile) !== res.sha1) {
+      try { fs.unlinkSync(cacheFile); } catch (_) {}
+      throw new Error('checksum mismatch for ' + res.filename);
+    }
+  }
+  const srcStat = fs.statSync(cacheFile);
+  const destStat = fs.existsSync(destPath) ? fs.statSync(destPath) : null;
+  if (!destStat || destStat.size !== srcStat.size) {
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    fs.copyFileSync(cacheFile, destPath);
+    return true;
+  }
+  return false;
+}
+
+// modId → filename for every jar in modsDir. Built once per pass so the
+// duplicate checks below don't re-read a 100-jar folder for every file.
+function _buildModIdIndex(modsDir) {
+  const idx = new Map();
+  try {
+    for (const f of fs.readdirSync(modsDir)) {
+      if (!f.endsWith('.jar')) continue;
+      const meta = _readFabricModMeta(path.join(modsDir, f));
+      if (meta && meta.id) idx.set(meta.id, f);
+    }
+  } catch (_) {}
+  return idx;
+}
+
+// Find a jar in modsDir whose fabric.mod.json id matches (excluding `except`).
+function _findJarByModId(modsDir, modId, except, idx) {
+  if (!modId) return null;
+  const index = idx || _buildModIdIndex(modsDir);
+  const f = index.get(modId);
+  if (f && f !== except && fs.existsSync(path.join(modsDir, f))) return f;
+  return null;
+}
+
+// Highest fabric-loader version any jar in modsDir asks for ("fabricloader": ">=0.18.3").
+function _requiredFabricLoader(modsDir) {
+  let best = null;
+  try {
+    for (const f of fs.readdirSync(modsDir)) {
+      if (!f.endsWith('.jar')) continue;
+      const meta = _readFabricModMeta(path.join(modsDir, f));
+      const raw = meta?.depends?.fabricloader;
+      const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+      for (const cond of list) {
+        const m = String(cond).match(/>=?\s*v?(\d+\.\d+(?:\.\d+)?)/);
+        if (!m) continue;
+        if (!best || _compareVersions(_parseVersion(m[1]), _parseVersion(best)) > 0) best = m[1];
+      }
+    }
+  } catch (_) {}
+  return best;
+}
+
+// Mod ids that come from the loader / game itself, or from Fabric API (block 2).
+const BUILTIN_MOD_IDS = new Set(['minecraft', 'java', 'fabricloader', 'fabric-loader', 'fabric', 'fabric-api', 'fabric-api-base', 'mixinextras', 'mixin']);
+// Well-known mod id → Modrinth slug pairs where the two differ.
+const MOD_ID_TO_MODRINTH = {
+  yet_another_config_lib_v3: 'yacl', yet_another_config_lib: 'yacl',
+  'cloth-config2': 'cloth-config', cloth_config: 'cloth-config',
+  architectury: 'architectury-api', owo: 'owo-lib', forgeconfigapiport: 'forge-config-api-port',
+  puzzleslib: 'puzzles-lib', resourcefullib: 'resourceful-lib', 'cardinal-components-base': 'cardinal-components-api',
+  ferritecore: 'ferrite-core', fzzy_config: 'fzzy-config', 'placeholder-api': 'placeholder-api',
+  'fabric-language-kotlin': 'fabric-language-kotlin', midnightlib: 'midnightlib', modmenu: 'modmenu',
+  geckolib: 'geckolib', collective: 'collective', libipn: 'libipn', 'balm-fabric': 'balm', balm: 'balm',
+  spectrelib: 'spectrelib', konkrete: 'konkrete', melody: 'melody', improperui: 'improperui',
+};
+
+// Map a Fabric mod id (from a jar's depends block) to a Modrinth project.
+async function _modrinthProjectForModId(modId) {
+  const cachePath = path.join(MODCACHE_DIR, 'projects.json');
+  const cache = _readJsonSafe(cachePath) || {};
+  const key = 'modid:' + modId;
+  if (cache[key] !== undefined) return cache[key];
+  let ref = null;
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  try {
+    if (MOD_ID_TO_MODRINTH[modId]) ref = MOD_ID_TO_MODRINTH[modId];
+    else {
+      // Most projects use their mod id as slug.
+      try { const info = await _modrinthProjectInfo(modId); if (info && info.type === 'mod') ref = info.slug; } catch (_) {}
+      if (!ref) {
+        const q = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(modId)}&facets=${encodeURIComponent('[["project_type:mod"],["categories:fabric"]]')}&limit=6`;
+        const data = await _fetchJson(q);
+        const hits = (data && data.hits) || [];
+        const exact = hits.find(h => norm(h.slug) === norm(modId) || norm(h.title) === norm(modId));
+        const partial = hits.find(h => norm(modId).length >= 4 && (norm(h.slug).includes(norm(modId)) || norm(modId).includes(norm(h.slug))));
+        const hit = exact || partial;
+        ref = hit ? hit.slug : null;
+      }
+    }
+  } catch (e) {
+    log('warn', '[MODRINTH] modid lookup ' + modId + ': ' + e.message);
+    return null; // don't cache network failures
+  }
+  cache[key] = ref;
+  _writeJsonSafe(cachePath, cache);
+  return ref;
+}
+
+// ── Bundled mods (Settings toggles) ───────────────────────────────────
+// Every entry resolves against Modrinth for the installation's exact MC
+// version, so they keep working when Mojang ships a new release. Hard
+// dependencies come from the Modrinth version metadata and are installed
+// as Icey-<slug>.jar. Everything we place is recorded in
+// <gameDir>/.icey-managed-mods.json so disabling a toggle removes exactly
+// what we added and nothing the user installed themselves.
+const BUNDLED_MOD_REGISTRY = [
+  { key: 'architectury',     label: 'Architectury',      slug: 'architectury-api', dest: 'IceyArchitectury.jar',     stale: /^architectury.*\.jar$/i,     bundledDir: 'architectury' },
+  { key: 'healthindicators', label: 'Health Indicators', slug: 'healthindicators', dest: 'IceyHealthIndicators.jar', stale: /^healthindicators.*\.jar$/i, bundledDir: 'healthindicators' },
+  { key: 'skinshuffle',      label: 'SkinShuffle',       slug: 'skinshuffle',      dest: 'IceySkinShuffle.jar',      stale: /skinshuffle/i,              bundledDir: 'skinshuffle' },
+];
+
+function _bundledModDirs(sub) {
+  return [
+    path.join(__dirname, 'resources', 'mods', sub),
+    path.join(process.resourcesPath || '', 'mods', sub),
+  ].filter(p => p && fs.existsSync(p));
+}
+
+// Offline fallback: a jar shipped inside the app whose declared MC range
+// covers this version.
+function _bundledJarFor(entry, mcVersion) {
+  if (!entry.bundledDir) return null;
+  for (const dir of _bundledModDirs(entry.bundledDir)) {
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith('.jar')) continue;
+        const meta = _readFabricModMeta(path.join(dir, f));
+        const range = meta?.depends?.minecraft;
+        if (!range || _satisfiesVersionRange(mcVersion, range)) return path.join(dir, f);
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+async function _ensureBundledMods(installGameDir, mcVersion, enabledKeys) {
+  const modsDir = path.join(installGameDir, 'mods');
+  fs.mkdirSync(modsDir, { recursive: true });
+  const manifestPath = path.join(installGameDir, '.icey-managed-mods.json');
+  const manifest = _readJsonSafe(manifestPath) || {};
+
+  // Legacy sweep: stray copies of these mods under other names would
+  // duplicate the one we manage → Fabric refuses to boot.
+  for (const entry of BUNDLED_MOD_REGISTRY) {
+    try {
+      for (const f of fs.readdirSync(modsDir)) {
+        if (entry.stale.test(f) && f !== entry.dest && !/^Icey/.test(f)) {
+          try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed duplicate ' + entry.label + ' jar: ' + f); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  const wanted = new Map(); // dest → { res, label }
+  const queue = [];
+  const seenProjects = new Set();
+  for (const entry of BUNDLED_MOD_REGISTRY) {
+    if (enabledKeys.has(entry.key)) queue.push({ ref: entry.slug, dest: entry.dest, label: entry.label, entry, depth: 0 });
+  }
+
+  while (queue.length) {
+    const item = queue.shift();
+    let res = null;
+    try {
+      res = await _resolveModForMc(item.ref, mcVersion, 'fabric');
+    } catch (e) {
+      // Network down and nothing cached: fall back to the shipped jar.
+      const local = item.entry ? _bundledJarFor(item.entry, mcVersion) : null;
+      if (local) {
+        res = { projectId: item.ref, slug: item.ref, title: item.label, filename: path.basename(local), localPath: local, dependencies: [] };
+        _mcConsole(item.label + ': offline — using bundled jar', 'warn');
+      }
+    }
+    if (!res) {
+      _mcConsole(`${item.label} has no build for Minecraft ${mcVersion} yet — skipped`, 'warn');
+      continue;
+    }
+    if (res.projectId && seenProjects.has(res.projectId)) continue;
+    if (res.projectId) seenProjects.add(res.projectId);
+    wanted.set(item.dest, { res, label: item.label });
+    if (item.depth >= 3) continue;
+    for (const dep of (res.dependencies || [])) {
+      if (dep.dependency_type !== 'required' || !dep.project_id) continue;
+      if (MODRINTH_SKIP_DEPS.has(dep.project_id) || seenProjects.has(dep.project_id)) continue;
+      let info = null;
+      try { info = await _modrinthProjectInfo(dep.project_id); } catch (_) {}
+      const slug = info?.slug || dep.project_id;
+      // A dependency that is itself a registry entry keeps its canonical name.
+      const reg = BUNDLED_MOD_REGISTRY.find(r => r.slug === slug);
+      queue.push({ ref: dep.project_id, dest: reg ? reg.dest : `Icey-${slug}.jar`, label: info?.title || slug, entry: reg || null, depth: item.depth + 1 });
+    }
+  }
+
+  // Install everything wanted.
+  const nextManifest = {};
+  const idIndex = _buildModIdIndex(modsDir);
+  for (const [dest, { res, label }] of wanted) {
+    const destPath = path.join(modsDir, dest);
+    try {
+      let changed = false;
+      if (res.localPath) {
+        const s = fs.statSync(res.localPath);
+        const d = fs.existsSync(destPath) ? fs.statSync(destPath) : null;
+        if (!d || d.size !== s.size) { fs.copyFileSync(res.localPath, destPath); changed = true; }
+      } else {
+        changed = await _installResolvedFile(res, destPath);
+      }
+      // If the user (or a modpack) already provides the same mod id under
+      // another file, keep theirs and drop ours to avoid a duplicate-mod crash.
+      const meta = _readFabricModMeta(destPath);
+      const other = meta && meta.id ? _findJarByModId(modsDir, meta.id, dest, idIndex) : null;
+      if (other && !/^Icey/.test(other)) {
+        try { fs.unlinkSync(destPath); } catch (_) {}
+        _mcConsole(`${label} is already provided by ${other} — using that one`, 'info');
+        continue;
+      }
+      if (meta && meta.id) idIndex.set(meta.id, dest);
+      nextManifest[dest] = { slug: res.slug, versionId: res.versionId || null, versionNumber: res.versionNumber || null, mcVersion };
+      if (changed) _mcConsole(`${label} ${res.versionNumber ? 'v' + res.versionNumber + ' ' : ''}installed for MC ${mcVersion}`, 'info');
+    } catch (e) {
+      log('warn', `[MODS] ${label} install failed: ${e.message}`);
+      _mcConsole(`${label} install failed: ${e.message}`, 'warn');
+    }
+  }
+
+  // Second pass: dependencies the jars themselves declare (fabric.mod.json
+  // "depends") that Modrinth's metadata left out — e.g. SkinShuffle needs
+  // YACL but its Modrinth version doesn't list it. Repeat a few rounds
+  // because a dependency can bring its own.
+  for (let round = 0; round < 3; round++) {
+    const index = _buildModIdIndex(modsDir);
+    const missing = new Map();
+    for (const dest of Object.keys(nextManifest)) {
+      const meta = _readFabricModMeta(path.join(modsDir, dest));
+      for (const id of Object.keys(meta?.depends || {})) {
+        if (BUILTIN_MOD_IDS.has(id) || id.startsWith('fabric-')) continue;
+        const provider = index.get(id);
+        if (provider) {
+          // Already on disk. If it's one we manage (from a previous launch),
+          // carry it into the new manifest so the cleanup below keeps it —
+          // unless it was resolved for a different MC version, in which case
+          // re-resolve it.
+          const prev = manifest[provider];
+          if (!prev || prev.mcVersion === mcVersion) {
+            if (prev && !nextManifest[provider]) nextManifest[provider] = prev;
+            continue;
+          }
+        }
+        if (!missing.has(id)) missing.set(id, dest);
+      }
+    }
+    if (!missing.size) break;
+    for (const [id, requiredBy] of missing) {
+      const label = requiredBy.replace(/^Icey-?/, '').replace(/\.jar$/, '');
+      try {
+        const ref = await _modrinthProjectForModId(id);
+        if (!ref) { _mcConsole(`${label} needs "${id}" but it couldn't be found on Modrinth — it may not load`, 'warn'); continue; }
+        const res = await _resolveModForMc(ref, mcVersion, 'fabric');
+        if (!res) { _mcConsole(`${label} needs ${ref}, which has no build for MC ${mcVersion} — it may not load`, 'warn'); continue; }
+        const dest = `Icey-${res.slug || ref}.jar`;
+        if (nextManifest[dest]) continue;
+        const changed = await _installResolvedFile(res, path.join(modsDir, dest));
+        nextManifest[dest] = { slug: res.slug, versionId: res.versionId || null, versionNumber: res.versionNumber || null, mcVersion, requiredBy: id };
+        if (changed) _mcConsole(`${res.title || ref} ${res.versionNumber ? 'v' + res.versionNumber + ' ' : ''}installed (needed by ${label})`, 'info');
+      } catch (e) {
+        log('warn', `[MODS] dependency ${id}: ${e.message}`);
+      }
+    }
+  }
+
+  // Remove managed files that are no longer wanted (toggle turned off,
+  // dependency no longer needed, or different MC version).
+  const legacy = BUNDLED_MOD_REGISTRY.map(e => e.dest);
+  const previously = new Set([...Object.keys(manifest), ...legacy]);
+  for (const dest of previously) {
+    if (nextManifest[dest]) continue;
+    const p = path.join(modsDir, dest);
+    if (fs.existsSync(p)) {
+      try { fs.unlinkSync(p); log('info', 'Removed managed mod: ' + dest); _mcConsole('Removed ' + dest.replace(/^Icey-?/, '').replace(/\.jar$/, ''), 'info'); } catch (_) {}
+    }
+  }
+  _writeJsonSafe(manifestPath, nextManifest);
+}
+
+// ── Icey mod jar selection ────────────────────────────────────────────
+// CI builds one jar per MC version in the matrix. For versions we don't
+// build (1.21.9, 1.21.10, …) pick the closest lower build whose declared
+// range still covers the target — the loader accepts it and the compat
+// shims inside the mod handle the API drift.
+function _pickIceyJar(kind, mcVersion) {
+  if (!_isYarnEraVersion(mcVersion)) return null;
+  const pattern = /^iceymod-mc(.+)-1\.0\.0\.jar$/i;
+  const dirs = [path.join(__dirname, 'mod', 'build', 'libs'), DATA_DIR, path.join(__dirname, 'resources')];
+  const found = [];
+  for (const dir of dirs) {
+    try {
+      if (!dir || !fs.existsSync(dir)) continue;
+      for (const f of fs.readdirSync(dir)) {
+        const m = f.match(pattern);
+        if (m) found.push({ ver: m[1], name: f, path: path.join(dir, f) });
+      }
+    } catch (_) {}
+  }
+  if (!found.length) return null;
+  const exact = found.find(j => j.ver === mcVersion);
+  if (exact) return exact;
+  const target = _parseVersion(mcVersion);
+  const lower = found
+    .filter(j => _compareVersions(_parseVersion(j.ver), target) < 0)
+    .sort((a, b) => _compareVersions(_parseVersion(b.ver), _parseVersion(a.ver)));
+  for (const j of lower) {
+    const meta = _readFabricModMeta(j.path);
+    const range = meta?.depends?.minecraft;
+    if (!range || _satisfiesVersionRange(mcVersion, range)) return j;
+  }
+  return null;
+}
+
+// ── Zip walking (for .mrpack import) ──────────────────────────────────
+function _zipEntries(buf) {
+  const entries = [];
+  const len = buf.length;
+  let eocd = -1;
+  for (let i = len - 22; i >= Math.max(0, len - 65557); i--) {
+    if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) { eocd = i; break; }
+  }
+  if (eocd === -1) return entries;
+  let cdOffset = buf.readUInt32LE(eocd + 16);
+  let cdEntries = buf.readUInt16LE(eocd + 10);
+  // ZIP64: sizes/offsets overflow → look for the zip64 EOCD locator.
+  if (cdOffset === 0xffffffff || cdEntries === 0xffff) {
+    const loc = eocd - 20;
+    if (loc >= 0 && buf.readUInt32LE(loc) === 0x07064b50) {
+      const z64 = Number(buf.readBigUInt64LE(loc + 8));
+      if (buf.readUInt32LE(z64) === 0x06064b50) {
+        cdEntries = Number(buf.readBigUInt64LE(z64 + 32));
+        cdOffset = Number(buf.readBigUInt64LE(z64 + 48));
+      }
+    }
+  }
+  let offset = cdOffset;
+  for (let i = 0; i < cdEntries && offset + 46 <= len; i++) {
+    if (buf.readUInt32LE(offset) !== 0x02014b50) break;
+    const method = buf.readUInt16LE(offset + 10);
+    let compressedSize = buf.readUInt32LE(offset + 20);
+    let size = buf.readUInt32LE(offset + 24);
+    const nameLen = buf.readUInt16LE(offset + 28);
+    const extraLen = buf.readUInt16LE(offset + 30);
+    const commentLen = buf.readUInt16LE(offset + 32);
+    let localHeaderOffset = buf.readUInt32LE(offset + 42);
+    const name = buf.toString('utf-8', offset + 46, offset + 46 + nameLen);
+    // zip64 extra field
+    if (compressedSize === 0xffffffff || size === 0xffffffff || localHeaderOffset === 0xffffffff) {
+      let e = offset + 46 + nameLen; const end = e + extraLen;
+      while (e + 4 <= end) {
+        const id = buf.readUInt16LE(e), sz = buf.readUInt16LE(e + 2);
+        if (id === 0x0001) {
+          let p = e + 4;
+          if (size === 0xffffffff) { size = Number(buf.readBigUInt64LE(p)); p += 8; }
+          if (compressedSize === 0xffffffff) { compressedSize = Number(buf.readBigUInt64LE(p)); p += 8; }
+          if (localHeaderOffset === 0xffffffff) { localHeaderOffset = Number(buf.readBigUInt64LE(p)); p += 8; }
+          break;
+        }
+        e += 4 + sz;
+      }
+    }
+    entries.push({ name, method, compressedSize, size, localHeaderOffset, isDir: name.endsWith('/') });
+    offset += 46 + nameLen + extraLen + commentLen;
+  }
+  return entries;
+}
+
+function _zipReadEntry(buf, entry) {
+  const lh = entry.localHeaderOffset;
+  if (lh + 30 > buf.length || buf.readUInt32LE(lh) !== 0x04034b50) return null;
+  const nameLen = buf.readUInt16LE(lh + 26);
+  const extraLen = buf.readUInt16LE(lh + 28);
+  const start = lh + 30 + nameLen + extraLen;
+  if (start + entry.compressedSize > buf.length) return null;
+  const raw = buf.slice(start, start + entry.compressedSize);
+  if (entry.method === 0) return raw;
+  if (entry.method === 8) { try { return require('zlib').inflateRawSync(raw); } catch (_) { return null; } }
+  return null;
+}
+
+// ── options.txt resourcePacks manipulation (arbitrary entries) ────────
+function _readResourcepackEntries(installGameDir) {
+  const optionsPath = path.join(installGameDir, 'options.txt');
+  if (!fs.existsSync(optionsPath)) return null;
+  for (const line of fs.readFileSync(optionsPath, 'utf-8').split('\n')) {
+    if (line.startsWith('resourcePacks:')) {
+      try { return JSON.parse(line.slice('resourcePacks:'.length)); } catch (_) { return null; }
+    }
+  }
+  return null;
+}
+
+function _writeResourcepackEntries(installGameDir, entries) {
+  const optionsPath = path.join(installGameDir, 'options.txt');
+  let lines = [];
+  if (fs.existsSync(optionsPath)) lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
+  let found = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('resourcePacks:')) { lines[i] = 'resourcePacks:' + JSON.stringify(entries); found = true; break; }
+  }
+  if (!found) lines.push('resourcePacks:' + JSON.stringify(entries));
+  fs.mkdirSync(installGameDir, { recursive: true });
+  try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
+}
+
+// ── Java & Stuff modpack (Settings toggle) ────────────────────────────
+// The bundled .mrpack is pinned to one MC version. For that version we
+// use its exact file list; for any other version every Modrinth file is
+// re-resolved against the installation's MC version (files with no build
+// for that version are skipped and reported). Resource packs that change
+// how armor looks are installed but left disabled — turn them on in-game
+// under Options → Resource Packs if you want the 3D armor look.
+const JAVASTUFF_PACK_FILE = 'JavaAndStuff-1.3.2.mrpack';
+const JAVASTUFF_ARMOR_PACK_RE = /armor|3d trims/i;
+const JAVASTUFF_SKIP_OVERRIDES = /^(options\.txt|replace-lines\.ps1|fixresourcepacks.*\.bat|logo\.png)$/i;
+
+function _javaStuffPackPath() {
+  const candidates = [
+    path.join(__dirname, 'resources', 'modpacks', JAVASTUFF_PACK_FILE),
+    path.join(process.resourcesPath || '', 'modpacks', JAVASTUFF_PACK_FILE),
+    path.join(DATA_DIR, JAVASTUFF_PACK_FILE),
+  ];
+  for (const p of candidates) if (p && fs.existsSync(p)) return p;
+  return null;
+}
+
+function _removeJavaStuffPack(installGameDir, manifest) {
+  let removed = 0;
+  for (const rel of (manifest.files || [])) {
+    const p = path.join(installGameDir, rel);
+    try {
+      if (!fs.existsSync(p)) continue;
+      fs.rmSync(p, { recursive: true, force: true });
+      removed++;
+    } catch (_) {}
+  }
+  const registered = new Set(manifest.registeredPacks || []);
+  if (registered.size) {
+    const entries = _readResourcepackEntries(installGameDir);
+    if (entries) _writeResourcepackEntries(installGameDir, entries.filter(e => !registered.has(e)));
+  }
+  return removed;
+}
+
+async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
+  const manifestPath = path.join(installGameDir, '.icey-javastuff.json');
+  const manifest = _readJsonSafe(manifestPath);
+
+  if (!enabled) {
+    if (manifest) {
+      const n = _removeJavaStuffPack(installGameDir, manifest);
+      try { fs.unlinkSync(manifestPath); } catch (_) {}
+      _mcConsole(`Java & Stuff disabled — removed ${n} files`, 'info');
+    }
+    return;
+  }
+
+  const packPath = _javaStuffPackPath();
+  if (!packPath) { _mcConsole('Java & Stuff pack file is missing from this build — skipped', 'warn'); return; }
+  const buf = fs.readFileSync(packPath);
+  const entries = _zipEntries(buf);
+  const indexEntry = entries.find(e => e.name === 'modrinth.index.json');
+  if (!indexEntry) { _mcConsole('Java & Stuff pack is corrupt (no index) — skipped', 'warn'); return; }
+  const index = JSON.parse(_zipReadEntry(buf, indexEntry).toString('utf-8'));
+  const packVersion = index.versionId || '0';
+  const packMc = index.dependencies?.minecraft || '';
+
+  if (manifest && manifest.complete && manifest.mcVersion === mcVersion && manifest.packVersion === packVersion) return;
+  if (manifest && manifest.mcVersion !== mcVersion) {
+    // Installation switched MC version: throw away the old file set first.
+    _removeJavaStuffPack(installGameDir, manifest);
+  }
+
+  const exact = packMc === mcVersion;
+  _mcToast(`Installing Java & Stuff for Minecraft ${mcVersion}${exact ? '' : ' (re-matching each mod to this version)'} — this takes a few minutes the first time`, 'info');
+  _mcConsole(`Java & Stuff: installing pack v${packVersion} into MC ${mcVersion}`, 'info');
+
+  const modsDir = path.join(installGameDir, 'mods');
+  fs.mkdirSync(modsDir, { recursive: true });
+  const installed = new Set(manifest?.files || []);
+  const skipped = [];
+  const files = (index.files || []).filter(f => !(f.env && f.env.client === 'unsupported'));
+
+  // Resolve + download with a small worker pool.
+  let done = 0;
+  const work = files.slice();
+  const idIndex = _buildModIdIndex(modsDir);
+  const worker = async () => {
+    while (work.length) {
+      const f = work.shift();
+      const relPath = String(f.path || '').replace(/\\/g, '/');
+      if (!relPath || relPath.includes('..')) continue;
+      const folder = relPath.split('/')[0];
+      const originalName = relPath.split('/').pop();
+      const dlUrl = (f.downloads || [])[0] || '';
+      let res = null;
+      try {
+        if (exact) {
+          res = { filename: originalName, url: dlUrl, sha1: f.hashes?.sha1 || null };
+        } else {
+          const m = dlUrl.match(/cdn\.modrinth\.com\/data\/([^/]+)\/versions\//);
+          if (!m) { res = { filename: originalName, url: dlUrl, sha1: f.hashes?.sha1 || null }; }
+          else {
+            const loader = folder === 'mods' ? 'fabric' : null;
+            res = await _resolveModForMc(m[1], mcVersion, loader);
+            if (!res) { skipped.push(originalName); continue; }
+          }
+        }
+        const destPath = path.join(installGameDir, folder, res.filename);
+        await _installResolvedFile(res, destPath);
+        installed.add(folder + '/' + res.filename);
+        if (folder === 'mods') {
+          // Drop older duplicates of the same mod id (user copies or a
+          // previous pack version). Launcher-managed Icey*.jar copies
+          // yield to the pack's copy so nothing is installed twice.
+          const meta = _readFabricModMeta(destPath);
+          const other = meta && meta.id ? _findJarByModId(modsDir, meta.id, res.filename, idIndex) : null;
+          if (other) {
+            try { fs.unlinkSync(path.join(modsDir, other)); _mcConsole(`Java & Stuff: replaced duplicate ${other}`, 'info'); } catch (_) {}
+          }
+          if (meta && meta.id) idIndex.set(meta.id, res.filename);
+        }
+      } catch (e) {
+        log('warn', '[JAVASTUFF] ' + originalName + ': ' + e.message);
+        skipped.push(originalName);
+      } finally {
+        done++;
+        if (done % 10 === 0 || done === files.length) _mcConsole(`Java & Stuff: ${done}/${files.length} files`, 'info');
+      }
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+
+  // Overrides: configs, resource packs, shader packs shipped inside the pack.
+  let overrideCount = 0;
+  for (const e of entries) {
+    if (e.isDir || !e.name.startsWith('overrides/')) continue;
+    const rel = e.name.slice('overrides/'.length);
+    if (!rel || rel.includes('..')) continue;
+    const top = rel.split('/')[0];
+    if (JAVASTUFF_SKIP_OVERRIDES.test(rel)) continue;
+    const dest = path.join(installGameDir, rel);
+    // Keep the user's own edits to config files across re-installs.
+    if (top === 'config' && fs.existsSync(dest)) continue;
+    const data = _zipReadEntry(buf, e);
+    if (!data) continue;
+    try {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, data);
+      overrideCount++;
+      if (top === 'resourcepacks' || top === 'shaderpacks') {
+        installed.add(rel.split('/').slice(0, 2).join('/'));
+      }
+    } catch (err) {
+      log('warn', '[JAVASTUFF] override ' + rel + ': ' + err.message);
+    }
+  }
+
+  // Enable the pack's resource packs (minus the armor ones) in options.txt.
+  const registered = new Set(manifest?.registeredPacks || []);
+  const optEntry = entries.find(e => e.name === 'overrides/options.txt');
+  if (optEntry) {
+    const text = (_zipReadEntry(buf, optEntry) || Buffer.alloc(0)).toString('utf-8');
+    const line = text.split('\n').find(l => l.startsWith('resourcePacks:'));
+    let packList = [];
+    try { packList = line ? JSON.parse(line.slice('resourcePacks:'.length)) : []; } catch (_) {}
+    const current = _readResourcepackEntries(installGameDir) || ['vanilla'];
+    for (const entry of packList) {
+      if (JAVASTUFF_ARMOR_PACK_RE.test(entry)) continue;
+      if (entry.startsWith('file/')) {
+        const p = path.join(installGameDir, 'resourcepacks', entry.slice(5));
+        if (!fs.existsSync(p)) continue;
+      }
+      if (!current.includes(entry)) { current.push(entry); registered.add(entry); }
+    }
+    _writeResourcepackEntries(installGameDir, current);
+  }
+
+  _writeJsonSafe(manifestPath, {
+    mcVersion, packVersion, complete: true,
+    files: [...installed],
+    registeredPacks: [...registered],
+    skipped,
+    installedAt: Date.now(),
+  });
+  const summary = `Java & Stuff installed: ${installed.size} files` + (skipped.length ? `, ${skipped.length} not available for MC ${mcVersion}` : '');
+  _mcConsole(summary, skipped.length ? 'warn' : 'info');
+  _mcToast(summary + '. Armor packs are installed but off — enable them in-game under Resource Packs.', 'success');
 }
 
 // ── Mod version compatibility checking ──────────────────────────────────
@@ -2903,7 +3654,7 @@ app.whenReady().then(() => {
   ipcMain.handle('get-installations-dir', () => INSTALLATIONS_DIR);
 
   // Install Fabric (via Fabric Meta API — no Java required)
-  ipcMain.handle('install-fabric', async (_, installationId, mcVersion) => {
+  const installFabricLoader = async (installationId, mcVersion) => {
     const installations = readInstallations();
     const installation = installations.find(i => i.id === installationId);
     if (!installation) return { error: 'Installation not found' };
@@ -3062,7 +3813,9 @@ app.whenReady().then(() => {
       log('error', 'Fabric install error: ' + e.message);
       return { error: 'Fabric installation failed: ' + e.message };
     }
-  });
+  };
+  _installFabricLoader = installFabricLoader;
+  ipcMain.handle('install-fabric', (_, installationId, mcVersion) => installFabricLoader(installationId, mcVersion));
 
   // Download vanilla libraries from version JSON
   ipcMain.handle('download-libraries', async (_, installationId, versionJsonUrl) => {

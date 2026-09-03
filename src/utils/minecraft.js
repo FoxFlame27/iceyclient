@@ -90,6 +90,22 @@ const MinecraftLauncher = {
             <button class="modal-btn modal-btn-primary" onclick="window.icey.openExternal('https://adoptium.net'); closeModal();">Open Java Download</button>
           </div>
         `);
+      } else if (String(result.error).startsWith('JAVA_TOO_OLD')) {
+        const parts = String(result.error).split(':');
+        const need = parts[1] || '?', have = parts[2] && parts[2] !== '0' ? parts[2] : 'none';
+        showModal(`
+          <div class="modal-header">
+            <h2 class="modal-title">Newer Java Needed</h2>
+            <button class="modal-close" onclick="closeModal()">
+              <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+          </div>
+          <div class="modal-body">This Minecraft version needs Java ${need}, but only Java ${have} was found and the automatic download failed (no internet?). Install Java ${need} from Adoptium, or set its path under Settings &rsaquo; Advanced &rsaquo; Java.</div>
+          <div class="modal-footer">
+            <button class="modal-btn modal-btn-outline" onclick="switchPage('options'); closeModal();">Open Settings</button>
+            <button class="modal-btn modal-btn-primary" onclick="window.icey.openExternal('https://adoptium.net/temurin/releases/?version=${need}'); closeModal();">Download Java ${need}</button>
+          </div>
+        `);
       } else if (result.error === 'VERSION_NOT_FOUND') {
         showModal(`
           <div class="modal-header">

@@ -32,7 +32,31 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ## What's new in v1.86.63
 
-**Project moved to a new GitHub account.** Releases now live at `Icey27055/iceyclient`. The launcher's update check and the Settings → Advanced "Download This Mod" buttons point at the new repo. Anyone still on v1.86.62 or older won't be offered this update automatically — grab it once from the new releases page, and auto-update works from then on.
+**Project moved to a new GitHub account.** Releases now live at `Icey27055/iceyclient`. The launcher's update check points at the new repo. Anyone still on v1.86.62 or older won't be offered this update automatically — grab it once from the new releases page, and auto-update works from then on.
+
+### Minecraft 26.1 / 26.2 support
+- Mojang switched to year-based version numbers after 1.21.11 (26.1, 26.1.1, 26.1.2, 26.2). Version parsing and comparisons handle both schemes now.
+- **Java is picked per version.** 26.x needs Java 25; 1.21.x needs Java 21. The launcher reads the requirement from the version JSON, looks for a matching JDK on the machine, and if there is none downloads a Temurin runtime into its data folder automatically (one-time, ~50 MB). No more "wrong Java" crashes.
+- Fabric loader is upgraded in place when the mods you have need a newer one (0.18+ for the current Health Indicators / SkinShuffle builds).
+- The Icey HUD mod is not available on 26.x yet: Fabric dropped the Yarn mappings the mod is written against, so it needs a rewrite before it can build there. On 26.x the launcher says so in the console and runs everything else normally. On 1.21.9 / 1.21.10 the 1.21.8 build is used automatically.
+
+### Settings mods work on every version
+- Health Indicators, SkinShuffle and Architectury are no longer hard-coded jars for one Minecraft version. Each is fetched from Modrinth for the exact version of the installation you launch, then cached. Hard dependencies (YACL, ImproperUI, …) are detected from both Modrinth metadata and the jars' own `fabric.mod.json` and installed alongside.
+- Turning **Health Indicators** off now also turns off **Architectury** (its dependency), and back on again with it.
+- Everything the launcher places is tracked in `.icey-managed-mods.json` per installation, so a toggle removes exactly what it added and never touches mods you installed yourself.
+- Settings mods show their real icons.
+- The iceymod+ (SMP server mod) is no longer bundled with or auto-installed by the client. Any copy an older launcher left in `mods/` is removed. Server owners can still grab the jar from the releases page.
+
+### Java & Stuff modpack toggle
+- New Settings card. Installs the Java & Stuff pack (Actions & Stuff-style animations, 3D items, shaders, sounds) into a Fabric installation. The pack is pinned to 1.21.8; on any other version every file is re-matched to that version through Modrinth and files with no build are skipped and listed in the console.
+- Armor-changing packs ("Fyoncle's 3D Trims", "Horse Armor & Stuff", "Armor") are installed but left **disabled** so armor stays vanilla. Enable them in-game under Options → Resource Packs if you want the 3D look.
+- Turning the toggle off removes exactly the files the pack added.
+
+### Launcher fixes
+- Creating an installation now selects it, and picking one on the Mods page is remembered everywhere (Home LAUNCH button included).
+- "Installed" badges in the mod browser are accurate and update after uninstall/toggle. Matching uses the project slug and the mod's real name instead of the first word of the title.
+- New download modal: mod icon, version chips, live progress bar with size and percentage, and a clear installed/failed state. CurseForge installs use it too.
+- Redesigned in-game Y menu, module settings and HUD editor in the Icey mod.
 
 ## What's new in v1.86.59
 

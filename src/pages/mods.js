@@ -8,6 +8,7 @@ let _modsLoading = false;
 let _modsHasMore = true;
 let _modsCurrentQuery = '';
 let _modsActiveTab = 'mods'; // 'mods' or 'shaders'
+let _modsLastResults = [];   // last rendered browse results (for re-rendering badges)
 
 async function ModsPageInit() {
   const page = document.getElementById('page-mods');
@@ -236,6 +237,17 @@ function _exitModsBrowse() {
 async function _modsChangeInstallation(id) {
   const installations = await window.icey.getInstallations();
   _modsActiveInstallation = installations.find(i => i.id === id) || installations[0];
+  // Persist the choice as THE selected installation so Home's LAUNCH
+  // button and the next visit to this page follow it (previously the
+  // pick lived only in this module and silently reverted).
+  if (_modsActiveInstallation) {
+    let changed = false;
+    for (const inst of installations) {
+      const shouldSelect = inst.id === _modsActiveInstallation.id;
+      if (!!inst.selected !== shouldSelect) { inst.selected = shouldSelect; changed = true; await window.icey.saveInstallation(inst); }
+    }
+    if (changed && typeof _loadHomeInstallations === 'function') { try { _loadHomeInstallations(); } catch (_) {} }
+  }
   _refreshInstalledMods();
   _syncModsInstallBtn();
 }
@@ -419,6 +431,7 @@ async function _modsSearch(query) {
     allResults.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
     _modsOffset = 30;
     _modsHasMore = allResults.length >= 20;
+    _modsLastResults = allResults;
 
     if (allResults.length === 0) {
       resultsDiv.innerHTML = `<div class="mods-empty">No results found for '${query}'</div>`;
@@ -431,11 +444,40 @@ async function _modsSearch(query) {
   }
 }
 
+function _normModKey(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+// Installed = a file on disk matches this project by slug (filenames on
+// Modrinth/CurseForge almost always contain it) or by exact mod name from
+// fabric.mod.json. The old check matched on the first word of the title,
+// so "Iris Shaders" lit up for anything containing "iris" and stayed lit
+// after deletion because nothing re-rendered.
+function _isModInstalled(mod) {
+  const nameKey = _normModKey(mod.name);
+  const slugKey = _normModKey(mod.slug || '');
+  if (!nameKey && !slugKey) return false;
+  return _modsInstalledFiles.some(f => {
+    const fileKey = _normModKey(String(f.filename || '').replace(/\.(jar|zip)(\.disabled)?$/i, ''));
+    const installedName = _normModKey(f.name);
+    if (installedName && nameKey && installedName === nameKey) return true;
+    if (slugKey && slugKey.length >= 4 && fileKey.includes(slugKey)) return true;
+    if (nameKey.length >= 6 && fileKey.includes(nameKey)) return true;
+    return false;
+  });
+}
+
+// Re-render the browse list from the last results so Install/Installed
+// badges reflect the current on-disk state (after install, delete, toggle).
+function _rerenderBrowseResults() {
+  const resultsDiv = document.getElementById('mods-browse-results');
+  if (!resultsDiv || !_modsLastResults.length) return;
+  const scrollTop = resultsDiv.scrollTop;
+  resultsDiv.innerHTML = _modsLastResults.map(mod => _renderModListItem(mod)).join('');
+  resultsDiv.scrollTop = scrollTop;
+}
+
 function _renderModListItem(mod) {
   const downloads = mod.downloads ? _formatNumber(mod.downloads) : '0';
-  const installed = _modsInstalledFiles.some(f =>
-    f.name.toLowerCase().includes(mod.name.toLowerCase().split(' ')[0])
-  );
+  const installed = _isModInstalled(mod);
   const sourceBadge = mod.source === 'modrinth' ? 'MR' : 'CF';
 
   const iconHtml = mod.icon_url
@@ -464,6 +506,7 @@ function _renderModListItem(mod) {
                      data-source="${_escapeHtml(mod.source)}"
                      data-mod-id="${_escapeHtml(String(mod.id))}"
                      data-mod-name="${_escapeHtml(mod.name)}"
+                     data-icon="${_escapeHtml(mod.icon_url || '')}"
                      data-project-type="${_escapeHtml(mod.project_type || 'mod')}">Install</button>`
         }
       </div>
@@ -483,9 +526,9 @@ async function _installModFromSearch(btn, source, modId, modName, projectType) {
     return;
   }
 
-  // CurseForge: just download directly (no picker for now)
+  // CurseForge: no version picker — go straight to the progress modal.
   btn.disabled = true;
-  btn.textContent = '...';
+  btn.textContent = '…';
   try {
     const cfType = projectType === 'resourcepack' ? 'resourcepack'
       : projectType === 'shader' ? 'shader' : 'mod';
@@ -506,29 +549,54 @@ async function _installModFromSearch(btn, source, modId, modName, projectType) {
   }
 }
 
-// Modrinth-style download modal with version + platform pickers
-async function _showModDownloadModal(modId, modName, projectType, btn) {
-  const installVersion = _modsActiveInstallation?.version || '';
+// ── Download modal: Modrinth version picker + live progress ───────────
+let _modDlSelected = { mcVersion: null, loader: null };
+let _modDlProgressOff = null;
 
-  // Show modal with loading state
+function _modDlIconHtml(icon) {
+  if (icon) return `<img class="mod-dl-icon-img" src="${_escapeAttr(icon)}" alt="" onerror="this.style.display='none'">`;
+  return `<div class="mod-dl-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>`;
+}
+
+function _modDlTypeLabel(projectType) {
+  return projectType === 'resourcepack' ? 'Resource pack' : projectType === 'shader' ? 'Shader pack' : 'Mod';
+}
+
+// Shared modal frame: icon, title, "Installing to <installation>" line, body.
+function _modDlShell(modName, icon, projectType, bodyHtml) {
+  const inst = _modsActiveInstallation;
+  const sub = inst
+    ? `${_modDlTypeLabel(projectType)} &middot; installing to <b>${_escapeHtml(inst.name)}</b> (${_escapeHtml(inst.version)})`
+    : _modDlTypeLabel(projectType);
   showModal(`
     <div class="mod-dl-modal">
       <div class="mod-dl-header">
         <div class="mod-dl-title-row">
-          <div class="mod-dl-icon">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          ${_modDlIconHtml(icon)}
+          <div class="mod-dl-title-block">
+            <h2 class="mod-dl-title">${_escapeHtml(modName)}</h2>
+            <div class="mod-dl-subtitle">${sub}</div>
           </div>
-          <h2 class="mod-dl-title">Download ${_escapeHtml(modName)}</h2>
         </div>
-        <button class="modal-close" onclick="closeModal()">
+        <button class="modal-close" onclick="_modDlClose()">
           <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
       </div>
-      <div class="mod-dl-body">
-        <div class="mod-dl-loading">Loading versions...</div>
-      </div>
+      <div class="mod-dl-body">${bodyHtml}</div>
     </div>
   `);
+}
+
+function _modDlClose() {
+  if (_modDlProgressOff) { try { _modDlProgressOff(); } catch (_) {} _modDlProgressOff = null; }
+  closeModal();
+}
+
+async function _showModDownloadModal(modId, modName, projectType, btn) {
+  const icon = (btn && btn.dataset && btn.dataset.icon) || '';
+  const installVersion = _modsActiveInstallation?.version || '';
+
+  _modDlShell(modName, icon, projectType, `<div class="mod-dl-loading"><span class="mod-dl-spinner"></span>Loading versions…</div>`);
 
   try {
     const [mcVersions, loaders] = await Promise.all([
@@ -536,32 +604,33 @@ async function _showModDownloadModal(modId, modName, projectType, btn) {
       ModrinthAPI.getSupportedLoaders(modId)
     ]);
 
-    // Filter to release-style MC versions only (no snapshots like "23w14a")
+    // Release-style versions only (no snapshots like "23w14a"). Covers both
+    // the 1.21.x scheme and the year-based 26.x scheme.
     const releaseVersions = mcVersions.filter(v => /^\d+\.\d+(\.\d+)?$/.test(v));
-    if (releaseVersions.length === 0) {
-      releaseVersions.push(...mcVersions);
-    }
+    if (releaseVersions.length === 0) releaseVersions.push(...mcVersions);
 
-    // Default selections
-    const defaultMc = releaseVersions.includes(installVersion) ? installVersion : releaseVersions[0];
+    const hasInstallVersion = releaseVersions.includes(installVersion);
+    const defaultMc = hasInstallVersion ? installVersion : releaseVersions[0];
     const defaultLoader = loaders.includes('fabric') ? 'fabric' : (loaders[0] || 'fabric');
+    const loaderPickable = projectType !== 'resourcepack' && projectType !== 'shader';
 
-    // Render the modal body
     const body = document.querySelector('.mod-dl-body');
     if (!body) return;
     body.innerHTML = `
+      ${hasInstallVersion || !installVersion ? '' : `<div class="mod-dl-note">No build for Minecraft ${_escapeHtml(installVersion)} yet — pick the closest version below.</div>`}
       <div class="mod-dl-section">
         <div class="mod-dl-label">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/></svg>
-          Select Game Version
+          Game version
         </div>
         <div class="mod-dl-version-list" id="mod-dl-versions">
           ${releaseVersions.map(v => `
-            <button class="mod-dl-version-btn ${v === defaultMc ? 'selected' : ''}" data-version="${v}" onclick="_selectModDlVersion('${v}')">${v}</button>
+            <button class="mod-dl-version-btn ${v === defaultMc ? 'selected' : ''} ${v === installVersion ? 'is-install' : ''}" data-version="${v}" onclick="_selectModDlVersion('${v}')" title="${v === installVersion ? 'Matches this installation' : ''}">${v}</button>
           `).join('')}
         </div>
       </div>
 
+      ${loaderPickable ? `
       <div class="mod-dl-section">
         <div class="mod-dl-label">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -572,22 +641,20 @@ async function _showModDownloadModal(modId, modName, projectType, btn) {
             <button class="mod-dl-loader-btn ${l === defaultLoader ? 'selected' : ''}" data-loader="${l}" onclick="_selectModDlLoader('${l}')">${_loaderLabel(l)}</button>
           `).join('')}
         </div>
-      </div>
+      </div>` : ''}
 
-      <button class="mod-dl-install-btn" id="mod-dl-install-btn" onclick="_confirmModDownload('${modId}', '${_escapeAttr(modName)}', '${projectType}')">
+      <button class="mod-dl-install-btn" id="mod-dl-install-btn" onclick="_confirmModDownload('${modId}', '${_escapeAttr(modName)}', '${projectType}', '${_escapeAttr(icon)}')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download
+        <span>Download</span>
       </button>
     `;
 
-    _modDlSelected = { mcVersion: defaultMc, loader: defaultLoader };
+    _modDlSelected = { mcVersion: defaultMc, loader: loaderPickable ? defaultLoader : 'any' };
   } catch (e) {
     const body = document.querySelector('.mod-dl-body');
     if (body) body.innerHTML = `<div class="mod-dl-error">Failed to load versions: ${_escapeHtml(e.message)}</div>`;
   }
 }
-
-let _modDlSelected = { mcVersion: null, loader: null };
 
 function _loaderLabel(loader) {
   const map = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt', vanilla: 'Vanilla' };
@@ -608,27 +675,32 @@ function _selectModDlLoader(l) {
   });
 }
 
-async function _confirmModDownload(modId, modName, projectType) {
+async function _confirmModDownload(modId, modName, projectType, icon) {
   const { mcVersion, loader } = _modDlSelected;
   if (!mcVersion || !loader) {
     Toast.error('Select version and platform');
     return;
   }
   const installBtn = document.getElementById('mod-dl-install-btn');
-  if (installBtn) { installBtn.disabled = true; installBtn.textContent = 'Downloading...'; }
+  const setBtn = (text, disabled) => {
+    if (!installBtn) return;
+    installBtn.disabled = disabled;
+    const span = installBtn.querySelector('span');
+    if (span) span.textContent = text;
+  };
+  setBtn('Finding file…', true);
 
   try {
     const downloadInfo = await ModrinthAPI.getDownloadUrl(modId, mcVersion, loader);
     if (!downloadInfo || !downloadInfo.url) {
-      Toast.error('No download for ' + mcVersion + ' / ' + loader);
-      if (installBtn) { installBtn.disabled = false; installBtn.textContent = 'Download'; }
+      Toast.error('No download for ' + mcVersion + (loader !== 'any' ? ' / ' + loader : ''));
+      setBtn('Download', false);
       return;
     }
-    closeModal();
-    await _downloadModVersion(downloadInfo.url, downloadInfo.filename, modName, projectType);
+    await _runModDownload({ url: downloadInfo.url, filename: downloadInfo.filename, modName, projectType, icon });
   } catch (e) {
     Toast.error(e.message);
-    if (installBtn) { installBtn.disabled = false; installBtn.textContent = 'Download'; }
+    setBtn('Download', false);
   }
 }
 
@@ -641,7 +713,7 @@ function _folderFor(projectType) {
 async function _ensureShaderDepsIfNeeded(projectType) {
   if (projectType !== 'shader' || !_modsActiveInstallation) return;
   try {
-    Toast.info('Checking shader dependencies (Iris + Sodium)...');
+    _modDlSetStatus('Checking shader dependencies (Iris + Sodium)…');
     const result = await window.icey.ensureShaderDeps(
       _modsActiveInstallation.id,
       _modsActiveInstallation.version
@@ -652,41 +724,119 @@ async function _ensureShaderDepsIfNeeded(projectType) {
   } catch (e) { Toast.error('Shader deps failed: ' + e.message); }
 }
 
-async function _downloadModVersion(url, filename, modName, projectType) {
-  if (!url || !filename) { Toast.error('Invalid download'); return; }
-  closeModal();
-  await _ensureShaderDepsIfNeeded(projectType);
-  Toast.info('Downloading ' + modName + '...');
-  const gameDir = _modsActiveInstallation ? await window.icey.getInstallGameDir(_modsActiveInstallation.id) : await window.icey.getMcDir();
-  const dest = gameDir + '/' + _folderFor(projectType) + '/' + filename;
-  const result = await window.icey.downloadFile(url, dest);
-  if (result.error) {
-    Toast.error('Download failed: ' + result.error);
-  } else {
+function _modDlProgressHtml(filename) {
+  return `
+    <div class="mod-dl-progress" id="mod-dl-progress">
+      <div class="mod-dl-progress-file" title="${_escapeAttr(filename)}">${_escapeHtml(filename)}</div>
+      <div class="mod-dl-track"><div class="mod-dl-bar-fill indeterminate" id="mod-dl-bar-fill" style="width:0%"></div></div>
+      <div class="mod-dl-progress-meta">
+        <span id="mod-dl-status">Starting…</span>
+        <span class="mod-dl-progress-nums"><span id="mod-dl-size"></span><b id="mod-dl-pct"></b></span>
+      </div>
+    </div>
+  `;
+}
+
+function _modDlSetStatus(text) {
+  const el = document.getElementById('mod-dl-status');
+  if (el) el.textContent = text;
+}
+
+function _modDlShowDone(filename, projectType) {
+  const box = document.getElementById('mod-dl-progress');
+  if (!box) return;
+  const hint = projectType === 'resourcepack'
+    ? 'Enabled in this installation — it loads next time you play.'
+    : projectType === 'shader'
+      ? 'Pick it in-game under Options → Video → Shader Packs.'
+      : 'Restart Minecraft to load it.';
+  box.outerHTML = `
+    <div class="mod-dl-done" id="mod-dl-done">
+      <div class="mod-dl-done-icon">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="mod-dl-done-title">Installed</div>
+      <div class="mod-dl-done-sub">${_escapeHtml(filename)}</div>
+      <div class="mod-dl-done-hint">${hint}</div>
+      <button class="mod-dl-install-btn" onclick="_modDlClose()"><span>Done</span></button>
+    </div>
+  `;
+}
+
+function _modDlShowError(message) {
+  const box = document.getElementById('mod-dl-progress');
+  if (!box) return;
+  box.outerHTML = `
+    <div class="mod-dl-done is-error">
+      <div class="mod-dl-done-icon">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </div>
+      <div class="mod-dl-done-title">Download failed</div>
+      <div class="mod-dl-done-sub">${_escapeHtml(message)}</div>
+      <button class="mod-dl-install-btn" onclick="_modDlClose()"><span>Close</span></button>
+    </div>
+  `;
+}
+
+// Runs one download with the modal showing live progress. Returns true on success.
+async function _runModDownload({ url, filename, modName, projectType, icon }) {
+  if (!url || !filename) { Toast.error('Invalid download'); return false; }
+
+  _modDlShell(modName, icon, projectType, _modDlProgressHtml(filename));
+
+  if (_modDlProgressOff) { try { _modDlProgressOff(); } catch (_) {} }
+  _modDlProgressOff = window.icey.onDownloadProgress((p) => {
+    const fill = document.getElementById('mod-dl-bar-fill');
+    const pct = document.getElementById('mod-dl-pct');
+    const size = document.getElementById('mod-dl-size');
+    if (fill) { fill.classList.remove('indeterminate'); fill.style.width = Math.max(2, p.percent || 0) + '%'; }
+    if (pct) pct.textContent = (p.percent || 0) + '%';
+    if (size) size.textContent = _formatFileSize(p.downloaded || 0) + ' / ' + _formatFileSize(p.total || 0);
+  });
+
+  try {
+    await _ensureShaderDepsIfNeeded(projectType);
+    _modDlSetStatus('Downloading…');
+    const gameDir = _modsActiveInstallation ? await window.icey.getInstallGameDir(_modsActiveInstallation.id) : await window.icey.getMcDir();
+    const dest = gameDir + '/' + _folderFor(projectType) + '/' + filename;
+    const result = await window.icey.downloadFile(url, dest);
+    if (result.error) {
+      _modDlShowError(result.error);
+      Toast.error('Download failed: ' + result.error);
+      return false;
+    }
     if (projectType === 'resourcepack' && _modsActiveInstallation) {
+      _modDlSetStatus('Enabling resource pack…');
       await window.icey.registerResourcepack(_modsActiveInstallation.id, filename);
     }
+    const fill = document.getElementById('mod-dl-bar-fill');
+    if (fill) { fill.classList.remove('indeterminate'); fill.style.width = '100%'; }
+    _modDlShowDone(filename, projectType);
     Toast.success('Installed ' + modName);
-    _modsInstalledFiles.push({ name: modName, filename });
+    // Re-read the folder so both the Installed list and the browse badges
+    // reflect reality (no optimistic pushes that a delete can't undo).
+    await _refreshInstalledMods();
+    setTimeout(() => { if (document.getElementById('mod-dl-done')) _modDlClose(); }, 1400);
+    return true;
+  } catch (e) {
+    _modDlShowError(e.message || String(e));
+    Toast.error('Download failed: ' + (e.message || e));
+    return false;
+  } finally {
+    if (_modDlProgressOff) { try { _modDlProgressOff(); } catch (_) {} _modDlProgressOff = null; }
   }
 }
 
+// Kept for callers that pass (url, filename, modName, projectType).
+async function _downloadModVersion(url, filename, modName, projectType) {
+  return _runModDownload({ url, filename, modName, projectType, icon: '' });
+}
+
+// CurseForge path (no version picker): straight to the progress modal.
 async function _doModDownload(url, filename, modName, projectType, btn) {
-  await _ensureShaderDepsIfNeeded(projectType);
-  const gameDir = _modsActiveInstallation ? await window.icey.getInstallGameDir(_modsActiveInstallation.id) : await window.icey.getMcDir();
-  const dest = gameDir + '/' + _folderFor(projectType) + '/' + filename;
-  const result = await window.icey.downloadFile(url, dest);
-  if (result.error) {
-    Toast.error('Download failed: ' + result.error);
-    if (btn) { btn.disabled = false; btn.textContent = 'Install'; }
-  } else {
-    if (projectType === 'resourcepack' && _modsActiveInstallation) {
-      await window.icey.registerResourcepack(_modsActiveInstallation.id, filename);
-    }
-    if (btn) btn.outerHTML = '<span class="badge-installed">Installed</span>';
-    Toast.success('Installed ' + modName);
-    _modsInstalledFiles.push({ name: modName, filename });
-  }
+  const icon = (btn && btn.dataset && btn.dataset.icon) || '';
+  const ok = await _runModDownload({ url, filename, modName, projectType, icon });
+  if (!ok && btn && btn.isConnected) { btn.disabled = false; btn.textContent = 'Install'; }
 }
 
 async function _refreshInstalledMods() {
@@ -695,6 +845,7 @@ async function _refreshInstalledMods() {
   const data = await window.icey.getInstalledMods(_modsActiveInstallation.id);
   const allItems = [...(data.mods || []), ...(data.resourcePacks || [])];
   _modsInstalledFiles = allItems;
+  _rerenderBrowseResults();
 
   const countEl = document.getElementById('mods-installed-count');
   if (countEl) countEl.textContent = allItems.length;
@@ -824,6 +975,7 @@ async function _loadTrendingMods() {
     allResults.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
     _modsOffset = 30;
     _modsHasMore = allResults.length >= 20;
+    _modsLastResults = allResults;
     if (allResults.length > 0) {
       resultsDiv.innerHTML = allResults.map(mod => _renderModListItem(mod)).join('');
     } else {
@@ -855,6 +1007,7 @@ async function _loadMoreMods() {
       _modsHasMore = false;
     } else {
       _modsOffset += 30;
+      _modsLastResults = _modsLastResults.concat(allResults);
       const resultsDiv = document.getElementById('mods-browse-results');
       if (resultsDiv) {
         resultsDiv.insertAdjacentHTML('beforeend', allResults.map(mod => _renderModListItem(mod)).join(''));

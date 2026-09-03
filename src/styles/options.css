@@ -40,6 +40,15 @@
   border-bottom: 1px solid var(--border);
   gap: 16px;
 }
+.options-row-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
 
 .options-row:last-child {
   border-bottom: none;
