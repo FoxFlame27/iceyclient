@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.66
+
+**Safety net for your login and installations.** On one machine the launcher's whole data folder (`~/Library/Application Support/IceyClient` on macOS) disappeared during an app update, so the user had to log in and set up everything again. The launcher never deletes that folder itself, but it now keeps a second copy of `auth.json`, `installations.json` and `settings.json` outside it (macOS: `~/Library/Preferences/IceyClient-backup`) and restores them automatically if the data folder is found empty at startup. Mods, packs and Java runtimes are re-downloaded by the launcher on the next launch. Worlds are not mirrored, so keep backups of `installations/<id>/game/saves` yourself.
+
 ## What's new in v1.86.65
 
 **Fix: game froze forever after mod loading on macOS with Java & Stuff.** The pack's `splashscreen` mod opens a Java AWT window; on macOS Minecraft runs with `-XstartOnFirstThread`, so AWT's event loop never runs and the mod's `dispose()` waits for an event that never arrives. The log stopped right after "Created config watch service" with the CPU still busy. The launcher now knows which mods can't run on which OS: it skips them when installing the pack and removes any copy already sitting in `mods/`, with a console line saying why.

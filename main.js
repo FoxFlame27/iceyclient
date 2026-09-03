@@ -135,6 +135,45 @@ function writeJsonAtomic(filePath, data) {
   const tmp = filePath + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
   fs.renameSync(tmp, filePath);
+  _mirrorToBackup(filePath);
+}
+
+// ── Safety net for the launcher's small state files ─────────────────
+// The whole data folder has been wiped on this machine during an app
+// update (by something outside the launcher — we never delete it). Keep
+// a second copy of the three files that hurt most to lose — login,
+// installation list, settings — outside DATA_DIR, and put them back at
+// startup if DATA_DIR turns up empty. Mods/Java are re-fetched by the
+// launcher anyway; worlds can't be mirrored cheaply.
+const BACKUP_DIR = process.platform === 'darwin'
+  ? path.join(os.homedir(), 'Library', 'Preferences', 'IceyClient-backup')
+  : process.platform === 'win32'
+    ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'IceyClient-backup')
+    : path.join(os.homedir(), '.config', 'iceyclient-backup');
+const BACKED_UP_FILES = new Set(['auth.json', 'installations.json', 'settings.json']);
+
+function _mirrorToBackup(filePath) {
+  try {
+    const name = path.basename(filePath);
+    if (!BACKED_UP_FILES.has(name) || path.dirname(filePath) !== DATA_DIR) return;
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    fs.copyFileSync(filePath, path.join(BACKUP_DIR, name));
+  } catch (_) {}
+}
+
+function _restoreFromBackupIfWiped() {
+  const restored = [];
+  try {
+    for (const name of BACKED_UP_FILES) {
+      const dst = path.join(DATA_DIR, name);
+      const src = path.join(BACKUP_DIR, name);
+      if (fs.existsSync(dst) || !fs.existsSync(src)) continue;
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.copyFileSync(src, dst);
+      restored.push(name);
+    }
+  } catch (_) {}
+  return restored;
 }
 
 // ── Per-installation game directory (isolated mods/config/saves) ───
@@ -2475,8 +2514,12 @@ function _javaStuffPackPath() {
 
 function _removeJavaStuffPack(installGameDir, manifest) {
   let removed = 0;
+  const root = path.resolve(installGameDir);
   for (const rel of (manifest.files || [])) {
-    const p = path.join(installGameDir, rel);
+    // Only ever touch things inside mods/, resourcepacks/ or shaderpacks/.
+    if (typeof rel !== 'string' || !/^(mods|resourcepacks|shaderpacks)\/[^/]/.test(rel) || rel.includes('..')) continue;
+    const p = path.resolve(installGameDir, rel);
+    if (!p.startsWith(root + path.sep)) continue;
     try {
       if (!fs.existsSync(p)) continue;
       fs.rmSync(p, { recursive: true, force: true });
@@ -3304,6 +3347,13 @@ function canRefreshAccount(account) {
 // ── App ready ──────────────────────────────────────────
 app.whenReady().then(() => {
   ensureDirs();
+  // If the data folder was wiped (see _restoreFromBackupIfWiped), bring
+  // back login/installations/settings before anything reads them.
+  const restored = _restoreFromBackupIfWiped();
+  if (restored.length) {
+    log('warn', 'Data folder was empty — restored from backup: ' + restored.join(', '));
+    setTimeout(() => _mcToast('Your login, installations and settings were restored from backup. Mods will re-download on next launch.', 'info'), 4000);
+  }
 
   // ── Linux GNOME: auto-create .desktop file + install icon ──
   if (process.platform === 'linux') {
