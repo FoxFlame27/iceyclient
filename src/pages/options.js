@@ -527,7 +527,7 @@ function _renderAdvancedOptions(page, settings) {
           <div class="options-row">
             <div class="options-row-label"><span class="options-row-name">GitHub</span></div>
             <div class="options-row-control">
-              <button class="options-btn" onclick="window.icey.openExternal('https://github.com/Icey27055/iceyclient')">Open</button>
+              <button class="options-btn" onclick="window.icey.openExternal('https://github.com/FoxFlame27/iceyclient')">Open</button>
             </div>
           </div>
         </div>

@@ -8,17 +8,17 @@ Two flavors. Both downloadable directly from the latest GitHub release — no la
 ### Server mod (Fabric)
 Full feature set — steal-on-kill, combat tag, /icey commands, /spawn, noob protection, starter kit. **Requires Fabric Loader on the server** (or use it on singleplayer via your client's mods/ folder).
 
-- **MC 1.21** → [iceymodplus-server-mod-mc1.21-1.0.0.jar](https://github.com/Icey27055/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21-1.0.0.jar)
-- **MC 1.21.5** → [iceymodplus-server-mod-mc1.21.5-1.0.0.jar](https://github.com/Icey27055/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.5-1.0.0.jar)
-- **MC 1.21.8** → [iceymodplus-server-mod-mc1.21.8-1.0.0.jar](https://github.com/Icey27055/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.8-1.0.0.jar)
-- **MC 1.21.11** → [iceymodplus-server-mod-mc1.21.11-1.0.0.jar](https://github.com/Icey27055/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.11-1.0.0.jar)
+- **MC 1.21** → [iceymodplus-server-mod-mc1.21-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21-1.0.0.jar)
+- **MC 1.21.5** → [iceymodplus-server-mod-mc1.21.5-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.5-1.0.0.jar)
+- **MC 1.21.8** → [iceymodplus-server-mod-mc1.21.8-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.8-1.0.0.jar)
+- **MC 1.21.11** → [iceymodplus-server-mod-mc1.21.11-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-mod-mc1.21.11-1.0.0.jar)
 
 Drop into `mods/`, restart.
 
 ### Server pack (datapack)
 Vanilla-compatible — works on any 1.21+ server with **no mods needed**. Auto-buffs from MC's builtin scoreboard objectives. No PvP guardrails / no /icey commands — feature subset.
 
-- [iceymodplus-server-pack-1.0.0.zip](https://github.com/Icey27055/iceyclient/releases/latest/download/iceymodplus-server-pack-1.0.0.zip) (same zip for every MC version in the 1.21+ range)
+- [iceymodplus-server-pack-1.0.0.zip](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceymodplus-server-pack-1.0.0.zip) (same zip for every MC version in the 1.21+ range)
 
 Drop into `<world>/datapacks/` and run `/reload`.
 
@@ -47,7 +47,7 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ## What's new in v1.86.63
 
-**Project moved to a new GitHub account.** Releases now live at `Icey27055/iceyclient`. The launcher's update check points at the new repo. Anyone still on v1.86.62 or older won't be offered this update automatically — grab it once from the new releases page, and auto-update works from then on.
+Releases stay at `FoxFlame27/iceyclient`; the launcher's update check and download links point there.
 
 ### Minecraft 26.1 / 26.2 support
 - Mojang switched to year-based version numbers after 1.21.11 (26.1, 26.1.1, 26.1.2, 26.2). Version parsing and comparisons handle both schemes now.
@@ -2339,7 +2339,7 @@ Two related issues from "playtime EVERYTHING doesn't update":
 
 ## What's new in v1.80.19
 
-- **`/icey version`** — prints the server mod version. Use this to confirm whether the jar in your mods/ folder is actually the latest one. If it says anything below 1.80.19, your install is stale; re-download via the launcher or grab the latest from the [releases page](https://github.com/Icey27055/iceyclient/releases/latest).
+- **`/icey version`** — prints the server mod version. Use this to confirm whether the jar in your mods/ folder is actually the latest one. If it says anything below 1.80.19, your install is stale; re-download via the launcher or grab the latest from the [releases page](https://github.com/FoxFlame27/iceyclient/releases/latest).
 - **Server-side `/lb` fallback** — if your client doesn't have the iceymod client mod (or has an old version without the `/lb` chat command), typing `/lb` now hits the server and runs `/icey help` instead of returning "unknown command". So `/lb` always does *something* useful as long as iceymod+ is on the server.
 
 ## What's new in v1.80.18

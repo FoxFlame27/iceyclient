@@ -3939,7 +3939,7 @@ app.whenReady().then(() => {
       const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8'));
       const current = pkg.version || '1.0.0';
       const res = await new Promise((resolve, reject) => {
-        const req = https.get('https://api.github.com/repos/Icey27055/iceyclient/releases/latest', {
+        const req = https.get('https://api.github.com/repos/FoxFlame27/iceyclient/releases/latest', {
           headers: { 'User-Agent': 'IceyClient-Updater' }
         }, (r) => {
           let data = '';
