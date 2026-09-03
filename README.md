@@ -30,6 +30,21 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.64
+
+**Fix: "Incompatible mods found!" after enabling Java & Stuff on 1.21.11.** Re-matching the pack to another Minecraft version picked the newest build of every mod independently, which is not always a coherent set (Sodium 0.8.14 declares it breaks Iris ≤ 1.10.7; SodiumCoreShaderSupport pins Sodium 0.8.12; C2ME needs Java 22+).
+
+- The pack installer now reads every installed jar's real `fabric.mod.json` `depends` / `breaks` ranges and repairs conflicts: it re-picks the offending mod to the newest Modrinth build that satisfies everyone, and if no build fits it drops that mod and says so in the console. Same pass runs on the exact-version pack too, so the pack can't fight mods you added yourself.
+- Java requirement now also comes from the mods, not only the game. A mod asking for Java 22+ switches the launch to Java 25 (downloaded automatically if needed).
+- Version ranges with build metadata (`0.8.13+mc1.21.11`, `<0.9-`, `1.10.7+1.21.11-fabric`) are parsed correctly everywhere the launcher compares mod versions.
+- Any conflict that still remains is printed to the launcher console before launch, so Fabric's error screen is never a surprise.
+
+**Much faster startup on Apple Silicon Macs.** The launcher used whatever `java` was first on the PATH — on M-series Macs that's often an Intel build, so Minecraft ran through Rosetta (slow start, lower FPS). The launcher now detects that and switches to a native arm64 Java, downloading one if none is installed.
+
+**Controls menu.** All Icey keys now sit under their own "Icey Client" category on every Minecraft version (1.21.9+ used to scatter them into a vanilla category), and the three keys that showed raw `key.iceymod.*` names (Structure Finder, Freecam, Biome Finder) have proper names.
+
+**Less churn.** Settings mods that Java & Stuff also ships (SkinShuffle, YACL, Architectury) are no longer re-installed and deleted again on every launch.
+
 ## What's new in v1.86.63
 
 **Project moved to a new GitHub account.** Releases now live at `Icey27055/iceyclient`. The launcher's update check points at the new repo. Anyone still on v1.86.62 or older won't be offered this update automatically — grab it once from the new releases page, and auto-update works from then on.

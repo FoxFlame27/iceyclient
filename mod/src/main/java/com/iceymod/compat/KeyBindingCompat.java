@@ -2,9 +2,11 @@ package com.iceymod.compat;
 
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.util.Identifier;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
 /**
@@ -58,20 +60,28 @@ public final class KeyBindingCompat {
                 }
 
                 // params[3] IS the Category class (whatever its runtime name).
-                // Grab any built-in category instance — we don't care which
-                // one (Movement/Misc/Gameplay etc), we just need a registered
-                // category so the keybind shows up in vanilla's Controls.
+                // Preferred: make our OWN category so every Icey key sits
+                // under "Icey Client" in Controls. 1.21.9+ exposes a static
+                // factory Category.create(Identifier) — find it by shape
+                // (static, returns Category, takes exactly one Identifier);
+                // its translation key is "key.categories.<ns>.<path>".
                 Class<?> categoryClass = params[3];
-                for (Field f : categoryClass.getFields()) {
-                    if (!Modifier.isStatic(f.getModifiers())) continue;
-                    if (f.getType() != categoryClass) continue;
-                    try {
-                        Object value = f.get(null);
-                        if (value != null) {
-                            defaultCategoryInstance = value;
-                            break;
-                        }
-                    } catch (Throwable ignored) {}
+                defaultCategoryInstance = createOwnCategory(categoryClass);
+
+                // Fallback: any built-in category instance (Movement/Misc/…)
+                // so the keys at least show up somewhere.
+                if (defaultCategoryInstance == null) {
+                    for (Field f : categoryClass.getFields()) {
+                        if (!Modifier.isStatic(f.getModifiers())) continue;
+                        if (f.getType() != categoryClass) continue;
+                        try {
+                            Object value = f.get(null);
+                            if (value != null) {
+                                defaultCategoryInstance = value;
+                                break;
+                            }
+                        } catch (Throwable ignored) {}
+                    }
                 }
 
                 if (defaultCategoryInstance != null) {
@@ -86,6 +96,36 @@ public final class KeyBindingCompat {
 
         mode = Mode.BROKEN;
         System.out.println("[IceyMod] KeyBindingCompat: no matching KeyBinding constructor found — keybinds disabled");
+    }
+
+    /** Identifier for our Controls category → lang key "key.categories.iceymod.iceyclient". */
+    private static final Identifier CATEGORY_ID = Identifier.of("iceymod", "iceyclient");
+
+    private static Object createOwnCategory(Class<?> categoryClass) {
+        // Static factory taking an Identifier (Category.create(Identifier) on 1.21.9+).
+        for (Method m : categoryClass.getMethods()) {
+            if (!Modifier.isStatic(m.getModifiers())) continue;
+            if (m.getReturnType() != categoryClass) continue;
+            Class<?>[] p = m.getParameterTypes();
+            if (p.length != 1 || p[0] != Identifier.class) continue;
+            try {
+                Object created = m.invoke(null, CATEGORY_ID);
+                if (created != null) return created;
+            } catch (Throwable t) {
+                System.out.println("[IceyMod] Category factory " + m.getName() + " failed: " + t);
+            }
+        }
+        // Public constructor taking an Identifier, if the record exposes one.
+        for (Constructor<?> c : categoryClass.getConstructors()) {
+            Class<?>[] p = c.getParameterTypes();
+            if (p.length != 1 || p[0] != Identifier.class) continue;
+            try {
+                return c.newInstance(CATEGORY_ID);
+            } catch (Throwable t) {
+                System.out.println("[IceyMod] Category constructor failed: " + t);
+            }
+        }
+        return null;
     }
 
     public static KeyBinding create(String translationKey, InputUtil.Type type, int code, String categoryKey) {

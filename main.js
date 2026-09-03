@@ -1206,6 +1206,28 @@ function launchMinecraft(installationId) {
         log('warn', 'Fabric loader check failed: ' + e.message);
       }
 
+      // 6) Some mods need a newer Java than the game itself (C2ME on
+      // 1.21.11 wants 22+). Bump to the LTS that covers it.
+      try {
+        const needJava = _requiredJavaFromMods(modsDir);
+        const haveJava = _javaMajorOf(javaPath);
+        if (needJava && needJava > haveJava) {
+          const target = needJava <= 21 ? 21 : (needJava <= 25 ? 25 : needJava);
+          _mcConsole(`Installed mods need Java ${needJava}+ (have ${haveJava}) — switching to Java ${target}`, 'warn');
+          javaPath = await ensureJavaForVersion(javaPath, target);
+        }
+      } catch (e) {
+        log('error', '[LAUNCH] ' + e.message);
+        return reject(e);
+      }
+
+      // 7) Any conflict still declared between installed jars gets logged
+      // here, so a Fabric "Incompatible mods" screen is never a mystery.
+      try {
+        const mods = _scanMods(modsDir);
+        for (const c of _findModConflicts(mods)) _mcConsole('Mod conflict: ' + _describeConflict(c, mods), 'warn');
+      } catch (_) {}
+
       // Mod-compatibility check removed entirely — the fabric.mod.json
       // mcConstraint check produced false positives on mods that actually
       // work fine across adjacent MC versions. The launcher leaves every
@@ -1494,15 +1516,54 @@ function _sha1File(filePath) {
   try { return crypto.createHash('sha1').update(fs.readFileSync(filePath)).digest('hex'); } catch (_) { return null; }
 }
 
-// Read fabric.mod.json out of a jar → { id, name, depends } or null.
+// Java major demanded by a "java" depends entry (">=22" → 22), else 0.
+function _javaNeedOf(dependsJava) {
+  const list = Array.isArray(dependsJava) ? dependsJava : (dependsJava ? [dependsJava] : []);
+  let best = 0;
+  for (const cond of list) {
+    const m = String(cond).match(/>=?\s*(\d+)/);
+    if (m) best = Math.max(best, parseInt(m[1], 10));
+  }
+  return best;
+}
+
+// Read fabric.mod.json out of a jar → { id, name, version, depends, breaks,
+// provides, javaNeed } or null. Nested jars (Jar-in-Jar, e.g. C2ME's
+// sub-modules) are folded in: their ids count as provided, and the highest
+// Java they ask for becomes javaNeed.
 function _readFabricModMeta(jarPath) {
   try {
     const buf = fs.readFileSync(jarPath);
-    const raw = _extractFileFromZip(buf, 'fabric.mod.json');
-    if (!raw) return null;
-    const meta = JSON.parse(raw.toString('utf-8'));
-    return { id: meta.id || null, name: meta.name || null, depends: meta.depends || {} };
+    return _readFabricModMetaFromBuffer(buf, 0);
   } catch (_) { return null; }
+}
+
+function _readFabricModMetaFromBuffer(buf, depth) {
+  const raw = _extractFileFromZip(buf, 'fabric.mod.json');
+  if (!raw) return null;
+  let meta;
+  try { meta = JSON.parse(raw.toString('utf-8')); } catch (_) { return null; }
+  const out = {
+    id: meta.id || null, name: meta.name || null, version: meta.version || null,
+    depends: meta.depends || {}, breaks: meta.breaks || {},
+    provides: Array.isArray(meta.provides) ? meta.provides.slice() : [],
+    javaNeed: _javaNeedOf((meta.depends || {}).java),
+  };
+  if (depth < 2 && Array.isArray(meta.jars)) {
+    for (const j of meta.jars) {
+      if (!j || !j.file) continue;
+      try {
+        const inner = _extractFileFromZip(buf, j.file);
+        if (!inner) continue;
+        const sub = _readFabricModMetaFromBuffer(inner, depth + 1);
+        if (!sub) continue;
+        if (sub.id && sub.id !== out.id && !out.provides.includes(sub.id)) out.provides.push(sub.id);
+        for (const p of sub.provides) if (!out.provides.includes(p)) out.provides.push(p);
+        out.javaNeed = Math.max(out.javaNeed, sub.javaNeed || 0);
+      } catch (_) {}
+    }
+  }
+  return out;
 }
 
 // Minecraft 26.1 dropped intermediary mappings — jars compiled against
@@ -1516,15 +1577,35 @@ function _isYarnEraVersion(mcVersion) {
 // version JSON tells us the required major; we make sure the java we
 // spawn is at least that, downloading a Temurin JRE into DATA_DIR/java
 // when nothing on the machine qualifies.
-function _javaMajorOf(javaPath) {
+// { major, arch } of a JVM. arch is the JVM's own architecture ("aarch64",
+// "x86_64", "amd64"), which on Apple Silicon tells us whether the game
+// would run natively or through Rosetta.
+const _javaInfoCache = new Map();
+function _javaInfoOf(javaPath) {
+  if (_javaInfoCache.has(javaPath)) return _javaInfoCache.get(javaPath);
+  let info = { major: 0, arch: null };
   try {
-    const r = require('child_process').spawnSync(javaPath, ['-version'], { encoding: 'utf-8', timeout: 10000 });
+    const r = require('child_process').spawnSync(javaPath, ['-XshowSettings:properties', '-version'], { encoding: 'utf-8', timeout: 10000 });
     const text = (r.stderr || '') + (r.stdout || '');
     const m = text.match(/version "(\d+)(?:\.(\d+))?/);
-    if (!m) return 0;
-    const a = parseInt(m[1], 10);
-    return a === 1 ? parseInt(m[2] || '0', 10) : a;
-  } catch (_) { return 0; }
+    if (m) { const a = parseInt(m[1], 10); info.major = a === 1 ? parseInt(m[2] || '0', 10) : a; }
+    const arch = text.match(/os\.arch\s*=\s*(\S+)/);
+    if (arch) info.arch = arch[1].toLowerCase();
+  } catch (_) {}
+  _javaInfoCache.set(javaPath, info);
+  return info;
+}
+function _javaMajorOf(javaPath) { return _javaInfoOf(javaPath).major; }
+
+// Architecture the JVM should have to run natively on this machine, or
+// null when it doesn't matter. Only Apple Silicon is special-cased: an
+// Intel JDK works there via Rosetta but starts and renders far slower.
+function _wantJavaArch() {
+  return (process.platform === 'darwin' && process.arch === 'arm64') ? 'aarch64' : null;
+}
+function _javaArchOk(info) {
+  const want = _wantJavaArch();
+  return !want || !info.arch || info.arch === want;
 }
 
 function _javaBinName() { return process.platform === 'win32' ? 'java.exe' : 'java'; }
@@ -1582,13 +1663,16 @@ function _findJavaWithMajor(required) {
     pushDirChildren('/usr/lib64/jvm');
     pushDirChildren('/opt');
   }
+  // Prefer a native-arch JVM, then the lowest major that still qualifies.
   const seen = new Set();
   let best = null;
   for (const bin of candidates) {
     if (seen.has(bin)) continue;
     seen.add(bin);
-    const major = _javaMajorOf(bin);
-    if (major >= required && (!best || major < best.major)) best = { bin, major };
+    const info = _javaInfoOf(bin);
+    if (info.major < required) continue;
+    const score = (_javaArchOk(info) ? 0 : 1000) + info.major;
+    if (!best || score < best.score) best = { bin, score };
   }
   return best ? best.bin : null;
 }
@@ -1615,8 +1699,31 @@ async function _downloadJavaRuntime(required) {
 
 async function ensureJavaForVersion(javaPath, requiredMajor) {
   if (!requiredMajor) return javaPath;
-  const current = javaPath ? _javaMajorOf(javaPath) : 0;
-  if (current >= requiredMajor) return javaPath;
+  const info = javaPath ? _javaInfoOf(javaPath) : { major: 0, arch: null };
+  const current = info.major;
+  if (current >= requiredMajor && _javaArchOk(info)) return javaPath;
+
+  if (current >= requiredMajor) {
+    // Right version, wrong architecture (Intel JDK on Apple Silicon →
+    // Rosetta). Swap to a native one if we can; otherwise keep going slow.
+    _mcConsole(`Java at ${javaPath} is an Intel build running under Rosetta — looking for a native Apple Silicon Java (much faster)`, 'warn');
+    const found = _findJavaWithMajor(requiredMajor);
+    if (found && _javaArchOk(_javaInfoOf(found))) {
+      _mcConsole('Using native Java ' + _javaMajorOf(found) + ' at ' + found, 'info');
+      return found;
+    }
+    _mcToast(`Downloading native Apple Silicon Java ${requiredMajor} (one-time, ~50 MB) — Minecraft will start and run much faster`, 'info');
+    try {
+      const bin = await _downloadJavaRuntime(requiredMajor);
+      _mcConsole('Native Java ' + requiredMajor + ' installed at ' + bin, 'info');
+      return bin;
+    } catch (e) {
+      log('warn', '[JAVA] Native runtime download failed: ' + e.message);
+      _mcConsole('Could not download a native Java (' + e.message + ') — continuing with the Intel one', 'warn');
+      return javaPath;
+    }
+  }
+
   log('info', `[JAVA] Need Java ${requiredMajor}, have ${current || 'none'} — searching`);
   _mcConsole(`This Minecraft version needs Java ${requiredMajor} (found Java ${current || 'none'}) — looking for a newer runtime`, 'warn');
   const found = _findJavaWithMajor(requiredMajor);
@@ -1699,10 +1806,39 @@ async function _resolveModForMc(projectIdOrSlug, mcVersion, loader) {
   }
 }
 
-// Download (or reuse from cache) a resolved file and place it at destPath.
-async function _installResolvedFile(res, destPath) {
+// Every Modrinth version of a project for one MC version (newest first),
+// in the same shape _resolveModForMc returns. Cached like resolutions.
+async function _listModVersionsForMc(projectIdOrSlug, mcVersion, loader) {
+  const key = String(projectIdOrSlug).replace(/[^a-z0-9_\-]/gi, '_') + (loader ? '' : '.any') + '.list';
+  const cachePath = path.join(MODCACHE_DIR, 'resolve', mcVersion, key + '.json');
+  const cached = _readJsonSafe(cachePath);
+  if (cached && cached.checkedAt && (Date.now() - cached.checkedAt) < MODCACHE_TTL_MS) return cached.list;
+  let url = `https://api.modrinth.com/v2/project/${encodeURIComponent(projectIdOrSlug)}/version?game_versions=[%22${encodeURIComponent(mcVersion)}%22]`;
+  if (loader) url += `&loaders=[%22${loader}%22]`;
+  try {
+    const versions = await _fetchJson(url);
+    const list = [];
+    for (const v of (Array.isArray(versions) ? versions : [])) {
+      const file = (v.files || []).find(f => f.primary) || (v.files || [])[0];
+      if (!file || !file.url || !file.filename) continue;
+      list.push({
+        projectId: v.project_id, filename: file.filename, url: file.url, sha1: file.hashes?.sha1 || null,
+        versionId: v.id, versionNumber: v.version_number, versionType: v.version_type, date: v.date_published,
+        dependencies: (v.dependencies || []).map(d => ({ project_id: d.project_id, dependency_type: d.dependency_type })),
+      });
+    }
+    _writeJsonSafe(cachePath, { checkedAt: Date.now(), list });
+    return list;
+  } catch (e) {
+    if (cached) return cached.list;
+    throw e;
+  }
+}
+
+// Download a resolved file into the cache (verifying sha1) and return its path.
+async function _ensureCachedFile(res) {
   const cacheFile = path.join(MODCACHE_DIR, 'files', res.filename);
-  let ok = fs.existsSync(cacheFile) && (!res.sha1 || _sha1File(cacheFile) === res.sha1);
+  const ok = fs.existsSync(cacheFile) && (!res.sha1 || _sha1File(cacheFile) === res.sha1);
   if (!ok) {
     await downloadFile(res.url, cacheFile);
     if (res.sha1 && _sha1File(cacheFile) !== res.sha1) {
@@ -1710,6 +1846,12 @@ async function _installResolvedFile(res, destPath) {
       throw new Error('checksum mismatch for ' + res.filename);
     }
   }
+  return cacheFile;
+}
+
+// Download (or reuse from cache) a resolved file and place it at destPath.
+async function _installResolvedFile(res, destPath) {
+  const cacheFile = await _ensureCachedFile(res);
   const srcStat = fs.statSync(cacheFile);
   const destStat = fs.existsSync(destPath) ? fs.statSync(destPath) : null;
   if (!destStat || destStat.size !== srcStat.size) {
@@ -1909,23 +2051,22 @@ async function _ensureBundledMods(installGameDir, mcVersion, enabledKeys) {
   for (const [dest, { res, label }] of wanted) {
     const destPath = path.join(modsDir, dest);
     try {
-      let changed = false;
-      if (res.localPath) {
-        const s = fs.statSync(res.localPath);
-        const d = fs.existsSync(destPath) ? fs.statSync(destPath) : null;
-        if (!d || d.size !== s.size) { fs.copyFileSync(res.localPath, destPath); changed = true; }
-      } else {
-        changed = await _installResolvedFile(res, destPath);
-      }
-      // If the user (or a modpack) already provides the same mod id under
-      // another file, keep theirs and drop ours to avoid a duplicate-mod crash.
-      const meta = _readFabricModMeta(destPath);
+      // Look at the jar BEFORE placing it: if the user (or a modpack such
+      // as Java & Stuff) already provides the same mod id under another
+      // file, keep theirs and don't copy ours — avoids both a duplicate-mod
+      // crash and the install/delete churn on every launch.
+      const srcFile = res.localPath || await _ensureCachedFile(res);
+      const meta = _readFabricModMeta(srcFile);
       const other = meta && meta.id ? _findJarByModId(modsDir, meta.id, dest, idIndex) : null;
       if (other && !/^Icey/.test(other)) {
-        try { fs.unlinkSync(destPath); } catch (_) {}
-        _mcConsole(`${label} is already provided by ${other} — using that one`, 'info');
+        if (fs.existsSync(destPath)) { try { fs.unlinkSync(destPath); } catch (_) {} }
+        log('info', `[MODS] ${label} already provided by ${other} — skipped`);
         continue;
       }
+      let changed = false;
+      const s = fs.statSync(srcFile);
+      const d = fs.existsSync(destPath) ? fs.statSync(destPath) : null;
+      if (!d || d.size !== s.size) { fs.copyFileSync(srcFile, destPath); changed = true; }
       if (meta && meta.id) idIndex.set(meta.id, dest);
       nextManifest[dest] = { slug: res.slug, versionId: res.versionId || null, versionNumber: res.versionNumber || null, mcVersion };
       if (changed) _mcConsole(`${label} ${res.versionNumber ? 'v' + res.versionNumber + ' ' : ''}installed for MC ${mcVersion}`, 'info');
@@ -2120,6 +2261,163 @@ function _writeResourcepackEntries(installGameDir, entries) {
   try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
 }
 
+// ── Mod conflict detection & repair ───────────────────────────────────
+// Every jar in modsDir → Map modId → meta (+file). `provides` aliases map
+// to the same record so "sodium" style aliases resolve.
+function _scanMods(modsDir) {
+  const mods = new Map();
+  try {
+    for (const f of fs.readdirSync(modsDir)) {
+      if (!f.endsWith('.jar')) continue;
+      const meta = _readFabricModMeta(path.join(modsDir, f));
+      if (!meta || !meta.id) continue;
+      const rec = { ...meta, file: f };
+      mods.set(meta.id, rec);
+      for (const p of meta.provides) if (!mods.has(p)) mods.set(p, rec);
+    }
+  } catch (_) {}
+  return mods;
+}
+
+// Declared conflicts among installed jars: "A depends on B in range R but
+// B is outside R", or "A breaks B in range R and B is inside R".
+function _findModConflicts(mods) {
+  const out = [];
+  for (const [id, m] of mods) {
+    if (m.id !== id) continue; // alias entry
+    for (const [dep, range] of Object.entries(m.depends || {})) {
+      if (BUILTIN_MOD_IDS.has(dep) || dep.startsWith('fabric-')) continue;
+      const other = mods.get(dep);
+      if (!other || !other.version || other === m) continue;
+      if (!_satisfiesAny(other.version, range)) out.push({ kind: 'depends', a: m.id, b: other.id, range: JSON.stringify(range), have: other.version });
+    }
+    for (const [brk, range] of Object.entries(m.breaks || {})) {
+      const other = mods.get(brk);
+      if (!other || !other.version || other === m) continue;
+      if (_satisfiesAny(other.version, range)) out.push({ kind: 'breaks', a: m.id, b: other.id, range: JSON.stringify(range), have: other.version });
+    }
+  }
+  return out;
+}
+
+// Copy of `mods` with record `oldRec` swapped for `newRec` (ids + aliases).
+function _withReplaced(mods, oldRec, newRec) {
+  const out = new Map();
+  for (const [k, v] of mods) if (v !== oldRec) out.set(k, v);
+  out.set(newRec.id, newRec);
+  for (const p of (newRec.provides || [])) if (!out.has(p)) out.set(p, newRec);
+  return out;
+}
+
+// Do records x and y accept each other (depends + breaks, both directions)?
+function _pairFits(x, y) {
+  const idsOf = (r) => [r.id, ...(r.provides || [])];
+  const check = (from, to) => {
+    for (const id of idsOf(to)) {
+      const dep = (from.depends || {})[id];
+      if (dep !== undefined && !_satisfiesAny(to.version, dep)) return false;
+      const brk = (from.breaks || {})[id];
+      if (brk !== undefined && _satisfiesAny(to.version, brk)) return false;
+    }
+    return true;
+  };
+  return check(x, y) && check(y, x);
+}
+
+function _describeConflict(c, mods) {
+  const name = (id) => { const m = mods.get(id); return m ? `${m.name || id} ${m.version || ''}`.trim() : id; };
+  return c.kind === 'depends'
+    ? `${name(c.a)} needs ${c.b} ${c.range}, but ${c.have} is installed`
+    : `${name(c.a)} is incompatible with ${c.b} ${c.range} (installed: ${c.have})`;
+}
+
+// Swap the pack-managed jar for mod `id` to another Modrinth build of the
+// same project. Candidates (newest first, stable releases before betas)
+// are downloaded to read their real manifests; the winner is the one that
+// resolves `conflict` with the other party AND leaves the fewest declared
+// conflicts overall — remaining ones are handled in later rounds. Returns
+// false when no candidate improves on the current state.
+async function _repickPackMod(id, mods, modsDir, mcVersion, packMods, conflict, limit) {
+  const cur = mods.get(id);
+  if (!cur) return false;
+  const owner = packMods.get(cur.file);
+  if (!owner || !owner.projectId) return false;
+  const otherId = conflict.a === cur.id ? conflict.b : conflict.a;
+  const other = mods.get(otherId);
+  if (!other) return false;
+  let list;
+  try { list = await _listModVersionsForMc(owner.projectId, mcVersion, 'fabric'); } catch (_) { return false; }
+  const rank = (v) => v.versionType === 'release' ? 0 : 1;
+  list = list.slice().sort((a, b) => rank(a) - rank(b));
+  const baseline = _findModConflicts(mods).length;
+  const scored = [];
+  let tried = 0;
+  for (let i = 0; i < list.length; i++) {
+    const cand = list[i];
+    if (cand.versionId && cand.versionId === owner.versionId) continue;
+    if (cand.filename === cur.file) continue;
+    if (tried++ >= (limit || 14)) break;
+    try {
+      const cacheFile = await _ensureCachedFile(cand);
+      const meta = _readFabricModMeta(cacheFile);
+      if (!meta || meta.id !== cur.id || !meta.version) continue;
+      const rec = { ...meta, file: cand.filename };
+      if (!_pairFits(rec, other)) continue;
+      const trial = _withReplaced(mods, cur, rec);
+      scored.push({ cand, cacheFile, meta, conflicts: _findModConflicts(trial).length, rank: rank(cand), idx: i });
+    } catch (e) { log('warn', '[JAVASTUFF] candidate ' + cand.filename + ': ' + e.message); }
+  }
+  if (!scored.length) return false;
+  scored.sort((a, b) => a.conflicts - b.conflicts || a.rank - b.rank || a.idx - b.idx);
+  const best = scored[0];
+  if (best.conflicts >= baseline) return false;
+  try { fs.unlinkSync(path.join(modsDir, cur.file)); } catch (_) {}
+  fs.copyFileSync(best.cacheFile, path.join(modsDir, best.cand.filename));
+  packMods.delete(cur.file);
+  packMods.set(best.cand.filename, { projectId: owner.projectId, versionId: best.cand.versionId, folder: 'mods' });
+  _mcConsole(`Java & Stuff: ${best.meta.name || id} ${cur.version} → ${best.meta.version} so it fits ${other.name || otherId}`, 'info');
+  return true;
+}
+
+// Resolve declared conflicts by re-picking pack-managed mods or, as a last
+// resort, dropping the one that can't be satisfied. Returns dropped files.
+async function _repairPackConflicts(modsDir, mcVersion, packMods) {
+  const dropped = [];
+  for (let round = 0; round < 16; round++) {
+    const mods = _scanMods(modsDir);
+    const conflicts = _findModConflicts(mods);
+    if (!conflicts.length) break;
+    const c = conflicts[0];
+    const A = mods.get(c.a), B = mods.get(c.b);
+    _mcConsole('Java & Stuff: ' + _describeConflict(c, mods) + ' — fixing', 'warn');
+    if (await _repickPackMod(c.b, mods, modsDir, mcVersion, packMods, c)) continue;
+    if (await _repickPackMod(c.a, mods, modsDir, mcVersion, packMods, c)) continue;
+    // Nothing fits. A hard dependency that can't be met means the dependent
+    // can't run; for "breaks", remove whichever side the pack manages.
+    const victims = c.kind === 'depends' ? [A] : [B, A];
+    const victim = victims.find(m => m && packMods.has(m.file));
+    if (!victim) { _mcConsole('Java & Stuff: cannot fix this one (neither mod is managed by the pack) — the game may refuse to start', 'warn'); break; }
+    try { fs.unlinkSync(path.join(modsDir, victim.file)); } catch (_) {}
+    packMods.delete(victim.file);
+    dropped.push(victim.file);
+    _mcConsole(`Java & Stuff: removed ${victim.name || victim.id} ${victim.version || ''} (no build compatible with the rest for MC ${mcVersion})`, 'warn');
+  }
+  return dropped;
+}
+
+// Highest Java major any jar (or its nested jars) asks for ("java": ">=22").
+function _requiredJavaFromMods(modsDir) {
+  let best = 0;
+  try {
+    for (const f of fs.readdirSync(modsDir)) {
+      if (!f.endsWith('.jar')) continue;
+      const meta = _readFabricModMeta(path.join(modsDir, f));
+      if (meta) best = Math.max(best, meta.javaNeed || 0);
+    }
+  } catch (_) {}
+  return best;
+}
+
 // ── Java & Stuff modpack (Settings toggle) ────────────────────────────
 // The bundled .mrpack is pinned to one MC version. For that version we
 // use its exact file list; for any other version every Modrinth file is
@@ -2194,8 +2492,9 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
 
   const modsDir = path.join(installGameDir, 'mods');
   fs.mkdirSync(modsDir, { recursive: true });
-  const installed = new Set(manifest?.files || []);
+  const installed = new Set((manifest && manifest.mcVersion === mcVersion) ? (manifest.files || []) : []);
   const skipped = [];
+  const packMods = new Map(); // mods/<filename> we placed → { projectId, versionId }
   const files = (index.files || []).filter(f => !(f.env && f.env.client === 'unsupported'));
 
   // Resolve + download with a small worker pool.
@@ -2210,23 +2509,21 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
       const folder = relPath.split('/')[0];
       const originalName = relPath.split('/').pop();
       const dlUrl = (f.downloads || [])[0] || '';
+      const m = dlUrl.match(/cdn\.modrinth\.com\/data\/([^/]+)\/versions\/([^/]+)\//);
       let res = null;
       try {
-        if (exact) {
-          res = { filename: originalName, url: dlUrl, sha1: f.hashes?.sha1 || null };
+        if (exact || !m) {
+          res = { filename: originalName, url: dlUrl, sha1: f.hashes?.sha1 || null, projectId: m ? m[1] : null, versionId: m ? m[2] : null };
         } else {
-          const m = dlUrl.match(/cdn\.modrinth\.com\/data\/([^/]+)\/versions\//);
-          if (!m) { res = { filename: originalName, url: dlUrl, sha1: f.hashes?.sha1 || null }; }
-          else {
-            const loader = folder === 'mods' ? 'fabric' : null;
-            res = await _resolveModForMc(m[1], mcVersion, loader);
-            if (!res) { skipped.push(originalName); continue; }
-          }
+          const loader = folder === 'mods' ? 'fabric' : null;
+          res = await _resolveModForMc(m[1], mcVersion, loader);
+          if (!res) { skipped.push(originalName); continue; }
         }
         const destPath = path.join(installGameDir, folder, res.filename);
         await _installResolvedFile(res, destPath);
         installed.add(folder + '/' + res.filename);
         if (folder === 'mods') {
+          packMods.set(res.filename, { projectId: res.projectId || (m ? m[1] : null), versionId: res.versionId || null, folder });
           // Drop older duplicates of the same mod id (user copies or a
           // previous pack version). Launcher-managed Icey*.jar copies
           // yield to the pack's copy so nothing is installed twice.
@@ -2247,6 +2544,20 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
     }
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
+
+  // Newest-of-each isn't always a coherent set (Sodium 0.8.14 breaks Iris
+  // ≤1.10.7, SodiumCoreShaderSupport pins Sodium 0.8.12, …). Read the real
+  // manifests and re-pick / drop until Fabric's own checks would pass.
+  if (packMods.size) {
+    try {
+      const dropped = await _repairPackConflicts(modsDir, mcVersion, packMods);
+      for (const f of dropped) skipped.push(f + ' (incompatible with the rest)');
+      for (const key of [...installed]) if (key.startsWith('mods/') && !packMods.has(key.slice(5))) installed.delete(key);
+      for (const f of packMods.keys()) installed.add('mods/' + f);
+    } catch (e) {
+      log('warn', '[JAVASTUFF] conflict repair failed: ' + e.message);
+    }
+  }
 
   // Overrides: configs, resource packs, shader packs shipped inside the pack.
   let overrideCount = 0;
@@ -2306,10 +2617,23 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
 }
 
 // ── Mod version compatibility checking ──────────────────────────────────
+// Strip semver build metadata / pre-release so "0.8.13+mc1.21.11",
+// "1.10.7+1.21.11-fabric" and "0.9-" all compare on their core numbers.
+function _fabricVersionCore(v) {
+  return String(v || '').trim().replace(/^[vV]/, '').split('+')[0].split('-')[0];
+}
+
 function _parseVersion(str) {
-  const parts = str.trim().replace(/^[vV]/, '').split('.').map(Number);
+  const parts = _fabricVersionCore(str).split('.').map(p => { const n = parseInt(p, 10); return Number.isFinite(n) ? n : 0; });
   while (parts.length < 3) parts.push(0);
   return parts;
+}
+
+// fabric.mod.json allows a single range string or an array meaning "any of".
+function _satisfiesAny(version, rangeOrList) {
+  const list = Array.isArray(rangeOrList) ? rangeOrList : [rangeOrList];
+  if (!list.length) return true;
+  return list.some(r => _satisfiesVersionRange(version, r));
 }
 
 function _compareVersions(a, b) {
@@ -2343,9 +2667,11 @@ function _satisfiesVersionRange(version, range) {
         if (_compareVersions(v, ver) < 0 || v[0] !== ver[0]) { allMet = false; break; }
         continue;
       }
-      // Wildcard versions like 1.21.x
-      if (cond.includes('x') || (cond.includes('*') && cond !== '*')) {
-        const parts = cond.split('.');
+      // Wildcard versions like 1.21.x (checked on the core part so build
+      // metadata like "+mc1.21.11-fabric" can't be mistaken for a wildcard)
+      const condCore = _fabricVersionCore(cond.replace(/^[><=~^]+/, ''));
+      if (condCore.includes('x') || condCore.includes('*')) {
+        const parts = condCore.split('.');
         const v = _parseVersion(version);
         let match = true;
         for (let i = 0; i < parts.length; i++) {

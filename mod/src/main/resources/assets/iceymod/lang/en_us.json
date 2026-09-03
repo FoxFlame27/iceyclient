@@ -1,14 +1,18 @@
 {
   "key.categories.iceymod": "Icey Client",
-  "key.iceymod.menu": "Open Menu",
+  "key.categories.iceymod.iceyclient": "Icey Client",
+  "key.iceymod.menu": "Icey Menu",
   "key.iceymod.zoom": "Zoom",
   "key.iceymod.perspective": "Cycle Perspective",
-  "key.iceymod.waypoint": "Waypoint Menu",
+  "key.iceymod.waypoint": "Waypoints",
   "key.iceymod.hidehud": "Hide HUD",
-  "key.iceymod.togglesprint": "Toggle Auto Sprint",
-  "key.iceymod.togglebright": "Toggle Full Bright",
-  "key.iceymod.toggletotem": "Toggle Auto Totem",
+  "key.iceymod.togglesprint": "Auto Sprint",
+  "key.iceymod.togglebright": "Fullbright",
+  "key.iceymod.toggletotem": "Auto Totem",
   "key.iceymod.freelook": "Freelook (hold)",
+  "key.iceymod.freecam": "Freecam",
   "key.iceymod.copycoords": "Copy Coordinates",
-  "key.iceymod.openboard": "Open Leaderboard (iceymod+)"
+  "key.iceymod.structure": "Structure Finder",
+  "key.iceymod.biome": "Biome Finder",
+  "key.iceymod.openboard": "Leaderboard"
 }
