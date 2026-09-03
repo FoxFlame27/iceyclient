@@ -1015,6 +1015,21 @@ function launchMinecraft(installationId) {
     // health-indicator + architectury ON unless explicitly opted out
     // in Advanced settings — architectury is HealthIndicators' Fabric
     // dependency so they ride together by default).
+    // The in-game ESC menu can queue a Java & Stuff on/off change
+    // (config/iceymod-request.json, written by the mod's PauseMenuHook).
+    // Apply it to settings now, before the flags below are read.
+    try {
+      const reqPath = path.join(installGameDir, 'config', 'iceymod-request.json');
+      const req = _readJsonSafe(reqPath);
+      if (req && typeof req.javaStuffEnabled === 'boolean' && req.javaStuffEnabled !== !!settings.javaStuffEnabled) {
+        settings.javaStuffEnabled = req.javaStuffEnabled;
+        writeSettings(settings);
+        _mcConsole('Java & Stuff turned ' + (req.javaStuffEnabled ? 'ON' : 'OFF') + ' from the in-game menu', 'info');
+        _mcToast('Java & Stuff turned ' + (req.javaStuffEnabled ? 'on' : 'off') + ' (requested in-game)', 'info');
+      }
+      if (req) { try { fs.unlinkSync(reqPath); } catch (_) {} }
+    } catch (_) {}
+
     const iceyModsEnabled = settings.iceyModsEnabled !== false;
     const skinChangerEnabled = !!settings.skinChangerEnabled;
     const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
@@ -1246,8 +1261,25 @@ function launchMinecraft(installationId) {
       }
 
       // 5b) Mods that can't run on this OS at all (e.g. 'splashscreen'
-      // deadlocks macOS). Applies to anything in mods/, however it got there.
-      try { _sweepPlatformIncompatibleMods(modsDir); } catch (_) {}
+      // deadlocks macOS), plus pack files we've since excluded (FancyMenu
+      // stack). Applies to anything in mods/, however it got there.
+      try {
+        const packManifest = _readJsonSafe(path.join(installGameDir, '.icey-javastuff.json'));
+        const removedNow = _sweepPlatformIncompatibleMods(modsDir, packManifest ? packManifest.files : []);
+        if (packManifest && removedNow.length) {
+          packManifest.files = (packManifest.files || []).filter(f => !removedNow.includes(String(f).replace(/^mods\//, '')));
+          _writeJsonSafe(path.join(installGameDir, '.icey-javastuff.json'), packManifest);
+        }
+      } catch (_) {}
+
+      // 5c) Tell the in-game mod what the launcher thinks (for the ESC-menu
+      // Java & Stuff toggle) — see PauseMenuHook in the mod.
+      try {
+        _writeJsonSafe(path.join(installGameDir, 'config', 'iceymod-launcher.json'), {
+          javaStuffEnabled: javaStuffEnabled,
+          launcherVersion: (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8')).version; } catch (_) { return null; } })(),
+        });
+      } catch (_) {}
 
       // 6) Some mods need a newer Java than the game itself (C2ME on
       // 1.21.11 wants 22+). Bump to the LTS that covers it.
@@ -2479,21 +2511,38 @@ const PLATFORM_INCOMPATIBLE_MODS = {
   darwin: [{ id: 'splashscreen', file: /^splashscreen[-_.]/i, why: 'freezes Minecraft on macOS (AWT window + -XstartOnFirstThread)' }],
 };
 
+// Pack mods we never install, on any OS: the pack's menu-customization
+// stack replaces the Minecraft title screen with its own layout (custom
+// logo, changelog box, link bar) and runs over the Icey title screen.
+// Konkrete and Melody are libraries only FancyMenu uses.
+const JAVASTUFF_EXCLUDED_MODS = [
+  { id: 'fancymenu',          file: /^fancymenu[_-]/i,          why: 'replaces the Icey title screen' },
+  { id: 'drippyloadingscreen', file: /^drippyloadingscreen[_-]/i, why: 'replaces the Icey loading screen' },
+  { id: 'konkrete',           file: /^konkrete[_-]/i,           why: 'only needed by FancyMenu' },
+  { id: 'melody',             file: /^melody[_-]/i,             why: 'only needed by FancyMenu' },
+];
+// Override paths from the pack that belong to that stack.
+const JAVASTUFF_EXCLUDED_OVERRIDE_RE = /^(config\/(fancymenu|drippyloadingscreen)|fancymenu_data)(\/|$)/i;
+
 function _platformIncompatible(modId, filename) {
-  const list = PLATFORM_INCOMPATIBLE_MODS[process.platform] || [];
+  const list = [...(PLATFORM_INCOMPATIBLE_MODS[process.platform] || []), ...JAVASTUFF_EXCLUDED_MODS];
   return list.find(m => (modId && m.id === modId) || (filename && m.file.test(filename))) || null;
 }
 
-// Remove any jar in modsDir that can't run on this OS. Returns removed names.
-function _sweepPlatformIncompatibleMods(modsDir) {
+// Remove any jar in modsDir that can't run on this OS. Pack-excluded mods
+// (FancyMenu & co.) are only removed when the pack put them there, so a
+// FancyMenu the user installed on purpose is left alone. Returns removed names.
+function _sweepPlatformIncompatibleMods(modsDir, packFiles) {
   const removed = [];
-  const list = PLATFORM_INCOMPATIBLE_MODS[process.platform] || [];
-  if (!list.length) return removed;
+  const platformList = PLATFORM_INCOMPATIBLE_MODS[process.platform] || [];
+  const packSet = new Set((packFiles || []).map(f => String(f).replace(/^mods\//, '')));
   try {
     for (const f of fs.readdirSync(modsDir)) {
       if (!f.endsWith('.jar')) continue;
-      let hit = _platformIncompatible(null, f);
-      if (!hit) { const meta = _readFabricModMeta(path.join(modsDir, f)); hit = meta ? _platformIncompatible(meta.id, null) : null; }
+      const meta = _readFabricModMeta(path.join(modsDir, f));
+      const id = meta ? meta.id : null;
+      let hit = platformList.find(m => (id && m.id === id) || m.file.test(f)) || null;
+      if (!hit && packSet.has(f)) hit = JAVASTUFF_EXCLUDED_MODS.find(m => (id && m.id === id) || m.file.test(f)) || null;
       if (!hit) continue;
       try { fs.unlinkSync(path.join(modsDir, f)); removed.push(f); _mcConsole(`Removed ${f} — ${hit.why}`, 'warn'); } catch (_) {}
     }
@@ -2585,8 +2634,9 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
       if (!relPath || relPath.includes('..')) continue;
       const folder = relPath.split('/')[0];
       const originalName = relPath.split('/').pop();
-      if (folder === 'mods' && _platformIncompatible(null, originalName)) {
-        skipped.push(originalName + ' (not usable on this OS)');
+      const pre = folder === 'mods' ? _platformIncompatible(null, originalName) : null;
+      if (pre) {
+        skipped.push(originalName + ' (' + pre.why + ')');
         continue;
       }
       const dlUrl = (f.downloads || [])[0] || '';
@@ -2600,8 +2650,9 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
           res = await _resolveModForMc(m[1], mcVersion, loader);
           if (!res) { skipped.push(originalName); continue; }
         }
-        if (folder === 'mods' && _platformIncompatible(null, res.filename)) {
-          skipped.push(res.filename + ' (not usable on this OS)');
+        const post = folder === 'mods' ? _platformIncompatible(null, res.filename) : null;
+        if (post) {
+          skipped.push(res.filename + ' (' + post.why + ')');
           continue;
         }
         const destPath = path.join(installGameDir, folder, res.filename);
@@ -2613,7 +2664,7 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
           if (bad) {
             try { fs.unlinkSync(destPath); } catch (_) {}
             installed.delete(folder + '/' + res.filename);
-            skipped.push(res.filename + ' (not usable on this OS)');
+            skipped.push(res.filename + ' (' + bad.why + ')');
             continue;
           }
           packMods.set(res.filename, { projectId: res.projectId || (m ? m[1] : null), versionId: res.versionId || null, folder });
@@ -2660,6 +2711,7 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
     if (!rel || rel.includes('..')) continue;
     const top = rel.split('/')[0];
     if (JAVASTUFF_SKIP_OVERRIDES.test(rel)) continue;
+    if (JAVASTUFF_EXCLUDED_OVERRIDE_RE.test(rel)) continue; // FancyMenu layouts etc.
     const dest = path.join(installGameDir, rel);
     // Keep the user's own edits to config files across re-installs.
     if (top === 'config' && fs.existsSync(dest)) continue;

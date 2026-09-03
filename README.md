@@ -30,6 +30,12 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.67
+
+- **Y menu no longer overlaps at large GUI scales.** The module grid only draws as many rows as fit above the pagination row, and the gear button lives inside the panel instead of floating over the HUD.
+- **Java & Stuff toggle in the ESC menu.** A button on the left of the pause menu shows whether the pack is on and lets you flip it. Mods can't be unloaded while the game runs, so the change applies on the next launch from Icey Client, and the button says so (ON ↻ / OFF ↻ until then).
+- **Icey title screen only.** The pack's menu-customization stack (FancyMenu, Drippy Loading Screen and their libraries, plus their layouts) is no longer installed, and any copy the pack placed earlier is removed. The Minecraft title screen is the Icey one again; the pack's gameplay content is unchanged.
+
 ## What's new in v1.86.66
 
 **Safety net for your login and installations.** On one machine the launcher's whole data folder (`~/Library/Application Support/IceyClient` on macOS) disappeared during an app update, so the user had to log in and set up everything again. The launcher never deletes that folder itself, but it now keeps a second copy of `auth.json`, `installations.json` and `settings.json` outside it (macOS: `~/Library/Preferences/IceyClient-backup`) and restores them automatically if the data folder is found empty at startup. Mods, packs and Java runtimes are re-downloaded by the launcher on the next launch. Worlds are not mirrored, so keep backups of `installations/<id>/game/saves` yourself.

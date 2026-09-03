@@ -144,7 +144,9 @@ public class IceyModScreen extends Screen {
         int gap = 5;
 
         gridCols = Math.max(2, Math.min(5, (this.width - 56) / (btnW + gap)));
-        gridRows = Math.max(3, availableH / (btnH + gap));
+        // Never more rows than actually fit above the footer — at large GUI
+        // scales the old minimum of 3 rows spilled over the pagination row.
+        gridRows = Math.max(1, availableH / (btnH + gap));
         perPage = gridCols * gridRows;
 
         totalPages = Math.max(1, (filtered.size() + perPage - 1) / perPage);
@@ -189,11 +191,11 @@ public class IceyModScreen extends Screen {
         panelY = 6;
         panelH = Math.max(60, sh - 12);
 
-        // ---- gear (settings mode toggle) ------------------------------------
-        gearW = 28;
-        gearH = 28;
-        gearX = this.width - gearW - 12;
-        gearY = 10;
+        // ---- gear (settings mode toggle), inside the panel's top-right ------
+        gearW = 24;
+        gearH = 24;
+        gearX = panelX + panelW - gearW - 10;
+        gearY = panelY + 8;
         addDrawableChild(new IceyButton(gearX, gearY, gearW, gearH, Text.literal(""),
                 b -> { settingsMode = !settingsMode; rebuild(); })
                 .setStyle(IceyButton.Style.NORMAL)

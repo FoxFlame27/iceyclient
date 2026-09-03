@@ -61,7 +61,7 @@ public class IceyMod implements ClientModInitializer {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.86.66)");
+        System.out.println("[IceyMod] booted (build tag: v1.86.67)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -76,6 +76,7 @@ public class IceyMod implements ClientModInitializer {
         try { StructureTracker.register(); }   catch (Throwable t) { System.out.println("[IceyMod] StructureTracker failed: " + t); }
         try { BiomeTracker.register(); }       catch (Throwable t) { System.out.println("[IceyMod] BiomeTracker failed: " + t); }
         try { ChatCoordParser.register(); }    catch (Throwable t) { System.out.println("[IceyMod] ChatCoordParser failed: " + t); }
+        try { com.iceymod.screen.PauseMenuHook.register(); } catch (Throwable t) { System.out.println("[IceyMod] PauseMenuHook failed: " + t); }
 
         menuKey         = registerKey("key.iceymod.menu",         GLFW.GLFW_KEY_Y);
         zoomKey         = registerKey("key.iceymod.zoom",         GLFW.GLFW_KEY_M);
