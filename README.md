@@ -30,6 +30,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.68
+
+- **Y menu back to the classic look.** The v1.86.63 redesign is reverted: the Icey menu, module settings and HUD editor use vanilla Minecraft buttons and colours again. Kept from it: the module grid only draws as many rows as fit, so nothing overlaps the page buttons at large GUI scales.
+- **In-game Java & Stuff button removed.** The pack is toggled from the launcher's Settings only.
+- **Controls category name fixed for real.** Minecraft builds a custom category's translation key as `key.category.<namespace>.<path>` (singular); v1.86.64 shipped the plural form, so the heading showed a raw key. Now reads "Icey Client".
+- **Iris "Reload Shaders" defaults to L.** It shipped on R, colliding with Icey's Cycle Perspective. The launcher sets L once per installation unless you've already rebound it.
+
 ## What's new in v1.86.67
 
 - **Y menu no longer overlaps at large GUI scales.** The module grid only draws as many rows as fit above the pagination row, and the gear button lives inside the panel instead of floating over the HUD.

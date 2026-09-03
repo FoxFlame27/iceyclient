@@ -7,28 +7,22 @@ import com.iceymod.hud.settings.DoubleSetting;
 import com.iceymod.hud.settings.EnumSetting;
 import com.iceymod.hud.settings.IntSetting;
 import com.iceymod.hud.settings.Setting;
-import com.iceymod.screen.widget.IceyButton;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
 import java.util.List;
 
 /**
- * Per-module settings editor.
- *
- * <p>Each setting is an {@link IceyButton} row: label on the left, live value
- * on the right (ON/OFF pill for booleans, accent text for numbers and enums,
- * an actual ARGB swatch for colours). Click = cycle/toggle to the next value;
- * colours hand off to {@link ColorPickerScreen}.
+ * Per-module settings editor using default vanilla Minecraft buttons.
+ * Each setting is a ButtonWidget whose label shows both the name and the
+ * current value. Click = cycle/toggle to the next value.
  */
 public class ModuleSettingsScreen extends Screen {
 
     private final HudModule module;
     private final Screen parent;
-
-    private int panelX, panelY, panelW, panelH;
-    private int headerDividerY, footerDividerY;
 
     public ModuleSettingsScreen(HudModule module, Screen parent) {
         super(Text.literal(module.getName() + " Settings"));
@@ -39,11 +33,11 @@ public class ModuleSettingsScreen extends Screen {
     @Override
     protected void init() {
         List<Setting<?>> settings = module.getSettings();
-        int btnH = 20;
-        int gap = 4;
+        int btnH = 18;
+        int gap = 3;
         int centerX = this.width / 2;
-        int topY = 58;
-        int bottomY = this.height - 52;
+        int topY = 50;
+        int bottomY = this.height - 40;
         int gridH = bottomY - topY;
         int rowsPerCol = Math.max(1, gridH / (btnH + gap));
 
@@ -52,7 +46,7 @@ public class ModuleSettingsScreen extends Screen {
         int cols = (int) Math.ceil((double) settings.size() / rowsPerCol);
         if (cols < 1) cols = 1;
         if (cols > 4) cols = 4;
-        int gridW = Math.min(this.width - 48, cols * 224 + (cols - 1) * gap);
+        int gridW = Math.min(this.width - 40, cols * 220 + (cols - 1) * gap);
         int btnW = (gridW - (cols - 1) * gap) / cols;
         int gridX = centerX - gridW / 2;
 
@@ -62,58 +56,29 @@ public class ModuleSettingsScreen extends Screen {
             int row = i % rowsPerCol;
             int x = gridX + col * (btnW + gap);
             int y = topY + row * (btnH + gap);
-            IceyButton btn = new IceyButton(x, y, btnW, btnH, Text.literal(setting.label),
+            ButtonWidget btn = ButtonWidget.builder(
+                    formatLabel(setting),
                     b -> {
                         onClick(setting);
-                        applyRowStyle(b, setting);
-                    });
-            applyRowStyle(btn, setting);
+                        b.setMessage(formatLabel(setting));
+                    }
+            ).dimensions(x, y, btnW, btnH).build();
             addDrawableChild(btn);
         }
 
         // Footer buttons centered below the grid
         int footerW = Math.min(300, this.width - 80);
-        int footerY = this.height - 48;
-        footerDividerY = footerY - 8;
-        addDrawableChild(new IceyButton(centerX - footerW / 2, footerY, footerW, 20,
-                Text.literal("Reset to Defaults"), b -> { resetAll(); rebuild(); })
-                .setStyle(IceyButton.Style.DANGER_STYLE));
-        footerY += 20 + gap;
+        int footerY = bottomY + 4;
+        addDrawableChild(ButtonWidget.builder(
+                Text.literal("Reset to Defaults"),
+                b -> { resetAll(); rebuild(); }
+        ).dimensions(centerX - footerW / 2, footerY, footerW, 18).build());
+        footerY += 18 + gap;
 
-        addDrawableChild(new IceyButton(centerX - footerW / 2, footerY, footerW, 20,
-                Text.literal("Back"), b -> client.setScreen(parent))
-                .setStyle(IceyButton.Style.ACCENT_PRIMARY));
-
-        // Panel chrome
-        panelW = Math.min(this.width - 12, Math.max(gridW, footerW) + 28);
-        panelX = centerX - panelW / 2;
-        panelY = 6;
-        panelH = Math.max(60, this.height - 12);
-        headerDividerY = 46;
-    }
-
-    /** Label left, live value right. */
-    private void applyRowStyle(IceyButton btn, Setting<?> setting) {
-        btn.setLeftText(setting.label);
-        btn.clearRight();
-        if (setting instanceof BoolSetting bs) {
-            btn.setToggleState(bs.get());
-        } else if (setting instanceof IntSetting is) {
-            btn.setStyle(IceyButton.Style.NORMAL);
-            btn.setRightText(String.valueOf(is.get()), IceyButton.ACCENT);
-        } else if (setting instanceof DoubleSetting ds) {
-            btn.setStyle(IceyButton.Style.NORMAL);
-            btn.setRightText(String.format("%.2f", ds.get()), IceyButton.ACCENT);
-        } else if (setting instanceof ColorSetting cs) {
-            btn.setStyle(IceyButton.Style.NORMAL);
-            btn.setSwatch(cs.get());
-            btn.setRightText(cs.colorName(), IceyButton.TEXT_MUTED);
-        } else if (setting instanceof EnumSetting es) {
-            btn.setStyle(IceyButton.Style.NORMAL);
-            btn.setRightText(es.getCurrentOption(), IceyButton.ACCENT);
-        } else {
-            btn.setStyle(IceyButton.Style.NORMAL);
-        }
+        addDrawableChild(ButtonWidget.builder(
+                Text.literal("Back"),
+                b -> client.setScreen(parent)
+        ).dimensions(centerX - footerW / 2, footerY, footerW, 18).build());
     }
 
     private void onClick(Setting<?> setting) {
@@ -140,6 +105,47 @@ public class ModuleSettingsScreen extends Screen {
         try { com.iceymod.hud.HudManager.save(); } catch (Throwable ignored) {}
     }
 
+    private Text formatLabel(Setting<?> setting) {
+        String label = setting.label;
+        String valuePart;
+        if (setting instanceof BoolSetting bs) {
+            valuePart = bs.get() ? "\u00A7aON" : "\u00A7cOFF";
+        } else if (setting instanceof IntSetting is) {
+            valuePart = "\u00A7b" + is.get();
+        } else if (setting instanceof DoubleSetting ds) {
+            valuePart = "\u00A7b" + String.format("%.2f", ds.get());
+        } else if (setting instanceof ColorSetting cs) {
+            valuePart = chatCodeFor(cs.get()) + cs.colorName();
+        } else if (setting instanceof EnumSetting es) {
+            valuePart = "\u00A7b" + es.getCurrentOption();
+        } else {
+            valuePart = "";
+        }
+        return Text.literal(label + ": " + valuePart);
+    }
+
+    /**
+     * Approximate the closest Minecraft chat color code for an ARGB value,
+     * so the color-name label on the button renders in the chosen color.
+     */
+    private static String chatCodeFor(int argb) {
+        int r = (argb >> 16) & 0xFF;
+        int g = (argb >> 8) & 0xFF;
+        int b = argb & 0xFF;
+        // Gray / white / black
+        if (r < 40 && g < 40 && b < 40) return "\u00A70";           // black
+        if (r > 220 && g > 220 && b > 220) return "\u00A7f";         // white
+        if (Math.abs(r - g) < 30 && Math.abs(g - b) < 30) return "\u00A77"; // gray
+        // Primary hues by dominant channel
+        if (r > 200 && g > 160 && b < 120) return "\u00A76";         // orange
+        if (r > 200 && g > 200 && b < 140) return "\u00A7e";         // yellow
+        if (r > 200 && g < 150 && b < 150) return "\u00A7c";         // red
+        if (r < 150 && g > 180 && b < 150) return "\u00A7a";         // green
+        if (r < 150 && g > 150 && b > 200) return "\u00A7b";         // aqua / icy
+        if (r > 150 && g < 180 && b > 180) return "\u00A7d";         // pink / purple
+        return "\u00A7f";
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     private void resetAll() {
         for (Setting s : module.getSettings()) s.set(s.getDefault());
@@ -153,26 +159,19 @@ public class ModuleSettingsScreen extends Screen {
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
         // Skip vanilla blur (avoids double-blur issues on recent versions)
-        IceyButton.drawGradientBackdrop(context, this.width, this.height);
-        IceyButton.drawContentPanel(context, panelX, panelY, panelW, panelH);
-        IceyButton.drawDivider(context, panelX + 12, headerDividerY, panelW - 24);
-        IceyButton.drawDivider(context, panelX + 12, footerDividerY, panelW - 24);
+        context.fill(0, 0, this.width, this.height, 0xC0101010);
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
-        int centerX = this.width / 2;
         context.drawCenteredTextWithShadow(this.textRenderer,
-                "§l" + module.getName(), centerX, 15, IceyButton.ACCENT);
-        int count = module.getSettings().size();
-        context.drawCenteredTextWithShadow(this.textRenderer,
-                count == 0 ? "Settings" : count + (count == 1 ? " option" : " options"),
-                centerX, 28, IceyButton.TEXT_MUTED);
-        if (count == 0) {
+                Text.literal("\u00A7b\u00A7l" + module.getName() + " \u00A77Settings"),
+                this.width / 2, 20, 0xFFFFFFFF);
+        if (module.getSettings().isEmpty()) {
             context.drawCenteredTextWithShadow(this.textRenderer,
-                    "No configurable options",
-                    centerX, this.height / 2 - 4, IceyButton.TEXT_MUTED);
+                    Text.literal("\u00A77No configurable options"),
+                    this.width / 2, this.height / 2, 0xFFAAAAAA);
         }
     }
 

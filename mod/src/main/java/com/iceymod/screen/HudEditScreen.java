@@ -5,8 +5,8 @@ import com.iceymod.hud.HudModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
-import com.iceymod.screen.widget.IceyButton;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -37,9 +37,10 @@ public class HudEditScreen extends Screen {
 
     @Override
     protected void init() {
-        addDrawableChild(new IceyButton(this.width / 2 - 50, this.height - 28, 100, 20,
-                Text.translatable("gui.done"), btn -> close())
-                .setStyle(IceyButton.Style.ACCENT_PRIMARY));
+        addDrawableChild(ButtonWidget.builder(
+                Text.translatable("gui.done"),
+                btn -> close()
+        ).dimensions(this.width / 2 - 50, this.height - 28, 100, 20).build());
     }
 
     @Override
@@ -55,41 +56,35 @@ public class HudEditScreen extends Screen {
             updateDrag(mouseX, mouseY);
         } catch (Throwable ignored) {}
 
-        IceyButton.drawGradientBackdrop(context, this.width, this.height);
+        context.fill(0, 0, this.width, this.height, 0x80000000);
 
         context.drawCenteredTextWithShadow(textRenderer,
-                "\u00A7lEdit HUD Layout", this.width / 2, 10, IceyButton.ACCENT);
+                "§b§lDrag modules to reposition", this.width / 2, 8, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer,
-                "Click and drag any module to reposition it", this.width / 2, 23,
-                IceyButton.TEXT_MUTED);
+                "§7Click and drag any module below", this.width / 2, 20, 0xFFFFFFFF);
 
         for (HudModule module : HudManager.getModules()) {
             if (!module.isEnabled()) continue;
 
             try { module.render(context, client); } catch (Throwable ignored) {}
 
-            int x = module.getX() - 3;
-            int y = module.getY() - 3;
-            int w = module.getWidth() + 6;
-            int h = module.getHeight() + 6;
+            int x = module.getX() - 2;
+            int y = module.getY() - 2;
+            int w = module.getWidth() + 4;
+            int h = module.getHeight() + 4;
 
             boolean isHovered = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
             boolean isDragged = module == dragging;
-            int borderColor = isDragged ? IceyButton.ACCENT : isHovered ? 0xCC8FD8F0 : 0x55FFFFFF;
-            int fillColor = isDragged ? 0x305BC8F5 : isHovered ? 0x28FFFFFF : 0x20FFFFFF;
+            int borderColor = isDragged ? 0xFF5BC8F5 : isHovered ? 0xAAFFFFFF : 0x60FFFFFF;
 
-            context.fill(x, y, x + w, y + h, fillColor);
-            IceyButton.drawBorder(context, x, y, w, h, borderColor);
+            context.fill(x, y, x + w, y + 1, borderColor);
+            context.fill(x, y + h - 1, x + w, y + h, borderColor);
+            context.fill(x, y, x + 1, y + h, borderColor);
+            context.fill(x + w - 1, y, x + w, y + h, borderColor);
 
-            // name tag in a small dark pill just above the outline
-            int labelColor = isDragged ? IceyButton.ACCENT : 0xFFCBD5E1;
-            IceyButton.drawTag(context, module.getName(), x, y - 14, labelColor,
-                    isDragged ? 0xE0102630 : 0xD00D1219);
+            int labelColor = isDragged ? 0xFF5BC8F5 : 0xFFAAAAAA;
+            context.drawTextWithShadow(textRenderer, module.getName(), x + 2, y - 11, labelColor);
         }
-
-        context.drawCenteredTextWithShadow(textRenderer,
-                "Drag to move \u2022 Done to save", this.width / 2, this.height - 42,
-                IceyButton.TEXT_MUTED);
 
         super.render(context, mouseX, mouseY, delta);
     }

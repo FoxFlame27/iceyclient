@@ -1015,21 +1015,6 @@ function launchMinecraft(installationId) {
     // health-indicator + architectury ON unless explicitly opted out
     // in Advanced settings — architectury is HealthIndicators' Fabric
     // dependency so they ride together by default).
-    // The in-game ESC menu can queue a Java & Stuff on/off change
-    // (config/iceymod-request.json, written by the mod's PauseMenuHook).
-    // Apply it to settings now, before the flags below are read.
-    try {
-      const reqPath = path.join(installGameDir, 'config', 'iceymod-request.json');
-      const req = _readJsonSafe(reqPath);
-      if (req && typeof req.javaStuffEnabled === 'boolean' && req.javaStuffEnabled !== !!settings.javaStuffEnabled) {
-        settings.javaStuffEnabled = req.javaStuffEnabled;
-        writeSettings(settings);
-        _mcConsole('Java & Stuff turned ' + (req.javaStuffEnabled ? 'ON' : 'OFF') + ' from the in-game menu', 'info');
-        _mcToast('Java & Stuff turned ' + (req.javaStuffEnabled ? 'on' : 'off') + ' (requested in-game)', 'info');
-      }
-      if (req) { try { fs.unlinkSync(reqPath); } catch (_) {} }
-    } catch (_) {}
-
     const iceyModsEnabled = settings.iceyModsEnabled !== false;
     const skinChangerEnabled = !!settings.skinChangerEnabled;
     const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
@@ -1272,13 +1257,13 @@ function launchMinecraft(installationId) {
         }
       } catch (_) {}
 
-      // 5c) Tell the in-game mod what the launcher thinks (for the ESC-menu
-      // Java & Stuff toggle) — see PauseMenuHook in the mod.
+      // 5c) Keybind defaults that clash with Icey's: Iris puts "Reload
+      // Shaders" on R, same as Icey's Cycle Perspective. Move it to L unless
+      // the user has already bound it themselves.
       try {
-        _writeJsonSafe(path.join(installGameDir, 'config', 'iceymod-launcher.json'), {
-          javaStuffEnabled: javaStuffEnabled,
-          launcherVersion: (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8')).version; } catch (_) { return null; } })(),
-        });
+        if (_ensureOptionDefault(installGameDir, 'key_iris.keybind.reload', 'key.keyboard.l')) {
+          _mcConsole('Iris "Reload Shaders" moved to L (R is Icey Cycle Perspective)', 'info');
+        }
       } catch (_) {}
 
       // 6) Some mods need a newer Java than the game itself (C2ME on
@@ -2871,6 +2856,22 @@ function _registerResourcepackLine(installGameDir, filename) {
   if (!found) lines.push('resourcePacks:' + JSON.stringify(['vanilla', entry]));
   fs.mkdirSync(installGameDir, { recursive: true });
   try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
+}
+
+// Add `key:value` to options.txt only if that key isn't set yet — used to
+// give a mod keybind a different default without overriding a choice the
+// user made in Controls (MC only writes a key line once it's been changed).
+function _ensureOptionDefault(installGameDir, key, value) {
+  try {
+    const optionsPath = path.join(installGameDir, 'options.txt');
+    let lines = fs.existsSync(optionsPath) ? fs.readFileSync(optionsPath, 'utf-8').split('\n') : [];
+    if (lines.some(l => l.startsWith(key + ':'))) return false;
+    while (lines.length && lines[lines.length - 1] === '') lines.pop();
+    lines.push(key + ':' + value);
+    fs.mkdirSync(installGameDir, { recursive: true });
+    fs.writeFileSync(optionsPath, lines.join('\n') + '\n', 'utf-8');
+    return true;
+  } catch (_) { return false; }
 }
 
 function _unregisterResourcepackLine(installGameDir, filename) {

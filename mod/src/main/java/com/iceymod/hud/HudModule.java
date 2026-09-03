@@ -74,19 +74,12 @@ public abstract class HudModule {
         if (text == null) return;
 
         int textWidth = client.textRenderer.getWidth(text);
-        this.width = textWidth + 12;
+        this.width = textWidth + 10;
         this.height = 14;
 
-        // Card body
-        context.fill(x, y, x + width, y + height, 0xA0101418);
-        // 1px hairline border so the box reads as a card, not a smudge
-        context.fill(x, y, x + width, y + 1, 0x40FFFFFF);
-        context.fill(x, y + height - 1, x + width, y + height, 0x40FFFFFF);
-        context.fill(x, y + 1, x + 1, y + height - 1, 0x40FFFFFF);
-        context.fill(x + width - 1, y + 1, x + width, y + height - 1, 0x40FFFFFF);
-        // Accent rail
+        context.fill(x, y, x + width, y + height, 0x90000000);
         context.fill(x, y, x + 2, y + height, barColor.get());
-        context.drawTextWithShadow(client.textRenderer, text, x + 7, y + 3, textColor.get());
+        context.drawTextWithShadow(client.textRenderer, text, x + 6, y + 3, textColor.get());
     }
 
     public void tick() {}
