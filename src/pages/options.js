@@ -492,7 +492,7 @@ function _renderAdvancedOptions(page, settings) {
           <div class="options-row">
             <div class="options-row-label"><span class="options-row-name">GitHub</span></div>
             <div class="options-row-control">
-              <button class="options-btn" onclick="window.icey.openExternal('https://github.com/FoxFlame27/iceyclient')">Open</button>
+              <button class="options-btn" onclick="window.icey.openExternal('https://github.com/Icey27055/iceyclient')">Open</button>
             </div>
           </div>
         </div>
@@ -620,7 +620,7 @@ async function _optInstallIceySmpMod() {
     Toast.info('Downloading iceymod+ mod jar…');
     const mcVer = _smpResolveBuildVersion(selected.version);
     const filename = `iceymodplus-server-mod-mc${mcVer}-1.0.0.jar`;
-    const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/${filename}`;
+    const url = `https://github.com/Icey27055/iceyclient/releases/latest/download/${filename}`;
     const gameDir = await window.icey.getInstallGameDir(selected.id);
     const dest = gameDir + '/mods/' + filename;
     const result = await window.icey.downloadFile(url, dest);
@@ -642,7 +642,7 @@ async function _optInstallIceySmpDatapack() {
   try {
     Toast.info('Downloading iceymod+ server pack…');
     const filename = 'iceymodplus-server-pack-1.0.0.zip';
-    const url = `https://github.com/FoxFlame27/iceyclient/releases/latest/download/${filename}`;
+    const url = `https://github.com/Icey27055/iceyclient/releases/latest/download/${filename}`;
     const dataDir = await window.icey.getDataDir();
     const dest = dataDir + '/downloads/' + filename;
     const result = await window.icey.downloadFile(url, dest);
