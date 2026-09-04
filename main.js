@@ -1014,6 +1014,19 @@ function launchMinecraft(installationId) {
     // health-indicator + architectury ON unless explicitly opted out
     // in Advanced settings — architectury is HealthIndicators' Fabric
     // dependency so they ride together by default).
+    // The in-game U key can queue a Java & Stuff on/off change
+    // (config/iceymod-request.json). Apply it before the flags are read.
+    try {
+      const reqPath = path.join(installGameDir, 'config', 'iceymod-request.json');
+      const req = _readJsonSafe(reqPath);
+      if (req && typeof req.javaStuffEnabled === 'boolean' && req.javaStuffEnabled !== !!settings.javaStuffEnabled) {
+        settings.javaStuffEnabled = req.javaStuffEnabled;
+        writeSettings(settings);
+        _mcToast('Java & Stuff turned ' + (req.javaStuffEnabled ? 'on' : 'off') + ' (requested in-game with U)', 'info');
+      }
+      if (req) { try { fs.unlinkSync(reqPath); } catch (_) {} }
+    } catch (_) {}
+
     const iceyModsEnabled = settings.iceyModsEnabled !== false;
     const skinChangerEnabled = !!settings.skinChangerEnabled;
     const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
@@ -1256,11 +1269,22 @@ function launchMinecraft(installationId) {
         }
       } catch (_) {}
 
+      // 5d) Status file for the in-game U key (JavaStuffToggle in the mod):
+      // what's on, and which resource pack entries belong to the pack so
+      // the mod can switch them off instantly.
+      try {
+        const pm = _readJsonSafe(path.join(installGameDir, '.icey-javastuff.json'));
+        _writeJsonSafe(path.join(installGameDir, 'config', 'iceymod-launcher.json'), {
+          javaStuffEnabled: javaStuffEnabled,
+          javaStuffPacks: (pm && pm.registeredPacks) || [],
+        });
+      } catch (_) {}
+
       // 5c) Keybind defaults that clash with Icey's: Iris puts "Reload
       // Shaders" on R, same as Icey's Cycle Perspective. Move it to L unless
       // the user has already bound it themselves.
       try {
-        if (_ensureOptionDefault(installGameDir, 'key_iris.keybind.reload', 'key.keyboard.l')) {
+        if (_setOptionIf(installGameDir, 'key_iris.keybind.reload', 'key.keyboard.l', v => !v || v === 'key.keyboard.r')) {
           _mcConsole('Iris "Reload Shaders" moved to L (R is Icey Cycle Perspective)', 'info');
         }
       } catch (_) {}
@@ -2534,6 +2558,15 @@ function _sweepPlatformIncompatibleMods(modsDir, packFiles) {
   return removed;
 }
 const JAVASTUFF_SKIP_OVERRIDES = /^(options\.txt|replace-lines\.ps1|fixresourcepacks.*\.bat|logo\.png)$/i;
+// Vanilla armor: the pack's folder packs carry EMF/OptiFine CEM armor
+// models (player_outer_armor.jem, bogged_inner_armor.jem, …) whose
+// textures live in the disabled "Armor" pack — with those models present
+// worn armor renders as nothing. Dropping the model files makes EMF fall
+// back to vanilla armor rendering.
+const JAVASTUFF_ARMOR_MODEL_RE = /\/(emf|optifine)\/cem\/[^/]*armor[^/]*$/i;
+// Resource packs that only work on the MC version the pack was built for
+// (EMF player model → duplicated body in first person on other versions).
+const JAVASTUFF_NATIVE_ONLY_PACK_RE = /player animations/i;
 
 function _javaStuffPackPath() {
   const candidates = [
@@ -2543,6 +2576,46 @@ function _javaStuffPackPath() {
   ];
   for (const p of candidates) if (p && fs.existsSync(p)) return p;
   return null;
+}
+
+// One-off cleanups for installs made by earlier launcher versions:
+// strip CEM armor models from pack-managed folder packs, and unregister
+// version-specific packs when the MC version doesn't match the pack's.
+function _tidyInstalledJavaStuff(installGameDir, manifest, mcVersion, packMc) {
+  let changed = false;
+  if (!manifest || manifest.armorPruned !== 1) {
+    const rpDir = path.join(installGameDir, 'resourcepacks');
+    const owned = new Set((manifest?.files || []).filter(f => f.startsWith('resourcepacks/')).map(f => f.split('/')[1]));
+    let pruned = 0;
+    const walk = (dir) => {
+      let entries = [];
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+      for (const e of entries) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (JAVASTUFF_ARMOR_MODEL_RE.test(p.replace(/\\/g, '/'))) { try { fs.unlinkSync(p); pruned++; } catch (_) {} }
+      }
+    };
+    for (const name of owned) {
+      const p = path.join(rpDir, name);
+      try { if (fs.existsSync(p) && fs.statSync(p).isDirectory()) walk(p); } catch (_) {}
+    }
+    if (manifest) { manifest.armorPruned = 1; changed = true; }
+    if (pruned) _mcConsole(`Java & Stuff: removed ${pruned} custom armor model files — armor is vanilla now`, 'info');
+  }
+  if (manifest && mcVersion !== packMc) {
+    const entries = _readResourcepackEntries(installGameDir);
+    if (entries) {
+      const keep = entries.filter(e => !JAVASTUFF_NATIVE_ONLY_PACK_RE.test(e));
+      if (keep.length !== entries.length) {
+        _writeResourcepackEntries(installGameDir, keep);
+        manifest.registeredPacks = (manifest.registeredPacks || []).filter(e => !JAVASTUFF_NATIVE_ONLY_PACK_RE.test(e));
+        changed = true;
+        _mcConsole(`Java & Stuff: "Player Animations" pack disabled — it only works on MC ${packMc}`, 'info');
+      }
+    }
+  }
+  return changed;
 }
 
 function _removeJavaStuffPack(installGameDir, manifest) {
@@ -2590,7 +2663,10 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
   const packVersion = index.versionId || '0';
   const packMc = index.dependencies?.minecraft || '';
 
-  if (manifest && manifest.complete && manifest.mcVersion === mcVersion && manifest.packVersion === packVersion) return;
+  if (manifest && manifest.complete && manifest.mcVersion === mcVersion && manifest.packVersion === packVersion) {
+    if (_tidyInstalledJavaStuff(installGameDir, manifest, mcVersion, packMc)) _writeJsonSafe(manifestPath, manifest);
+    return;
+  }
   if (manifest && manifest.mcVersion !== mcVersion) {
     // Installation switched MC version: throw away the old file set first.
     _removeJavaStuffPack(installGameDir, manifest);
@@ -2696,6 +2772,7 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
     const top = rel.split('/')[0];
     if (JAVASTUFF_SKIP_OVERRIDES.test(rel)) continue;
     if (JAVASTUFF_EXCLUDED_OVERRIDE_RE.test(rel)) continue; // FancyMenu layouts etc.
+    if (top === 'resourcepacks' && JAVASTUFF_ARMOR_MODEL_RE.test(rel)) continue; // keep vanilla armor
     const dest = path.join(installGameDir, rel);
     // Keep the user's own edits to config files across re-installs.
     if (top === 'config' && fs.existsSync(dest)) continue;
@@ -2724,6 +2801,7 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
     const current = _readResourcepackEntries(installGameDir) || ['vanilla'];
     for (const entry of packList) {
       if (JAVASTUFF_ARMOR_PACK_RE.test(entry)) continue;
+      if (!exact && JAVASTUFF_NATIVE_ONLY_PACK_RE.test(entry)) continue;
       if (entry.startsWith('file/')) {
         const p = path.join(installGameDir, 'resourcepacks', entry.slice(5));
         if (!fs.existsSync(p)) continue;
@@ -2734,7 +2812,7 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
   }
 
   _writeJsonSafe(manifestPath, {
-    mcVersion, packVersion, complete: true,
+    mcVersion, packVersion, complete: true, armorPruned: 1,
     files: [...installed],
     registeredPacks: [...registered],
     skipped,
@@ -2867,6 +2945,24 @@ function _ensureOptionDefault(installGameDir, key, value) {
     if (lines.some(l => l.startsWith(key + ':'))) return false;
     while (lines.length && lines[lines.length - 1] === '') lines.pop();
     lines.push(key + ':' + value);
+    fs.mkdirSync(installGameDir, { recursive: true });
+    fs.writeFileSync(optionsPath, lines.join('\n') + '\n', 'utf-8');
+    return true;
+  } catch (_) { return false; }
+}
+
+// Set `key:value` in options.txt when the current value (or absence)
+// passes `when`. Used to move a mod keybind off a key Icey already uses.
+function _setOptionIf(installGameDir, key, value, when) {
+  try {
+    const optionsPath = path.join(installGameDir, 'options.txt');
+    let lines = fs.existsSync(optionsPath) ? fs.readFileSync(optionsPath, 'utf-8').split('\n') : [];
+    const idx = lines.findIndex(l => l.startsWith(key + ':'));
+    const current = idx >= 0 ? lines[idx].slice(key.length + 1).trim() : '';
+    if (!when(current)) return false;
+    if (current === value) return false;
+    if (idx >= 0) lines[idx] = key + ':' + value;
+    else { while (lines.length && lines[lines.length - 1] === '') lines.pop(); lines.push(key + ':' + value); }
     fs.mkdirSync(installGameDir, { recursive: true });
     fs.writeFileSync(optionsPath, lines.join('\n') + '\n', 'utf-8');
     return true;

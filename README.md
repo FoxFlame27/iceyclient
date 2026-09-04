@@ -30,6 +30,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.69
+
+- **Vanilla armor for real.** The pack's "Actions and Stuff by twist" folder pack ships EMF/OptiFine armor models whose textures live in the disabled "Armor" pack, so worn armor rendered as nothing. Those model files are now stripped from the pack's folder packs at install (and once on existing installs), so EMF falls back to vanilla armor.
+- **No more duplicated body in first person.** The "Player Animations" resource pack is an EMF player model built for the pack's own Minecraft version (1.21.8). It stays installed but is left disabled on any other version.
+- **U toggles Java & Stuff in-game.** Its resource packs switch off immediately (with a resource reload); its mods can't be unloaded while the game runs, so they're removed on the next launch from Icey Client. Press U again to bring everything back. Rebind under Controls → Icey Client.
+- **Iris "Reload Shaders" is moved to L even when it was explicitly set to R**, which is what the pack's saved options had. R stays Icey's Cycle Perspective.
+
 ## What's new in v1.86.68
 
 - **Y menu back to the classic look.** The v1.86.63 redesign is reverted: the Icey menu, module settings and HUD editor use vanilla Minecraft buttons and colours again. Kept from it: the module grid only draws as many rows as fit, so nothing overlaps the page buttons at large GUI scales.

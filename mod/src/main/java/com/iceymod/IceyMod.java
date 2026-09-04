@@ -55,13 +55,14 @@ public class IceyMod implements ClientModInitializer {
     private static KeyBinding freecamKey;
     private static KeyBinding biomeKey;
     private static KeyBinding leaderboardKey;
+    private static KeyBinding javaStuffKey;
 
     @Override
     public void onInitializeClient() {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.86.68)");
+        System.out.println("[IceyMod] booted (build tag: v1.86.69)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -94,6 +95,7 @@ public class IceyMod implements ClientModInitializer {
         // Fresh keybind id ("openboard" instead of "leaderboard") so MC
         // doesn't fall back to a stale `;` binding saved in older options.txt.
         leaderboardKey  = registerKey("key.iceymod.openboard",    GLFW.GLFW_KEY_N);
+        javaStuffKey    = registerKey("key.iceymod.javastuff",    GLFW.GLFW_KEY_U);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -121,6 +123,9 @@ public class IceyMod implements ClientModInitializer {
                 if (client.currentScreen == null) {
                     client.setScreen(new BiomeMenuScreen());
                 }
+            }
+            while (wasPressed(javaStuffKey)) {
+                try { JavaStuffToggle.toggle(client); } catch (Throwable t) { System.out.println("[IceyMod] Java & Stuff toggle failed: " + t); }
             }
             while (wasPressed(leaderboardKey)) {
                 // Send /leaderboard to the server so it opens the
