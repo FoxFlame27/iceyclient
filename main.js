@@ -2563,7 +2563,13 @@ const JAVASTUFF_SKIP_OVERRIDES = /^(options\.txt|replace-lines\.ps1|fixresourcep
 // textures live in the disabled "Armor" pack — with those models present
 // worn armor renders as nothing. Dropping the model files makes EMF fall
 // back to vanilla armor rendering.
-const JAVASTUFF_ARMOR_MODEL_RE = /\/(emf|optifine)\/cem\/[^/]*armor[^/]*$/i;
+// Everything that changes how WORN armor looks: CEM armor models, the
+// 1.21.2+ equipment definitions (assets/<ns>/equipment/*.json), humanoid
+// equipment textures, legacy armor layer textures, and armor trims.
+// "Actions and Stuff by twist" ships equipment definitions whose textures
+// live only in the disabled "Armor" pack → armor rendered as nothing.
+const JAVASTUFF_ARMOR_MODEL_RE = /\/assets\/[^/]+\/(equipment\/|textures\/entity\/equipment\/humanoid|textures\/models\/armor\/|textures\/trims\/|atlases\/armor_trims|models\/armor\/|(emf|optifine)\/cem\/[^/]*armor[^/]*$)/i;
+const JAVASTUFF_ARMOR_PRUNE_VERSION = 2;
 // Resource packs that only work on the MC version the pack was built for
 // (EMF player model → duplicated body in first person on other versions).
 const JAVASTUFF_NATIVE_ONLY_PACK_RE = /player animations/i;
@@ -2583,7 +2589,7 @@ function _javaStuffPackPath() {
 // version-specific packs when the MC version doesn't match the pack's.
 function _tidyInstalledJavaStuff(installGameDir, manifest, mcVersion, packMc) {
   let changed = false;
-  if (!manifest || manifest.armorPruned !== 1) {
+  if (!manifest || manifest.armorPruned !== JAVASTUFF_ARMOR_PRUNE_VERSION) {
     const rpDir = path.join(installGameDir, 'resourcepacks');
     const owned = new Set((manifest?.files || []).filter(f => f.startsWith('resourcepacks/')).map(f => f.split('/')[1]));
     let pruned = 0;
@@ -2600,8 +2606,19 @@ function _tidyInstalledJavaStuff(installGameDir, manifest, mcVersion, packMc) {
       const p = path.join(rpDir, name);
       try { if (fs.existsSync(p) && fs.statSync(p).isDirectory()) walk(p); } catch (_) {}
     }
-    if (manifest) { manifest.armorPruned = 1; changed = true; }
+    if (manifest) { manifest.armorPruned = JAVASTUFF_ARMOR_PRUNE_VERSION; changed = true; }
     if (pruned) _mcConsole(`Java & Stuff: removed ${pruned} custom armor model files — armor is vanilla now`, 'info');
+  }
+  // Armor-look packs stay off while Java & Stuff is on (vanilla armor).
+  {
+    const entries = _readResourcepackEntries(installGameDir);
+    if (entries) {
+      const keep = entries.filter(e => !JAVASTUFF_ARMOR_PACK_RE.test(e));
+      if (keep.length !== entries.length) {
+        _writeResourcepackEntries(installGameDir, keep);
+        _mcConsole('Java & Stuff: armor-look resource packs disabled (vanilla armor)', 'info');
+      }
+    }
   }
   if (manifest && mcVersion !== packMc) {
     const entries = _readResourcepackEntries(installGameDir);
@@ -2772,7 +2789,7 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
     const top = rel.split('/')[0];
     if (JAVASTUFF_SKIP_OVERRIDES.test(rel)) continue;
     if (JAVASTUFF_EXCLUDED_OVERRIDE_RE.test(rel)) continue; // FancyMenu layouts etc.
-    if (top === 'resourcepacks' && JAVASTUFF_ARMOR_MODEL_RE.test(rel)) continue; // keep vanilla armor
+    if (top === 'resourcepacks' && JAVASTUFF_ARMOR_MODEL_RE.test('/' + rel)) continue; // keep vanilla armor
     const dest = path.join(installGameDir, rel);
     // Keep the user's own edits to config files across re-installs.
     if (top === 'config' && fs.existsSync(dest)) continue;
@@ -2812,7 +2829,7 @@ async function _ensureJavaStuffPack(installGameDir, mcVersion, enabled) {
   }
 
   _writeJsonSafe(manifestPath, {
-    mcVersion, packVersion, complete: true, armorPruned: 1,
+    mcVersion, packVersion, complete: true, armorPruned: JAVASTUFF_ARMOR_PRUNE_VERSION,
     files: [...installed],
     registeredPacks: [...registered],
     skipped,

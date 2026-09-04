@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.70
+
+**Vanilla armor, properly this time.** v1.86.69 removed the pack's armor *models* but left its `equipment/*.json` definitions and trim textures in "Actions and Stuff by twist"; those point at textures that only exist in the disabled "Armor" pack, so worn armor still rendered as nothing. The launcher now strips every armor-related asset from the pack's folder packs (equipment definitions, humanoid equipment textures, legacy armor layers, trims, CEM armor models), re-running once on existing installs, and keeps armor-look packs disabled on every launch while Java & Stuff is on.
+
 ## What's new in v1.86.69
 
 - **Vanilla armor for real.** The pack's "Actions and Stuff by twist" folder pack ships EMF/OptiFine armor models whose textures live in the disabled "Armor" pack, so worn armor rendered as nothing. Those model files are now stripped from the pack's folder packs at install (and once on existing installs), so EMF falls back to vanilla armor.
