@@ -145,11 +145,10 @@ function writeJsonAtomic(filePath, data) {
 // installation list, settings — outside DATA_DIR, and put them back at
 // startup if DATA_DIR turns up empty. Mods/Java are re-fetched by the
 // launcher anyway; worlds can't be mirrored cheaply.
-const BACKUP_DIR = process.platform === 'darwin'
-  ? path.join(os.homedir(), 'Library', 'Preferences', 'IceyClient-backup')
-  : process.platform === 'win32'
-    ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'IceyClient-backup')
-    : path.join(os.homedir(), '.config', 'iceyclient-backup');
+// Hidden folder directly in the home directory: it survives "uninstall"
+// commands that rm -rf everything named Icey* under Application Support
+// or Preferences (which is exactly what wiped the user's data twice).
+const BACKUP_DIR = path.join(os.homedir(), '.iceyclient-state');
 const BACKED_UP_FILES = new Set(['auth.json', 'installations.json', 'settings.json']);
 
 function _mirrorToBackup(filePath) {
