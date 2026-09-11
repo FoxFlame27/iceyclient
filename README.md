@@ -30,7 +30,7 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
-## What's new in v1.86.79
+## What's new in v1.86.80
 
 **Windows one-click installer.** v1.86.76's installer build failed because NSIS needs a genuine `.ico` and was handed the PNG. A multi-size `icon.ico` is now bundled and the Windows download is `Icey Client Setup.exe`: run once, it installs and starts instantly from then on (the portable exe unpacked 500 MB on every launch). Installing a newer Setup over it keeps your data.
 

@@ -1,7 +1,7 @@
 {
   "name": "icey-client",
   "productName": "Icey Client",
-  "version": "1.86.79",
+  "version": "1.86.80",
   "description": "A premium Minecraft launcher with an icy theme",
   "author": {
     "name": "Icey Client",
@@ -51,6 +51,9 @@
       "artifactName": "Icey Client Setup.${ext}"
     },
     "nsis": {
+      "installerIcon": "build/installerIcon.ico",
+      "uninstallerIcon": "build/uninstallerIcon.ico",
+      "installerHeaderIcon": "build/installerIcon.ico",
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
