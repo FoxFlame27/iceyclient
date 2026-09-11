@@ -50,7 +50,8 @@ async function _renderMainOptions(page, settings) {
     { name: 'Purple',   value: '#a78bfa' },
     { name: 'Green',    value: '#4ade80' },
     { name: 'Orange',   value: '#fb923c' },
-    { name: 'Pink',     value: '#f472b6' }
+    { name: 'Pink',     value: '#f472b6' },
+    { name: 'Flame',    value: '#ff8a3d' }
   ];
 
   // Load panorama catalog if not cached

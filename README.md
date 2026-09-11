@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.74
+
+**Skiflame mode, toned down.** It now changes only the background, the logo and the in-game branding. Buttons, toggles and glows follow the normal Accent Colour setting, which gains a "Flame" (orange) choice if you want that look.
+
 ## What's new in v1.86.73
 
 **Skiflame mode polish.** The background artwork is shown bright (the launcher's usual dark overlay is nearly off in this mode) and no second logo is drawn over it. The titlebar is transparent again, so no bar overlaps buttons in fullscreen. Buttons, toggles, tabs and the accent are orange-to-gold flame instead of blue-violet.

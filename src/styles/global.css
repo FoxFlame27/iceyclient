@@ -263,14 +263,9 @@ button:not(:disabled):active {
 }
 
 /* ─── Secret "Skiflame" skin ──────────────────────────────────────────
-   Orange flame buttons on the bright Skiflame sunset. Accent colour is
-   set from JS (SettingsManager._applyAccent); everything else lives here. */
-:root[data-skin="skiflame"] {
-  --accent-frost: #ffd2a8;
-  --skiflame-orange: #ff8a3d;
-  --skiflame-red: #ff5a1f;
-  --skiflame-gold: #ffc14d;
-}
+   Skiflame background and branding only. Buttons, toggles and glows keep
+   using the normal accent colour (Settings → Accent Colour; "Flame" is
+   one of the choices). */
 :root[data-skin="skiflame"] #page-container {
   background: url('../assets/skiflame-bg.jpg') center/cover no-repeat fixed;
 }
@@ -279,59 +274,13 @@ button:not(:disabled):active {
 :root[data-skin="skiflame"] #page-container::after {
   background: rgba(0, 0, 0, 0.10);
 }
-:root[data-skin="skiflame"] .titlebar-title {
-  background: linear-gradient(90deg, #ffc14d, #ff8a3d 55%, #ff5a1f);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  letter-spacing: 0.14em;
-}
-:root[data-skin="skiflame"] .launch-btn,
-:root[data-skin="skiflame"] .btn-create-submit,
-:root[data-skin="skiflame"] .mod-dl-install-btn,
-:root[data-skin="skiflame"] .modal-btn-primary,
-:root[data-skin="skiflame"] .mods-tab.active,
-:root[data-skin="skiflame"] .mods-filter-pill.active,
-:root[data-skin="skiflame"] .options-btn,
-:root[data-skin="skiflame"] .btn-install-mod:hover,
-:root[data-skin="skiflame"] .acct-add-btn.ms,
-:root[data-skin="skiflame"] .btn-goto-installations {
-  background: linear-gradient(135deg, #ff5a1f 0%, #ff8a3d 55%, #ffc14d 130%);
-  color: #1a0a00;
-  border-color: transparent;
-  box-shadow: 0 0 22px rgba(255,138,61,0.45), 0 0 48px rgba(255,90,31,0.2);
-}
-:root[data-skin="skiflame"] .launch-btn:hover,
-:root[data-skin="skiflame"] .options-btn:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 0 34px rgba(255,138,61,0.7), 0 0 80px rgba(255,90,31,0.3);
-}
-:root[data-skin="skiflame"] .launch-btn-title,
-:root[data-skin="skiflame"] .launch-btn-subtitle { color: #1a0a00; }
-/* Liquid home menu cards: warm glass instead of cold blue */
-:root[data-skin="skiflame"] .liquid-menu-btn,
-:root[data-skin="skiflame"] .home-inst-card,
-:root[data-skin="skiflame"] .options-toggle-card,
-:root[data-skin="skiflame"] .options-card {
-  border-color: rgba(255,138,61,0.28);
-}
-:root[data-skin="skiflame"] .liquid-menu-btn:hover,
-:root[data-skin="skiflame"] .home-inst-card:hover,
-:root[data-skin="skiflame"] .options-toggle-card.on {
-  border-color: rgba(255,138,61,0.6);
-  box-shadow: 0 0 18px rgba(255,138,61,0.3);
-}
-:root[data-skin="skiflame"] .toggle input:checked + .toggle-slider {
-  background: linear-gradient(90deg, #ff5a1f, #ffc14d);
-}
-:root[data-skin="skiflame"] #sidebar-nav {
-  border-color: rgba(255,138,61,0.25);
-}
 /* The SECRET row itself */
 .options-secret-btn {
   letter-spacing: 0.18em; font-weight: 800;
   border: 1px dashed rgba(255,255,255,0.25);
 }
 .options-secret-btn.on {
-  background: linear-gradient(135deg, #ff5a1f, #ff8a3d 55%, #ffc14d 130%);
-  color: #1a0a00; border-style: solid; border-color: transparent;
-  box-shadow: 0 0 20px rgba(255,138,61,0.45);
+  background: var(--accent);
+  color: #fff; border-style: solid; border-color: transparent;
+  box-shadow: 0 0 20px var(--accent-glow);
 }
