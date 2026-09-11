@@ -86,7 +86,7 @@ async function HomePageInit() {
 
       <div class="home-liquid-side">
         ${SettingsManager.isSkiflame()
-          ? `<img class="home-liquid-logo-img skiflame" src="assets/skiflame-logo.png" alt="Skiflame" onerror="this.style.display='none'">`
+          ? ''
           : `<img class="home-liquid-logo-img" src="assets/icon.png" alt="Icey Client" onerror="this.style.display='none'">
         <div class="home-liquid-title">ICEY CLIENT</div>`}
         <div class="home-timer ${showTimer ? '' : 'hidden'}" id="home-timer">
@@ -112,7 +112,7 @@ async function HomePageInit() {
       <!-- Main area: logo + button -->
       <div class="home-main">
         <div class="home-hero">
-          <img class="home-hero-logo${SettingsManager.isSkiflame() ? ' skiflame' : ''}" src="${SettingsManager.isSkiflame() ? 'assets/skiflame-logo.png' : 'assets/text-above-playbutton.png'}" alt="${SettingsManager.isSkiflame() ? 'Skiflame' : 'Icey Client'}" onerror="this.style.display='none'">
+          ${SettingsManager.isSkiflame() ? '' : `<img class="home-hero-logo" src="assets/text-above-playbutton.png" alt="Icey Client" onerror="this.style.display='none'">`}
           <div class="home-launch-bar">
             <div class="launch-bar-snow" id="launch-bar-snow"></div>
             <button class="launch-btn launch-btn-idle" id="launch-btn" onclick="HomePlayClick()">

@@ -84,7 +84,7 @@ const SettingsManager = {
 
   _applyAccent() {
     // Skiflame overrides the accent with its blue-violet flame colour.
-    const color = this.isSkiflame() ? '#7d6cff' : (this._settings?.accentColor || '#5bc8f5');
+    const color = this.isSkiflame() ? '#ff8a3d' : (this._settings?.accentColor || '#5bc8f5');
     const r = parseInt(color.slice(1, 3), 16);
     const g = parseInt(color.slice(3, 5), 16);
     const b = parseInt(color.slice(5, 7), 16);

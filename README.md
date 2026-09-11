@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.73
+
+**Skiflame mode polish.** The background artwork is shown bright (the launcher's usual dark overlay is nearly off in this mode) and no second logo is drawn over it. The titlebar is transparent again, so no bar overlaps buttons in fullscreen. Buttons, toggles, tabs and the accent are orange-to-gold flame instead of blue-violet.
+
 ## What's new in v1.86.72
 
 - **Performance Boost** (Settings toggle, on by default): Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Krypton (network/ping) and Dynamic FPS, fetched for your exact Minecraft version on any Fabric installation. A copy you or Java & Stuff already have always wins; ours is skipped, never duplicated.
