@@ -90,6 +90,20 @@ const MinecraftLauncher = {
             <button class="modal-btn modal-btn-primary" onclick="window.icey.openExternal('https://adoptium.net'); closeModal();">Open Java Download</button>
           </div>
         `);
+      } else if (result.error === 'LAUNCHER_SESSION_EXPIRED') {
+        showModal(`
+          <div class="modal-header">
+            <h2 class="modal-title">Minecraft Launcher session expired</h2>
+            <button class="modal-close" onclick="closeModal()">
+              <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+          </div>
+          <div class="modal-body">Icey is using the account from the official Minecraft Launcher, and that sign-in has run out. Open the Minecraft Launcher once so it signs back in, then press Play again. Or sign in with Microsoft here instead.</div>
+          <div class="modal-footer">
+            <button class="modal-btn modal-btn-outline" onclick="window.icey.openOfficialLauncher(); closeModal();">Open Minecraft Launcher</button>
+            <button class="modal-btn modal-btn-primary" onclick="closeModal(); (typeof _navLogin === 'function' ? _navLogin() : window.icey.msLogin().then(() => loadNavProfile()));">Sign in with Microsoft</button>
+          </div>
+        `);
       } else if (String(result.error).startsWith('JAVA_TOO_OLD')) {
         const parts = String(result.error).split(':');
         const need = parts[1] || '?', have = parts[2] && parts[2] !== '0' ? parts[2] : 'none';

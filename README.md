@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.71
+
+**Picks up your Minecraft Launcher account.** Icey reads the account from the official Minecraft Launcher (`launcher_accounts.json`) at startup and whenever the account list is shown. Your profile (name, UUID, avatar) is imported and made active on a fresh install. If the launcher file also holds a live session token (it does on many Windows installs; the macOS launcher tested here keeps its credentials encrypted and leaves the token empty), Icey uses it directly and you never see a login screen. When no live token is there, pressing Play shows a clear "open the Minecraft Launcher once, or sign in with Microsoft here" prompt instead of silently launching offline — one Microsoft sign-in in Icey then lasts for months. A Microsoft login made in Icey is never replaced by the import. Toggle under Settings → Advanced → "Use Minecraft Launcher login"; the account menu also has "Use Minecraft Launcher Login".
+
 ## What's new in v1.86.70
 
 **Vanilla armor, properly this time.** v1.86.69 removed the pack's armor *models* but left its `equipment/*.json` definitions and trim textures in "Actions and Stuff by twist"; those point at textures that only exist in the disabled "Armor" pack, so worn armor still rendered as nothing. The launcher now strips every armor-related asset from the pack's folder packs (equipment definitions, humanoid equipment textures, legacy armor layers, trims, CEM armor models), re-running once on existing installs, and keeps armor-look packs disabled on every launch while Java & Stuff is on.

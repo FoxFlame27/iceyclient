@@ -377,7 +377,9 @@ async function _liquidOpenAccount() {
   const attr = (s) => String(s || '').replace(/"/g, '&quot;');
   const typeBadge = (t) => t === 'offline'
     ? '<span class="acct-type offline">Cracked</span>'
-    : '<span class="acct-type ms">MS</span>';
+    : t === 'launcher'
+      ? '<span class="acct-type ms">Launcher</span>'
+      : '<span class="acct-type ms">MS</span>';
 
   const headerHtml = active
     ? `<div class="acct-active">
@@ -413,6 +415,7 @@ async function _liquidOpenAccount() {
   const addHtml = atMax
     ? `<div class="acct-maxed">Max ${accountsData.maxAccounts} accounts. Remove one to add another.</div>`
     : `<div class="acct-add-row">
+         <button class="acct-add-btn ms" onclick="_liquidImportLauncher()">+ Minecraft Launcher</button>
          <button class="acct-add-btn ms" onclick="_liquidAddMicrosoft()">+ Add Microsoft</button>
          <button class="acct-add-btn cracked" onclick="_liquidAddCracked()">+ Add Cracked</button>
        </div>`;
@@ -457,6 +460,16 @@ async function _liquidRemoveAccount(uuid) {
   Toast.info('Account removed');
   if (typeof loadNavProfile === 'function') loadNavProfile();
   _liquidOpenAccount();
+}
+
+async function _liquidImportLauncher() {
+  closeModal();
+  const r = await window.icey.importLauncherAccounts();
+  if (r.error) { Toast.error(r.error); return; }
+  if (!r.found) { Toast.info('No account found in the Minecraft Launcher. Sign in there once, then try again.'); return; }
+  Toast.success(r.imported || r.activated ? 'Using your Minecraft Launcher account' : 'Minecraft Launcher account already listed');
+  if (typeof loadNavProfile === 'function') loadNavProfile();
+  HomePageInit().catch(() => {});
 }
 
 async function _liquidAddMicrosoft() {

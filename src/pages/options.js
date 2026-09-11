@@ -510,6 +510,18 @@ function _renderAdvancedOptions(page, settings) {
           </div>
           <div class="options-row">
             <div class="options-row-label">
+              <span class="options-row-name">Use Minecraft Launcher login</span>
+              <span class="options-row-desc">Sign in automatically with the account from the official Minecraft Launcher. Turn off if you only want accounts you add here.</span>
+            </div>
+            <div class="options-row-control">
+              <label class="toggle">
+                <input type="checkbox" ${settings.useLauncherLogin !== false ? 'checked' : ''} onchange="_optSet('useLauncherLogin', this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="options-row">
+            <div class="options-row-label">
               <span class="options-row-name">Version matching</span>
               <span class="options-row-desc">All bundled mods and their dependencies are fetched from Modrinth for the exact Minecraft version of the installation you launch, so new Minecraft releases work without a launcher update.</span>
             </div>
@@ -551,7 +563,7 @@ async function _optLoadAccount() {
       <div class="options-row">
         <div class="options-row-label">
           <span class="options-row-name">Active Account</span>
-          <span class="options-row-desc">Logged in as <strong>${_optEscape(auth.username)}</strong></span>
+          <span class="options-row-desc">Logged in as <strong>${_optEscape(auth.username)}</strong>${auth.type === 'launcher' ? ' via the Minecraft Launcher' : auth.type === 'offline' ? ' (cracked)' : ''}</span>
         </div>
         <div class="options-row-control">
           <button class="options-btn" onclick="_optLogout()">Log Out</button>
@@ -562,15 +574,25 @@ async function _optLoadAccount() {
     card.innerHTML = `
       <div class="options-row">
         <div class="options-row-label">
-          <span class="options-row-name">Microsoft Account</span>
-          <span class="options-row-desc">Sign in to play on online servers and access your skins.</span>
+          <span class="options-row-name">Account</span>
+          <span class="options-row-desc">Icey uses the account you're signed into in the official Minecraft Launcher. No account found there yet — open the Minecraft Launcher once, or sign in with Microsoft here.</span>
         </div>
         <div class="options-row-control">
-          <button class="options-btn" onclick="_optLogin()">Log In</button>
+          <button class="options-btn" onclick="_optImportLauncher()">Use Launcher Login</button>
+          <button class="options-btn" onclick="_optLogin()">Microsoft Log In</button>
         </div>
       </div>
     `;
   }
+}
+
+async function _optImportLauncher() {
+  const r = await window.icey.importLauncherAccounts();
+  if (r.error) { Toast.error(r.error); return; }
+  if (!r.found) { Toast.info('No account found in the Minecraft Launcher. Sign in there once, then try again.'); return; }
+  Toast.success('Using your Minecraft Launcher account');
+  loadNavProfile();
+  _optLoadAccount();
 }
 
 async function _optLogin() {

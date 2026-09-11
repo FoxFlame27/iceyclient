@@ -1405,6 +1405,10 @@ function launchMinecraft(installationId) {
     // still works without the popup.
     const storedAuth = readAuth();
     const auth = await ensureFreshAuth(storedAuth);
+    if (storedAuth && storedAuth.type === 'launcher' && !auth) {
+      log('warn', '[LAUNCH] Minecraft Launcher session for ' + storedAuth.username + ' has expired');
+      return reject(new Error('LAUNCHER_SESSION_EXPIRED'));
+    }
     let launchUsername, launchUuid, launchToken, launchUserType;
     if (auth && auth.type === 'offline') {
       // Cracked/offline account — always legacy with deterministic offline UUID
@@ -3299,6 +3303,106 @@ function updateAccountInPlace(account) {
   return store;
 }
 
+// ── Official Minecraft Launcher account import ──────────────────────
+// The official launcher keeps its accounts in <.minecraft>/launcher_accounts.json:
+// profile (uuid + name), an avatar PNG, and — while it has a live session —
+// the Minecraft access token with its expiry. The Microsoft refresh token
+// lives encrypted in launcher_msa_credentials.bin and can't be used, so an
+// imported account is only as fresh as the official launcher's last sign-in
+// (tokens last ~24h). We re-read the file whenever we need a token.
+function _officialLauncherAccountsFile() {
+  return path.join(getDefaultMcDir(), 'launcher_accounts.json');
+}
+
+function _readOfficialLauncherAccounts() {
+  try {
+    const p = _officialLauncherAccountsFile();
+    if (!fs.existsSync(p)) return [];
+    const raw = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    const list = raw && raw.accounts && typeof raw.accounts === 'object' ? Object.values(raw.accounts) : [];
+    const activeLocalId = raw?.activeAccountLocalId || null;
+    const out = [];
+    for (const a of list) {
+      const prof = a && a.minecraftProfile;
+      if (!prof || !prof.id || !prof.name) continue;
+      const exp = a.accessTokenExpiresAt ? Date.parse(a.accessTokenExpiresAt) : 0;
+      const token = typeof a.accessToken === 'string' && a.accessToken.length > 20 ? a.accessToken : null;
+      out.push({
+        uuid: String(prof.id).replace(/-/g, '').toLowerCase(),
+        username: prof.name,
+        accessToken: token,
+        expiresAt: Number.isFinite(exp) ? exp : 0,
+        active: !!activeLocalId && a.localId === activeLocalId,
+        avatar: typeof a.avatar === 'string' && a.avatar.length > 100 ? a.avatar : null,
+      });
+    }
+    return out;
+  } catch (e) {
+    log('warn', '[LAUNCHER-IMPORT] cannot read launcher_accounts.json: ' + e.message);
+    return [];
+  }
+}
+
+function _launcherTokenIsLive(entry) {
+  return !!(entry && entry.accessToken && entry.expiresAt - Date.now() > REFRESH_BUFFER_MS);
+}
+
+// Mirror the official launcher's accounts into Icey's store as type
+// 'launcher'. A real Microsoft login in Icey (has its own refresh token)
+// is never replaced by an import. Returns what changed.
+function importOfficialLauncherAccounts() {
+  const settings = readSettings();
+  if (settings.useLauncherLogin === false) return { imported: 0, updated: 0, activated: null, found: 0 };
+  const found = _readOfficialLauncherAccounts();
+  if (!found.length) return { imported: 0, updated: 0, activated: null, found: 0 };
+  const store = readAuthStore();
+  let imported = 0, updated = 0, activated = null, changed = false;
+  for (const la of found) {
+    const idx = store.accounts.findIndex(a => a.uuid === la.uuid);
+    const existing = idx >= 0 ? store.accounts[idx] : null;
+    if (existing && existing.type === 'microsoft' && existing.refreshToken) continue;
+    if (existing && existing.type === 'offline') continue;
+    const live = _launcherTokenIsLive(la);
+    if (!existing) {
+      if (store.accounts.length >= MAX_ACCOUNTS) continue;
+      store.accounts.push({
+        type: 'launcher', username: la.username, uuid: la.uuid,
+        accessToken: live ? la.accessToken : '', expiresAt: live ? la.expiresAt : 0,
+        avatar: la.avatar, loggedInAt: Date.now(), importedAt: Date.now(),
+      });
+      imported++; changed = true;
+    } else {
+      const next = { ...existing, type: 'launcher', username: la.username, avatar: la.avatar || existing.avatar || null };
+      if (live && la.accessToken !== existing.accessToken) { next.accessToken = la.accessToken; next.expiresAt = la.expiresAt; next.importedAt = Date.now(); }
+      if (JSON.stringify(next) !== JSON.stringify(existing)) { store.accounts[idx] = next; updated++; changed = true; }
+    }
+    if (!store.activeUuid && (la.active || !activated)) { store.activeUuid = la.uuid; activated = la.uuid; changed = true; }
+  }
+  if (changed) writeAuthStore(store);
+  if (imported || activated) log('info', `[LAUNCHER-IMPORT] imported ${imported}, activated ${activated || 'none'}`);
+  return { imported, updated, activated, found: found.length };
+}
+
+// Best-effort: open the official Minecraft Launcher so it refreshes its session.
+async function openOfficialLauncher() {
+  const candidates = process.platform === 'darwin'
+    ? ['/Applications/Minecraft.app', path.join(os.homedir(), 'Applications', 'Minecraft.app'),
+       // Wherever else it lives (e.g. CurseForge's bundled copy) — ask Spotlight.
+       ...(() => { try { return execSync("mdfind \"kMDItemCFBundleIdentifier == 'com.mojang.minecraftlauncher'\"", { encoding: 'utf-8', timeout: 5000 }).split('\n').map(l => l.trim()).filter(Boolean); } catch (_) { return []; } })()]
+    : process.platform === 'win32'
+      ? [path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Minecraft Launcher', 'MinecraftLauncher.exe'),
+         path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Minecraft Launcher', 'MinecraftLauncher.exe')]
+      : ['/usr/bin/minecraft-launcher', '/opt/minecraft-launcher/minecraft-launcher'];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      const err = await shell.openPath(c);
+      if (!err) return { opened: c };
+    }
+  }
+  await shell.openExternal('https://www.minecraft.net/download');
+  return { opened: null };
+}
+
 async function httpPost(url, body, contentType = 'application/x-www-form-urlencoded') {
   return new Promise((resolve, reject) => {
     const proto = url.startsWith('https') ? https : http;
@@ -3462,6 +3566,18 @@ const _refreshInflight = new Map();
 async function ensureFreshAuth(account) {
   if (!account) return null;
   if (account.type === 'offline') return account;
+  if (account.type === 'launcher') {
+    if (account.accessToken && account.expiresAt - Date.now() > REFRESH_BUFFER_MS) return account;
+    // The official launcher rewrites its file with a fresh token whenever it
+    // runs — pick that up. No other refresh path exists for this type.
+    const la = _readOfficialLauncherAccounts().find(x => x.uuid === account.uuid);
+    if (_launcherTokenIsLive(la)) {
+      const refreshed = { ...account, accessToken: la.accessToken, expiresAt: la.expiresAt, username: la.username, avatar: la.avatar || account.avatar || null, importedAt: Date.now() };
+      updateAccountInPlace(refreshed);
+      return refreshed;
+    }
+    return null;
+  }
   // Token still valid (with a few-minute buffer to avoid races).
   if (account.expiresAt && account.expiresAt - Date.now() > REFRESH_BUFFER_MS) {
     return account;
@@ -3504,6 +3620,10 @@ async function ensureFreshAuth(account) {
  *  the badge matches reality without doing a network call. */
 function canRefreshAccount(account) {
   if (!account || account.type === 'offline') return false;
+  if (account.type === 'launcher') {
+    if (account.accessToken && account.expiresAt - Date.now() > REFRESH_BUFFER_MS) return true;
+    return _launcherTokenIsLive(_readOfficialLauncherAccounts().find(x => x.uuid === account.uuid));
+  }
   if (!account.refreshToken) return false;
   if (account.loggedInAt && Date.now() - account.loggedInAt > MAX_SESSION_AGE_MS) return false;
   return true;
@@ -3515,6 +3635,9 @@ app.whenReady().then(() => {
   // If the data folder was wiped (see _restoreFromBackupIfWiped), bring
   // back login/installations/settings before anything reads them.
   const restored = _restoreFromBackupIfWiped();
+  // Pick up the account(s) from the official Minecraft Launcher so a fresh
+  // install is signed in without a separate Microsoft login.
+  try { importOfficialLauncherAccounts(); } catch (e) { log('warn', 'launcher import: ' + e.message); }
   if (restored.length) {
     log('warn', 'Data folder was empty — restored from backup: ' + restored.join(', '));
     setTimeout(() => _mcToast('Your login, installations and settings were restored from backup. Mods will re-download on next launch.', 'info'), 4000);
@@ -4574,7 +4697,15 @@ app.whenReady().then(() => {
     return { success: true };
   });
 
+  ipcMain.handle('import-launcher-accounts', () => {
+    try { return { success: true, ...importOfficialLauncherAccounts() }; } catch (e) { return { error: e.message }; }
+  });
+  ipcMain.handle('open-official-launcher', async () => {
+    try { return await openOfficialLauncher(); } catch (e) { return { error: e.message }; }
+  });
+
   ipcMain.handle('get-auth', async () => {
+    try { importOfficialLauncherAccounts(); } catch (_) {}
     const auth = readAuth();
     if (!auth) return null;
     if (auth.type === 'offline') return auth;
@@ -4588,6 +4719,7 @@ app.whenReady().then(() => {
   // accessToken is still inside its 24h window. That way an account
   // shows as launchable as long as we can silently refresh it.
   ipcMain.handle('get-accounts', () => {
+    try { importOfficialLauncherAccounts(); } catch (_) {}
     const store = readAuthStore();
     return {
       activeUuid: store.activeUuid,

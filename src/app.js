@@ -128,7 +128,9 @@ async function _updateProfileDropdown(auth) {
 
   const typeBadge = (type) => type === 'offline'
     ? '<span class="titlebar-account-type offline">Cracked</span>'
-    : '<span class="titlebar-account-type ms">MS</span>';
+    : type === 'launcher'
+      ? '<span class="titlebar-account-type ms" title="Signed in through the official Minecraft Launcher">Launcher</span>'
+      : '<span class="titlebar-account-type ms">MS</span>';
 
   const otherAccountsHtml = others.map(a => `
     <div class="titlebar-account-row">
@@ -145,6 +147,7 @@ async function _updateProfileDropdown(auth) {
   const addButtons = atMax
     ? `<div class="titlebar-maxed">Max ${accountsData.maxAccounts} accounts. Remove one to add another.</div>`
     : `
+        <button class="titlebar-dropdown-btn" onclick="_importLauncherAccounts()">+ Use Minecraft Launcher Login</button>
         <button class="titlebar-dropdown-btn" onclick="_addAccount()">+ Add Microsoft Account</button>
         <button class="titlebar-dropdown-btn" onclick="_promptAddOffline()">+ Add Cracked Account</button>
       `;
@@ -193,6 +196,16 @@ async function _addAccount() {
     await SettingsManager.set('username', result.username);
     loadNavProfile();
   }
+}
+
+async function _importLauncherAccounts() {
+  _toggleProfileDropdown();
+  const r = await window.icey.importLauncherAccounts();
+  if (r.error) { Toast.error(r.error); return; }
+  if (!r.found) { Toast.info('No account found in the Minecraft Launcher. Sign in there once, then try again.'); return; }
+  if (r.imported || r.activated) Toast.success('Using your Minecraft Launcher account');
+  else Toast.info('Minecraft Launcher account is already in the list');
+  loadNavProfile();
 }
 
 function _promptAddOffline() {

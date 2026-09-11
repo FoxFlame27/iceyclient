@@ -82,6 +82,8 @@ contextBridge.exposeInMainWorld('icey', {
   uploadSkin: (skinPath, variant) => ipcRenderer.invoke('upload-skin', skinPath, variant),
   uploadSkinFromUrl: (url, variant) => ipcRenderer.invoke('upload-skin-from-url', url, variant),
   getMcProfile: () => ipcRenderer.invoke('get-mc-profile'),
+  importLauncherAccounts: () => ipcRenderer.invoke('import-launcher-accounts'),
+  openOfficialLauncher: () => ipcRenderer.invoke('open-official-launcher'),
 
   // Info page — skin download + cape upload
   downloadSkinPng: (username) => ipcRenderer.invoke('download-skin-png', username),
