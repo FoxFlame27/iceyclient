@@ -18,20 +18,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LogoDrawer.class)
 public abstract class LogoDrawerMixin {
 
-    private static final Identifier ICEY_LOGO = Identifier.of(IceyMod.MOD_ID, "textures/gui/title/iceyclient.png");
-    private static final int SRC_W = 1536;
-    private static final int SRC_H = 1024;
 
     @Inject(method = "draw(Lnet/minecraft/client/gui/DrawContext;IFI)V", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$replaceLogo(DrawContext context, int screenWidth, float horizontalAlphaMultiplier, int yOffset, CallbackInfo ci) {
         try {
-            int targetW = Math.min(200, Math.max(64, screenWidth - 40));
-            int targetH = (int) ((long) targetW * SRC_H / SRC_W);
+            // Icey Client or Skiflame logo, depending on the launcher's mode.
+            int targetW = com.iceymod.Branding.logoTargetWidth(screenWidth);
+            int targetH = (int) ((long) targetW * com.iceymod.Branding.logoHeight() / com.iceymod.Branding.logoWidth());
             int x = Math.max(4, screenWidth / 2 - targetW / 2);
-            int y = Math.max(4, LogoDrawer.LOGO_BASE_Y + yOffset - 55);
+            int y = com.iceymod.Branding.isSkiflame()
+                    ? Math.max(4, LogoDrawer.LOGO_BASE_Y + yOffset - 20)
+                    : Math.max(4, LogoDrawer.LOGO_BASE_Y + yOffset - 55);
             context.drawTexture(
                     RenderPipelines.GUI_TEXTURED,
-                    ICEY_LOGO,
+                    com.iceymod.Branding.logo(),
                     x, y,
                     0f, 0f,
                     targetW, targetH,

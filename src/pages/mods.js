@@ -9,6 +9,7 @@ let _modsHasMore = true;
 let _modsCurrentQuery = '';
 let _modsActiveTab = 'mods'; // 'mods' or 'shaders'
 let _modsLastResults = [];   // last rendered browse results (for re-rendering badges)
+let _modsInstalledQuery = '';  // search text for the Installed list
 
 async function ModsPageInit() {
   const page = document.getElementById('page-mods');
@@ -88,6 +89,10 @@ async function _renderModsMainView(page, installations) {
           <div class="mods-section-header">
             <div class="mods-section-title">Installed</div>
             <span class="mods-section-count" id="mods-installed-count">0</span>
+            <div class="mods-installed-search">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="mods-installed-search" placeholder="Search installed…" value="${_modsInstalledQuery.replace(/"/g, '&quot;')}" oninput="_modsFilterInstalled(this.value)">
+            </div>
           </div>
           <div id="mods-installed-list" class="mods-installed-list"></div>
         </div>
@@ -846,9 +851,22 @@ async function _refreshInstalledMods() {
   const allItems = [...(data.mods || []), ...(data.resourcePacks || [])];
   _modsInstalledFiles = allItems;
   _rerenderBrowseResults();
+  _renderInstalledList();
+}
+
+// Type in the Installed search box → filter by mod name or file name.
+function _modsFilterInstalled(q) {
+  _modsInstalledQuery = String(q || '');
+  _renderInstalledList();
+}
+
+function _renderInstalledList() {
+  const allItems = _modsInstalledFiles || [];
+  const q = _modsInstalledQuery.trim().toLowerCase();
+  const shown = q ? allItems.filter(i => String(i.name || '').toLowerCase().includes(q) || String(i.filename || '').toLowerCase().includes(q)) : allItems;
 
   const countEl = document.getElementById('mods-installed-count');
-  if (countEl) countEl.textContent = allItems.length;
+  if (countEl) countEl.textContent = q ? `${shown.length} / ${allItems.length}` : allItems.length;
 
   const list = document.getElementById('mods-installed-list');
   if (!list) return;
@@ -857,8 +875,12 @@ async function _refreshInstalledMods() {
     list.innerHTML = '<div class="mods-empty">No mods or resource packs installed yet.</div>';
     return;
   }
+  if (shown.length === 0) {
+    list.innerHTML = `<div class="mods-empty">Nothing installed matches "${_escapeHtml(_modsInstalledQuery.trim())}".</div>`;
+    return;
+  }
 
-  list.innerHTML = allItems.map(item => {
+  list.innerHTML = shown.map(item => {
     const size = _formatFileSize(item.size);
     const typeClass = item.type === 'mod' ? 'mod' : 'resourcepack';
     const typeLabel = item.type === 'mod' ? 'Mod' : 'Resource Pack';

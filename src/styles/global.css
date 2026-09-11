@@ -261,3 +261,76 @@ button:not(:disabled):active {
   transform: translateY(-2px);
   border-color: rgba(91,200,245,0.35);
 }
+
+/* ─── Secret "Skiflame" skin ──────────────────────────────────────────
+   Blue-violet flames on a sunset. Accent colour is set from JS
+   (SettingsManager._applyAccent); everything else lives here. */
+:root[data-skin="skiflame"] {
+  --accent-frost: #c9c3ff;
+  --skiflame-orange: #ff8a3d;
+  --skiflame-purple: #9b5cff;
+  --skiflame-blue: #4f7bff;
+}
+:root[data-skin="skiflame"] #page-container {
+  background: url('../assets/skiflame-bg.jpg') center/cover no-repeat fixed;
+}
+:root[data-skin="skiflame"] #page-container::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(20,8,40,0.35) 0%, rgba(10,6,24,0.55) 60%, rgba(8,4,20,0.8) 100%);
+}
+:root[data-skin="skiflame"] .titlebar-title {
+  background: linear-gradient(90deg, #6fa8ff, #b46bff 55%, #ff8a3d);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: 0.14em;
+}
+:root[data-skin="skiflame"] .launch-btn,
+:root[data-skin="skiflame"] .btn-create-submit,
+:root[data-skin="skiflame"] .mod-dl-install-btn,
+:root[data-skin="skiflame"] .modal-btn-primary,
+:root[data-skin="skiflame"] .mods-tab.active,
+:root[data-skin="skiflame"] .mods-filter-pill.active {
+  background: linear-gradient(135deg, #4f7bff 0%, #8a4dff 55%, #ff8a3d 130%);
+  color: #fff;
+  box-shadow: 0 0 28px rgba(139,77,255,0.45), 0 0 60px rgba(255,138,61,0.18);
+}
+:root[data-skin="skiflame"] .launch-btn:hover {
+  box-shadow: 0 0 40px rgba(139,77,255,0.7), 0 0 90px rgba(255,138,61,0.3);
+}
+:root[data-skin="skiflame"] .home-hero-logo.skiflame {
+  max-width: 560px;
+  filter: drop-shadow(0 10px 40px rgba(139,77,255,0.55)) drop-shadow(0 0 70px rgba(79,123,255,0.35));
+  animation: skiflameFlicker 2.8s ease-in-out infinite;
+}
+:root[data-skin="skiflame"] .home-liquid-logo-img.skiflame {
+  width: clamp(260px, 32vw, 520px);
+  filter: drop-shadow(0 16px 48px rgba(139,77,255,0.6)) drop-shadow(0 0 96px rgba(79,123,255,0.3));
+  animation: skiflameFlicker 2.8s ease-in-out infinite;
+}
+@keyframes skiflameFlicker {
+  0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 10px 40px rgba(139,77,255,0.55)) drop-shadow(0 0 70px rgba(79,123,255,0.35)); }
+  35%      { transform: translateY(-5px) scale(1.01); filter: drop-shadow(0 12px 46px rgba(180,107,255,0.7)) drop-shadow(0 0 90px rgba(255,138,61,0.28)); }
+  70%      { transform: translateY(-2px) scale(0.995); filter: drop-shadow(0 8px 36px rgba(79,123,255,0.6)) drop-shadow(0 0 60px rgba(139,77,255,0.35)); }
+}
+:root[data-skin="skiflame"] #sidebar-nav,
+:root[data-skin="skiflame"] #titlebar {
+  background: linear-gradient(180deg, rgba(18,10,40,0.92), rgba(10,6,26,0.96));
+  border-color: rgba(139,77,255,0.25);
+}
+:root[data-skin="skiflame"] .options-toggle-card.on {
+  border-color: rgba(139,77,255,0.5);
+  box-shadow: 0 0 18px rgba(139,77,255,0.25);
+}
+:root[data-skin="skiflame"] .toggle input:checked + .toggle-slider {
+  background: linear-gradient(90deg, #4f7bff, #9b5cff);
+}
+/* The SECRET row itself */
+.options-secret-btn {
+  letter-spacing: 0.18em; font-weight: 800;
+  border: 1px dashed rgba(255,255,255,0.25);
+}
+.options-secret-btn.on {
+  background: linear-gradient(135deg, #4f7bff, #8a4dff 55%, #ff8a3d 130%);
+  color: #fff; border-style: solid; border-color: transparent;
+  box-shadow: 0 0 20px rgba(139,77,255,0.45);
+}

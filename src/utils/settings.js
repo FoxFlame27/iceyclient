@@ -7,6 +7,7 @@ const SettingsManager = {
     this._applyTheme();
     this._applyAccent();
     this._applyLayout();
+    this._applySkin();
     return this._settings;
   },
 
@@ -25,6 +26,7 @@ const SettingsManager = {
     if (key === 'theme') this._applyTheme();
     if (key === 'accentColor') this._applyAccent();
     if (key === 'layoutTheme') this._applyLayout();
+    if (key === 'skiflameMode') { this._applySkin(); this._applyAccent(); }
     this._notifyListeners(key, value);
   },
 
@@ -35,6 +37,7 @@ const SettingsManager = {
     if ('theme' in obj) this._applyTheme();
     if ('accentColor' in obj) this._applyAccent();
     if ('layoutTheme' in obj) this._applyLayout();
+    if ('skiflameMode' in obj) { this._applySkin(); this._applyAccent(); }
     for (const [k, v] of Object.entries(obj)) {
       this._notifyListeners(k, v);
     }
@@ -66,8 +69,22 @@ const SettingsManager = {
     document.documentElement.setAttribute('data-layout', layout);
   },
 
+  // Secret "Skiflame" skin: flame palette, Skiflame logo + background.
+  // CSS keys off [data-skin="skiflame"] on <html>; pages read
+  // SettingsManager.isSkiflame() for the branding images.
+  isSkiflame() { return !!this._settings?.skiflameMode; },
+
+  _applySkin() {
+    const on = this.isSkiflame();
+    document.documentElement.setAttribute('data-skin', on ? 'skiflame' : 'icey');
+    document.title = on ? 'Skiflame' : 'Icey Client';
+    const t = document.querySelector('.titlebar-title');
+    if (t) t.textContent = on ? 'SKIFLAME' : 'ICEY CLIENT';
+  },
+
   _applyAccent() {
-    const color = this._settings?.accentColor || '#5bc8f5';
+    // Skiflame overrides the accent with its blue-violet flame colour.
+    const color = this.isSkiflame() ? '#7d6cff' : (this._settings?.accentColor || '#5bc8f5');
     const r = parseInt(color.slice(1, 3), 16);
     const g = parseInt(color.slice(3, 5), 16);
     const b = parseInt(color.slice(5, 7), 16);

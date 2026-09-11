@@ -41,7 +41,7 @@ public class IceyModScreen extends Screen {
     private int gearX, gearY, gearW, gearH;
 
     public IceyModScreen() {
-        super(Text.literal("Icey Client"));
+        super(Text.literal(com.iceymod.Branding.name()));
     }
 
     @Override
@@ -345,7 +345,7 @@ public class IceyModScreen extends Screen {
         super.render(context, mouseX, mouseY, delta);
 
         context.drawCenteredTextWithShadow(this.textRenderer,
-                "\u00A7b\u00A7lIcey Client \u00A77" + HudManager.getModules().size() + " modules",
+                com.iceymod.Branding.colorCode() + com.iceymod.Branding.name() + " \u00A77" + HudManager.getModules().size() + " modules",
                 this.width / 2, 10, 0xFFFFFFFF);
 
         // Gear icon texture on top of the invisible button

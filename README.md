@@ -30,6 +30,15 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.72
+
+- **Performance Boost** (Settings toggle, on by default): Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Krypton (network/ping) and Dynamic FPS, fetched for your exact Minecraft version on any Fabric installation. A copy you or Java & Stuff already have always wins; ours is skipped, never duplicated.
+- **JVM**: generational ZGC is used automatically on machines with 16 GB+ RAM and Java 21+ (smoother frame times), tuned G1 otherwise; a Garbage Collector selector lives in Settings → Advanced. Bigger JIT code cache (256 MB) for large packs. New installations start with V-Sync off and an unlimited frame rate cap; keys you've set yourself are never touched.
+- **Waypoint beams are back on 1.21.11.** Minecraft 1.21.9 changed the beacon-beam function's arguments, so the mod's call silently failed and only the floating label showed. The beam is now drawn directly with the vertex API on both versions.
+- **Search box for installed mods** on the Mods page (by mod name or file name).
+- **Account picker** shows one box (no card-in-a-card) with three stacked, readable buttons. Closing the Microsoft login window with X removes accounts whose session can't be refreshed instead of leaving them marked "expired".
+- **SECRET** button in Settings → Advanced: Skiflame mode. Flame palette, Skiflame logo and background in the launcher; Skiflame logo on the Minecraft title screen and Skiflame branding in the in-game menus. Press again to go back.
+
 ## What's new in v1.86.71
 
 **Picks up your Minecraft Launcher account.** Icey reads the account from the official Minecraft Launcher (`launcher_accounts.json`) at startup and whenever the account list is shown. Your profile (name, UUID, avatar) is imported and made active on a fresh install. If the launcher file also holds a live session token (it does on many Windows installs; the macOS launcher tested here keeps its credentials encrypted and leaves the token empty), Icey uses it directly and you never see a login screen. When no live token is there, pressing Play shows a clear "open the Minecraft Launcher once, or sign in with Microsoft here" prompt instead of silently launching offline — one Microsoft sign-in in Icey then lasts for months. A Microsoft login made in Icey is never replaced by the import. Toggle under Settings → Advanced → "Use Minecraft Launcher login"; the account menu also has "Use Minecraft Launcher Login".

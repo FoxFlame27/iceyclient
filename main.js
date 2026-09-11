@@ -1215,6 +1215,7 @@ function launchMinecraft(installationId) {
         if (skinChangerEnabled) enabledKeys.add('skinshuffle');
         if (iceyModsEnabled && healthIndicatorsEnabled) enabledKeys.add('healthindicators');
         if (architecturyEnabled) enabledKeys.add('architectury');
+        if (settings.performanceModsEnabled !== false) enabledKeys.add('perf');
         await _ensureBundledMods(installGameDir, installation.version, enabledKeys);
       } catch (e) {
         log('warn', 'Bundled mods block failed: ' + e.message);
@@ -1276,6 +1277,7 @@ function launchMinecraft(installationId) {
         const pm = _readJsonSafe(path.join(installGameDir, '.icey-javastuff.json'));
         _writeJsonSafe(path.join(installGameDir, 'config', 'iceymod-launcher.json'), {
           javaStuffEnabled: javaStuffEnabled,
+          skiflame: !!settings.skiflameMode,
           javaStuffPacks: (pm && pm.registeredPacks) || [],
         });
       } catch (_) {}
@@ -1286,6 +1288,15 @@ function launchMinecraft(installationId) {
       try {
         if (_setOptionIf(installGameDir, 'key_iris.keybind.reload', 'key.keyboard.l', v => !v || v === 'key.keyboard.r')) {
           _mcConsole('Iris "Reload Shaders" moved to L (R is Icey Cycle Perspective)', 'info');
+        }
+      } catch (_) {}
+
+      // 5e) FPS-friendly video defaults for new installations — only keys
+      // the user hasn't set: no V-Sync cap, unlimited frame rate.
+      try {
+        if (settings.performanceModsEnabled !== false) {
+          _ensureOptionDefault(installGameDir, 'enableVsync', 'false');
+          _ensureOptionDefault(installGameDir, 'maxFps', '260');
         }
       } catch (_) {}
 
@@ -1347,27 +1358,46 @@ function launchMinecraft(installationId) {
     // as MC needs it. This is what prevents two instances from freezing the
     // machine when the total heap would exceed physical RAM.
     args.push(`-Xmx${ram}M`, `-Xms512M`);
-    // High-performance G1GC tuning (Aikar-style) + network boosters.
-    // NOTE: AlwaysPreTouch intentionally omitted — it forces the JVM to commit
-    // the entire Xmx at startup, which makes running multiple instances very
-    // dangerous on anything under 16-32 GB of RAM.
+    // Garbage collector. Generational ZGC (Java 21+) gives the smoothest
+    // frame times but wants headroom, so 'auto' only picks it on machines
+    // with ≥15 GB RAM; otherwise Aikar-style G1. Settings → Advanced can
+    // force either. NOTE: AlwaysPreTouch intentionally omitted — it commits
+    // the whole Xmx at startup, dangerous with several instances on small RAM.
+    const javaMajorForGc = _javaMajorOf(javaPath);
+    const totalGb = os.totalmem() / (1024 * 1024 * 1024);
+    let gcMode = settings.gcMode || 'auto';
+    if (gcMode === 'auto') gcMode = (javaMajorForGc >= 21 && totalGb >= 15 && ram >= 4096) ? 'zgc' : 'g1';
+    if (gcMode === 'zgc' && javaMajorForGc < 21) gcMode = 'g1';
+    if (gcMode === 'zgc') {
+      args.push('-XX:+UseZGC');
+      if (javaMajorForGc < 24) args.push('-XX:+ZGenerational'); // default (and flag removed) from 24 on
+      args.push('-XX:+UnlockExperimentalVMOptions', '-XX:+PerfDisableSharedMem', '-XX:+DisableExplicitGC');
+    } else {
+      args.push(
+        '-XX:+UseG1GC',
+        '-XX:+ParallelRefProcEnabled',
+        '-XX:+UnlockExperimentalVMOptions',
+        '-XX:MaxGCPauseMillis=50',
+        '-XX:G1HeapRegionSize=32M',
+        '-XX:G1NewSizePercent=30',
+        '-XX:G1MaxNewSizePercent=40',
+        '-XX:G1ReservePercent=20',
+        '-XX:InitiatingHeapOccupancyPercent=15',
+        '-XX:G1MixedGCLiveThresholdPercent=90',
+        '-XX:G1RSetUpdatingPauseTimePercent=5',
+        '-XX:SurvivorRatio=32',
+        '-XX:+PerfDisableSharedMem',
+        '-XX:MaxTenuringThreshold=1',
+        '-XX:+DisableExplicitGC',
+        '-XX:+UseStringDeduplication'
+      );
+    }
+    log('info', `[LAUNCH] GC: ${gcMode} (Java ${javaMajorForGc}, ${totalGb.toFixed(0)} GB RAM, Xmx ${ram} MB)`);
     args.push(
-      '-XX:+UseG1GC',
-      '-XX:+ParallelRefProcEnabled',
-      '-XX:+UnlockExperimentalVMOptions',
-      '-XX:MaxGCPauseMillis=50',
-      '-XX:G1HeapRegionSize=32M',
-      '-XX:G1NewSizePercent=30',
-      '-XX:G1MaxNewSizePercent=40',
-      '-XX:G1ReservePercent=20',
-      '-XX:InitiatingHeapOccupancyPercent=15',
-      '-XX:G1MixedGCLiveThresholdPercent=90',
-      '-XX:G1RSetUpdatingPauseTimePercent=5',
-      '-XX:SurvivorRatio=32',
-      '-XX:+PerfDisableSharedMem',
-      '-XX:MaxTenuringThreshold=1',
-      '-XX:+DisableExplicitGC',
-      '-XX:+UseStringDeduplication',
+      // Bigger JIT code cache: 200-mod packs blow through the default and
+      // fall back to the interpreter for hot code.
+      '-XX:ReservedCodeCacheSize=256M',
+      '-XX:+UseCompressedOops',
       '-Djava.net.preferIPv4Stack=true',
       '-Dsun.net.inetaddr.ttl=60',
       '-Dio.netty.tcp.nodelay=true',
@@ -2048,6 +2078,16 @@ const BUNDLED_MOD_REGISTRY = [
   { key: 'architectury',     label: 'Architectury',      slug: 'architectury-api', dest: 'IceyArchitectury.jar',     stale: /^architectury.*\.jar$/i,     bundledDir: 'architectury' },
   { key: 'healthindicators', label: 'Health Indicators', slug: 'healthindicators', dest: 'IceyHealthIndicators.jar', stale: /^healthindicators.*\.jar$/i, bundledDir: 'healthindicators' },
   { key: 'skinshuffle',      label: 'SkinShuffle',       slug: 'skinshuffle',      dest: 'IceySkinShuffle.jar',      stale: /skinshuffle/i,              bundledDir: 'skinshuffle' },
+  // Performance Boost (Settings toggle). NEVER swept: if the user or a
+  // modpack already provides one of these, that copy wins and ours is
+  // skipped (see the provided-by check in _ensureBundledMods).
+  { key: 'perf', label: 'Sodium',          slug: 'sodium',          dest: 'IceyPerf-sodium.jar',          stale: /^$/, bundledDir: null },
+  { key: 'perf', label: 'Lithium',         slug: 'lithium',         dest: 'IceyPerf-lithium.jar',         stale: /^$/, bundledDir: null },
+  { key: 'perf', label: 'FerriteCore',     slug: 'ferrite-core',    dest: 'IceyPerf-ferrite-core.jar',    stale: /^$/, bundledDir: null },
+  { key: 'perf', label: 'ImmediatelyFast', slug: 'immediatelyfast', dest: 'IceyPerf-immediatelyfast.jar', stale: /^$/, bundledDir: null },
+  { key: 'perf', label: 'Entity Culling',  slug: 'entityculling',   dest: 'IceyPerf-entityculling.jar',   stale: /^$/, bundledDir: null },
+  { key: 'perf', label: 'Krypton',         slug: 'krypton',         dest: 'IceyPerf-krypton.jar',         stale: /^$/, bundledDir: null },
+  { key: 'perf', label: 'Dynamic FPS',     slug: 'dynamic-fps',     dest: 'IceyPerf-dynamic-fps.jar',     stale: /^$/, bundledDir: null },
 ];
 
 function _bundledModDirs(sub) {
@@ -4683,7 +4723,26 @@ app.whenReady().then(() => {
     try {
       return await microsoftLogin();
     } catch (e) {
-      return { error: e.message };
+      // Closing the login window with X: drop accounts that can't be used
+      // anyway (session gone, no refresh path) instead of leaving them in
+      // the list marked "expired".
+      const removed = [];
+      if (/cancel/i.test(e.message || '')) {
+        try {
+          const store = readAuthStore();
+          const keep = [];
+          for (const a of store.accounts) {
+            if (a.type !== 'offline' && !canRefreshAccount(a)) removed.push(a.username); else keep.push(a);
+          }
+          if (removed.length) {
+            store.accounts = keep;
+            if (!keep.find(a => a.uuid === store.activeUuid)) store.activeUuid = keep[0]?.uuid || null;
+            writeAuthStore(store);
+            log('info', '[AUTH] login cancelled — removed expired account(s): ' + removed.join(', '));
+          }
+        } catch (_) {}
+      }
+      return { error: e.message, removed };
     }
   });
 

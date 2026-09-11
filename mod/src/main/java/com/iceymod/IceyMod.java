@@ -62,7 +62,7 @@ public class IceyMod implements ClientModInitializer {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.86.71)");
+        System.out.println("[IceyMod] booted (build tag: v1.86.72)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -247,7 +247,7 @@ public class IceyMod implements ClientModInitializer {
                     int y = Math.max(2, windowTop - 14);
                     ctx.drawCenteredTextWithShadow(
                             client.textRenderer,
-                            net.minecraft.text.Text.literal("\u00A7b\u00A7lIcey Client"),
+                            net.minecraft.text.Text.literal(Branding.colorCode() + Branding.name()),
                             sw / 2, y,
                             0xFFFFFFFF
                     );

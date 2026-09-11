@@ -190,7 +190,10 @@ async function _addAccount() {
   _toggleProfileDropdown();
   const result = await window.icey.msLogin();
   if (result.error) {
-    Toast.error(result.error);
+    if (result.removed && result.removed.length) {
+      Toast.info('Login cancelled — removed expired account ' + result.removed.join(', '));
+      loadNavProfile();
+    } else Toast.error(result.error);
   } else {
     Toast.success('Added ' + result.username);
     await SettingsManager.set('username', result.username);
@@ -281,7 +284,10 @@ document.addEventListener('click', (e) => {
 async function _navLogin() {
   const result = await window.icey.msLogin();
   if (result.error) {
-    Toast.error(result.error);
+    if (result.removed && result.removed.length) {
+      Toast.info('Login cancelled — removed expired account ' + result.removed.join(', '));
+      loadNavProfile();
+    } else Toast.error(result.error);
   } else {
     Toast.success('Logged in as ' + result.username);
     // Update settings username

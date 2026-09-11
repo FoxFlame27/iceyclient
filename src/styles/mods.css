@@ -1351,3 +1351,38 @@
 .mods-main-view-v2 .mods-dropzone-full,
 .mods-main-view-v2 .mods-main-actions,
 .mods-main-view-v2 .mods-installed-section { display: none; }
+
+/* Search box for the Installed list (sits in the section header) */
+.mods-installed-search {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: var(--text-muted);
+  min-width: 0;
+  max-width: 220px;
+  flex: 1 1 140px;
+}
+.mods-installed-search:focus-within {
+  border-color: rgba(91, 200, 245, 0.45);
+  color: var(--accent);
+}
+.mods-installed-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+}
+.mods-installed-search input::placeholder { color: var(--text-muted); }
+.mods-section-header:has(.mods-installed-search) {
+  justify-content: flex-start;
+  gap: 10px;
+}

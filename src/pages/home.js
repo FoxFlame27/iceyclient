@@ -85,8 +85,10 @@ async function HomePageInit() {
       </div>
 
       <div class="home-liquid-side">
-        <img class="home-liquid-logo-img" src="assets/icon.png" alt="Icey Client" onerror="this.style.display='none'">
-        <div class="home-liquid-title">ICEY CLIENT</div>
+        ${SettingsManager.isSkiflame()
+          ? `<img class="home-liquid-logo-img skiflame" src="assets/skiflame-logo.png" alt="Skiflame" onerror="this.style.display='none'">`
+          : `<img class="home-liquid-logo-img" src="assets/icon.png" alt="Icey Client" onerror="this.style.display='none'">
+        <div class="home-liquid-title">ICEY CLIENT</div>`}
         <div class="home-timer ${showTimer ? '' : 'hidden'}" id="home-timer">
           <span class="home-timer-label">Playtime</span>
           <span class="home-timer-value" id="home-timer-value">00:00:00</span>
@@ -110,7 +112,7 @@ async function HomePageInit() {
       <!-- Main area: logo + button -->
       <div class="home-main">
         <div class="home-hero">
-          <img class="home-hero-logo" src="assets/text-above-playbutton.png" alt="Icey Client" onerror="this.style.display='none'">
+          <img class="home-hero-logo${SettingsManager.isSkiflame() ? ' skiflame' : ''}" src="${SettingsManager.isSkiflame() ? 'assets/skiflame-logo.png' : 'assets/text-above-playbutton.png'}" alt="${SettingsManager.isSkiflame() ? 'Skiflame' : 'Icey Client'}" onerror="this.style.display='none'">
           <div class="home-launch-bar">
             <div class="launch-bar-snow" id="launch-bar-snow"></div>
             <button class="launch-btn launch-btn-idle" id="launch-btn" onclick="HomePlayClick()">
@@ -415,9 +417,9 @@ async function _liquidOpenAccount() {
   const addHtml = atMax
     ? `<div class="acct-maxed">Max ${accountsData.maxAccounts} accounts. Remove one to add another.</div>`
     : `<div class="acct-add-row">
-         <button class="acct-add-btn ms" onclick="_liquidImportLauncher()">+ Minecraft Launcher</button>
-         <button class="acct-add-btn ms" onclick="_liquidAddMicrosoft()">+ Add Microsoft</button>
-         <button class="acct-add-btn cracked" onclick="_liquidAddCracked()">+ Add Cracked</button>
+         <button class="acct-add-btn ms" onclick="_liquidImportLauncher()">Use Minecraft Launcher account</button>
+         <button class="acct-add-btn ms" onclick="_liquidAddMicrosoft()">Add Microsoft account</button>
+         <button class="acct-add-btn cracked" onclick="_liquidAddCracked()">Add cracked account</button>
        </div>`;
 
   const footerHtml = active
@@ -475,7 +477,14 @@ async function _liquidImportLauncher() {
 async function _liquidAddMicrosoft() {
   closeModal();
   const result = await window.icey.msLogin();
-  if (result.error) { Toast.error(result.error); return; }
+  if (result.error) {
+    if (result.removed && result.removed.length) {
+      Toast.info('Login cancelled — removed expired account ' + result.removed.join(', '));
+      if (typeof loadNavProfile === 'function') loadNavProfile();
+      HomePageInit().catch(() => {});
+    } else Toast.error(result.error);
+    return;
+  }
   Toast.success('Added ' + result.username);
   await SettingsManager.set('username', result.username);
   if (typeof loadNavProfile === 'function') loadNavProfile();

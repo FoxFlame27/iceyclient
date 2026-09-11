@@ -30,6 +30,7 @@ async function _renderMainOptions(page, settings) {
   const skinChangerEnabled = !!settings.skinChangerEnabled;
   const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
   const javaStuffEnabled = !!settings.javaStuffEnabled;
+  const perfEnabled = settings.performanceModsEnabled !== false;
   const closeOnStart = !!settings.closeLauncherOnStart;
   // Icey network — community features. Default-on, can be turned off
   // by privacy-conscious users.
@@ -137,6 +138,17 @@ async function _renderMainOptions(page, settings) {
 
       <!-- Modpack row -->
       <div class="options-toggle-row">
+        <div class="options-toggle-card ${perfEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('performanceModsEnabled', ${!perfEnabled})">
+          <div class="options-toggle-icon-svg"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Performance Boost</div>
+            <div class="options-toggle-desc">Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Krypton (ping) &amp; Dynamic FPS, matched to your version. Fabric only.</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${perfEnabled ? 'checked' : ''} onchange="_optToggleFeature('performanceModsEnabled', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
         <div class="options-toggle-card ${javaStuffEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('javaStuffEnabled', ${!javaStuffEnabled})">
           <img class="options-toggle-icon" src="assets/mods/javastuff.png" alt="Java &amp; Stuff">
           <div class="options-toggle-body">
@@ -510,6 +522,28 @@ function _renderAdvancedOptions(page, settings) {
           </div>
           <div class="options-row">
             <div class="options-row-label">
+              <span class="options-row-name">Garbage collector</span>
+              <span class="options-row-desc">Auto picks generational ZGC (smoothest frame times) on machines with 16 GB+ RAM and Java 21+, otherwise tuned G1. Force one here if you want to compare.</span>
+            </div>
+            <div class="options-row-control">
+              <select class="options-select" onchange="_optSet('gcMode', this.value)">
+                <option value="auto" ${(settings.gcMode || 'auto') === 'auto' ? 'selected' : ''}>Auto</option>
+                <option value="g1" ${settings.gcMode === 'g1' ? 'selected' : ''}>G1 (default)</option>
+                <option value="zgc" ${settings.gcMode === 'zgc' ? 'selected' : ''}>ZGC generational</option>
+              </select>
+            </div>
+          </div>
+          <div class="options-row options-secret-row">
+            <div class="options-row-label">
+              <span class="options-row-name">SECRET</span>
+              <span class="options-row-desc">${settings.skiflameMode ? 'Skiflame mode is on. Flame theme, Skiflame logo and background, in the launcher and in-game.' : 'Don\'t press this.'}</span>
+            </div>
+            <div class="options-row-control">
+              <button class="options-btn options-secret-btn ${settings.skiflameMode ? 'on' : ''}" onclick="_optToggleSkiflame()">${settings.skiflameMode ? 'Skiflame ON' : 'SECRET'}</button>
+            </div>
+          </div>
+          <div class="options-row">
+            <div class="options-row-label">
               <span class="options-row-name">Use Minecraft Launcher login</span>
               <span class="options-row-desc">Sign in automatically with the account from the official Minecraft Launcher. Turn off if you only want accounts you add here.</span>
             </div>
@@ -586,6 +620,14 @@ async function _optLoadAccount() {
   }
 }
 
+async function _optToggleSkiflame() {
+  const next = !SettingsManager.get('skiflameMode');
+  await SettingsManager.set('skiflameMode', next);
+  Toast.show(next ? '🔥 Skiflame mode ON' : 'Back to Icey Client', next ? 'success' : 'info');
+  if (typeof loadNavProfile === 'function') loadNavProfile();
+  _optionsRender();
+}
+
 async function _optImportLauncher() {
   const r = await window.icey.importLauncherAccounts();
   if (r.error) { Toast.error(r.error); return; }
@@ -597,8 +639,12 @@ async function _optImportLauncher() {
 
 async function _optLogin() {
   const result = await window.icey.msLogin();
-  if (result.error) Toast.error(result.error);
-  else {
+  if (result.error) {
+    if (result.removed && result.removed.length) {
+      Toast.info('Login cancelled — removed expired account ' + result.removed.join(', '));
+      loadNavProfile(); _optLoadAccount();
+    } else Toast.error(result.error);
+  } else {
     Toast.success('Logged in as ' + result.username);
     await SettingsManager.set('username', result.username);
     loadNavProfile();
