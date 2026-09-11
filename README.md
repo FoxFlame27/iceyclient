@@ -30,6 +30,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.75
+
+**Fix: overlapping text and misaligned boxes on Windows.** The launcher used to load its fonts (Inter, Outfit) from Google Fonts at startup; when that request was slow or blocked, Windows substituted Segoe UI, whose wider letters overflowed every tightly sized label, most visibly on the login and account screens. Both fonts are now bundled inside the app, so every OS renders identical text with no network needed.
+
 ## What's new in v1.86.74
 
 **Skiflame mode, toned down.** It now changes only the background, the logo and the in-game branding. Buttons, toggles and glows follow the normal Accent Colour setting, which gains a "Flame" (orange) choice if you want that look.
