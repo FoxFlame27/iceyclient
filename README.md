@@ -1,5 +1,5 @@
 loll  pllb ty for downloading 
-get .exe for windows
+get `Icey Client Setup.exe` for windows (run once to install)
 
 ## Download iceymod+
 
@@ -29,6 +29,10 @@ get arm 64x .dmg for mac but make sure to run this command if the app says iceyc
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.86.76
+
+**Windows: real installer instead of a portable exe.** The old `Icey Client.exe` was a "portable" build that unpacked the whole 500 MB app into a temp folder on every launch — that's why it took ages to open and sometimes never showed up (antivirus scanning the unpack). The download is now `Icey Client Setup.exe`: run it once, it installs and starts instantly from then on. Installing a newer Setup over it keeps all your data.
 
 ## What's new in v1.86.75
 
