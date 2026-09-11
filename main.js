@@ -1520,6 +1520,11 @@ function launchMinecraft(installationId) {
           if (text.includes('Setting user:') || text.includes('LWJGL') || text.includes('OpenAL')) {
             if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started', launchId });
           }
+          // Plain-language explanation for "Connection refused: getsockopt" & co.
+          try {
+            _noteConnectTarget(launchId, text);
+            if (_looksLikeConnectFailure(text)) _diagnoseServerConnection(launchId).catch(() => {});
+          } catch (_) {}
         }
       });
 
@@ -1602,6 +1607,60 @@ function _mcConsole(message, level) {
 }
 function _mcToast(message, level) {
   if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'toast', level: level || 'info', message });
+}
+
+// ── Server-connection diagnostics ────────────────────────────────────
+// Minecraft prints "Connecting to <host>, <port>" then, on failure,
+// "Connection refused: getsockopt" / "Connection timed out: getsockopt"
+// (Windows wording). Those tell the user nothing. When we see one we
+// probe the same host:port from the launcher process and say plainly
+// whether the address is wrong, the server is down, or the game's Java
+// is being blocked on this PC.
+const _lastConnectTarget = new Map(); // launchId → { host, port, at }
+const _diagInflight = new Set();
+
+function _noteConnectTarget(launchId, text) {
+  const m = text.match(/Connecting to ([^\s,]+), (\d+)/);
+  if (m) _lastConnectTarget.set(launchId, { host: m[1], port: parseInt(m[2], 10), at: Date.now() });
+}
+
+function _looksLikeConnectFailure(text) {
+  return /getsockopt|Connection refused|Connection timed out|failed to connect to the server|UnknownHostException|Unknown host/i.test(text);
+}
+
+async function _diagnoseServerConnection(launchId) {
+  const target = _lastConnectTarget.get(launchId);
+  if (!target) return;
+  const key = launchId + ':' + target.host + ':' + target.port;
+  if (_diagInflight.has(key)) return;
+  _diagInflight.add(key);
+  setTimeout(() => _diagInflight.delete(key), 30000);
+  const dns = require('dns');
+  const net = require('net');
+  const label = `${target.host}:${target.port}`;
+  let addresses = [];
+  try {
+    addresses = await new Promise((resolve, reject) => dns.lookup(target.host, { all: true }, (e, a) => e ? reject(e) : resolve(a || [])));
+  } catch (_) {}
+  if (!addresses.length) {
+    _mcToast(`Can't find server "${target.host}" — the address doesn't exist. Check the spelling.`, 'error');
+    _mcConsole(`[NET] DNS lookup failed for ${target.host}: address not found`, 'error');
+    return;
+  }
+  const reachable = await new Promise((resolve) => {
+    const s = net.createConnection({ host: target.host, port: target.port, family: 4 });
+    const done = (ok) => { try { s.destroy(); } catch (_) {} resolve(ok); };
+    s.setTimeout(4000, () => done(false));
+    s.on('connect', () => done(true));
+    s.on('error', () => done(false));
+  });
+  if (reachable) {
+    _mcToast(`${label} is reachable from this PC, but Minecraft's Java was blocked from connecting — allow java.exe (in the IceyClient\\java folder) through Windows Firewall / your antivirus.`, 'error');
+    _mcConsole(`[NET] ${label} answered a test connection from the launcher, so the network is fine. The game's Java process is being blocked (firewall/antivirus).`, 'error');
+  } else {
+    _mcToast(`${label} is not answering — the server is offline or that port is closed. Nothing is wrong on this PC.`, 'error');
+    _mcConsole(`[NET] ${label}: DNS ok (${addresses.map(a => a.address).join(', ')}) but no TCP answer within 4 s → server offline / wrong port.`, 'error');
+  }
 }
 
 function _fetchJson(url, timeoutMs) {

@@ -30,6 +30,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.77
+
+- **"Connection refused: getsockopt" explained in plain words.** When Minecraft fails to reach a server, the launcher now tests the same address itself and tells you which it is: the address doesn't exist, the server is offline / port closed, or the server answers but the game's Java is being blocked on this PC (firewall / antivirus). Shown as a toast and in the console.
+- Windows download is the portable `Icey Client.exe` again for this release; the one-click installer from v1.86.76 didn't build and returns once fixed.
+
 ## What's new in v1.86.76
 
 **Windows: real installer instead of a portable exe.** The old `Icey Client.exe` was a "portable" build that unpacked the whole 500 MB app into a temp folder on every launch — that's why it took ages to open and sometimes never showed up (antivirus scanning the unpack). The download is now `Icey Client Setup.exe`: run it once, it installs and starts instantly from then on. Installing a newer Setup over it keeps all your data.
