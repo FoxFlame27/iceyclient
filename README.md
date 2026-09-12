@@ -30,6 +30,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.82
+
+- **Waypoint beams are back on 1.21.11.** The Fabric API that ships with 1.21.11 renamed its "after translucent" render phase to `END_MAIN`, so the beam renderer never hooked in (the log showed `WorldRenderEvents unavailable — waypoint beams disabled`). The hook now tries the new name too. 1.21.8 is unchanged.
+- Windows one-click installer (from v1.86.81) confirmed working on a second PC.
+
 ## What's new in v1.86.81
 
 **Windows one-click installer.** v1.86.76's installer build failed because NSIS needs a genuine `.ico` and was handed the PNG. A multi-size `icon.ico` is now bundled and the Windows download is `Icey Client Setup.exe`: run once, it installs and starts instantly from then on (the portable exe unpacked 500 MB on every launch). Installing a newer Setup over it keeps your data.

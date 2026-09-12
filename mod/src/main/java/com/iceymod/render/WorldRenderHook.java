@@ -48,25 +48,27 @@ public final class WorldRenderHook {
     };
 
     public static boolean registerAfterEntities(Consumer<Ctx> handler) {
-        return register("AFTER_ENTITIES", handler);
+        return register(handler, "AFTER_ENTITIES");
     }
 
+    /** After translucent terrain, before particles/clouds/hand — the right
+     *  slot for world overlays like waypoint beams. fabric-rendering-v1
+     *  16.x (MC 1.21.11) renamed this phase to END_MAIN ("end of the main
+     *  render pass, after translucent terrain"), so both names are tried. */
     public static boolean registerAfterTranslucent(Consumer<Ctx> handler) {
-        return register("AFTER_TRANSLUCENT", handler);
+        return register(handler, "AFTER_TRANSLUCENT", "END_MAIN");
     }
 
     /** Fabric API's "after everything visible" phase. On
      *  fabric-rendering-v1 16.x (MC 1.21.11) this is the only post-pass
-     *  injection point left — AFTER_TRANSLUCENT was removed from the
-     *  WorldRenderEvents class (verified at runtime via
-     *  NoSuchFieldException). LAST exists on every fabric-rendering-v1
-     *  version we ship for, so it's the right primary target for
-     *  overlays (health bars, waypoints, etc.). */
+     *  injection point left — AFTER_TRANSLUCENT and LAST were both removed
+     *  from the WorldRenderEvents class (verified at runtime via
+     *  NoSuchFieldException) and replaced by END_MAIN. */
     public static boolean registerLast(Consumer<Ctx> handler) {
-        return register("LAST", handler);
+        return register(handler, "LAST", "END_MAIN");
     }
 
-    private static boolean register(String fieldName, Consumer<Ctx> handler) {
+    private static boolean register(Consumer<Ctx> handler, String... fieldNames) {
         Class<?> eventsClass = null;
         for (String path : EVENTS_PATHS) {
             try { eventsClass = Class.forName(path); break; }
@@ -77,8 +79,20 @@ public final class WorldRenderHook {
             return false;
         }
 
+        // Pick the first phase name this Fabric API version actually has
+        // (AFTER_TRANSLUCENT/LAST on 1.21.8, END_MAIN on 1.21.11+).
+        String fieldName = null;
+        Field eventField = null;
+        for (String candidate : fieldNames) {
+            try { eventField = eventsClass.getField(candidate); fieldName = candidate; break; }
+            catch (NoSuchFieldException ignored) {}
+        }
+        if (eventField == null) {
+            System.out.println("[IceyMod] WorldRenderHook: none of " + String.join("/", fieldNames) + " exist on " + eventsClass.getName());
+            return false;
+        }
+
         try {
-            Field eventField = eventsClass.getField(fieldName);
             Object event = eventField.get(null); // Fabric Event<X>
 
             // The listener interface is a nested class of WorldRenderEvents
