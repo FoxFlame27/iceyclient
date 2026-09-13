@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Shows hit combo counter like Lunar Client.
@@ -22,8 +22,8 @@ public class ComboCounterModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        boolean pressed = client.options.attackKey.isPressed();
+        Minecraft client = Minecraft.getInstance();
+        boolean pressed = client.options.keyAttack.isDown();
         long now = System.currentTimeMillis();
 
         // Detect new click (fresh press)
@@ -40,7 +40,7 @@ public class ComboCounterModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (combo == 0) return "\u00A780 Combo";
         String color;
         if (combo >= 20) color = "\u00A7c";

@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.Level;
 
 public class NetherCoordsModule extends HudModule {
     public NetherCoordsModule() {
@@ -11,11 +11,11 @@ public class NetherCoordsModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.player == null || client.world == null) return null;
+    public String getText(Minecraft client) {
+        if (client.player == null || client.level == null) return null;
         double x = client.player.getX();
         double z = client.player.getZ();
-        boolean inNether = client.world.getRegistryKey() == World.NETHER;
+        boolean inNether = client.level.dimension() == Level.NETHER;
         if (inNether) {
             return "\u00A7a\u2302 OW: " + (int)(x * 8) + ", " + (int)(z * 8);
         }

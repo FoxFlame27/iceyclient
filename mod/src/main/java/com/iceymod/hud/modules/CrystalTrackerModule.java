@@ -1,9 +1,9 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.EndCrystalEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 
 public class CrystalTrackerModule extends HudModule {
     public CrystalTrackerModule() {
@@ -15,12 +15,12 @@ public class CrystalTrackerModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.player == null || client.world == null) return null;
+    public String getText(Minecraft client) {
+        if (client.player == null || client.level == null) return null;
         int count = 0;
         double range = 8.0;
-        for (Entity e : client.world.getEntities()) {
-            if (e instanceof EndCrystalEntity && e.distanceTo(client.player) <= range) count++;
+        for (Entity e : client.level.entitiesForRendering()) {
+            if (e instanceof EndCrystal && e.distanceTo(client.player) <= range) count++;
         }
         String color = count >= 3 ? "\u00A7c" : count >= 1 ? "\u00A7e" : "\u00A78";
         return color + "\u2756 " + count + " Crystals";

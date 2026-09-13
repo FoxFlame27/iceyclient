@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class SessionTimeModule extends HudModule {
     private final long startTime = System.currentTimeMillis();
@@ -12,7 +12,7 @@ public class SessionTimeModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         long elapsed = (System.currentTimeMillis() - startTime) / 1000;
         long hours = elapsed / 3600;
         long mins = (elapsed % 3600) / 60;

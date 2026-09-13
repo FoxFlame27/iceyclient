@@ -1,19 +1,20 @@
 package com.iceymod.screen;
 
 import com.iceymod.hud.settings.ColorSetting;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.SliderWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
+import com.iceymod.compat.Gfx;
+import com.iceymod.compat.IceyScreen;
+import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * RGB color picker. Sliders for R/G/B, a hex text field, a big preview
  * swatch, plus a quick palette row with the ColorSetting.PALETTE colors.
  * Apply writes the ARGB value back to the setting.
  */
-public class ColorPickerScreen extends Screen {
+public class ColorPickerScreen extends IceyScreen {
 
     private final ColorSetting setting;
     private final Screen parent;
@@ -26,10 +27,10 @@ public class ColorPickerScreen extends Screen {
     private int alpha = 0xFF;
 
     private RgbSlider rSlider, gSlider, bSlider;
-    private TextFieldWidget hexField;
+    private EditBox hexField;
 
     public ColorPickerScreen(ColorSetting setting, Screen parent) {
-        super(Text.literal("Color"));
+        super(Component.literal("Color"));
         this.setting = setting;
         this.parent = parent;
         this.onApply = null;
@@ -45,7 +46,7 @@ public class ColorPickerScreen extends Screen {
      */
     public ColorPickerScreen(int initialColor, String label,
                              java.util.function.IntConsumer onApply, Screen parent) {
-        super(Text.literal(label));
+        super(Component.literal(label));
         this.setting = null;
         this.parent = parent;
         this.onApply = onApply;
@@ -74,23 +75,23 @@ public class ColorPickerScreen extends Screen {
         int gap = 8;
 
         rSlider = new RgbSlider(x, y, col, sh, "R", r, v -> { r = v; syncHex(); });
-        addDrawableChild(rSlider);
+        addRenderableWidget(rSlider);
         y += sh + gap;
 
         gSlider = new RgbSlider(x, y, col, sh, "G", g, v -> { g = v; syncHex(); });
-        addDrawableChild(gSlider);
+        addRenderableWidget(gSlider);
         y += sh + gap;
 
         bSlider = new RgbSlider(x, y, col, sh, "B", b, v -> { b = v; syncHex(); });
-        addDrawableChild(bSlider);
+        addRenderableWidget(bSlider);
         y += sh + gap * 2;
 
         // Hex input
-        hexField = new TextFieldWidget(this.textRenderer, x, y, col, sh, Text.literal("Hex"));
+        hexField = new EditBox(this.font, x, y, col, sh, Component.literal("Hex"));
         hexField.setMaxLength(8);
-        hexField.setText(String.format("%02X%02X%02X", r, g, b));
-        hexField.setChangedListener(this::onHexChanged);
-        addDrawableChild(hexField);
+        hexField.setValue(String.format("%02X%02X%02X", r, g, b));
+        hexField.setResponder(this::onHexChanged);
+        addRenderableWidget(hexField);
         y += sh + gap * 2;
 
         // Palette quick-pick row removed — user feedback: too cluttered,
@@ -98,8 +99,8 @@ public class ColorPickerScreen extends Screen {
         // known value. Save button now sits directly under the hex
         // input, taller (24px) so it's clearly the primary action.
         int saveH = 24;
-        addDrawableChild(ButtonWidget.builder(
-            Text.literal("§a§lSave"),
+        addRenderableWidget(Button.builder(
+            Component.literal("§a§lSave"),
             btn -> {
                 int packed = pack();
                 if (setting != null) setting.set(packed);
@@ -107,30 +108,30 @@ public class ColorPickerScreen extends Screen {
                 // Persist to disk — without this the color is held in
                 // memory only and reverts on next MC launch.
                 try { com.iceymod.hud.HudManager.save(); } catch (Throwable ignored) {}
-                client.setScreen(parent);
+                com.iceymod.compat.MC.setScreen(minecraft, parent);
             }
-        ).dimensions(x, y, col, saveH).build());
+        ).bounds(x, y, col, saveH).build());
         y += saveH + gap;
 
-        ButtonWidget resetBtn = ButtonWidget.builder(
-            Text.literal("Reset to Default"),
+        Button resetBtn = Button.builder(
+            Component.literal("Reset to Default"),
             btn -> {
                 int def = setting != null ? setting.getDefault() : originalValue;
                 unpack(def); syncSliders(); syncHex();
             }
-        ).dimensions(x, y, col, sh).build();
+        ).bounds(x, y, col, sh).build();
         // Hide the "Reset to Default" button on the standalone path —
         // there's no meaningful "default" for a waypoint color.
-        if (setting != null) addDrawableChild(resetBtn);
+        if (setting != null) addRenderableWidget(resetBtn);
         if (setting != null) y += sh + gap;
 
-        addDrawableChild(ButtonWidget.builder(
-            Text.literal("Cancel"),
+        addRenderableWidget(Button.builder(
+            Component.literal("Cancel"),
             btn -> {
                 if (setting != null) setting.set(originalValue);
-                client.setScreen(parent);
+                com.iceymod.compat.MC.setScreen(minecraft, parent);
             }
-        ).dimensions(x, y, col, sh).build());
+        ).bounds(x, y, col, sh).build());
     }
 
     private void syncSliders() {
@@ -142,7 +143,7 @@ public class ColorPickerScreen extends Screen {
     private void syncHex() {
         if (hexField == null) return;
         String current = String.format("%02X%02X%02X", r, g, b);
-        if (!current.equals(hexField.getText())) hexField.setText(current);
+        if (!current.equals(hexField.getValue())) hexField.setValue(current);
     }
 
     private void onHexChanged(String text) {
@@ -167,18 +168,18 @@ public class ColorPickerScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderScreenBackground(Gfx context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, 0xD0070B14);
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    protected void renderScreen(Gfx ctx, int mouseX, int mouseY, float delta) {
         // Title
-        ctx.drawCenteredTextWithShadow(this.textRenderer,
-            Text.literal("§b§l" + displayLabel),
+        ctx.drawCenteredString(this.font,
+            Component.literal("§b§l" + displayLabel),
             this.width / 2, 22, 0xFFFFFFFF);
-        ctx.drawCenteredTextWithShadow(this.textRenderer,
-            Text.literal("§7Drag sliders or type a hex value"),
+        ctx.drawCenteredString(this.font,
+            Component.literal("§7Drag sliders or type a hex value"),
             this.width / 2, 38, 0xFFAAAAAA);
 
         // Big preview swatch under the header
@@ -192,10 +193,10 @@ public class ColorPickerScreen extends Screen {
         // Hex label on the swatch (contrasting)
         String hex = String.format("#%02X%02X%02X", r, g, b);
         int textColor = isLight(color) ? 0xFF000000 : 0xFFFFFFFF;
-        ctx.drawCenteredTextWithShadow(this.textRenderer, Text.literal(hex),
+        ctx.drawCenteredString(this.font, Component.literal(hex),
             this.width / 2, swY + 7, textColor);
 
-        super.render(ctx, mouseX, mouseY, delta);
+        superRender(ctx, mouseX, mouseY, delta);
     }
 
     private static boolean isLight(int argb) {
@@ -207,17 +208,17 @@ public class ColorPickerScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     // ── R/G/B slider widget ──────────────────────────────────
     interface ChannelCallback { void accept(int newVal); }
 
-    static class RgbSlider extends SliderWidget {
+    static class RgbSlider extends AbstractSliderButton {
         private final String channel;
         private final ChannelCallback onChange;
 
         RgbSlider(int x, int y, int w, int h, String channel, int initialByte, ChannelCallback onChange) {
-            super(x, y, w, h, Text.literal(""), initialByte / 255.0);
+            super(x, y, w, h, Component.literal(""), initialByte / 255.0);
             this.channel = channel;
             this.onChange = onChange;
             this.updateMessage();
@@ -231,7 +232,7 @@ public class ColorPickerScreen extends Screen {
         @Override
         protected void updateMessage() {
             int v = (int) Math.round(this.value * 255.0);
-            this.setMessage(Text.literal(channel + ": " + v));
+            this.setMessage(Component.literal(channel + ": " + v));
         }
 
         @Override

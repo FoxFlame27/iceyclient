@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Shows the current in-game time (day/night cycle).
@@ -13,9 +13,9 @@ public class WorldTimeModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.world == null) return null;
-        long time = client.world.getTimeOfDay() % 24000;
+    public String getText(Minecraft client) {
+        if (client.level == null) return null;
+        long time = com.iceymod.compat.MC.dayTime(client.level) % 24000;
         String phase;
         String color;
         if (time < 6000) { phase = "Morning"; color = "\u00A7e"; }

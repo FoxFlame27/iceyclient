@@ -1,9 +1,9 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.HostileEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Monster;
 
 public class HostileMobsModule extends HudModule {
     public HostileMobsModule() {
@@ -12,12 +12,12 @@ public class HostileMobsModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.player == null || client.world == null) return null;
+    public String getText(Minecraft client) {
+        if (client.player == null || client.level == null) return null;
         int count = 0;
         double range = 16.0;
-        for (Entity e : client.world.getEntities()) {
-            if (e instanceof HostileEntity && e.distanceTo(client.player) <= range) count++;
+        for (Entity e : client.level.entitiesForRendering()) {
+            if (e instanceof Monster && e.distanceTo(client.player) <= range) count++;
         }
         String color = count >= 5 ? "\u00A7c" : count >= 1 ? "\u00A7e" : "\u00A7a";
         return color + "\u2620 " + count + " hostile";

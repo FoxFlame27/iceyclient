@@ -2,7 +2,7 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class DistanceWalkedModule extends HudModule {
     private static double total = 0;
@@ -31,7 +31,7 @@ public class DistanceWalkedModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (total >= 1000) return "\u00A7b\u2192 " + String.format("%.2f km", total / 1000);
         return "\u00A7b\u2192 " + String.format("%.0f m", total);
     }

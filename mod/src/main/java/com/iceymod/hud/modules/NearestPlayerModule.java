@@ -1,9 +1,9 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 
 public class NearestPlayerModule extends HudModule {
     public NearestPlayerModule() {
@@ -15,14 +15,14 @@ public class NearestPlayerModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.player == null || client.world == null) return null;
+    public String getText(Minecraft client) {
+        if (client.player == null || client.level == null) return null;
         double min = Double.MAX_VALUE;
-        PlayerEntity nearest = null;
-        for (Entity e : client.world.getEntities()) {
-            if (!(e instanceof PlayerEntity) || e == client.player) continue;
+        Player nearest = null;
+        for (Entity e : client.level.entitiesForRendering()) {
+            if (!(e instanceof Player) || e == client.player) continue;
             double d = e.distanceTo(client.player);
-            if (d < min) { min = d; nearest = (PlayerEntity) e; }
+            if (d < min) { min = d; nearest = (Player) e; }
         }
         if (nearest == null) return "\u00A78No players";
         String color = min < 8 ? "\u00A7c" : min < 20 ? "\u00A7e" : "\u00A7a";

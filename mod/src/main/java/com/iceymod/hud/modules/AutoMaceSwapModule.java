@@ -1,9 +1,9 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /**
  * Auto-swaps to your mace when you start falling, so you never miss a
@@ -27,19 +27,19 @@ public class AutoMaceSwapModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null) return;
 
-        boolean airborne = !client.player.isOnGround() && client.player.fallDistance > 1.0f;
+        boolean airborne = !client.player.onGround() && client.player.fallDistance > 1.0f;
 
         if (airborne && !wasAirborne) {
             // Started falling — look for a mace to swap to
-            if (!client.player.getMainHandStack().isOf(Items.MACE)) {
+            if (!client.player.getMainHandItem().is(Items.MACE)) {
                 var inv = client.player.getInventory();
                 int currentSlot = client.player.getInventory().getSelectedSlot();
                 for (int i = 0; i < 9; i++) {
-                    ItemStack s = inv.getStack(i);
-                    if (s.isOf(Items.MACE)) {
+                    ItemStack s = inv.getItem(i);
+                    if (s.is(Items.MACE)) {
                         previousSlot = currentSlot;
                         inv.setSelectedSlot(i);
                         break;
@@ -56,8 +56,8 @@ public class AutoMaceSwapModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Shows food saturation level (hidden stat).
@@ -14,10 +14,10 @@ public class SaturationModule extends HudModule {
 
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
-        float sat = client.player.getHungerManager().getSaturationLevel();
-        int food = client.player.getHungerManager().getFoodLevel();
+        float sat = client.player.getFoodData().getSaturationLevel();
+        int food = client.player.getFoodData().getFoodLevel();
         String color;
         if (sat > 10) color = "\u00A7a";
         else if (sat > 5) color = "\u00A7e";

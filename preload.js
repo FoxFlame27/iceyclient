@@ -26,6 +26,12 @@ contextBridge.exposeInMainWorld('icey', {
   selectFile: (filters) => ipcRenderer.invoke('select-file', filters),
   copyFile: (src, dest) => ipcRenderer.invoke('copy-file', src, dest),
   getInstalledMods: (installationId) => ipcRenderer.invoke('get-installed-mods', installationId),
+  copyModsFromInstallation: (sourceId, targetId) => ipcRenderer.invoke('copy-mods-from-installation', sourceId, targetId),
+  onCopyModsProgress: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('copy-mods-progress', handler);
+    return () => ipcRenderer.removeListener('copy-mods-progress', handler);
+  },
   deleteMod: (installationId, filename) => ipcRenderer.invoke('delete-mod', installationId, filename),
   cleanupSmpMods: (installationId) => ipcRenderer.invoke('cleanup-smp-mods', installationId),
   verifyJar: (filePath, minBytes) => ipcRenderer.invoke('verify-jar', filePath, minBytes),

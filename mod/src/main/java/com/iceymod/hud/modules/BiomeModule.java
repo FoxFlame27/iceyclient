@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class BiomeModule extends HudModule {
     public BiomeModule() {
@@ -10,13 +10,13 @@ public class BiomeModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.player == null || client.world == null) return null;
+    public String getText(Minecraft client) {
+        if (client.player == null || client.level == null) return null;
         try {
-            var biome = client.world.getBiome(client.player.getBlockPos());
-            var key = biome.getKey().orElse(null);
+            var biome = client.level.getBiome(client.player.blockPosition());
+            var key = biome.unwrapKey().orElse(null);
             if (key == null) return "Unknown";
-            String path = key.getValue().getPath();
+            String path = key.identifier().getPath();
             // Capitalize and replace underscores
             String[] words = path.split("_");
             StringBuilder sb = new StringBuilder();

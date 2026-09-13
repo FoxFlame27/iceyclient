@@ -2,8 +2,8 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.settings.BoolSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.Perspective;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
 
 /**
  * True freelook. While the key is held:
@@ -21,7 +21,7 @@ public class FreelookModule extends HudModule {
     private static float cameraYaw = 0f;
     private static float cameraPitch = 0f;
     private static long blendOutEndsAt = 0;
-    private static Perspective savedPerspective = null;
+    private static CameraType savedPerspective = null;
 
     // Default OFF: first-person freelook is what users expect (camera rotates
     // while they keep walking forward). Third-person freelook looks wrong
@@ -72,15 +72,15 @@ public class FreelookModule extends HudModule {
     }
 
     /** Called by the keybind handler on key-down. */
-    public void start(MinecraftClient client) {
+    public void start(Minecraft client) {
         if (active || client == null || client.player == null) return;
         active = true;
-        cameraYaw = client.player.getYaw();
-        cameraPitch = client.player.getPitch();
+        cameraYaw = client.player.getYRot();
+        cameraPitch = client.player.getXRot();
         if (autoThirdPerson.get() && client.options != null) {
-            savedPerspective = client.options.getPerspective();
-            if (savedPerspective == Perspective.FIRST_PERSON) {
-                client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+            savedPerspective = client.options.getCameraType();
+            if (savedPerspective == CameraType.FIRST_PERSON) {
+                client.options.setCameraType(CameraType.THIRD_PERSON_BACK);
             } else {
                 savedPerspective = null; // don't restore something we didn't change
             }
@@ -88,12 +88,12 @@ public class FreelookModule extends HudModule {
     }
 
     /** Called by the keybind handler on key-up. */
-    public void stop(MinecraftClient client) {
+    public void stop(Minecraft client) {
         if (!active) return;
         active = false;
         blendOutEndsAt = System.currentTimeMillis() + BLEND_OUT_MS;
         if (savedPerspective != null && client != null && client.options != null) {
-            client.options.setPerspective(savedPerspective);
+            client.options.setCameraType(savedPerspective);
         }
         savedPerspective = null;
     }
@@ -108,9 +108,9 @@ public class FreelookModule extends HudModule {
         if (!enabled && (active || blendOutEndsAt > 0)) {
             active = false;
             blendOutEndsAt = 0;
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (savedPerspective != null && client != null && client.options != null) {
-                client.options.setPerspective(savedPerspective);
+                client.options.setCameraType(savedPerspective);
             }
             savedPerspective = null;
         }
@@ -127,8 +127,8 @@ public class FreelookModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

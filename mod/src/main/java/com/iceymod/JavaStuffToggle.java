@@ -5,10 +5,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.resource.ResourcePackManager;
-import net.minecraft.text.Text;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.packs.repository.PackRepository;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +39,7 @@ public final class JavaStuffToggle {
         return readStatus() != null;
     }
 
-    public static void toggle(MinecraftClient client) {
+    public static void toggle(Minecraft client) {
         JsonObject status = readStatus();
         if (status == null) {
             say(client, "§cJava & Stuff isn't managed here (launch from Icey Client).");
@@ -72,24 +71,24 @@ public final class JavaStuffToggle {
         }
     }
 
-    private static void setPacksEnabled(MinecraftClient client, List<String> entries, boolean enable) {
-        ResourcePackManager manager = client.getResourcePackManager();
-        manager.scanPacks();
-        Set<String> enabled = new LinkedHashSet<>(manager.getEnabledIds());
+    private static void setPacksEnabled(Minecraft client, List<String> entries, boolean enable) {
+        PackRepository manager = client.getResourcePackRepository();
+        manager.reload();
+        Set<String> enabled = new LinkedHashSet<>(manager.getSelectedIds());
         Set<String> targets = new LinkedHashSet<>(entries);
         if (enable) {
             // Re-add in the pack's order, after whatever is already on.
-            for (String id : entries) if (manager.getProfile(id) != null) enabled.add(id);
+            for (String id : entries) if (manager.getPack(id) != null) enabled.add(id);
         } else {
             enabled.removeIf(targets::contains);
         }
-        manager.setEnabledProfiles(enabled);
-        client.options.refreshResourcePacks(manager);
+        manager.setSelected(enabled);
+        client.options.updateResourcePacks(manager);
     }
 
-    private static void say(MinecraftClient client, String msg) {
+    private static void say(Minecraft client, String msg) {
         try {
-            if (client.player != null) client.player.sendMessage(Text.literal(msg), false);
+            if (client.player != null) com.iceymod.compat.Chat.message(Component.literal(msg), false);
             else System.out.println("[IceyMod] " + msg);
         } catch (Throwable ignored) {}
     }

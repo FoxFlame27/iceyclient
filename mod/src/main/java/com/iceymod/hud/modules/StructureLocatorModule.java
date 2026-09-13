@@ -4,10 +4,9 @@ import com.iceymod.hud.HudModule;
 import com.iceymod.hud.settings.BoolSetting;
 import com.iceymod.hud.settings.IntSetting;
 import com.iceymod.structure.StructureTracker;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
 
 /**
  * HUD widget that lists nearby detected structures (trial chambers,
@@ -38,22 +37,22 @@ public class StructureLocatorModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(DrawContext context, MinecraftClient client) {
+    public void render(Gfx context, Minecraft client) {
         if (!isEnabled() || client.player == null) return;
 
         List<StructureTracker.Found> all = StructureTracker.getSortedByDistance();
         if (all.isEmpty()) {
             // Minimal "scanning…" row so the user can tell the module is on and working
             String empty = "§7Scanning chunks…";
-            int tw = client.textRenderer.getWidth(empty);
+            int tw = client.font.width(empty);
             this.width = tw + 10;
             this.height = 14;
             context.fill(getX(), getY(), getX() + this.width, getY() + this.height, 0x90000000);
             context.fill(getX(), getY(), getX() + 2, getY() + this.height, 0xFF5BC8F5);
-            context.drawTextWithShadow(client.textRenderer, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
+            context.drawString(client.font, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
             return;
         }
 
@@ -66,7 +65,7 @@ public class StructureLocatorModule extends HudModule {
         int maxWidth = 0;
         int[] colors = new int[limit];
 
-        float yaw = client.player.getYaw();
+        float yaw = client.player.getYRot();
         for (int i = 0; i < limit; i++) {
             StructureTracker.Found f = all.get(i);
             double dx = f.pos.getX() - client.player.getX();
@@ -88,7 +87,7 @@ public class StructureLocatorModule extends HudModule {
 
             texts[i] = arrow + " " + f.type.label + " " + (int) dist + "m";
             colors[i] = f.type.color;
-            int tw = client.textRenderer.getWidth(texts[i]);
+            int tw = client.font.width(texts[i]);
             if (tw > maxWidth) maxWidth = tw;
         }
         this.width = maxWidth + 10;
@@ -98,7 +97,7 @@ public class StructureLocatorModule extends HudModule {
             int lineY = y + i * rowH;
             context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
             context.fill(x, lineY, x + 2, lineY + lineH, colors[i]);
-            context.drawTextWithShadow(client.textRenderer, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
+            context.drawString(client.font, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
         }
         this.height = limit * rowH - gap;
     }

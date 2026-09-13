@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.CloudRenderMode;
+import net.minecraft.client.CloudStatus;
+import net.minecraft.client.Minecraft;
 
 /**
  * Invisible FPS booster: disables cloud rendering while enabled.
@@ -20,16 +20,16 @@ public class FpsBoostCloudsModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.options == null) return;
-        if (client.options.getCloudRenderMode().getValue() != CloudRenderMode.OFF) {
-            client.options.getCloudRenderMode().setValue(CloudRenderMode.OFF);
+        if (client.options.cloudStatus().get() != CloudStatus.OFF) {
+            client.options.cloudStatus().set(CloudStatus.OFF);
         }
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

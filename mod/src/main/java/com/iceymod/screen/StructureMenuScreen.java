@@ -6,13 +6,13 @@ import com.iceymod.hud.modules.StructureLocatorModule;
 import com.iceymod.hud.modules.WaypointManager;
 import com.iceymod.hud.settings.BoolSetting;
 import com.iceymod.structure.StructureTracker;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
+import com.iceymod.compat.IceyScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * Structure Locator menu — same state-machine shape as WaypointMenuScreen
@@ -22,13 +22,13 @@ import java.util.List;
  *   WAYPOINT_LIST ▸ pick → sends to WaypointManager
  *   DELETE_LIST   ▸ pick → remove from tracker
  */
-public class StructureMenuScreen extends Screen {
+public class StructureMenuScreen extends IceyScreen {
 
     private enum State { MAIN, WAYPOINT_LIST, DELETE_LIST, TYPES }
     private State state = State.MAIN;
 
     public StructureMenuScreen() {
-        super(Text.literal("Structure Locator"));
+        super(Component.literal("Structure Locator"));
     }
 
     private StructureLocatorModule findModule() {
@@ -76,8 +76,8 @@ public class StructureMenuScreen extends Screen {
         int y = this.height / 2 - 80;
 
         String scanLabel = scanning ? "§e⏸ Pause Finding" : "§a+ Find New Structures";
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal(scanLabel),
+        addRenderableWidget(Button.builder(
+                Component.literal(scanLabel),
                 b -> {
                     if (mod != null) {
                         boolean turningOn = !mod.isEnabled();
@@ -88,10 +88,10 @@ public class StructureMenuScreen extends Screen {
                             // first launch, so existing configs may have
                             // this buried in the mid-screen info grid.
                             int mx = mod.getX(), my = mod.getY();
-                            MinecraftClient mc = MinecraftClient.getInstance();
+                            Minecraft mc = Minecraft.getInstance();
                             if (mc != null && mc.getWindow() != null) {
-                                int sw = mc.getWindow().getScaledWidth();
-                                int sh = mc.getWindow().getScaledHeight();
+                                int sw = mc.getWindow().getGuiScaledWidth();
+                                int sh = mc.getWindow().getGuiScaledHeight();
                                 if (sw > 0 && sh > 0) {
                                     boolean buriedX = mx > sw / 4 && mx < sw * 3 / 4;
                                     boolean buriedY = my > sh / 4 && my < sh * 3 / 4;
@@ -106,51 +106,51 @@ public class StructureMenuScreen extends Screen {
                     }
                     rebuild();
                 }
-        ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, y, btnW, btnH).build());
         y += btnH + gap;
 
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal("§d☑ Select Structures"),
+        addRenderableWidget(Button.builder(
+                Component.literal("§d☑ Select Structures"),
                 b -> { state = State.TYPES; rebuild(); }
-        ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, y, btnW, btnH).build());
         y += btnH + gap;
 
 
-        ButtonWidget wpBtn = ButtonWidget.builder(
-                Text.literal("§b✎ Waypoint a Structure"),
+        Button wpBtn = Button.builder(
+                Component.literal("§b✎ Waypoint a Structure"),
                 b -> { state = State.WAYPOINT_LIST; rebuild(); }
-        ).dimensions(cx - btnW / 2, y, btnW, btnH).build();
+        ).bounds(cx - btnW / 2, y, btnW, btnH).build();
         wpBtn.active = count > 0;
-        addDrawableChild(wpBtn);
+        addRenderableWidget(wpBtn);
         y += btnH + gap;
 
-        ButtonWidget delBtn = ButtonWidget.builder(
-                Text.literal("§c✖ Delete a Structure"),
+        Button delBtn = Button.builder(
+                Component.literal("§c✖ Delete a Structure"),
                 b -> { state = State.DELETE_LIST; rebuild(); }
-        ).dimensions(cx - btnW / 2, y, btnW, btnH).build();
+        ).bounds(cx - btnW / 2, y, btnW, btnH).build();
         delBtn.active = count > 0;
-        addDrawableChild(delBtn);
+        addRenderableWidget(delBtn);
         y += btnH + gap;
 
-        ButtonWidget clearBtn = ButtonWidget.builder(
-                Text.literal("§c✖ Clear All"),
+        Button clearBtn = Button.builder(
+                Component.literal("§c✖ Clear All"),
                 b -> {
                     StructureTracker.clear();
                     // Re-sweep currently-loaded chunks so anything still in
                     // range shows back up — otherwise the HUD gets stuck on
                     // "Scanning chunks…" until the player walks to new chunks.
                     StructureTracker.rescanNearby();
-                    this.close();
+                    this.onClose();
                 }
-        ).dimensions(cx - btnW / 2, y, btnW, btnH).build();
+        ).bounds(cx - btnW / 2, y, btnW, btnH).build();
         clearBtn.active = count > 0;
-        addDrawableChild(clearBtn);
+        addRenderableWidget(clearBtn);
         y += btnH + gap * 2;
 
-        addDrawableChild(ButtonWidget.builder(
-                Text.translatable("gui.cancel"),
-                b -> this.close()
-        ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
+        addRenderableWidget(Button.builder(
+                Component.translatable("gui.cancel"),
+                b -> this.onClose()
+        ).bounds(cx - btnW / 2, y, btnW, btnH).build());
     }
 
     /**
@@ -195,25 +195,25 @@ public class StructureMenuScreen extends Screen {
             int bx = cx - btnW / 2 + col * (colW + gap);
             int by = y0 + row * (btnH + gap);
             String label = (r.setting().get() ? "§a☑ " : "§7☐ ") + r.label();
-            addDrawableChild(ButtonWidget.builder(
-                    Text.literal(label),
+            addRenderableWidget(Button.builder(
+                    Component.literal(label),
                     b -> {
                         r.setting().set(!r.setting().get());
                         StructureTracker.rescanNearby();
                         rebuild();
                     }
-            ).dimensions(bx, by, colW, btnH).build());
+            ).bounds(bx, by, colW, btnH).build());
         }
 
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal("← Back"),
+        addRenderableWidget(Button.builder(
+                Component.literal("← Back"),
                 b -> { state = State.MAIN; rebuild(); }
-        ).dimensions(cx - btnW / 2, y0 + gridH + gap * 2, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, y0 + gridH + gap * 2, btnW, btnH).build());
     }
 
     private void buildList(int cx, int btnW, int btnH, int gap, String prefix, java.util.function.IntConsumer onPick) {
         List<StructureTracker.Found> all = StructureTracker.getSortedByDistance();
-        MinecraftClient c = MinecraftClient.getInstance();
+        Minecraft c = Minecraft.getInstance();
         int y = this.height / 2 - (all.size() * (btnH + gap)) / 2 - 20;
 
         for (int i = 0; i < all.size(); i++) {
@@ -227,32 +227,32 @@ public class StructureMenuScreen extends Screen {
                 dist = (int) Math.sqrt(dx * dx + dy * dy + dz * dz);
             }
             String label = prefix + "§r" + f.type.label + " §7(" + f.pos.getX() + ", " + f.pos.getY() + ", " + f.pos.getZ() + ") §8• §f" + dist + "m";
-            addDrawableChild(ButtonWidget.builder(
-                    Text.literal(label),
+            addRenderableWidget(Button.builder(
+                    Component.literal(label),
                     b -> onPick.accept(idx)
-            ).dimensions(cx - btnW / 2, y, btnW, btnH).build());
+            ).bounds(cx - btnW / 2, y, btnW, btnH).build());
             y += btnH + gap;
         }
 
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal("← Back"),
+        addRenderableWidget(Button.builder(
+                Component.literal("← Back"),
                 b -> { state = State.MAIN; rebuild(); }
-        ).dimensions(cx - btnW / 2, y + gap, btnW, btnH).build());
+        ).bounds(cx - btnW / 2, y + gap, btnW, btnH).build());
     }
 
     private void rebuild() {
-        this.clearChildren();
+        this.clearWidgets();
         this.init();
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderScreenBackground(Gfx context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, 0xC0101010);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    protected void renderScreen(Gfx context, int mouseX, int mouseY, float delta) {
+        superRender(context, mouseX, mouseY, delta);
         StructureLocatorModule mod = findModule();
         boolean scanning = mod != null && mod.isEnabled();
         int count = StructureTracker.getFound().size();
@@ -263,11 +263,11 @@ public class StructureMenuScreen extends Screen {
             case WAYPOINT_LIST -> "§b§lWaypoint a Structure";
             case DELETE_LIST -> "§b§lDelete a Structure";
         };
-        context.drawCenteredTextWithShadow(this.textRenderer, title, this.width / 2, this.height / 2 - 110, 0xFFFFFFFF);
+        context.drawCenteredString(this.font, title, this.width / 2, this.height / 2 - 110, 0xFFFFFFFF);
         String subtitle = "§7" + count + " found §8• §7scan: " + (scanning ? "§aon" : "§coff");
-        context.drawCenteredTextWithShadow(this.textRenderer, subtitle, this.width / 2, this.height / 2 - 96, 0xFFAAAAAA);
+        context.drawCenteredString(this.font, subtitle, this.width / 2, this.height / 2 - 96, 0xFFAAAAAA);
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 }

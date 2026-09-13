@@ -1,0 +1,19 @@
+How to completely remove Icey Client on Windows (every copy, even duplicates)
+
+1. Press Win + X and open "Terminal" or "Windows PowerShell".
+2. Paste this ONE line and press Enter:
+
+Get-Process -Name 'Icey Client','Icey.Client','icey-client' -ErrorAction SilentlyContinue | Stop-Process -Force; $dirs = @("$env:LOCALAPPDATA\Programs\Icey Client","$env:LOCALAPPDATA\Programs\icey-client","$env:ProgramFiles\Icey Client","${env:ProgramFiles(x86)}\Icey Client","$env:LOCALAPPDATA\icey-client-updater"); foreach ($d in $dirs) { $u = Join-Path $d 'Uninstall Icey Client.exe'; if (Test-Path $u) { Start-Process -FilePath $u -ArgumentList '/S' -Wait -ErrorAction SilentlyContinue }; if (Test-Path $d) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue } }; Get-ChildItem "$env:USERPROFILE\Downloads","$env:USERPROFILE\Desktop","$env:USERPROFILE\OneDrive\Desktop","$env:APPDATA\Microsoft\Windows\Start Menu\Programs","$env:ProgramData\Microsoft\Windows\Start Menu\Programs" -Include 'Icey*Client*' -Depth 1 -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue; foreach ($k in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) { Get-ChildItem $k -ErrorAction SilentlyContinue | Where-Object { $_.GetValue('DisplayName') -like 'Icey Client*' } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }; Write-Host 'Icey Client removed. Your accounts, installations and mods in %APPDATA%\IceyClient were kept.'
+
+What it does: closes Icey Client, runs every uninstaller it finds silently, deletes all
+install folders (installed and portable copies), deletes Icey Client .exe files and
+shortcuts in Downloads / Desktop / Start Menu, and removes the leftover
+"Apps & features" entries.
+
+It KEEPS your accounts, installations and mods (%APPDATA%\IceyClient), so you can
+install the newest Icey.Client.Setup.exe again and everything is still there.
+
+3. Only if you also want to wipe all Icey Client data (accounts, installations, mods,
+   worlds inside them) - this cannot be undone:
+
+Remove-Item -LiteralPath "$env:APPDATA\IceyClient" -Recurse -Force -ErrorAction SilentlyContinue

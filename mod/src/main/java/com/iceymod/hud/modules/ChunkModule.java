@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class ChunkModule extends HudModule {
     public ChunkModule() {
@@ -10,7 +10,7 @@ public class ChunkModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
         int cx = (int) client.player.getX() >> 4;
         int cz = (int) client.player.getZ() >> 4;

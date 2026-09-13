@@ -3,23 +3,24 @@ package com.iceymod.screen;
 import com.iceymod.IceyMod;
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.iceymod.compat.Gfx;
+import com.iceymod.compat.IceyScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
  * The main Icey Client menu, opened with Y.
  * Paginated grid of module toggles with arrow-key navigation.
  */
-public class IceyModScreen extends Screen {
+public class IceyModScreen extends IceyScreen {
 
     private static HudModule.Category currentFilter = null; // null = ALL
     private static int page = 0;
@@ -27,7 +28,7 @@ public class IceyModScreen extends Screen {
     // Persisted across rebuilds during typing so the field doesn't lose
     // text when the screen re-inits on each keystroke.
     private static String searchQuery = "";
-    private TextFieldWidget searchField;
+    private EditBox searchField;
     // Instance field so settings mode resets every time the menu is reopened.
     private boolean settingsMode = false;
 
@@ -35,13 +36,13 @@ public class IceyModScreen extends Screen {
     private int gridRows = 5;
     private int perPage = 20;
     private List<HudModule> filtered = new ArrayList<>();
-    private final List<ButtonWidget> moduleButtons = new ArrayList<>();
+    private final List<Button> moduleButtons = new ArrayList<>();
 
-    private static final Identifier GEAR_TEXTURE = Identifier.of(IceyMod.MOD_ID, "textures/gui/gear.png");
+    private static final Identifier GEAR_TEXTURE = Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/gear.png");
     private int gearX, gearY, gearW, gearH;
 
     public IceyModScreen() {
-        super(Text.literal(com.iceymod.Branding.name()));
+        super(Component.literal(com.iceymod.Branding.name()));
     }
 
     @Override
@@ -53,12 +54,12 @@ public class IceyModScreen extends Screen {
         // Search bar — between title (y=8) and category filter row (y=44).
         int searchW = 220;
         int searchH = 16;
-        searchField = new TextFieldWidget(this.textRenderer, centerX - searchW / 2, 22,
-                searchW, searchH, Text.literal(""));
+        searchField = new EditBox(this.font, centerX - searchW / 2, 22,
+                searchW, searchH, Component.literal(""));
         searchField.setMaxLength(32);
-        searchField.setPlaceholder(Text.literal("§7Search modules…"));
-        searchField.setText(searchQuery);
-        searchField.setChangedListener(s -> {
+        searchField.setHint(Component.literal("§7Search modules…"));
+        searchField.setValue(searchQuery);
+        searchField.setResponder(s -> {
             if (!s.equals(searchQuery)) {
                 searchQuery = s;
                 page = 0;
@@ -66,7 +67,7 @@ public class IceyModScreen extends Screen {
                 rebuild();
             }
         });
-        addDrawableChild(searchField);
+        addRenderableWidget(searchField);
         // If the user is mid-search, the rebuild triggered by typing
         // would otherwise leave focus on nothing — re-grab it.
         if (searchQuery != null && !searchQuery.isEmpty()) {
@@ -85,20 +86,20 @@ public class IceyModScreen extends Screen {
         int filterRowW = filterCount * filterBtnW + (filterCount - 1) * filterGap;
         int filterStartX = centerX - filterRowW / 2;
 
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal(currentFilter == null ? "\u00A7b\u00A7lALL" : "ALL"),
+        addRenderableWidget(Button.builder(
+                Component.literal(currentFilter == null ? "\u00A7b\u00A7lALL" : "ALL"),
                 btn -> { currentFilter = null; page = 0; selectedIndex = 0; rebuild(); }
-        ).dimensions(filterStartX, filterY, filterBtnW, filterBtnH).build());
+        ).bounds(filterStartX, filterY, filterBtnW, filterBtnH).build());
 
         for (int i = 0; i < cats.length; i++) {
             HudModule.Category cat = cats[i];
             int x = filterStartX + (i + 1) * (filterBtnW + filterGap);
             String name = cat.name();
             String label = currentFilter == cat ? "\u00A7b\u00A7l" + name : name;
-            addDrawableChild(ButtonWidget.builder(
-                    Text.literal(label),
+            addRenderableWidget(Button.builder(
+                    Component.literal(label),
                     btn -> { currentFilter = cat; page = 0; selectedIndex = 0; rebuild(); }
-            ).dimensions(x, filterY, filterBtnW, filterBtnH).build());
+            ).bounds(x, filterY, filterBtnW, filterBtnH).build());
         }
 
         // Filter modules: category gate + free-text name search.
@@ -151,19 +152,19 @@ public class IceyModScreen extends Screen {
             int y = gridTop + row * (btnH + gap);
 
             final int thisIdx = i;
-            ButtonWidget btn = ButtonWidget.builder(
+            Button btn = Button.builder(
                     getModuleText(module, thisIdx == selectedIndex),
                     b -> {
                         selectedIndex = thisIdx;
                         if (settingsMode) {
-                            client.setScreen(new ModuleSettingsScreen(module, this));
+                            com.iceymod.compat.MC.setScreen(minecraft, new ModuleSettingsScreen(module, this));
                         } else {
                             module.toggle();
                             b.setMessage(getModuleText(module, true));
                         }
                     }
-            ).dimensions(x, y, btnW, btnH).build();
-            addDrawableChild(btn);
+            ).bounds(x, y, btnW, btnH).build();
+            addRenderableWidget(btn);
             moduleButtons.add(btn);
         }
 
@@ -172,11 +173,11 @@ public class IceyModScreen extends Screen {
         gearH = 28;
         gearX = this.width - gearW - 10;
         gearY = 10;
-        ButtonWidget gear = ButtonWidget.builder(
-                Text.literal(""),
+        Button gear = Button.builder(
+                Component.literal(""),
                 b -> { settingsMode = !settingsMode; rebuild(); }
-        ).dimensions(gearX, gearY, gearW, gearH).build();
-        addDrawableChild(gear);
+        ).bounds(gearX, gearY, gearW, gearH).build();
+        addRenderableWidget(gear);
 
         // Pagination row
         int paginationY = sh - bottomReserved + 4;
@@ -187,52 +188,52 @@ public class IceyModScreen extends Screen {
         boolean canPrev = page > 0;
         boolean canNext = page < totalPages - 1;
 
-        ButtonWidget lessBtn = ButtonWidget.builder(
-                Text.literal(canPrev ? "\u00A7b\u25C0 Less" : "\u00A78\u25C0 Less"),
+        Button lessBtn = Button.builder(
+                Component.literal(canPrev ? "\u00A7b\u25C0 Less" : "\u00A78\u25C0 Less"),
                 btn -> { if (page > 0) { page--; selectedIndex = page * perPage; rebuild(); } }
-        ).dimensions(centerX - pagBtnW - pagGap - 50, paginationY, pagBtnW, pagBtnH).build();
+        ).bounds(centerX - pagBtnW - pagGap - 50, paginationY, pagBtnW, pagBtnH).build();
         lessBtn.active = canPrev;
-        addDrawableChild(lessBtn);
+        addRenderableWidget(lessBtn);
 
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal("\u00A77" + (page + 1) + "/" + totalPages),
+        addRenderableWidget(Button.builder(
+                Component.literal("\u00A77" + (page + 1) + "/" + totalPages),
                 btn -> {}
-        ).dimensions(centerX - 40, paginationY, 80, pagBtnH).build());
+        ).bounds(centerX - 40, paginationY, 80, pagBtnH).build());
 
-        ButtonWidget moreBtn = ButtonWidget.builder(
-                Text.literal(canNext ? "\u00A7bMore \u25B6" : "\u00A78More \u25B6"),
+        Button moreBtn = Button.builder(
+                Component.literal(canNext ? "\u00A7bMore \u25B6" : "\u00A78More \u25B6"),
                 btn -> { if (page < totalPages - 1) { page++; selectedIndex = page * perPage; rebuild(); } }
-        ).dimensions(centerX + 50 + pagGap, paginationY, pagBtnW, pagBtnH).build();
+        ).bounds(centerX + 50 + pagGap, paginationY, pagBtnW, pagBtnH).build();
         moreBtn.active = canNext;
-        addDrawableChild(moreBtn);
+        addRenderableWidget(moreBtn);
 
         // Bottom buttons
         int bottomBtnY = sh - 54;
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal("\u2699 Edit HUD Layout"),
-                btn -> client.setScreen(new HudEditScreen(this))
-        ).dimensions(centerX - 110, bottomBtnY, 220, 22).build());
+        addRenderableWidget(Button.builder(
+                Component.literal("\u2699 Edit HUD Layout"),
+                btn -> com.iceymod.compat.MC.setScreen(minecraft, new HudEditScreen(this))
+        ).bounds(centerX - 110, bottomBtnY, 220, 22).build());
 
-        addDrawableChild(ButtonWidget.builder(
-                Text.translatable("gui.done"),
-                btn -> close()
-        ).dimensions(centerX - 110, bottomBtnY + 26, 220, 22).build());
+        addRenderableWidget(Button.builder(
+                Component.translatable("gui.done"),
+                btn -> onClose()
+        ).bounds(centerX - 110, bottomBtnY + 26, 220, 22).build());
     }
 
     private void rebuild() {
-        this.clearChildren();
+        this.clearWidgets();
         this.init();
     }
 
-    private Text getModuleText(HudModule module, boolean selected) {
+    private Component getModuleText(HudModule module, boolean selected) {
         String prefix = selected ? "\u00A7b\u00BB \u00A7r" : "";
         if (settingsMode) {
             // No icons, no on/off suffix — the top-right gear already tells
             // you you're in settings mode. Just the clean module name.
-            return Text.literal(prefix + module.getName());
+            return Component.literal(prefix + module.getName());
         }
         String state = module.isEnabled() ? "\u00A7aON" : "\u00A7cOFF";
-        return Text.literal(prefix + module.getName() + ": " + state);
+        return Component.literal(prefix + module.getName() + ": " + state);
     }
 
     // GLFW key polling: 1.21.11 changed Screen.keyPressed's signature to
@@ -244,7 +245,7 @@ public class IceyModScreen extends Screen {
 
     private boolean keyEdge(int glfwKey) {
         try {
-            long handle = client.getWindow().getHandle();
+            long handle = minecraft.getWindow().handle();
             boolean down = GLFW.glfwGetKey(handle, glfwKey) == GLFW.GLFW_PRESS;
             boolean wasDown = prevKeyState.getOrDefault(glfwKey, false);
             prevKeyState.put(glfwKey, down);
@@ -287,7 +288,7 @@ public class IceyModScreen extends Screen {
             if (selectedIndex >= 0 && selectedIndex < filtered.size()) {
                 HudModule m = filtered.get(selectedIndex);
                 if (settingsMode) {
-                    client.setScreen(new ModuleSettingsScreen(m, this));
+                    com.iceymod.compat.MC.setScreen(minecraft, new ModuleSettingsScreen(m, this));
                 } else {
                     m.toggle();
                     rebuild();
@@ -335,22 +336,21 @@ public class IceyModScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderScreenBackground(Gfx context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, this.width, this.height, 0xC0101010);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderScreen(Gfx context, int mouseX, int mouseY, float delta) {
         try { pollNavigationKeys(); } catch (Throwable ignored) {}
-        super.render(context, mouseX, mouseY, delta);
+        superRender(context, mouseX, mouseY, delta);
 
-        context.drawCenteredTextWithShadow(this.textRenderer,
+        context.drawCenteredString(this.font,
                 com.iceymod.Branding.colorCode() + com.iceymod.Branding.name() + " \u00A77" + HudManager.getModules().size() + " modules",
                 this.width / 2, 10, 0xFFFFFFFF);
 
         // Gear icon texture on top of the invisible button
-        context.drawTexture(
-                RenderPipelines.GUI_TEXTURED,
+        context.blit(
                 GEAR_TEXTURE,
                 gearX, gearY,
                 0f, 0f,
@@ -359,18 +359,18 @@ public class IceyModScreen extends Screen {
         );
         // Clear ON/OFF label directly below the gear
         String state = settingsMode ? "\u00A7aON" : "\u00A77OFF";
-        context.drawCenteredTextWithShadow(this.textRenderer, state,
+        context.drawCenteredString(this.font, state,
                 gearX + gearW / 2, gearY + gearH + 3, 0xFFFFFFFF);
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         HudManager.save();
-        super.close();
+        super.onClose();
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

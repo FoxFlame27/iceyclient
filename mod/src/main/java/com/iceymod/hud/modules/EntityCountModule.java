@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 
 /**
  * Shows total loaded entity count in the world.
@@ -14,11 +14,11 @@ public class EntityCountModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.world == null) return null;
+    public String getText(Minecraft client) {
+        if (client.level == null) return null;
         int count = 0;
         try {
-            for (Entity e : client.world.getEntities()) {
+            for (Entity e : client.level.entitiesForRendering()) {
                 count++;
             }
         } catch (Exception ex) {

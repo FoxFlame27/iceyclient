@@ -4,8 +4,8 @@ import com.iceymod.hud.HudModule;
 import com.iceymod.hud.settings.ColorSetting;
 import com.iceymod.hud.settings.EnumSetting;
 import com.iceymod.hud.settings.IntSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
 
 /**
  * Custom crosshair overlay drawn on top of the vanilla one.
@@ -23,13 +23,13 @@ public class CrosshairModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(DrawContext context, MinecraftClient client) {
+    public void render(Gfx context, Minecraft client) {
         if (!isEnabled()) return;
-        int sw = client.getWindow().getScaledWidth();
-        int sh = client.getWindow().getScaledHeight();
+        int sw = client.getWindow().getGuiScaledWidth();
+        int sh = client.getWindow().getGuiScaledHeight();
         int cx = sw / 2;
         int cy = sh / 2;
         int c = color.get();

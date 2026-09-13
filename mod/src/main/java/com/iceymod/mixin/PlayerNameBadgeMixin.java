@@ -1,16 +1,16 @@
 package com.iceymod.mixin;
 
 import com.iceymod.network.IceyNetwork;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.UUID;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * Prepend an Icey Client badge character to every confirmed Icey
@@ -27,11 +27,11 @@ import java.util.UUID;
  * <p>The badge is client-side only. Non-Icey-Client players don't
  * have our mixin or font, so they see the player's name unchanged.
  */
-@Mixin(PlayerEntity.class)
+@Mixin(Player.class)
 public abstract class PlayerNameBadgeMixin {
 
     private static final String BADGE_CHAR = "";
-    private static final Identifier BADGE_FONT = Identifier.of("iceymod", "icons");
+    private static final Identifier BADGE_FONT = Identifier.fromNamespaceAndPath("iceymod", "icons");
 
     @Inject(
         method = {"getDisplayName", "method_5476"},
@@ -39,25 +39,25 @@ public abstract class PlayerNameBadgeMixin {
         cancellable = true,
         require = 0
     )
-    private void iceymod$addBadge(CallbackInfoReturnable<Text> cir) {
+    private void iceymod$addBadge(CallbackInfoReturnable<Component> cir) {
         try {
-            PlayerEntity self = (PlayerEntity) (Object) this;
-            UUID uuid = self.getUuid();
+            Player self = (Player) (Object) this;
+            UUID uuid = self.getUUID();
             if (uuid == null) return;
             if (!IceyNetwork.isOnline(uuid)) return;
 
-            Text original = cir.getReturnValue();
+            Component original = cir.getReturnValue();
             if (original == null) return;
 
             // Badge character in the custom font, then a space, then
             // the original display name. The badge keeps its own
             // styling (the font scope) while the rest of the name
             // inherits whatever the server set.
-            MutableText badge = Text.literal(BADGE_CHAR)
-                .styled(s -> iceymod$withBadgeFont(s));
-            MutableText combined = Text.empty()
+            MutableComponent badge = Component.literal(BADGE_CHAR)
+                .withStyle(s -> iceymod$withBadgeFont(s));
+            MutableComponent combined = Component.empty()
                 .append(badge)
-                .append(Text.literal(" "))
+                .append(Component.literal(" "))
                 .append(original);
             cir.setReturnValue(combined);
         } catch (Throwable ignored) {}
@@ -69,18 +69,18 @@ public abstract class PlayerNameBadgeMixin {
      * (the font id is wrapped in a {@code StyleSpriteSource.Font} record).
      * Resolve whichever overload this runtime actually has.
      */
-    private static net.minecraft.text.Style iceymod$withBadgeFont(net.minecraft.text.Style style) {
+    private static net.minecraft.network.chat.Style iceymod$withBadgeFont(net.minecraft.network.chat.Style style) {
         try {
-            for (java.lang.reflect.Method m : net.minecraft.text.Style.class.getMethods()) {
+            for (java.lang.reflect.Method m : net.minecraft.network.chat.Style.class.getMethods()) {
                 if (!"withFont".equals(m.getName()) || m.getParameterCount() != 1) continue;
                 Class<?> param = m.getParameterTypes()[0];
                 if (param == Identifier.class) {
-                    return (net.minecraft.text.Style) m.invoke(style, BADGE_FONT);
+                    return (net.minecraft.network.chat.Style) m.invoke(style, BADGE_FONT);
                 }
                 // 1.21.11+: wrap the identifier in the sprite-source record.
                 Object wrapped = iceymod$wrapFontId(param);
                 if (wrapped != null) {
-                    return (net.minecraft.text.Style) m.invoke(style, wrapped);
+                    return (net.minecraft.network.chat.Style) m.invoke(style, wrapped);
                 }
             }
         } catch (Throwable ignored) {}

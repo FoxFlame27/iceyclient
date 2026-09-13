@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
 
 public class PingModule extends HudModule {
     public PingModule() {
@@ -10,9 +10,9 @@ public class PingModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.getNetworkHandler() == null || client.player == null) return null;
-        PlayerListEntry entry = client.getNetworkHandler().getPlayerListEntry(client.player.getUuid());
+    public String getText(Minecraft client) {
+        if (client.getConnection() == null || client.player == null) return null;
+        PlayerInfo entry = client.getConnection().getPlayerInfo(client.player.getUUID());
         if (entry == null) return null;
         int latency = entry.getLatency();
         // Color code based on ping

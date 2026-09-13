@@ -2,11 +2,10 @@ package com.iceymod.hud;
 
 import com.iceymod.hud.settings.ColorSetting;
 import com.iceymod.hud.settings.Setting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
 
 public abstract class HudModule {
     public enum Category {
@@ -63,23 +62,23 @@ public abstract class HudModule {
     /**
      * Return the text to display, or null if this module uses custom rendering.
      */
-    public abstract String getText(MinecraftClient client);
+    public abstract String getText(Minecraft client);
 
     /**
      * Render this module on screen. Override for custom drawing.
      */
-    public void render(DrawContext context, MinecraftClient client) {
+    public void render(Gfx context, Minecraft client) {
         if (!enabled) return;
         String text = getText(client);
         if (text == null) return;
 
-        int textWidth = client.textRenderer.getWidth(text);
+        int textWidth = client.font.width(text);
         this.width = textWidth + 10;
         this.height = 14;
 
         context.fill(x, y, x + width, y + height, 0x90000000);
         context.fill(x, y, x + 2, y + height, barColor.get());
-        context.drawTextWithShadow(client.textRenderer, text, x + 6, y + 3, textColor.get());
+        context.drawString(client.font, text, x + 6, y + 3, textColor.get());
     }
 
     public void tick() {}

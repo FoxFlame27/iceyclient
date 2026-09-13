@@ -1,14 +1,14 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 
 public class LookingAtModule extends HudModule {
     public LookingAtModule() {
@@ -17,9 +17,9 @@ public class LookingAtModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.player == null || client.world == null) return null;
-        HitResult hit = client.crosshairTarget;
+    public String getText(Minecraft client) {
+        if (client.player == null || client.level == null) return null;
+        HitResult hit = client.hitResult;
         if (hit == null) return "\u00A78Nothing";
         if (hit instanceof EntityHitResult ehr) {
             Entity e = ehr.getEntity();
@@ -31,7 +31,7 @@ public class LookingAtModule extends HudModule {
         }
         if (hit instanceof BlockHitResult bhr) {
             BlockPos pos = bhr.getBlockPos();
-            BlockState state = client.world.getBlockState(pos);
+            BlockState state = client.level.getBlockState(pos);
             String name = state.getBlock().getName().getString();
             return "\u00A7e\u25BA " + name;
         }

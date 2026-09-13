@@ -93,6 +93,10 @@ async function _renderModsMainView(page, installations) {
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input type="text" id="mods-installed-search" placeholder="Search installed…" value="${_modsInstalledQuery.replace(/"/g, '&quot;')}" oninput="_modsFilterInstalled(this.value)">
             </div>
+            <button class="mods-copy-btn" type="button" onclick="_modsOpenCopyFrom()" title="Copy every mod from another installation, matched to this Minecraft version">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              Copy from…
+            </button>
           </div>
           <div id="mods-installed-list" class="mods-installed-list"></div>
         </div>
@@ -829,6 +833,95 @@ async function _runModDownload({ url, filename, modName, projectType, icon }) {
     return false;
   } finally {
     if (_modDlProgressOff) { try { _modDlProgressOff(); } catch (_) {} _modDlProgressOff = null; }
+  }
+}
+
+// ── "Copy from…": pull every mod of another installation into this one,
+// re-matched to this installation's Minecraft version via Modrinth. ──────
+let _copyModsOff = null;
+
+async function _modsOpenCopyFrom() {
+  const target = _modsActiveInstallation;
+  if (!target) return;
+  const installations = await window.icey.getInstallations();
+  const others = installations.filter(i => i.id !== target.id);
+  const rows = others.length
+    ? others.map(i => `
+        <button type="button" class="copy-mods-item" onclick="_modsRunCopyFrom('${i.id.replace(/'/g, "\\'")}')">
+          <span class="copy-mods-item-name">${_escapeHtml(i.name)}</span>
+          <span class="copy-mods-item-ver">${_escapeHtml(i.version || '')}${i.version && i.version !== target.version ? ' → ' + _escapeHtml(target.version) : ''}</span>
+        </button>`).join('')
+    : '<div class="mods-empty">You only have one installation.</div>';
+  showModal(`
+    <div class="mod-dl-modal">
+      <div class="mod-dl-header">
+        <div class="mod-dl-title-row">
+          <div class="mod-dl-title-block">
+            <h2 class="mod-dl-title">Copy mods into ${_escapeHtml(target.name)}</h2>
+            <div class="mod-dl-subtitle">Pick the installation to copy from. Every mod is re-downloaded in its <b>${_escapeHtml(target.version)}</b> build where one exists.</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">
+          <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+      </div>
+      <div class="mod-dl-body"><div class="copy-mods-list">${rows}</div></div>
+    </div>
+  `);
+}
+
+async function _modsRunCopyFrom(sourceId) {
+  const target = _modsActiveInstallation;
+  if (!target) return;
+  const body = document.querySelector('.mod-dl-body');
+  if (!body) return;
+  body.innerHTML = `
+    <div class="mod-dl-progress" id="copy-mods-progress">
+      <div class="mod-dl-progress-file" id="copy-mods-current">Reading mods…</div>
+      <div class="mod-dl-track"><div class="mod-dl-bar-fill indeterminate" id="copy-mods-bar" style="width:0%"></div></div>
+      <div class="mod-dl-progress-meta"><span id="copy-mods-status">Starting…</span><span class="mod-dl-progress-nums"><b id="copy-mods-count"></b></span></div>
+    </div>`;
+  if (_copyModsOff) { try { _copyModsOff(); } catch (_) {} }
+  _copyModsOff = window.icey.onCopyModsProgress((p) => {
+    const bar = document.getElementById('copy-mods-bar');
+    const cur = document.getElementById('copy-mods-current');
+    const st = document.getElementById('copy-mods-status');
+    const cnt = document.getElementById('copy-mods-count');
+    if (p.phase === 'lookup') { if (st) st.textContent = 'Matching versions on Modrinth…'; if (cur) cur.textContent = p.current || ''; return; }
+    if (bar && p.total) { bar.classList.remove('indeterminate'); bar.style.width = Math.max(2, Math.round(100 * p.done / p.total)) + '%'; }
+    if (cur && p.current) cur.textContent = p.current;
+    if (st) st.textContent = p.phase === 'done' ? 'Finished' : 'Copying…';
+    if (cnt && p.total) cnt.textContent = p.done + ' / ' + p.total;
+  });
+  try {
+    const r = await window.icey.copyModsFromInstallation(sourceId, target.id);
+    if (r && r.error) throw new Error(r.error);
+    const box = document.getElementById('copy-mods-progress');
+    const li = (arr, cls, fmt) => arr.map(x => `<li class="${cls}">${fmt(x)}</li>`).join('');
+    const ok = r.copied.length, sk = r.skipped.length, bad = r.failed.length;
+    const summaryHtml = r.total === 0
+      ? `<div class="mods-empty">${_escapeHtml(r.sourceName)} has no mods of its own to copy (mods Icey Client installs for you are managed per installation).</div>`
+      : `
+        <div class="copy-mods-summary">
+          <div class="copy-mods-summary-title">${ok} copied${sk ? ', ' + sk + ' already there' : ''}${bad ? ', ' + bad + ' not available for ' + _escapeHtml(r.targetMc) : ''}</div>
+          <ul class="copy-mods-result">
+            ${li(r.copied, 'ok', x => `<b>${_escapeHtml(x.name)}</b> <span>${_escapeHtml(x.how)}${x.disabled ? ' (kept disabled)' : ''}</span>`)}
+            ${li(r.skipped, 'skip', x => `<b>${_escapeHtml(x.name)}</b> <span>${_escapeHtml(x.reason)}</span>`)}
+            ${li(r.failed, 'bad', x => `<b>${_escapeHtml(x.name)}</b> <span>${_escapeHtml(x.reason)}</span>`)}
+          </ul>
+          ${ok ? '<div class="mod-dl-done-hint">Restart Minecraft to load them.</div>' : ''}
+        </div>
+        <button class="mod-dl-install-btn" onclick="closeModal()"><span>Done</span></button>`;
+    if (box) box.outerHTML = summaryHtml;
+    if (ok) Toast.success('Copied ' + ok + ' mod' + (ok === 1 ? '' : 's') + ' from ' + r.sourceName);
+    else if (bad && !sk) Toast.error('No mods could be matched to ' + r.targetMc);
+    await _refreshInstalledMods();
+  } catch (e) {
+    const box = document.getElementById('copy-mods-progress');
+    if (box) box.outerHTML = `<div class="mod-dl-done is-error"><div class="mod-dl-done-title">Copy failed</div><div class="mod-dl-done-sub">${_escapeHtml(e.message || String(e))}</div><button class="mod-dl-install-btn" onclick="closeModal()"><span>Close</span></button></div>`;
+    Toast.error('Copy failed: ' + (e.message || e));
+  } finally {
+    if (_copyModsOff) { try { _copyModsOff(); } catch (_) {} _copyModsOff = null; }
   }
 }
 

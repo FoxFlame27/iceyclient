@@ -1,10 +1,9 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 
 public class CpsModule extends HudModule {
     private final List<Long> leftClicks = new ArrayList<>();
@@ -21,16 +20,16 @@ public class CpsModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         long now = System.currentTimeMillis();
 
         // Detect new left clicks (attack)
-        boolean leftDown = client.options.attackKey.isPressed();
+        boolean leftDown = client.options.keyAttack.isDown();
         if (leftDown && !wasLeftPressed) leftClicks.add(now);
         wasLeftPressed = leftDown;
 
         // Detect new right clicks (use)
-        boolean rightDown = client.options.useKey.isPressed();
+        boolean rightDown = client.options.keyUse.isDown();
         if (rightDown && !wasRightPressed) rightClicks.add(now);
         wasRightPressed = rightDown;
 
@@ -40,7 +39,7 @@ public class CpsModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         return leftClicks.size() + " | " + rightClicks.size() + " CPS";
     }
 }

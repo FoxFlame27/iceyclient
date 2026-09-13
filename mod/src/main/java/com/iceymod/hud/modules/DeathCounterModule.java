@@ -2,7 +2,7 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class DeathCounterModule extends HudModule {
     private static int deaths = 0;
@@ -23,14 +23,14 @@ public class DeathCounterModule extends HudModule {
         registered = true;
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null) return;
-            boolean dead = client.player.isDead() || client.player.getHealth() <= 0;
+            boolean dead = client.player.isDeadOrDying() || client.player.getHealth() <= 0;
             if (dead && !wasDead) deaths++;
             wasDead = dead;
         });
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         return "\u00A7c\u2620 " + deaths + " deaths";
     }
 }

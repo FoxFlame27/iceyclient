@@ -6,14 +6,13 @@ import com.iceymod.hud.modules.BiomeLocatorModule;
 import com.iceymod.hud.modules.WaypointManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.BiomeKeys;
-import net.minecraft.world.chunk.WorldChunk;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.chunk.LevelChunk;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,23 +31,23 @@ import java.util.Set;
 public final class BiomeTracker {
 
     public enum BiomeType {
-        CHERRY_GROVE     ("Cherry Grove",      0xFFFF9DC4, BiomeKeys.CHERRY_GROVE),
-        MUSHROOM_FIELDS  ("Mushroom Fields",   0xFFC07DCC, BiomeKeys.MUSHROOM_FIELDS),
-        ICE_SPIKES       ("Ice Spikes",        0xFFB4DCFF, BiomeKeys.ICE_SPIKES),
-        SUNFLOWER_PLAINS ("Sunflower Plains",  0xFFFFE45A, BiomeKeys.SUNFLOWER_PLAINS),
-        BAMBOO_JUNGLE    ("Bamboo Jungle",     0xFF77BC3D, BiomeKeys.BAMBOO_JUNGLE),
-        ERODED_BADLANDS  ("Eroded Badlands",   0xFFBF6A29, BiomeKeys.ERODED_BADLANDS),
-        DEEP_DARK        ("Deep Dark",         0xFF22BBAA, BiomeKeys.DEEP_DARK),
-        PALE_GARDEN      ("Pale Garden",       0xFFD2D2C5, BiomeKeys.PALE_GARDEN),
-        DEEP_FROZEN_OCEAN("Deep Frozen Ocean", 0xFF7BBDF5, BiomeKeys.DEEP_FROZEN_OCEAN),
-        BADLANDS         ("Badlands",          0xFFD9905C, BiomeKeys.BADLANDS),
-        JUNGLE           ("Jungle",            0xFF49B349, BiomeKeys.JUNGLE),
-        SAVANNA          ("Savanna",           0xFFBDB25F, BiomeKeys.SAVANNA);
+        CHERRY_GROVE     ("Cherry Grove",      0xFFFF9DC4, Biomes.CHERRY_GROVE),
+        MUSHROOM_FIELDS  ("Mushroom Fields",   0xFFC07DCC, Biomes.MUSHROOM_FIELDS),
+        ICE_SPIKES       ("Ice Spikes",        0xFFB4DCFF, Biomes.ICE_SPIKES),
+        SUNFLOWER_PLAINS ("Sunflower Plains",  0xFFFFE45A, Biomes.SUNFLOWER_PLAINS),
+        BAMBOO_JUNGLE    ("Bamboo Jungle",     0xFF77BC3D, Biomes.BAMBOO_JUNGLE),
+        ERODED_BADLANDS  ("Eroded Badlands",   0xFFBF6A29, Biomes.ERODED_BADLANDS),
+        DEEP_DARK        ("Deep Dark",         0xFF22BBAA, Biomes.DEEP_DARK),
+        PALE_GARDEN      ("Pale Garden",       0xFFD2D2C5, Biomes.PALE_GARDEN),
+        DEEP_FROZEN_OCEAN("Deep Frozen Ocean", 0xFF7BBDF5, Biomes.DEEP_FROZEN_OCEAN),
+        BADLANDS         ("Badlands",          0xFFD9905C, Biomes.BADLANDS),
+        JUNGLE           ("Jungle",            0xFF49B349, Biomes.JUNGLE),
+        SAVANNA          ("Savanna",           0xFFBDB25F, Biomes.SAVANNA);
 
         public final String label;
         public final int color;
-        public final RegistryKey<Biome> key;
-        BiomeType(String label, int color, RegistryKey<Biome> key) {
+        public final ResourceKey<Biome> key;
+        BiomeType(String label, int color, ResourceKey<Biome> key) {
             this.label = label; this.color = color; this.key = key;
         }
     }
@@ -112,17 +111,17 @@ public final class BiomeTracker {
 
     public static void rescanNearby() {
         try {
-            MinecraftClient c = MinecraftClient.getInstance();
-            if (c == null || c.world == null || c.player == null) return;
+            Minecraft c = Minecraft.getInstance();
+            if (c == null || c.level == null || c.player == null) return;
             resetIfWorldChanged();
             int cx = c.player.getBlockX() >> 4;
             int cz = c.player.getBlockZ() >> 4;
-            int radius = c.options.getViewDistance().getValue() + 4;
+            int radius = c.options.renderDistance().get() + 4;
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
-                    WorldChunk chunk = c.world.getChunkManager().getWorldChunk(cx + dx, cz + dz);
+                    LevelChunk chunk = c.level.getChunkSource().getChunkNow(cx + dx, cz + dz);
                     if (chunk == null) continue;
-                    onChunkLoad(c.world, chunk);
+                    onChunkLoad(c.level, chunk);
                 }
             }
         } catch (Throwable ignored) {}
@@ -136,35 +135,35 @@ public final class BiomeTracker {
     }
 
     private static void resetIfWorldChanged() {
-        MinecraftClient c = MinecraftClient.getInstance();
-        if (c == null || c.world == null) return;
-        String key = c.world.getRegistryKey().getValue().toString();
+        Minecraft c = Minecraft.getInstance();
+        if (c == null || c.level == null) return;
+        String key = c.level.dimension().identifier().toString();
         if (!key.equals(currentWorldKey)) {
             currentWorldKey = key;
             // keep findings across dim switches, same as StructureTracker
         }
     }
 
-    private static void onChunkLoad(ClientWorld world, WorldChunk chunk) {
+    private static void onChunkLoad(ClientLevel world, LevelChunk chunk) {
         try {
             BiomeLocatorModule mod = getModule();
             if (mod == null || !mod.isEnabled()) return;
             resetIfWorldChanged();
-            String dim = world.getRegistryKey().getValue().toString();
-            long key = chunk.getPos().toLong();
+            String dim = world.dimension().identifier().toString();
+            long key = com.iceymod.compat.MC.chunkKey(chunk.getPos());
             synchronized (found) {
                 Set<Long> dimSet = scannedChunksByDim.computeIfAbsent(dim, k -> new HashSet<>());
                 if (!dimSet.add(key)) return;
             }
 
-            int bx = chunk.getPos().getStartX() + 8;
-            int bz = chunk.getPos().getStartZ() + 8;
+            int bx = chunk.getPos().getMinBlockX() + 8;
+            int bz = chunk.getPos().getMinBlockZ() + 8;
             BlockPos sample = new BlockPos(bx, 64, bz);
             var biomeEntry = world.getBiome(sample);
 
             for (BiomeType type : BiomeType.values()) {
                 if (!mod.isTypeEnabled(type)) continue;
-                if (biomeEntry.matchesKey(type.key)) {
+                if (biomeEntry.is(type.key)) {
                     addIfNew(type, sample, dim, mod.autoWaypoint.get());
                     break;
                 }
@@ -187,9 +186,9 @@ public final class BiomeTracker {
         }
         if (wasNew) {
             try {
-                MinecraftClient c = MinecraftClient.getInstance();
+                Minecraft c = Minecraft.getInstance();
                 if (c != null && c.player != null) {
-                    c.player.sendMessage(net.minecraft.text.Text.literal(
+                    com.iceymod.compat.Chat.message(net.minecraft.network.chat.Component.literal(
                             "§b[IceyClient] §a" + type.label + " biome found! §8(" +
                                     pos.getX() + ", ~, " + pos.getZ() + ")"), false);
                 }
@@ -206,9 +205,9 @@ public final class BiomeTracker {
     }
 
     public static List<Found> getSortedByDistance() {
-        MinecraftClient c = MinecraftClient.getInstance();
-        if (c == null || c.player == null || c.world == null) return Collections.emptyList();
-        String dim = c.world.getRegistryKey().getValue().toString();
+        Minecraft c = Minecraft.getInstance();
+        if (c == null || c.player == null || c.level == null) return Collections.emptyList();
+        String dim = c.level.dimension().identifier().toString();
         double px = c.player.getX(), pz = c.player.getZ();
         List<Found> all = getFound();
         List<Found> copy = new ArrayList<>(all.size());

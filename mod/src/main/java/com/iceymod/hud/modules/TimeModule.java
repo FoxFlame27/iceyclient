@@ -1,10 +1,9 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import net.minecraft.client.Minecraft;
 
 public class TimeModule extends HudModule {
     private final SimpleDateFormat fmt = new SimpleDateFormat("h:mm a");
@@ -15,7 +14,7 @@ public class TimeModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         return fmt.format(new Date());
     }
 }

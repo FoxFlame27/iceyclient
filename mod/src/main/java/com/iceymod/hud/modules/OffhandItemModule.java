@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 
 public class OffhandItemModule extends HudModule {
     public OffhandItemModule() {
@@ -11,10 +11,10 @@ public class OffhandItemModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
-        ItemStack s = client.player.getOffHandStack();
+        ItemStack s = client.player.getOffhandItem();
         if (s.isEmpty()) return "\u00A78Off-hand: empty";
-        return "\u00A7b\u25C4 " + s.getName().getString() + " x" + s.getCount();
+        return "\u00A7b\u25C4 " + s.getHoverName().getString() + " x" + s.getCount();
     }
 }

@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * OptiFine-style zoom. Hold the zoom keybind (default M) to zoom in.
@@ -42,8 +42,8 @@ public class ZoomModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

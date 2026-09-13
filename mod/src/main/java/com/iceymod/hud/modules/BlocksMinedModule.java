@@ -2,7 +2,7 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class BlocksMinedModule extends HudModule {
     private static int mined = 0;
@@ -18,13 +18,13 @@ public class BlocksMinedModule extends HudModule {
         if (registered) return;
         registered = true;
         PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client.player != null && player == client.player) mined++;
         });
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         return "\u00A76\u26CF " + mined + " mined";
     }
 }

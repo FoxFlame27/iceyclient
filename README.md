@@ -30,6 +30,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.83
+
+- **Icey mod on Minecraft 26.2.** The mod was rewritten against Mojang's official names (Yarn ended with 1.21.11) with a small per-era compatibility layer, so one source tree now builds jars for 1.21.8, 1.21.11 and 26.2. HUD modules, the Y menu, waypoints with beams, hitboxes, zoom, freelook, keybinds, the title-screen logo and TAB badges all work on 26.2. The launcher installs the right jar per installation.
+- **Copy mods from another installation.** New "Copy from…" button in the Mods page. Every mod of the chosen installation is looked up on Modrinth by file hash and re-downloaded in the build for *this* installation's Minecraft version; mods that aren't on Modrinth are copied as-is when their own metadata allows the version, and anything without a matching build is listed so nothing silently breaks. Disabled mods stay disabled.
+- **Settings no longer wiped on first launch.** A fresh installation's options.txt had no version stamp, so Minecraft ran its ancient-format key fixer over it, logged "Failed to load options" and dropped every setting (V-Sync, max FPS, the Iris key). The launcher now stamps the game's data version into the file.
+- **windows-fix.txt** in the repo: one PowerShell line that removes every Icey Client copy on Windows (installed, portable, shortcuts, Apps & features entries) while keeping your accounts and installations.
+
 ## What's new in v1.86.82
 
 - **Waypoint beams are back on 1.21.11.** The Fabric API that ships with 1.21.11 renamed its "after translucent" render phase to `END_MAIN`, so the beam renderer never hooked in (the log showed `WorldRenderEvents unavailable — waypoint beams disabled`). The hook now tries the new name too. 1.21.8 is unchanged.

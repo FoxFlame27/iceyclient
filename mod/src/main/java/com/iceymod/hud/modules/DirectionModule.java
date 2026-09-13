@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Shows the cardinal direction the player is facing (N/S/E/W).
@@ -13,9 +13,9 @@ public class DirectionModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
-        float yaw = client.player.getYaw();
+        float yaw = client.player.getYRot();
         // Normalize yaw to 0-360
         yaw = ((yaw % 360) + 360) % 360;
         String dir;

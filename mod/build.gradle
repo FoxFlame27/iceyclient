@@ -1,38 +1,100 @@
 plugins {
-    id 'fabric-loom' version '1.13.6'
+    // Loom 1.17 ships two plugins: '-remap' for obfuscated 1.21.x (compile
+    // against Mojang names, remap to intermediary for release) and the
+    // plain one for 26.1+ where the game is unobfuscated and nothing is
+    // remapped. Which one applies depends on minecraft_version below.
+    id 'net.fabricmc.fabric-loom-remap' version '1.17.20' apply false
+    id 'net.fabricmc.fabric-loom' version '1.17.20' apply false
 }
+
+// Two eras of Minecraft:
+//  - 1.21.x: the game is obfuscated; we compile against Mojang's official
+//    names and Loom remaps the jar to intermediary for production.
+//  - 26.x (26.1+): Mojang ships the game unobfuscated, there is no
+//    intermediary any more, no mappings at all, and Java 25 is required.
+def mcVer = project.minecraft_version
+def legacy = mcVer.startsWith('1.')
+apply plugin: (legacy ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom')
 
 version = project.mod_version
 group = project.maven_group
+def javaRelease = legacy ? 21 : 25
+def mcRange = legacy ? '>=1.21.8 <=1.21.11' : '>=26.2 <26.3'
 
 base {
-    archivesName = project.archives_base_name + '-mc' + project.minecraft_version
+    archivesName = project.archives_base_name + '-mc' + mcVer
 }
+
+// Era-specific sources: everything in src/main/java is shared and written
+// against the small compat layer in com.iceymod.compat; the layer itself
+// (and the four mixins that touch the GUI/camera APIs) has one
+// implementation per era in src/mc121/java (1.21.x) and src/mc26/java (26.x).
+//
+// Mojang's own names also changed between 1.21.8 and 1.21.11 (ResourceLocation
+// → Identifier, RenderType moved into .rendertype, ResourceKey.location() →
+// identifier(), Window.getWindow() → handle(), GraphicsStatus → GraphicsPreset).
+// The source is written in 1.21.11/26.x names; the 1.21.8 leg compiles from a
+// generated copy with those swapped back, so one source tree serves all legs.
+def eraDir = legacy ? 'src/mc121/java' : 'src/mc26/java'
+def renameBack = legacy && !mcVer.startsWith('1.21.11')
+def genSrc = layout.buildDirectory.dir('gen-src/java')
+def prepareSources = tasks.register('prepareSources', Sync) {
+    // The rename filter isn't visible to Gradle's up-to-date check, so make
+    // the version an explicit input or a 26.2 run leaves unfiltered files
+    // behind for the next 1.21.8 run.
+    inputs.property 'mcVer', mcVer
+    inputs.property 'renameBack', renameBack
+    from 'src/main/java'
+    from eraDir
+    into genSrc
+    if (renameBack) {
+        filter { String line ->
+            line.replace('net.minecraft.client.renderer.rendertype.', 'net.minecraft.client.renderer.')
+                .replaceAll(/\bRenderTypes\b/, 'RenderType')
+                .replaceAll(/\bIdentifier\b/, 'ResourceLocation')
+                .replace('.identifier()', '.location()')
+                .replace('getWindow().handle()', 'getWindow().getWindow()')
+                .replaceAll(/\bGraphicsPreset\b/, 'GraphicsStatus')
+                .replace('graphicsPreset()', 'graphicsMode()')
+        }
+    }
+}
+sourceSets.main.java.srcDirs = [genSrc]
+tasks.withType(JavaCompile).configureEach { dependsOn prepareSources }
+tasks.matching { it.name == 'sourcesJar' }.configureEach { dependsOn prepareSources }
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    minecraft "com.mojang:minecraft:${mcVer}"
+    if (legacy) {
+        mappings loom.officialMojangMappings()
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    } else {
+        implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    }
 }
 
 processResources {
     inputs.property "version", project.version
+    inputs.property "java_min", javaRelease
+    inputs.property "mc_range", mcRange
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand "version": project.version, "java_min": javaRelease, "mc_range": mcRange
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+    it.options.release = javaRelease
+    it.options.compilerArgs << '-Xmaxerrs' << '2000'
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = legacy ? JavaVersion.VERSION_21 : JavaVersion.VERSION_25
+    targetCompatibility = legacy ? JavaVersion.VERSION_21 : JavaVersion.VERSION_25
     withSourcesJar()
 }

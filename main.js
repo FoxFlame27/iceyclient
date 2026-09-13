@@ -1119,7 +1119,7 @@ function launchMinecraft(installationId) {
           }
         } else if (!_isYarnEraVersion(installation.version)) {
           log('warn', `Icey mod not available for MC ${installation.version} (new mapping system)`);
-          _mcConsole(`Icey mod isn't available for Minecraft ${installation.version} yet (Mojang changed the modding system in 26.1) — HUDs unavailable, everything else works`, 'warn');
+          _mcConsole(`No Icey mod build for Minecraft ${installation.version} yet — HUDs unavailable, everything else works`, 'warn');
         } else {
           log('warn', `Icey mod (client) jar not bundled for MC ${installation.version}`);
           _mcConsole(`Icey mod not bundled for MC ${installation.version} — HUDs unavailable`, 'warn');
@@ -1699,6 +1699,30 @@ function _fetchJson(url, timeoutMs) {
   });
 }
 
+// POST a JSON body to Modrinth (needs a User-Agent) and parse the reply.
+function _modrinthPostJson(url, obj, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(obj);
+    const parsed = new URL(url);
+    const req = https.request({
+      hostname: parsed.hostname, path: parsed.pathname + parsed.search, method: 'POST',
+      headers: { 'User-Agent': 'IceyClient/1.0.0', 'Accept': 'application/json', 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    }, (res) => {
+      let data = '';
+      res.on('data', (c) => data += c);
+      res.on('end', () => {
+        if (res.statusCode !== 200) return reject(new Error('HTTP ' + res.statusCode));
+        try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+      });
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(timeoutMs || 20000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.write(body);
+    req.end();
+  });
+}
+
 function _sha1File(filePath) {
   try { return crypto.createHash('sha1').update(fs.readFileSync(filePath)).digest('hex'); } catch (_) { return null; }
 }
@@ -1753,8 +1777,8 @@ function _readFabricModMetaFromBuffer(buf, depth) {
   return out;
 }
 
-// Minecraft 26.1 dropped intermediary mappings — jars compiled against
-// yarn (everything the Icey CI builds today) can't load there at all.
+// Minecraft 26.1 dropped intermediary mappings. Since v1.86.83 the Icey mod
+// is built per era (see mod/build.gradle), so this only decides wording now.
 function _isYarnEraVersion(mcVersion) {
   try { return _parseVersion(mcVersion)[0] < 26; } catch (_) { return true; }
 }
@@ -2338,7 +2362,6 @@ async function _ensureBundledMods(installGameDir, mcVersion, enabledKeys) {
 // range still covers the target — the loader accepts it and the compat
 // shims inside the mod handle the API drift.
 function _pickIceyJar(kind, mcVersion) {
-  if (!_isYarnEraVersion(mcVersion)) return null;
   const pattern = /^iceymod-mc(.+)-1\.0\.0\.jar$/i;
   const dirs = [path.join(__dirname, 'mod', 'build', 'libs'), DATA_DIR, path.join(__dirname, 'resources')];
   const found = [];
@@ -4119,6 +4142,127 @@ app.whenReady().then(() => {
     }
 
     return { mods, resourcePacks };
+  });
+
+  // ── Copy every mod from another installation, re-matched to this MC version ──
+  // Modrinth can look a jar up by its sha1 and hand back the newest build of
+  // the same project for another game version in one request
+  // (POST /v2/version_files/update). Jars it doesn't know are copied as-is
+  // when their own fabric.mod.json says they support the target version.
+  // Launcher-managed jars (Icey mod, Fabric API, Settings/Performance mods,
+  // Java & Stuff pack files) are skipped — the target gets its own copies.
+  ipcMain.handle('copy-mods-from-installation', async (_, sourceId, targetId) => {
+    const send = (payload) => { try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('copy-mods-progress', payload); } catch (_) {} };
+    const installations = readInstallations();
+    const src = installations.find(i => i.id === sourceId);
+    const dst = installations.find(i => i.id === targetId);
+    if (!src || !dst) return { error: 'Installation not found' };
+    if (src.id === dst.id) return { error: 'Pick a different installation to copy from' };
+    const srcGame = getInstallGameDir(src.id), dstGame = getInstallGameDir(dst.id);
+    const srcMods = path.join(srcGame, 'mods'), dstMods = path.join(dstGame, 'mods');
+    fs.mkdirSync(dstMods, { recursive: true });
+    const targetMc = dst.version;
+
+    // Files the launcher manages itself in the source installation.
+    const managed = new Set();
+    for (const mf of ['.icey-managed-mods.json', '.icey-javastuff.json']) {
+      const m = _readJsonSafe(path.join(srcGame, mf));
+      for (const f of ((m && m.files) || [])) managed.add(String(f).replace(/^mods\//, ''));
+    }
+    const isLauncherOwned = (f) => managed.has(f) || /^Icey/.test(f) || /^iceymod-mc.*\.jar$/i.test(f) || /^fabric-api.*\.jar$/i.test(f);
+
+    const jars = [];
+    try {
+      for (const f of fs.readdirSync(srcMods)) {
+        const disabled = f.endsWith('.jar.disabled');
+        if (!f.endsWith('.jar') && !disabled) continue;
+        const base = disabled ? f.slice(0, -'.disabled'.length) : f;
+        if (isLauncherOwned(base)) continue;
+        const full = path.join(srcMods, f);
+        const meta = _readFabricModMeta(full);
+        jars.push({ file: f, base, disabled, full, meta, sha1: _sha1File(full), name: (meta && meta.name) || base.replace(/\.jar$/, '') });
+      }
+    } catch (_) {}
+    const total = jars.length;
+    if (!total) return { total: 0, copied: [], skipped: [], failed: [], sourceName: src.name, targetName: dst.name, targetMc };
+
+    // One Modrinth call for every jar → newest matching build per project.
+    let matches = {};
+    let byHash = {};
+    try {
+      send({ phase: 'lookup', done: 0, total, current: 'Asking Modrinth for ' + targetMc + ' builds…' });
+      matches = await _modrinthPostJson('https://api.modrinth.com/v2/version_files/update',
+        { hashes: jars.map(j => j.sha1), algorithm: 'sha1', loaders: ['fabric'], game_versions: [targetMc] }) || {};
+      // Which jars are on Modrinth at all (to word the failure correctly).
+      try { byHash = await _modrinthPostJson('https://api.modrinth.com/v2/version_files', { hashes: jars.map(j => j.sha1), algorithm: 'sha1' }) || {}; } catch (_) {}
+    } catch (e) {
+      log('warn', '[COPY-MODS] Modrinth lookup failed: ' + e.message);
+      matches = {};
+    }
+
+    const existingIds = _buildModIdIndex(dstMods); // modId → filename already in target
+    const copied = [], skipped = [], failed = [];
+    const seen = new Set(); // same mod twice in the source folder → handle once
+    // Is this exact file (enabled or disabled) already in the target folder?
+    const alreadyThere = (filename, sha1) => {
+      for (const cand of [filename, filename + '.disabled']) {
+        const p = path.join(dstMods, cand);
+        if (fs.existsSync(p) && (!sha1 || _sha1File(p) === sha1)) return true;
+      }
+      return false;
+    };
+    let done = 0;
+    for (const j of jars) {
+      send({ phase: 'copy', done, total, current: j.name });
+      try {
+        const modId = j.meta && j.meta.id;
+        const dedupeKey = modId || j.sha1;
+        if (seen.has(dedupeKey)) { skipped.push({ name: j.name, reason: 'duplicate of another jar in ' + src.name }); done++; continue; }
+        seen.add(dedupeKey);
+        const v = matches[j.sha1];
+        const file = v && ((v.files || []).find(f => f.primary) || (v.files || [])[0]);
+        let outName = null, how = null;
+        if (file && file.url && file.filename) {
+          const resSha = (file.hashes && file.hashes.sha1) || null;
+          if (alreadyThere(file.filename, resSha)) {
+            skipped.push({ name: j.name, reason: 'already installed' }); done++; continue;
+          }
+          const res = { filename: file.filename, url: file.url, sha1: resSha };
+          await _installResolvedFile(res, path.join(dstMods, file.filename));
+          try { fs.unlinkSync(path.join(dstMods, file.filename + '.disabled')); } catch (_) {}
+          outName = file.filename; how = v.version_number ? ('Modrinth ' + v.version_number) : 'Modrinth';
+        } else {
+          const range = j.meta && j.meta.depends && j.meta.depends.minecraft;
+          const fits = !range || _satisfiesVersionRange(targetMc, range);
+          if (!fits) {
+            const onModrinth = !!byHash[j.sha1];
+            failed.push({ name: j.name, reason: onModrinth ? ('no build for ' + targetMc + ' on Modrinth') : ('needs Minecraft ' + range + ', not ' + targetMc) });
+            done++; continue;
+          }
+          if (alreadyThere(j.base, j.sha1)) {
+            skipped.push({ name: j.name, reason: 'already installed' }); done++; continue;
+          }
+          fs.copyFileSync(j.full, path.join(dstMods, j.base));
+          try { fs.unlinkSync(path.join(dstMods, j.base + '.disabled')); } catch (_) {}
+          outName = j.base; how = 'copied as-is';
+        }
+        // Replace any older copy of the same mod so Fabric doesn't see two.
+        if (modId && existingIds.has(modId) && existingIds.get(modId) !== outName) {
+          try { fs.unlinkSync(path.join(dstMods, existingIds.get(modId))); } catch (_) {}
+        }
+        if (modId) existingIds.set(modId, outName);
+        if (j.disabled) {
+          try { fs.renameSync(path.join(dstMods, outName), path.join(dstMods, outName + '.disabled')); } catch (_) {}
+        }
+        copied.push({ name: j.name, filename: outName, how, disabled: j.disabled });
+      } catch (e) {
+        failed.push({ name: j.name, reason: e.message || String(e) });
+      }
+      done++;
+    }
+    send({ phase: 'done', done, total, current: '' });
+    log('info', `[COPY-MODS] ${src.name} → ${dst.name} (${targetMc}): ${copied.length} copied, ${skipped.length} skipped, ${failed.length} failed`);
+    return { total, copied, skipped, failed, sourceName: src.name, targetName: dst.name, targetMc };
   });
 
   ipcMain.handle('delete-mod', (_, installationId, filename) => {

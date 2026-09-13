@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Always sprints when moving forward. Works by holding the sprint key
@@ -22,9 +22,9 @@ public class AutoSprintModule extends HudModule {
     @Override
     public void setEnabled(boolean enabled) {
         if (!enabled) {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client != null && client.options != null) {
-                client.options.sprintKey.setPressed(false);
+                client.options.keySprint.setDown(false);
             }
         }
         super.setEnabled(enabled);
@@ -32,18 +32,18 @@ public class AutoSprintModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.options == null) return;
-        boolean canSprint = client.options.forwardKey.isPressed()
-                && !client.player.isSneaking()
-                && !client.player.isTouchingWater()
-                && client.player.getHungerManager().getFoodLevel() > 6;
-        client.options.sprintKey.setPressed(canSprint);
+        boolean canSprint = client.options.keyUp.isDown()
+                && !client.player.isShiftKeyDown()
+                && !client.player.isInWater()
+                && client.player.getFoodData().getFoodLevel() > 6;
+        client.options.keySprint.setDown(canSprint);
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

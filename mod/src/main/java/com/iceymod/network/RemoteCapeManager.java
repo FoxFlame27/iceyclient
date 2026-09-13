@@ -1,14 +1,13 @@
 package com.iceymod.network;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
-
+import com.mojang.blaze3d.platform.NativeImage;
 import java.io.ByteArrayInputStream;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 
 /**
  * Per-player cape registry. When the cape mixin asks for another
@@ -48,7 +47,7 @@ public final class RemoteCapeManager {
                     failed.add(uuid);
                     return;
                 }
-                MinecraftClient mc = MinecraftClient.getInstance();
+                Minecraft mc = Minecraft.getInstance();
                 if (mc == null) {
                     failed.add(uuid);
                     return;
@@ -57,10 +56,10 @@ public final class RemoteCapeManager {
                     try (ByteArrayInputStream in = new ByteArrayInputStream(png)) {
                         NativeImage img = NativeImage.read(in);
                         String slug = uuid.toString().replace("-", "_").toLowerCase();
-                        Identifier texId = Identifier.of("iceymod", "remote_cape_" + slug);
-                        NativeImageBackedTexture tex = new NativeImageBackedTexture(
+                        Identifier texId = Identifier.fromNamespaceAndPath("iceymod", "remote_cape_" + slug);
+                        DynamicTexture tex = new DynamicTexture(
                             () -> "iceymod_remote_cape_" + uuid, img);
-                        mc.getTextureManager().registerTexture(texId, tex);
+                        mc.getTextureManager().register(texId, tex);
                         capes.put(uuid, texId);
                         System.out.println("[IceyMod] RemoteCapeManager: registered cape for " + uuid);
                     } catch (Throwable t) {

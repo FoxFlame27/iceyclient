@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Shows the current in-game day number and time of day.
@@ -13,9 +13,9 @@ public class DayCounterModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.world == null) return null;
-        long worldTime = client.world.getTimeOfDay();
+    public String getText(Minecraft client) {
+        if (client.level == null) return null;
+        long worldTime = com.iceymod.compat.MC.dayTime(client.level);
         long day = worldTime / 24000 + 1;
 
         // Convert to 12-hour time

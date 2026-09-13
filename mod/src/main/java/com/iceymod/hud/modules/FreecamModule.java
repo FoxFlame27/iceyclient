@@ -2,8 +2,8 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.settings.DoubleSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.Perspective;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
 
 /**
  * Spectator-style freecam: detached camera that flies around with WASD
@@ -27,7 +27,7 @@ public class FreecamModule extends HudModule {
     private static boolean active = false;
     private static double posX, posY, posZ;
     private static float yaw, pitch;
-    private static Perspective savedPerspective = null;
+    private static CameraType savedPerspective = null;
 
     // Block-per-tick base; multiplied by 20 internally to derive blocks/sec.
     public final DoubleSetting moveSpeed = addSetting(
@@ -66,57 +66,57 @@ public class FreecamModule extends HudModule {
     public static float camPitch() { return pitch; }
 
     /** Toggle on/off. Called from the keybind. */
-    public void toggle(MinecraftClient client) {
+    public void toggle(Minecraft client) {
         if (active) stop(client);
         else        start(client);
     }
 
-    public void start(MinecraftClient client) {
+    public void start(Minecraft client) {
         if (active || client == null || client.player == null) return;
         if (!isEnabled()) return;
         active = true;
         lastFrameNanos = 0L; // Reset delta-time so the first frame doesn't jump.
-        var eye = client.player.getEyePos();
+        var eye = client.player.getEyePosition();
         posX = eye.x;
         posY = eye.y;
         posZ = eye.z;
-        yaw = client.player.getYaw();
-        pitch = client.player.getPitch();
+        yaw = client.player.getYRot();
+        pitch = client.player.getXRot();
 
         if (client.options != null) {
-            savedPerspective = client.options.getPerspective();
-            if (savedPerspective == Perspective.FIRST_PERSON) {
-                client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+            savedPerspective = client.options.getCameraType();
+            if (savedPerspective == CameraType.FIRST_PERSON) {
+                client.options.setCameraType(CameraType.THIRD_PERSON_BACK);
             } else {
                 savedPerspective = null;
             }
         }
         if (client.player != null) {
-            client.player.sendMessage(
-                    net.minecraft.text.Text.literal("§b[Icey] §aFreecam ON §7— WASD to fly, key again to exit"),
+            com.iceymod.compat.Chat.message(
+                    net.minecraft.network.chat.Component.literal("§b[Icey] §aFreecam ON §7— WASD to fly, key again to exit"),
                     true);
         }
     }
 
-    public void stop(MinecraftClient client) {
+    public void stop(Minecraft client) {
         if (!active) return;
         active = false;
         loggedFirstUpdate = false;
         loggedKeyState = false;
         if (savedPerspective != null && client != null && client.options != null) {
-            client.options.setPerspective(savedPerspective);
+            client.options.setCameraType(savedPerspective);
         }
         savedPerspective = null;
         if (client != null && client.player != null) {
-            client.player.sendMessage(
-                    net.minecraft.text.Text.literal("§b[Icey] §7Freecam off"), true);
+            com.iceymod.compat.Chat.message(
+                    net.minecraft.network.chat.Component.literal("§b[Icey] §7Freecam off"), true);
         }
     }
 
     /** Disabling the module turns freecam off immediately. */
     @Override
     public void setEnabled(boolean enabled) {
-        if (!enabled && active) stop(MinecraftClient.getInstance());
+        if (!enabled && active) stop(Minecraft.getInstance());
         super.setEnabled(enabled);
     }
 
@@ -136,7 +136,7 @@ public class FreecamModule extends HudModule {
      */
     public static void updatePerFrame() {
         if (!active || INSTANCE == null) return;
-        MinecraftClient c = MinecraftClient.getInstance();
+        Minecraft c = Minecraft.getInstance();
         if (c == null || c.options == null || c.player == null) return;
 
         if (!loggedFirstUpdate) {
@@ -157,21 +157,21 @@ public class FreecamModule extends HudModule {
 
         // Don't read movement keys when a non-chat screen is open —
         // typing in inventory shouldn't fly the camera.
-        boolean inputActive = c.currentScreen == null
-                || c.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen;
+        boolean inputActive = com.iceymod.compat.MC.screen(c) == null
+                || com.iceymod.compat.MC.screen(c) instanceof net.minecraft.client.gui.screens.ChatScreen;
 
         if (inputActive && dt > 0.0) {
             // Wrap each key read in try/catch — KeyBinding.isPressed has
             // been stable for years but yarn renames hit other GameOptions
             // fields, defensive read in case it ever shifts.
             boolean fwd, back, left, right, up, down, sprint;
-            try { fwd    = c.options.forwardKey.isPressed(); } catch (Throwable t) { fwd = false; }
-            try { back   = c.options.backKey.isPressed();    } catch (Throwable t) { back = false; }
-            try { left   = c.options.leftKey.isPressed();    } catch (Throwable t) { left = false; }
-            try { right  = c.options.rightKey.isPressed();   } catch (Throwable t) { right = false; }
-            try { up     = c.options.jumpKey.isPressed();    } catch (Throwable t) { up = false; }
-            try { down   = c.options.sneakKey.isPressed();   } catch (Throwable t) { down = false; }
-            try { sprint = c.options.sprintKey.isPressed();  } catch (Throwable t) { sprint = false; }
+            try { fwd    = c.options.keyUp.isDown(); } catch (Throwable t) { fwd = false; }
+            try { back   = c.options.keyDown.isDown();    } catch (Throwable t) { back = false; }
+            try { left   = c.options.keyLeft.isDown();    } catch (Throwable t) { left = false; }
+            try { right  = c.options.keyRight.isDown();   } catch (Throwable t) { right = false; }
+            try { up     = c.options.keyJump.isDown();    } catch (Throwable t) { up = false; }
+            try { down   = c.options.keyShift.isDown();   } catch (Throwable t) { down = false; }
+            try { sprint = c.options.keySprint.isDown();  } catch (Throwable t) { sprint = false; }
 
             // Once-per-activation diagnostic — prints the key state
             // the first frame W is held after entering freecam. If
@@ -215,7 +215,7 @@ public class FreecamModule extends HudModule {
         // shave 32 so we don't sit at the very edge where chunks pop in/out.
         try {
             int viewChunks;
-            try { viewChunks = c.options.getViewDistance().getValue(); }
+            try { viewChunks = c.options.renderDistance().get(); }
             catch (Throwable t) { viewChunks = 12; } // safe default if the accessor drifted
             double maxDist = Math.max(64.0, viewChunks * 16.0 - 32.0);
             double px = c.player.getX(), py = c.player.getEyeY(), pz = c.player.getZ();
@@ -238,8 +238,8 @@ public class FreecamModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class MaceDamageModule extends HudModule {
     public MaceDamageModule() {
@@ -13,7 +13,7 @@ public class MaceDamageModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
         float fall = (float) client.player.fallDistance;
         double bonus;

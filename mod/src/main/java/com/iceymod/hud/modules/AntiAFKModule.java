@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Rotates the player slightly every 2 minutes so the server doesn't flag
@@ -27,21 +27,21 @@ public class AntiAFKModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null) return;
         long now = System.currentTimeMillis();
         if (lastActionAt == 0) { lastActionAt = now; return; }
         long intervalMs = intervalMinutes.get() * 60_000L;
         if (now - lastActionAt < intervalMs) return;
 
-        client.player.setYaw(client.player.getYaw() + 1.0f);
-        if (swingHand.get()) client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+        client.player.setYRot(client.player.getYRot() + 1.0f);
+        if (swingHand.get()) client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
         lastActionAt = now;
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

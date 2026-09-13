@@ -1,14 +1,14 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.particle.ParticlesMode;
+import net.minecraft.client.Minecraft;
+import net.minecraft.server.level.ParticleStatus;
 
 /**
  * Invisible FPS booster: forces particles to MINIMAL while enabled.
  */
 public class FpsBoostParticlesModule extends HudModule {
-    private ParticlesMode previous = null;
+    private ParticleStatus previous = null;
 
     public FpsBoostParticlesModule() {
         super("fpsboost_particles", "FPS: Minimal Particles", 0, 0);
@@ -22,18 +22,18 @@ public class FpsBoostParticlesModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.options == null) return;
-        ParticlesMode cur = client.options.getParticles().getValue();
-        if (cur != ParticlesMode.MINIMAL) {
+        ParticleStatus cur = client.options.particles().get();
+        if (cur != ParticleStatus.MINIMAL) {
             if (previous == null) previous = cur;
-            client.options.getParticles().setValue(ParticlesMode.MINIMAL);
+            client.options.particles().set(ParticleStatus.MINIMAL);
         }
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

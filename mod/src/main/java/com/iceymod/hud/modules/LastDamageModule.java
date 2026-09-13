@@ -2,7 +2,7 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class LastDamageModule extends HudModule {
     private static float lastHp = -1f;
@@ -34,7 +34,7 @@ public class LastDamageModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (lastTime == 0 || System.currentTimeMillis() - lastTime > 10000) return "\u00A78No recent hits";
         return "\u00A7c-" + String.format("%.1f", lastDmg) + " HP";
     }

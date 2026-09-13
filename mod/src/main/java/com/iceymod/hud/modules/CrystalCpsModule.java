@@ -1,12 +1,11 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public class CrystalCpsModule extends HudModule {
     private final List<Long> places = new ArrayList<>();
@@ -22,12 +21,12 @@ public class CrystalCpsModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null) return;
         long now = System.currentTimeMillis();
-        ItemStack held = client.player.getMainHandStack();
-        boolean rightDown = client.options.useKey.isPressed();
-        if (rightDown && !wasRightPressed && held.isOf(Items.END_CRYSTAL)) {
+        ItemStack held = client.player.getMainHandItem();
+        boolean rightDown = client.options.keyUse.isDown();
+        if (rightDown && !wasRightPressed && held.is(Items.END_CRYSTAL)) {
             places.add(now);
         }
         wasRightPressed = rightDown;
@@ -35,7 +34,7 @@ public class CrystalCpsModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         return "\u00A7d\u2726 " + places.size() + " cCPS";
     }
 }

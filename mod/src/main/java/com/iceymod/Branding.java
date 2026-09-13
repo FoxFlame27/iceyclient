@@ -3,8 +3,7 @@ package com.iceymod;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.resources.Identifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,8 +44,8 @@ public final class Branding {
     /** Title-screen logo texture and its pixel size. */
     public static Identifier logo() {
         return isSkiflame()
-                ? Identifier.of(IceyMod.MOD_ID, "textures/gui/skiflame_logo.png")
-                : Identifier.of(IceyMod.MOD_ID, "textures/gui/title/iceyclient.png");
+                ? Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/skiflame_logo.png")
+                : Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/title/iceyclient.png");
     }
     public static int logoWidth()  { return isSkiflame() ? 720 : 1536; }
     public static int logoHeight() { return isSkiflame() ? 240 : 1024; }

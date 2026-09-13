@@ -1,13 +1,12 @@
 package com.iceymod.compat;
 
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.Identifier;
-
+import com.mojang.blaze3d.platform.InputConstants;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.Identifier;
 
 /**
  * Version-compat shim for KeyBinding construction.
@@ -36,8 +35,8 @@ public final class KeyBindingCompat {
     private enum Mode { UNKNOWN, LEGACY_STRING, NEW_CATEGORY, BROKEN }
 
     private static Mode mode = Mode.UNKNOWN;
-    private static Constructor<KeyBinding> legacyCtor;
-    private static Constructor<KeyBinding> newCtor;
+    private static Constructor<KeyMapping> legacyCtor;
+    private static Constructor<KeyMapping> newCtor;
     private static Object defaultCategoryInstance;
 
     private KeyBindingCompat() {}
@@ -46,15 +45,15 @@ public final class KeyBindingCompat {
     private static synchronized void probe() {
         if (mode != Mode.UNKNOWN) return;
         try {
-            for (Constructor<?> ctor : KeyBinding.class.getConstructors()) {
+            for (Constructor<?> ctor : KeyMapping.class.getConstructors()) {
                 Class<?>[] params = ctor.getParameterTypes();
                 if (params.length != 4) continue;
                 if (params[0] != String.class) continue;
-                if (params[1] != InputUtil.Type.class) continue;
+                if (params[1] != InputConstants.Type.class) continue;
                 if (params[2] != int.class) continue;
 
                 if (params[3] == String.class) {
-                    legacyCtor = (Constructor<KeyBinding>) ctor;
+                    legacyCtor = (Constructor<KeyMapping>) ctor;
                     mode = Mode.LEGACY_STRING;
                     return;
                 }
@@ -85,7 +84,7 @@ public final class KeyBindingCompat {
                 }
 
                 if (defaultCategoryInstance != null) {
-                    newCtor = (Constructor<KeyBinding>) ctor;
+                    newCtor = (Constructor<KeyMapping>) ctor;
                     mode = Mode.NEW_CATEGORY;
                     return;
                 }
@@ -99,7 +98,7 @@ public final class KeyBindingCompat {
     }
 
     /** Identifier for our Controls category → lang key "key.categories.iceymod.iceyclient". */
-    private static final Identifier CATEGORY_ID = Identifier.of("iceymod", "iceyclient");
+    private static final Identifier CATEGORY_ID = Identifier.fromNamespaceAndPath("iceymod", "iceyclient");
 
     private static Object createOwnCategory(Class<?> categoryClass) {
         // Static factory taking an Identifier (Category.create(Identifier) on 1.21.9+).
@@ -128,7 +127,7 @@ public final class KeyBindingCompat {
         return null;
     }
 
-    public static KeyBinding create(String translationKey, InputUtil.Type type, int code, String categoryKey) {
+    public static KeyMapping create(String translationKey, InputConstants.Type type, int code, String categoryKey) {
         if (mode == Mode.UNKNOWN) probe();
         try {
             switch (mode) {

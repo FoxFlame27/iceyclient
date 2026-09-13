@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class AttackCooldownModule extends HudModule {
     public AttackCooldownModule() {
@@ -13,9 +13,9 @@ public class AttackCooldownModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
-        float p = client.player.getAttackCooldownProgress(0f);
+        float p = client.player.getAttackStrengthScale(0f);
         int pct = Math.round(p * 100f);
         String color = pct >= 100 ? "\u00A7a" : pct >= 50 ? "\u00A7e" : "\u00A7c";
         return color + "\u2694 " + pct + "%";

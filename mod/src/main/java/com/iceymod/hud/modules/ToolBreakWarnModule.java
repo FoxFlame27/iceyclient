@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 
 public class ToolBreakWarnModule extends HudModule {
     public ToolBreakWarnModule() {
@@ -11,12 +11,12 @@ public class ToolBreakWarnModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
-        ItemStack s = client.player.getMainHandStack();
-        if (s.isEmpty() || !s.isDamageable()) return null;
+        ItemStack s = client.player.getMainHandItem();
+        if (s.isEmpty() || !s.isDamageableItem()) return null;
         int max = s.getMaxDamage();
-        int remain = max - s.getDamage();
+        int remain = max - s.getDamageValue();
         float pct = remain / (float) max;
         if (pct > 0.15f) return null;
         boolean flash = (System.currentTimeMillis() / 400) % 2 == 0;

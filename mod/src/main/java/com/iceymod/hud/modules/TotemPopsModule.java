@@ -2,11 +2,10 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,9 +27,9 @@ public class TotemPopsModule extends HudModule {
         if (registered) return;
         registered = true;
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.world == null || client.player == null) return;
-            for (Entity e : client.world.getEntities()) {
-                if (!(e instanceof PlayerEntity) || e == client.player) continue;
+            if (client.level == null || client.player == null) return;
+            for (Entity e : client.level.entitiesForRendering()) {
+                if (!(e instanceof Player) || e == client.player) continue;
                 LivingEntity le = (LivingEntity) e;
                 Float prev = lastHealth.get(e.getId());
                 if (prev != null && prev <= 0.5f && le.getHealth() > 5f) pops++;
@@ -42,7 +41,7 @@ public class TotemPopsModule extends HudModule {
     public static void reset() { pops = 0; lastHealth.clear(); }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         return "\u00A7d\u2726 " + pops + " Pops";
     }
 }

@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.Perspective;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
 
 /**
  * Freelook-style perspective cycling. Press the keybind (R) to cycle
@@ -21,19 +21,19 @@ public class PerspectiveModule extends HudModule {
     protected boolean shouldShowStyleSettings() { return false; }
 
     public void cyclePerspective() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.options == null) return;
-        Perspective current = client.options.getPerspective();
-        Perspective next;
-        if (current == Perspective.FIRST_PERSON) next = Perspective.THIRD_PERSON_BACK;
-        else if (current == Perspective.THIRD_PERSON_BACK) next = Perspective.THIRD_PERSON_FRONT;
-        else next = Perspective.FIRST_PERSON;
-        client.options.setPerspective(next);
+        CameraType current = client.options.getCameraType();
+        CameraType next;
+        if (current == CameraType.FIRST_PERSON) next = CameraType.THIRD_PERSON_BACK;
+        else if (current == CameraType.THIRD_PERSON_BACK) next = CameraType.THIRD_PERSON_FRONT;
+        else next = CameraType.FIRST_PERSON;
+        client.options.setCameraType(next);
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

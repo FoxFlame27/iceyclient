@@ -4,12 +4,11 @@ import com.iceymod.hud.HudModule;
 import com.iceymod.hud.settings.BoolSetting;
 import com.iceymod.hud.settings.IntSetting;
 import com.iceymod.structure.BiomeTracker;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
 
 /**
  * Same shape as StructureLocatorModule but for biomes. Owns a
@@ -50,21 +49,21 @@ public class BiomeLocatorModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(DrawContext context, MinecraftClient client) {
+    public void render(Gfx context, Minecraft client) {
         if (!isEnabled() || client.player == null) return;
 
         List<BiomeTracker.Found> all = BiomeTracker.getSortedByDistance();
         if (all.isEmpty()) {
             String empty = "§7Scanning biomes…";
-            int tw = client.textRenderer.getWidth(empty);
+            int tw = client.font.width(empty);
             this.width = tw + 10;
             this.height = 14;
             context.fill(getX(), getY(), getX() + this.width, getY() + this.height, 0x90000000);
             context.fill(getX(), getY(), getX() + 2, getY() + this.height, 0xFF77BC3D);
-            context.drawTextWithShadow(client.textRenderer, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
+            context.drawString(client.font, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
             return;
         }
 
@@ -73,7 +72,7 @@ public class BiomeLocatorModule extends HudModule {
         String[] texts = new String[limit];
         int[] colors = new int[limit];
         int maxWidth = 0;
-        float yaw = client.player.getYaw();
+        float yaw = client.player.getYRot();
 
         for (int i = 0; i < limit; i++) {
             BiomeTracker.Found f = all.get(i);
@@ -93,7 +92,7 @@ public class BiomeLocatorModule extends HudModule {
             else                                    arrow = "↖";
             texts[i] = arrow + " " + f.type.label + " " + (int) dist + "m";
             colors[i] = f.type.color;
-            int tw = client.textRenderer.getWidth(texts[i]);
+            int tw = client.font.width(texts[i]);
             if (tw > maxWidth) maxWidth = tw;
         }
         this.width = maxWidth + 10;
@@ -103,7 +102,7 @@ public class BiomeLocatorModule extends HudModule {
             int lineY = y + i * rowH;
             context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
             context.fill(x, lineY, x + 2, lineY + lineH, colors[i]);
-            context.drawTextWithShadow(client.textRenderer, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
+            context.drawString(client.font, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
         }
         this.height = limit * rowH - gap;
     }

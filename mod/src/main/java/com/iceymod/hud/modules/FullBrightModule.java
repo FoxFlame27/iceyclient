@@ -2,8 +2,8 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import com.iceymod.mixin.SimpleOptionAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.SimpleOption;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.OptionInstance;
 
 /**
  * Forces gamma high enough to see in caves without torches. Uses a
@@ -28,10 +28,10 @@ public class FullBrightModule extends HudModule {
     @Override
     public void setEnabled(boolean enabled) {
         if (!enabled && savedGamma != null) {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client != null && client.options != null) {
                 try {
-                    ((SimpleOptionAccessor) (Object) client.options.getGamma()).iceymod$setRawValue(savedGamma);
+                    ((SimpleOptionAccessor) (Object) client.options.gamma()).iceymod$setRawValue(savedGamma);
                 } catch (Throwable ignored) {}
             }
             savedGamma = null;
@@ -41,12 +41,12 @@ public class FullBrightModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.options == null) return;
-        SimpleOption<Double> gamma = client.options.getGamma();
-        if (savedGamma == null) savedGamma = gamma.getValue();
+        OptionInstance<Double> gamma = client.options.gamma();
+        if (savedGamma == null) savedGamma = gamma.get();
         double target = brightness.get();
-        if (!Double.valueOf(target).equals(gamma.getValue())) {
+        if (!Double.valueOf(target).equals(gamma.get())) {
             try {
                 ((SimpleOptionAccessor) (Object) gamma).iceymod$setRawValue(target);
             } catch (Throwable ignored) {}
@@ -54,8 +54,8 @@ public class FullBrightModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

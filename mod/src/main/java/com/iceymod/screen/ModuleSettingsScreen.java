@@ -7,25 +7,25 @@ import com.iceymod.hud.settings.DoubleSetting;
 import com.iceymod.hud.settings.EnumSetting;
 import com.iceymod.hud.settings.IntSetting;
 import com.iceymod.hud.settings.Setting;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-
 import java.util.List;
+import com.iceymod.compat.Gfx;
+import com.iceymod.compat.IceyScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * Per-module settings editor using default vanilla Minecraft buttons.
  * Each setting is a ButtonWidget whose label shows both the name and the
  * current value. Click = cycle/toggle to the next value.
  */
-public class ModuleSettingsScreen extends Screen {
+public class ModuleSettingsScreen extends IceyScreen {
 
     private final HudModule module;
     private final Screen parent;
 
     public ModuleSettingsScreen(HudModule module, Screen parent) {
-        super(Text.literal(module.getName() + " Settings"));
+        super(Component.literal(module.getName() + " Settings"));
         this.module = module;
         this.parent = parent;
     }
@@ -56,29 +56,29 @@ public class ModuleSettingsScreen extends Screen {
             int row = i % rowsPerCol;
             int x = gridX + col * (btnW + gap);
             int y = topY + row * (btnH + gap);
-            ButtonWidget btn = ButtonWidget.builder(
+            Button btn = Button.builder(
                     formatLabel(setting),
                     b -> {
                         onClick(setting);
                         b.setMessage(formatLabel(setting));
                     }
-            ).dimensions(x, y, btnW, btnH).build();
-            addDrawableChild(btn);
+            ).bounds(x, y, btnW, btnH).build();
+            addRenderableWidget(btn);
         }
 
         // Footer buttons centered below the grid
         int footerW = Math.min(300, this.width - 80);
         int footerY = bottomY + 4;
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal("Reset to Defaults"),
+        addRenderableWidget(Button.builder(
+                Component.literal("Reset to Defaults"),
                 b -> { resetAll(); rebuild(); }
-        ).dimensions(centerX - footerW / 2, footerY, footerW, 18).build());
+        ).bounds(centerX - footerW / 2, footerY, footerW, 18).build());
         footerY += 18 + gap;
 
-        addDrawableChild(ButtonWidget.builder(
-                Text.literal("Back"),
-                b -> client.setScreen(parent)
-        ).dimensions(centerX - footerW / 2, footerY, footerW, 18).build());
+        addRenderableWidget(Button.builder(
+                Component.literal("Back"),
+                b -> com.iceymod.compat.MC.setScreen(minecraft, parent)
+        ).bounds(centerX - footerW / 2, footerY, footerW, 18).build());
     }
 
     private void onClick(Setting<?> setting) {
@@ -95,7 +95,7 @@ public class ModuleSettingsScreen extends Screen {
         } else if (setting instanceof ColorSetting cs) {
             // Opens the full RGB + hex picker instead of cycling the preset
             // palette — any ARGB value is reachable and the swatch updates live.
-            client.setScreen(new ColorPickerScreen(cs, this));
+            com.iceymod.compat.MC.setScreen(minecraft, new ColorPickerScreen(cs, this));
             return; // ColorPickerScreen persists on its own Save click.
         } else if (setting instanceof EnumSetting es) {
             es.cycle();
@@ -105,7 +105,7 @@ public class ModuleSettingsScreen extends Screen {
         try { com.iceymod.hud.HudManager.save(); } catch (Throwable ignored) {}
     }
 
-    private Text formatLabel(Setting<?> setting) {
+    private Component formatLabel(Setting<?> setting) {
         String label = setting.label;
         String valuePart;
         if (setting instanceof BoolSetting bs) {
@@ -121,7 +121,7 @@ public class ModuleSettingsScreen extends Screen {
         } else {
             valuePart = "";
         }
-        return Text.literal(label + ": " + valuePart);
+        return Component.literal(label + ": " + valuePart);
     }
 
     /**
@@ -152,29 +152,29 @@ public class ModuleSettingsScreen extends Screen {
     }
 
     private void rebuild() {
-        this.clearChildren();
+        this.clearWidgets();
         this.init();
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderScreenBackground(Gfx context, int mouseX, int mouseY, float delta) {
         // Skip vanilla blur (avoids double-blur issues on recent versions)
         context.fill(0, 0, this.width, this.height, 0xC0101010);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
-        context.drawCenteredTextWithShadow(this.textRenderer,
-                Text.literal("\u00A7b\u00A7l" + module.getName() + " \u00A77Settings"),
+    protected void renderScreen(Gfx context, int mouseX, int mouseY, float delta) {
+        superRender(context, mouseX, mouseY, delta);
+        context.drawCenteredString(this.font,
+                Component.literal("\u00A7b\u00A7l" + module.getName() + " \u00A77Settings"),
                 this.width / 2, 20, 0xFFFFFFFF);
         if (module.getSettings().isEmpty()) {
-            context.drawCenteredTextWithShadow(this.textRenderer,
-                    Text.literal("\u00A77No configurable options"),
+            context.drawCenteredString(this.font,
+                    Component.literal("\u00A77No configurable options"),
                     this.width / 2, this.height / 2, 0xFFAAAAAA);
         }
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 }

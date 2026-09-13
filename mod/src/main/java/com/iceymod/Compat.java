@@ -1,12 +1,10 @@
 package com.iceymod;
 
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import net.minecraft.client.Camera;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Version-portable accessors for MC API methods that got renamed between
@@ -41,35 +39,20 @@ public final class Compat {
      *  "first Vec3d field" — Camera has multiple Vec3d fields including
      *  focusedEntityPos / lastPos / etc., and grabbing the wrong one
      *  produces silently-broken world-space projections). */
-    public static Vec3d cameraPos(Camera cam) {
-        if (cam == null) return Vec3d.ZERO;
-        // Method first (faster than field lookup on hot path)
-        try {
-            Object v = cam.getClass().getMethod("getPos").invoke(cam);
-            if (v instanceof Vec3d vd) return vd;
-        } catch (Throwable ignored) {}
-        // Field fallback — match the field NAMED "pos" specifically.
-        try {
-            for (Field f : Camera.class.getDeclaredFields()) {
-                if (f.getType() == Vec3d.class && "pos".equals(f.getName())) {
-                    f.setAccessible(true);
-                    Object v = f.get(cam);
-                    if (v instanceof Vec3d vd) return vd;
-                }
-            }
-        } catch (Throwable ignored) {}
-        // Last resort: any Vec3d field. Better than ZERO if the obf
-        // name changed, even if not the right field.
-        try {
-            for (Field f : Camera.class.getDeclaredFields()) {
-                if (f.getType() == Vec3d.class) {
-                    f.setAccessible(true);
-                    Object v = f.get(cam);
-                    if (v instanceof Vec3d vd) return vd;
-                }
-            }
-        } catch (Throwable ignored) {}
-        return Vec3d.ZERO;
+    public static Vec3 cameraPos(Camera cam) {
+        if (cam == null) return Vec3.ZERO;
+        try { return ((com.iceymod.mixin.CameraAccessor) (Object) cam).iceymod$position(); } catch (Throwable ignored) {}
+        return Vec3.ZERO;
+    }
+
+    /** Camera yaw in degrees (the field is named the same on every version; accessor names are not). */
+    public static float cameraYaw(Camera cam) {
+        try { return ((com.iceymod.mixin.CameraAccessor) (Object) cam).iceymod$yRot(); } catch (Throwable ignored) { return 0f; }
+    }
+
+    /** Camera pitch in degrees. */
+    public static float cameraPitch(Camera cam) {
+        try { return ((com.iceymod.mixin.CameraAccessor) (Object) cam).iceymod$xRot(); } catch (Throwable ignored) { return 0f; }
     }
 
     /** Entity position. The previous reflection-based version
@@ -84,9 +67,9 @@ public final class Compat {
      *  Compile-time calls to {@code entity.getX/getY/getZ()} resolve at
      *  build time against 1.21.8 yarn → the correct intermediary names,
      *  which are STABLE between 1.21.8 and 1.21.11. No reflection. */
-    public static Vec3d entityPos(Entity entity) {
-        if (entity == null) return Vec3d.ZERO;
-        return new Vec3d(entity.getX(), entity.getY(), entity.getZ());
+    public static Vec3 entityPos(Entity entity) {
+        if (entity == null) return Vec3.ZERO;
+        return new Vec3(entity.getX(), entity.getY(), entity.getZ());
     }
 
     /** World spawn position (overworld). {@code ClientWorld.getSpawnPos()}

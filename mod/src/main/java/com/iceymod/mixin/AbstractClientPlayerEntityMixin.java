@@ -3,10 +3,10 @@ package com.iceymod.mixin;
 import com.iceymod.cape.CapeLoader;
 import com.iceymod.network.IceyNetwork;
 import com.iceymod.network.RemoteCapeManager;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.util.Identifier;
 import java.util.UUID;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -45,7 +45,7 @@ import java.lang.reflect.RecordComponent;
  * {@code this != mc.player} guard means remote players on a server
  * keep their own cape.
  */
-@Mixin(AbstractClientPlayerEntity.class)
+@Mixin(AbstractClientPlayer.class)
 public abstract class AbstractClientPlayerEntityMixin {
 
     private static boolean iceymod$mixinFiredLogged = false;
@@ -67,7 +67,7 @@ public abstract class AbstractClientPlayerEntityMixin {
                 iceymod$mixinFiredLogged = true;
             }
 
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
             if (mc == null || mc.player == null) return;
 
             // v1.86.56: now runs for every player, not just the local
@@ -79,9 +79,9 @@ public abstract class AbstractClientPlayerEntityMixin {
             if (((Object) this) == mc.player) {
                 customCape = CapeLoader.getCapeIdentifier();
             } else {
-                AbstractClientPlayerEntity self =
-                    (AbstractClientPlayerEntity) (Object) this;
-                UUID uuid = self.getUuid();
+                AbstractClientPlayer self =
+                    (AbstractClientPlayer) (Object) this;
+                UUID uuid = self.getUUID();
                 if (uuid == null || !IceyNetwork.isOnline(uuid)) return;
                 customCape = RemoteCapeManager.getCapeIdentifier(uuid);
             }

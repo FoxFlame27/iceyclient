@@ -2,10 +2,8 @@ package com.iceymod.mixin;
 
 import com.iceymod.hud.modules.FreecamModule;
 import com.iceymod.hud.modules.FreelookModule;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.BlockView;
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -25,9 +23,9 @@ public abstract class CameraMixin {
     protected abstract void setRotation(float yaw, float pitch);
 
     @Shadow
-    protected abstract void setPos(double x, double y, double z);
+    protected abstract void setPosition(double x, double y, double z);
 
-    // No captured params — Camera.update's first arg changed from
+    // 26.x: Camera.setup(...) became Camera.update(DeltaTracker). No captured
     // BlockView (1.21.8) to World (1.21.11). If we capture by type the
     // mixin descriptor stops matching and silently no-ops on the new
     // version. By only taking CallbackInfo we target by method name only,
@@ -49,7 +47,7 @@ public abstract class CameraMixin {
                     loggedFirstFreecamApply = true;
                 }
                 FreecamModule.updatePerFrame();
-                setPos(FreecamModule.camX(), FreecamModule.camY(), FreecamModule.camZ());
+                setPosition(FreecamModule.camX(), FreecamModule.camY(), FreecamModule.camZ());
                 setRotation(FreecamModule.camYaw(), FreecamModule.camPitch());
                 return;
             }
@@ -60,13 +58,13 @@ public abstract class CameraMixin {
                 }
                 // Get the focused entity via the client. Camera's focused
                 // entity is the same as MinecraftClient.getCameraEntity().
-                net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
                 Entity focused = (mc != null) ? mc.getCameraEntity() : null;
                 if (focused != null) {
                     // Use untweened yaw/pitch — close enough for freelook,
                     // and avoids needing the tickDelta param.
-                    float playerYaw = focused.getYaw();
-                    float playerPitch = focused.getPitch();
+                    float playerYaw = focused.getYRot();
+                    float playerPitch = focused.getXRot();
                     setRotation(
                         FreelookModule.getRenderYaw(playerYaw),
                         FreelookModule.getRenderPitch(playerPitch)

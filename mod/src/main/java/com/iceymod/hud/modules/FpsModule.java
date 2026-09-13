@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class FpsModule extends HudModule {
     public FpsModule() {
@@ -9,7 +9,7 @@ public class FpsModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        return client.getCurrentFps() + " FPS";
+    public String getText(Minecraft client) {
+        return client.getFps() + " FPS";
     }
 }

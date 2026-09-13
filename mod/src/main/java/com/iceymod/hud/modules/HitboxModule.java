@@ -4,7 +4,7 @@ import com.iceymod.hud.HudModule;
 import com.iceymod.hud.settings.BoolSetting;
 import com.iceymod.hud.settings.ColorSetting;
 import com.iceymod.hud.settings.IntSetting;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Draws wireframe bounding boxes around every entity in the world, using
@@ -27,8 +27,8 @@ public class HitboxModule extends HudModule {
     protected boolean shouldShowStyleSettings() { return false; }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

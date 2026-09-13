@@ -1,10 +1,10 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 public class ArmorModule extends HudModule {
     private static final EquipmentSlot[] ARMOR_SLOTS = {
@@ -31,12 +31,12 @@ public class ArmorModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         return null;
     }
 
     @Override
-    public void render(DrawContext context, MinecraftClient client) {
+    public void render(Gfx context, Minecraft client) {
         if (!isEnabled() || client.player == null) return;
         int bx = getX();
         int by = getY();
@@ -44,7 +44,7 @@ public class ArmorModule extends HudModule {
 
         int drawn = 0;
         for (EquipmentSlot slot : ARMOR_SLOTS) {
-            ItemStack stack = client.player.getEquippedStack(slot);
+            ItemStack stack = client.player.getItemBySlot(slot);
             if (!stack.isEmpty()) {
                 drawSlot(context, stack, bx, by + drawn * (SLOT_SIZE + SLOT_GAP));
                 drawn++;
@@ -53,7 +53,7 @@ public class ArmorModule extends HudModule {
 
         // Held item too
         if (showHeldItem.get()) {
-            ItemStack held = client.player.getMainHandStack();
+            ItemStack held = client.player.getMainHandItem();
             if (!held.isEmpty()) {
                 drawSlot(context, held, bx, by + drawn * (SLOT_SIZE + SLOT_GAP));
                 drawn++;
@@ -63,14 +63,14 @@ public class ArmorModule extends HudModule {
         this.height = Math.max(drawn * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP, SLOT_SIZE);
     }
 
-    private void drawSlot(DrawContext context, ItemStack stack, int x, int y) {
+    private void drawSlot(Gfx context, ItemStack stack, int x, int y) {
         // Item icon
-        context.drawItem(stack, x, y);
+        context.renderItem(stack, x, y);
 
         // Durability bar directly under the item
-        if (stack.isDamageable()) {
+        if (stack.isDamageableItem()) {
             int max = stack.getMaxDamage();
-            int dmg = stack.getDamage();
+            int dmg = stack.getDamageValue();
             int remaining = max - dmg;
             float ratio = (float) remaining / max;
             int color = getDurabilityColor(ratio);

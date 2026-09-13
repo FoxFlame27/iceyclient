@@ -4,9 +4,8 @@ import com.iceymod.hud.modules.*;
 import com.iceymod.hud.settings.Setting;
 import com.google.gson.*;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -192,10 +191,10 @@ public class HudManager {
      * Also fixes any saved positions that are off-screen.
      */
     private static void applyCenterDefaults() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.getWindow() == null) return;
-        int sw = client.getWindow().getScaledWidth();
-        int sh = client.getWindow().getScaledHeight();
+        int sw = client.getWindow().getGuiScaledWidth();
+        int sh = client.getWindow().getGuiScaledHeight();
         if (sw <= 0 || sh <= 0) return;
 
         boolean configExists = Files.exists(configPath);
@@ -256,9 +255,9 @@ public class HudManager {
     private static final java.util.Set<String> renderErrLogged = new java.util.HashSet<>();
     private static final java.util.Set<String> tickErrLogged   = new java.util.HashSet<>();
 
-    public static void render(DrawContext context) {
+    public static void render(Gfx context) {
         if (!hudVisible) return;
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (!positionsClamped) applyCenterDefaults();
         for (HudModule module : modules) {
             if (!module.isEnabled()) continue;

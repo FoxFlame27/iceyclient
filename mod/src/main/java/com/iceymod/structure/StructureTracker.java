@@ -6,26 +6,25 @@ import com.iceymod.hud.modules.StructureLocatorModule;
 import com.iceymod.hud.modules.WaypointManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.ShulkerEntity;
-import net.minecraft.world.biome.BiomeKeys;
-import net.minecraft.block.entity.BeaconBlockEntity;
-import net.minecraft.block.entity.BellBlockEntity;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.EndGatewayBlockEntity;
-import net.minecraft.block.entity.EndPortalBlockEntity;
-import net.minecraft.block.entity.EnderChestBlockEntity;
-import net.minecraft.block.entity.MobSpawnerBlockEntity;
-import net.minecraft.block.entity.ShulkerBoxBlockEntity;
-import net.minecraft.block.entity.TrialSpawnerBlockEntity;
-import net.minecraft.block.entity.VaultBlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.chunk.WorldChunk;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Shulker;
+import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BeaconBlockEntity;
+import net.minecraft.world.level.block.entity.BellBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.EnderChestBlockEntity;
+import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
+import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
+import net.minecraft.world.level.block.entity.TheEndGatewayBlockEntity;
+import net.minecraft.world.level.block.entity.TheEndPortalBlockEntity;
+import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
+import net.minecraft.world.level.block.entity.vault.VaultBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -128,16 +127,16 @@ public final class StructureTracker {
      * purpur. Cheap iteration: typical chunk has &lt;50 entities, and
      * we only do this once per second.
      */
-    private static void detectShulkers(net.minecraft.client.MinecraftClient client) {
+    private static void detectShulkers(net.minecraft.client.Minecraft client) {
         try {
-            if (client == null || client.world == null) return;
-            String dim = client.world.getRegistryKey().getValue().toString();
+            if (client == null || client.level == null) return;
+            String dim = client.level.dimension().identifier().toString();
             if (!dim.contains("the_end")) return;
             StructureLocatorModule mod = getModule();
             if (mod == null || !mod.endCities.get()) return;
-            for (Entity e : client.world.getEntities()) {
-                if (e instanceof ShulkerEntity) {
-                    addIfNew(StructureType.END_CITY, e.getBlockPos(), dim, mod.autoWaypoint.get());
+            for (Entity e : client.level.entitiesForRendering()) {
+                if (e instanceof Shulker) {
+                    addIfNew(StructureType.END_CITY, e.blockPosition(), dim, mod.autoWaypoint.get());
                 }
             }
         } catch (Throwable ignored) {}
@@ -148,10 +147,10 @@ public final class StructureTracker {
      * inside the End — i.e. through an end gateway. Lets the user return
      * to outer-end islands they've visited without re-rolling RNG.
      */
-    private static void detectEndTeleport(net.minecraft.client.MinecraftClient client) {
+    private static void detectEndTeleport(net.minecraft.client.Minecraft client) {
         try {
-            if (client == null || client.player == null || client.world == null) return;
-            String dim = client.world.getRegistryKey().getValue().toString();
+            if (client == null || client.player == null || client.level == null) return;
+            String dim = client.level.dimension().identifier().toString();
             double x = client.player.getX(), y = client.player.getY(), z = client.player.getZ();
             if (dim.contains("the_end") && !Double.isNaN(lastPlayerX)) {
                 double dx = x - lastPlayerX, dy = y - lastPlayerY, dz = z - lastPlayerZ;
@@ -159,8 +158,8 @@ public final class StructureTracker {
                 if (distSq > 300 * 300) {
                     WaypointManager.addWaypoint("End Anchor", (int) x, (int) y, (int) z);
                     if (client.player != null) {
-                        client.player.sendMessage(
-                                net.minecraft.text.Text.literal("§b[IceyClient] §aEnd Anchor waypointed §8(" +
+                        com.iceymod.compat.Chat.message(
+                                net.minecraft.network.chat.Component.literal("§b[IceyClient] §aEnd Anchor waypointed §8(" +
                                         (int) x + ", " + (int) y + ", " + (int) z + ")"),
                                 false);
                     }
@@ -207,8 +206,8 @@ public final class StructureTracker {
      */
     public static void rescanNearby() {
         try {
-            MinecraftClient c = MinecraftClient.getInstance();
-            if (c == null || c.world == null || c.player == null) return;
+            Minecraft c = Minecraft.getInstance();
+            if (c == null || c.level == null || c.player == null) return;
             resetIfWorldChanged();
 
             int cx = c.player.getBlockX() >> 4;
@@ -218,23 +217,23 @@ public final class StructureTracker {
             // pre-load) that wouldn't be in our render set. Loop a bit
             // wider and let getWorldChunk null-skip the unloaded ones —
             // null check is O(1) so the extra iterations are free.
-            int viewRadius = c.options.getViewDistance().getValue();
+            int viewRadius = c.options.renderDistance().get();
             int radius = viewRadius + 4;
 
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
-                    WorldChunk chunk = c.world.getChunkManager().getWorldChunk(cx + dx, cz + dz);
+                    LevelChunk chunk = c.level.getChunkSource().getChunkNow(cx + dx, cz + dz);
                     if (chunk == null) continue;
-                    onChunkLoad(c.world, chunk);
+                    onChunkLoad(c.level, chunk);
                 }
             }
         } catch (Throwable ignored) {}
     }
 
     private static void resetIfWorldChanged() {
-        MinecraftClient c = MinecraftClient.getInstance();
-        if (c == null || c.world == null) return;
-        String key = c.world.getRegistryKey().getValue().toString();
+        Minecraft c = Minecraft.getInstance();
+        if (c == null || c.level == null) return;
+        String key = c.level.dimension().identifier().toString();
         if (!key.equals(currentWorldKey)) {
             currentWorldKey = key;
             // Don't clear — findings + scanned-chunks persist per dimension.
@@ -248,15 +247,15 @@ public final class StructureTracker {
         return null;
     }
 
-    private static void onChunkLoad(ClientWorld world, WorldChunk chunk) {
+    private static void onChunkLoad(ClientLevel world, LevelChunk chunk) {
         try {
             StructureLocatorModule mod = getModule();
             if (mod == null || !mod.isEnabled()) return;
 
             resetIfWorldChanged();
-            String dim = world.getRegistryKey().getValue().toString();
+            String dim = world.dimension().identifier().toString();
 
-            long key = chunk.getPos().toLong();
+            long key = com.iceymod.compat.MC.chunkKey(chunk.getPos());
             synchronized (found) {
                 Set<Long> dimSet = scannedChunksByDim.computeIfAbsent(dim, k -> new HashSet<>());
                 if (!dimSet.add(key)) return;
@@ -279,14 +278,14 @@ public final class StructureTracker {
                 StructureType type = null;
                 if (trackTrial && (be instanceof TrialSpawnerBlockEntity || be instanceof VaultBlockEntity)) {
                     type = StructureType.TRIAL_CHAMBER;
-                } else if (trackSpawner && be instanceof MobSpawnerBlockEntity) {
+                } else if (trackSpawner && be instanceof SpawnerBlockEntity) {
                     // Mob spawners come from dungeons, mineshafts, fortresses,
                     // stronghold libraries — each one is a worthwhile XP/loot
                     // anchor on its own, so they get their own SPAWNER entry
                     // (with tight clustering in addIfNew so two real spawners
                     // 10 blocks apart still both show).
                     type = StructureType.SPAWNER;
-                } else if (trackStronghold && be instanceof EndPortalBlockEntity) {
+                } else if (trackStronghold && be instanceof TheEndPortalBlockEntity) {
                     type = StructureType.STRONGHOLD;
                 } else if (trackBase && (be instanceof EnderChestBlockEntity
                         || be instanceof ShulkerBoxBlockEntity
@@ -294,10 +293,10 @@ public final class StructureTracker {
                     type = StructureType.PLAYER_BASE;
                 } else if (trackVillage && be instanceof BellBlockEntity) {
                     type = StructureType.VILLAGE;
-                } else if (trackGateway && be instanceof EndGatewayBlockEntity) {
+                } else if (trackGateway && be instanceof TheEndGatewayBlockEntity) {
                     type = StructureType.END_GATEWAY;
                 }
-                if (type != null) addIfNew(type, be.getPos(), dim, autoWp);
+                if (type != null) addIfNew(type, be.getBlockPos(), dim, autoWp);
             }
 
             // --- Block-sample detections (unique signature blocks) ---
@@ -305,12 +304,12 @@ public final class StructureTracker {
             // calling it a structure — a single match is usually a
             // player-placed block, multiple in one chunk = real struct.
             if (isNether && mod.netherFortresses.get()) {
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.NETHER_BRICK_FENCE), 20, 100, 4, 3);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.is(Blocks.NETHER_BRICK_FENCE), 20, 100, 4, 3);
                 if (hit != null) addIfNew(StructureType.NETHER_FORTRESS, hit, dim, autoWp);
             }
             if (isNether && mod.bastions.get()) {
                 BlockPos hit = scanChunkForBlock(chunk,
-                        s -> s.isOf(Blocks.LODESTONE) || s.isOf(Blocks.GILDED_BLACKSTONE),
+                        s -> s.is(Blocks.LODESTONE) || s.is(Blocks.GILDED_BLACKSTONE),
                         20, 120, 4, 2);
                 if (hit != null) addIfNew(StructureType.BASTION, hit, dim, autoWp);
             }
@@ -324,42 +323,42 @@ public final class StructureTracker {
                 //     before but still well under 100us per chunk.
                 //   - Anywhere else = skip entirely. Cities can't spawn
                 //     so no need to waste cycles or risk false hits.
-                int chunkCenterX = chunk.getPos().getStartX() + 8;
-                int chunkCenterZ = chunk.getPos().getStartZ() + 8;
+                int chunkCenterX = chunk.getPos().getMinBlockX() + 8;
+                int chunkCenterZ = chunk.getPos().getMinBlockZ() + 8;
                 boolean rightBiome = false;
                 try {
                     var biome = world.getBiome(new BlockPos(chunkCenterX, 64, chunkCenterZ));
-                    rightBiome = biome.matchesKey(BiomeKeys.END_HIGHLANDS)
-                              || biome.matchesKey(BiomeKeys.END_MIDLANDS);
+                    rightBiome = biome.is(Biomes.END_HIGHLANDS)
+                              || biome.is(Biomes.END_MIDLANDS);
                 } catch (Throwable ignored) {}
                 if (rightBiome) {
                     BlockPos hit = scanChunkForBlock(chunk,
-                            s -> s.isOf(Blocks.PURPUR_PILLAR)
-                              || s.isOf(Blocks.PURPUR_BLOCK)
-                              || s.isOf(Blocks.PURPUR_STAIRS)
-                              || s.isOf(Blocks.PURPUR_SLAB)
-                              || s.isOf(Blocks.END_STONE_BRICKS),
+                            s -> s.is(Blocks.PURPUR_PILLAR)
+                              || s.is(Blocks.PURPUR_BLOCK)
+                              || s.is(Blocks.PURPUR_STAIRS)
+                              || s.is(Blocks.PURPUR_SLAB)
+                              || s.is(Blocks.END_STONE_BRICKS),
                             0, 128, 1, 1);
                     if (hit != null) addIfNew(StructureType.END_CITY, hit, dim, autoWp);
                 }
             }
             if (isOver && mod.oceanMonuments.get()) {
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.PRISMARINE_BRICKS), 39, 60, 4, 3);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.is(Blocks.PRISMARINE_BRICKS), 39, 60, 4, 3);
                 if (hit != null) addIfNew(StructureType.OCEAN_MONUMENT, hit, dim, autoWp);
             }
             if (isOver && mod.ancientCities.get()) {
                 // reinforced_deepslate is genuinely unique — a single hit is enough
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.REINFORCED_DEEPSLATE), -55, -25, 4, 1);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.is(Blocks.REINFORCED_DEEPSLATE), -55, -25, 4, 1);
                 if (hit != null) addIfNew(StructureType.ANCIENT_CITY, hit, dim, autoWp);
             }
             if (mod.ruinedPortals.get()) {
                 int yMin = isNether ? 10 : 30;
                 int yMax = isNether ? 100 : 120;
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.CRYING_OBSIDIAN), yMin, yMax, 4, 2);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.is(Blocks.CRYING_OBSIDIAN), yMin, yMax, 4, 2);
                 if (hit != null) addIfNew(StructureType.RUINED_PORTAL, hit, dim, autoWp);
             }
             if (isOver && mod.desertPyramids.get()) {
-                BlockPos hit = scanChunkForBlock(chunk, s -> s.isOf(Blocks.CHISELED_SANDSTONE), 60, 85, 4, 2);
+                BlockPos hit = scanChunkForBlock(chunk, s -> s.is(Blocks.CHISELED_SANDSTONE), 60, 85, 4, 2);
                 if (hit != null) addIfNew(StructureType.DESERT_PYRAMID, hit, dim, autoWp);
             }
         } catch (Throwable t) {
@@ -398,11 +397,11 @@ public final class StructureTracker {
             // even if their HUD widget is off-screen or the entry sorts
             // far down the list.
             try {
-                net.minecraft.client.MinecraftClient c = net.minecraft.client.MinecraftClient.getInstance();
+                net.minecraft.client.Minecraft c = net.minecraft.client.Minecraft.getInstance();
                 if (c != null && c.player != null) {
                     // Real chat message (overlay=false) so it's persistent
                     // in the chat log, not just a fading action-bar line.
-                    c.player.sendMessage(net.minecraft.text.Text.literal(
+                    com.iceymod.compat.Chat.message(net.minecraft.network.chat.Component.literal(
                             "§b[IceyClient] §a" + type.label + " found! §8(" +
                                     pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")"), false);
                 }
@@ -424,9 +423,9 @@ public final class StructureTracker {
      * dimension so Nether entries don't pollute an Overworld list.
      */
     public static List<Found> getSortedByDistance() {
-        MinecraftClient c = MinecraftClient.getInstance();
-        if (c == null || c.player == null || c.world == null) return Collections.emptyList();
-        String dim = c.world.getRegistryKey().getValue().toString();
+        Minecraft c = Minecraft.getInstance();
+        if (c == null || c.player == null || c.level == null) return Collections.emptyList();
+        String dim = c.level.dimension().identifier().toString();
         double px = c.player.getX(), py = c.player.getY(), pz = c.player.getZ();
         List<Found> all = getFound();
         List<Found> copy = new ArrayList<>(all.size());
@@ -451,7 +450,7 @@ public final class StructureTracker {
      * the first matching BlockPos, or null. Equivalent to
      * scanChunkForBlock(chunk, match, yMin, yMax, step, 1).
      */
-    private static BlockPos scanChunkForBlock(WorldChunk chunk,
+    private static BlockPos scanChunkForBlock(LevelChunk chunk,
                                               java.util.function.Predicate<BlockState> match,
                                               int yMin, int yMax, int step) {
         return scanChunkForBlock(chunk, match, yMin, yMax, step, 1);
@@ -465,14 +464,14 @@ public final class StructureTracker {
      * player build, but several hits in one chunk reliably mean a
      * naturally-generated structure.
      */
-    private static BlockPos scanChunkForBlock(WorldChunk chunk,
+    private static BlockPos scanChunkForBlock(LevelChunk chunk,
                                               java.util.function.Predicate<BlockState> match,
                                               int yMin, int yMax, int step,
                                               int minHits) {
         try {
-            int baseX = chunk.getPos().getStartX();
-            int baseZ = chunk.getPos().getStartZ();
-            BlockPos.Mutable pos = new BlockPos.Mutable();
+            int baseX = chunk.getPos().getMinBlockX();
+            int baseZ = chunk.getPos().getMinBlockZ();
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
             int hits = 0;
             BlockPos firstHit = null;
             for (int y = yMin; y <= yMax; y += step) {

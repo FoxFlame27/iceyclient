@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.DeathScreen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.DeathScreen;
 
 /**
  * Auto-clicks the respawn button when you die. Saves the extra click in
@@ -22,16 +22,16 @@ public class AutoRespawnModule extends HudModule {
 
     @Override
     public void tick() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.currentScreen instanceof DeathScreen && client.player != null) {
-            client.player.requestRespawn();
-            client.setScreen(null);
+        Minecraft client = Minecraft.getInstance();
+        if (com.iceymod.compat.MC.screen(client) instanceof DeathScreen && client.player != null) {
+            client.player.respawn();
+            com.iceymod.compat.MC.setScreen(client, null);
         }
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

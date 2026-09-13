@@ -1,11 +1,10 @@
 package com.iceymod.cape;
 
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
+import com.mojang.blaze3d.platform.NativeImage;
 import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,7 +40,7 @@ import java.util.function.Supplier;
 public final class CapeLoader {
 
     /** Registered texture identifier — namespaced under iceymod. */
-    private static final Identifier CAPE_ID = Identifier.of("iceymod", "local_cape");
+    private static final Identifier CAPE_ID = Identifier.fromNamespaceAndPath("iceymod", "local_cape");
     /** Re-check the file every 3 seconds so the user can hot-swap. */
     private static final long FILE_CHECK_INTERVAL_MS = 3000L;
 
@@ -113,7 +112,7 @@ public final class CapeLoader {
      * identifier. Returns null on any failure.
      *
      * <p>Must run on the render thread — {@link
-     * net.minecraft.client.MinecraftClient#getTextureManager()} +
+     * net.minecraft.client.Minecraft#getTextureManager()} +
      * {@code registerTexture} aren't thread-safe. Callers come from
      * the mixin path which fires during render, so this is fine.
      */
@@ -131,10 +130,10 @@ public final class CapeLoader {
             // 1.21.11 so the same source compiles for both matrix
             // jars.
             Supplier<String> labelSupplier = () -> "iceymod_local_cape";
-            NativeImageBackedTexture tex = new NativeImageBackedTexture(labelSupplier, img);
-            MinecraftClient mc = MinecraftClient.getInstance();
+            DynamicTexture tex = new DynamicTexture(labelSupplier, img);
+            Minecraft mc = Minecraft.getInstance();
             if (mc == null || mc.getTextureManager() == null) return null;
-            mc.getTextureManager().registerTexture(CAPE_ID, tex);
+            mc.getTextureManager().register(CAPE_ID, tex);
             if (!noCapeReported) {
                 System.out.println("[IceyMod] CapeLoader: registered custom cape from " + capePath);
             }

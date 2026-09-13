@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Shows the current held item name + count.
@@ -14,11 +14,11 @@ public class HotbarTextModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
-        ItemStack stack = client.player.getMainHandStack();
+        ItemStack stack = client.player.getMainHandItem();
         if (stack.isEmpty()) return null;
-        String name = stack.getName().getString();
+        String name = stack.getHoverName().getString();
         int count = stack.getCount();
         return "\u00A7b" + name + (count > 1 ? " \u00A77x" + count : "");
     }

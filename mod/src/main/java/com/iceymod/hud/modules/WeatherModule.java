@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class WeatherModule extends HudModule {
     public WeatherModule() {
@@ -10,10 +10,10 @@ public class WeatherModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
-        if (client.world == null) return null;
-        if (client.world.isThundering()) return "\u00A7e\u26C8 Thunder";
-        if (client.world.isRaining()) return "\u00A7b\u2614 Rain";
+    public String getText(Minecraft client) {
+        if (client.level == null) return null;
+        if (client.level.isThundering()) return "\u00A7e\u26C8 Thunder";
+        if (client.level.isRaining()) return "\u00A7b\u2614 Rain";
         return "\u00A7a\u2600 Clear";
     }
 }

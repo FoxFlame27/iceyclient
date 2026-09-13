@@ -1,17 +1,15 @@
 package com.iceymod.chat;
 
 import com.iceymod.hud.modules.WaypointManager;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import com.iceymod.compat.ClientCmd;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.HoverEvent;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
@@ -54,17 +52,17 @@ public final class ChatCoordParser {
 
         // Register the click-target command. /iceywp <x> <y> <z> [name]
         try {
-            ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
-                dispatcher.register(ClientCommandManager.literal("iceywp")
-                        .then(ClientCommandManager.argument("x", IntegerArgumentType.integer())
-                            .then(ClientCommandManager.argument("y", IntegerArgumentType.integer())
-                                .then(ClientCommandManager.argument("z", IntegerArgumentType.integer())
+            ClientCmd.onRegister(dispatcher ->
+                dispatcher.register(ClientCmd.literal("iceywp")
+                        .then(ClientCmd.argument("x", IntegerArgumentType.integer())
+                            .then(ClientCmd.argument("y", IntegerArgumentType.integer())
+                                .then(ClientCmd.argument("z", IntegerArgumentType.integer())
                                     .executes(ctx -> addWaypoint(
                                             IntegerArgumentType.getInteger(ctx, "x"),
                                             IntegerArgumentType.getInteger(ctx, "y"),
                                             IntegerArgumentType.getInteger(ctx, "z"),
                                             "Chat"))
-                                    .then(ClientCommandManager.argument("name", StringArgumentType.greedyString())
+                                    .then(ClientCmd.argument("name", StringArgumentType.greedyString())
                                         .executes(ctx -> addWaypoint(
                                                 IntegerArgumentType.getInteger(ctx, "x"),
                                                 IntegerArgumentType.getInteger(ctx, "y"),
@@ -77,9 +75,9 @@ public final class ChatCoordParser {
 
     private static int addWaypoint(int x, int y, int z, String name) {
         WaypointManager.addWaypoint(name, x, y, z);
-        MinecraftClient c = MinecraftClient.getInstance();
+        Minecraft c = Minecraft.getInstance();
         if (c != null && c.player != null) {
-            c.player.sendMessage(Text.literal(
+            com.iceymod.compat.Chat.message(Component.literal(
                     "§b[IceyClient] §aWaypoint added: §f" + name + " §8(" + x + ", " + y + ", " + z + ")"), false);
         }
         return 1;
@@ -89,7 +87,7 @@ public final class ChatCoordParser {
      * Walk a Text and rebuild it with coord-substring matches replaced
      * by a clickable, hover-tooltipped span. Preserves original style.
      */
-    public static Text rewrite(Text in) {
+    public static Component rewrite(Component in) {
         if (in == null) return null;
         try {
             String raw = in.getString();
@@ -97,7 +95,7 @@ public final class ChatCoordParser {
             if (!m.find()) return in;
             m.reset();
 
-            MutableText out = Text.empty();
+            MutableComponent out = Component.empty();
             int last = 0;
             while (m.find()) {
                 int x;
@@ -115,21 +113,21 @@ public final class ChatCoordParser {
                 if (y < -64 || y > 320) continue;
 
                 if (m.start() > last) {
-                    out.append(Text.literal(raw.substring(last, m.start())));
+                    out.append(Component.literal(raw.substring(last, m.start())));
                 }
                 String seen = raw.substring(m.start(), m.end());
                 Style clickStyle = Style.EMPTY
-                        .withColor(Formatting.AQUA)
-                        .withUnderline(true)
+                        .withColor(ChatFormatting.AQUA)
+                        .withUnderlined(true)
                         .withClickEvent(new ClickEvent.RunCommand("/iceywp " + x + " " + y + " " + z))
                         .withHoverEvent(new HoverEvent.ShowText(
-                                Text.literal("§b[IceyClient] §7Click to waypoint §f"
+                                Component.literal("§b[IceyClient] §7Click to waypoint §f"
                                         + x + ", " + y + ", " + z)));
-                out.append(Text.literal(seen).setStyle(clickStyle));
+                out.append(Component.literal(seen).setStyle(clickStyle));
                 last = m.end();
             }
             if (last < raw.length()) {
-                out.append(Text.literal(raw.substring(last)));
+                out.append(Component.literal(raw.substring(last)));
             }
             return out;
         } catch (Throwable t) {

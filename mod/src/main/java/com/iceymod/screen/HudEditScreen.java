@@ -2,11 +2,12 @@ package com.iceymod.screen;
 
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
+import com.iceymod.compat.IceyScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -20,36 +21,36 @@ import org.lwjgl.glfw.GLFW;
  * anything — they sit there as dead private methods, and dragging the
  * HUD silently no-ops.
  *
- * Fix: poll mouse state inside {@link #render(DrawContext, int, int, float)}
+ * Fix: poll mouse state inside {@link #render(Gfx, int, int, float)}
  * (whose signature didn't change) and run a small click/drag/release
  * state machine ourselves. Works identically on 1.21.8 and 1.21.11.
  */
-public class HudEditScreen extends Screen {
+public class HudEditScreen extends IceyScreen {
     private final Screen parent;
     private HudModule dragging = null;
     private int dragOffsetX, dragOffsetY;
     private boolean prevLeftDown = false;
 
     public HudEditScreen(Screen parent) {
-        super(Text.literal("Edit HUD"));
+        super(Component.literal("Edit HUD"));
         this.parent = parent;
     }
 
     @Override
     protected void init() {
-        addDrawableChild(ButtonWidget.builder(
-                Text.translatable("gui.done"),
-                btn -> close()
-        ).dimensions(this.width / 2 - 50, this.height - 28, 100, 20).build());
+        addRenderableWidget(Button.builder(
+                Component.translatable("gui.done"),
+                btn -> onClose()
+        ).bounds(this.width / 2 - 50, this.height - 28, 100, 20).build());
     }
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderScreenBackground(Gfx context, int mouseX, int mouseY, float delta) {
         // Skip vanilla blur (1.21.11 double-blur crash) - we draw our own overlay in render().
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    protected void renderScreen(Gfx context, int mouseX, int mouseY, float delta) {
         // Polled drag state machine — works regardless of version-specific
         // mouseClicked / mouseDragged / mouseReleased signature changes.
         try {
@@ -58,15 +59,15 @@ public class HudEditScreen extends Screen {
 
         context.fill(0, 0, this.width, this.height, 0x80000000);
 
-        context.drawCenteredTextWithShadow(textRenderer,
+        context.drawCenteredString(font,
                 "§b§lDrag modules to reposition", this.width / 2, 8, 0xFFFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer,
+        context.drawCenteredString(font,
                 "§7Click and drag any module below", this.width / 2, 20, 0xFFFFFFFF);
 
         for (HudModule module : HudManager.getModules()) {
             if (!module.isEnabled()) continue;
 
-            try { module.render(context, client); } catch (Throwable ignored) {}
+            try { module.render(context, minecraft); } catch (Throwable ignored) {}
 
             int x = module.getX() - 2;
             int y = module.getY() - 2;
@@ -83,10 +84,10 @@ public class HudEditScreen extends Screen {
             context.fill(x + w - 1, y, x + w, y + h, borderColor);
 
             int labelColor = isDragged ? 0xFF5BC8F5 : 0xFFAAAAAA;
-            context.drawTextWithShadow(textRenderer, module.getName(), x + 2, y - 11, labelColor);
+            context.drawString(font, module.getName(), x + 2, y - 11, labelColor);
         }
 
-        super.render(context, mouseX, mouseY, delta);
+        superRender(context, mouseX, mouseY, delta);
     }
 
     /**
@@ -95,9 +96,9 @@ public class HudEditScreen extends Screen {
      * and the cursor via the mouseX/mouseY render args.
      */
     private void updateDrag(int mouseX, int mouseY) {
-        MinecraftClient c = MinecraftClient.getInstance();
+        Minecraft c = Minecraft.getInstance();
         if (c == null || c.getWindow() == null) return;
-        long handle = c.getWindow().getHandle();
+        long handle = c.getWindow().handle();
         boolean leftDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 
         // Just-pressed → look for a module under cursor and begin drag.
@@ -150,13 +151,13 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         HudManager.save();
-        client.setScreen(parent);
+        com.iceymod.compat.MC.setScreen(minecraft, parent);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

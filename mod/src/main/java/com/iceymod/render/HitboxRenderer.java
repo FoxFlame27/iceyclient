@@ -3,29 +3,25 @@ package com.iceymod.render;
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.modules.HitboxModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.VertexRendering;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
- * Wireframe bounding boxes around every loaded entity, colored by the
- * HitboxModule's color setting. Registered at AFTER_ENTITIES so entities
- * are already in the frame and the lines sit cleanly on top.
+ * Wireframe bounding boxes around nearby entities, colored by the
+ * HitboxModule's color setting. The box edges are emitted by hand so no
+ * vanilla shape-renderer helper (which keeps moving) is needed.
  */
 public class HitboxRenderer {
 
     public static void register() {
-        // Routes through WorldRenderHook so it works regardless of which
-        // package path Fabric API ships WorldRenderEvents at (the location
-        // moved between 1.21.8 and 1.21.11).
         if (!WorldRenderHook.registerAfterEntities(HitboxRenderer::onRender)) {
             System.out.println("[IceyMod] WorldRenderEvents unavailable — hitbox renderer disabled");
         }
@@ -41,9 +37,8 @@ public class HitboxRenderer {
     private static void onRender(WorldRenderHook.Ctx ctx) {
         HitboxModule mod = findModule();
         if (mod == null || !mod.isEnabled()) return;
-
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null || client.player == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.level == null || client.player == null) return;
 
         int argb = mod.color.get();
         float a = ((argb >>> 24) & 0xFF) / 255f;
@@ -57,71 +52,47 @@ public class HitboxRenderer {
         boolean includeSelf = mod.showSelf.get();
         boolean onlyLiving = mod.onlyLiving.get();
 
-        Camera cam = ctx.camera();
-        Vec3d camPos = com.iceymod.Compat.cameraPos(cam);
-        MatrixStack ms = ctx.matrixStack();
-        VertexConsumerProvider consumers = ctx.consumers();
-        if (consumers == null) return;
-
-        // RenderLayer.getLines() and VertexRendering.drawBox both shifted
-        // signature between 1.21.8 and 1.21.11. Use reflection so we can
-        // gracefully no-op on the version where they don't match.
-        VertexConsumer lines;
-        Object linesLayer;
-        try {
-            linesLayer = RenderLayer.class.getMethod("getLines").invoke(null);
-            if (linesLayer == null) return;
-            // VertexConsumerProvider.getBuffer(RenderLayer) — the param
-            // type may have changed too. Try with the layer we just got.
-            lines = (VertexConsumer) consumers.getClass()
-                    .getMethod("getBuffer", linesLayer.getClass().getSuperclass())
-                    .invoke(consumers, linesLayer);
-        } catch (Throwable t) {
-            // Reflection failed — can't render hitboxes on this MC version.
-            return;
+        List<AABB> boxes = new ArrayList<>();
+        for (Entity e : client.level.entitiesForRendering()) {
+            if (e == client.player && !includeSelf) continue;
+            if (onlyLiving && !(e instanceof LivingEntity)) continue;
+            if (e.distanceToSqr(client.player) > rangeSq) continue;
+            boxes.add(e.getBoundingBox());
         }
-        if (lines == null) return;
+        if (boxes.isEmpty()) return;
 
-        ms.push();
+        PoseStack ms = ctx.poseStack();
+        RenderType type = ctx.lines();
+        if (ms == null || type == null) return;
+        Vec3 camPos = com.iceymod.Compat.cameraPos(ctx.camera());
+        final float fr = r, fg = g, fb = b, fa = a;
+        ms.pushPose();
         ms.translate(-camPos.x, -camPos.y, -camPos.z);
-        try {
-            for (Entity e : client.world.getEntities()) {
-                if (e == client.player && !includeSelf) continue;
-                if (onlyLiving && !(e instanceof LivingEntity)) continue;
-                if (e.squaredDistanceTo(client.player) > rangeSq) continue;
-                Box box = e.getBoundingBox();
-                // VertexRendering.drawBox signature changed in 1.21.11.
-                // Reflective dispatch tries the known shapes.
-                drawBoxReflective(ms, lines, box, r, g, b, a);
-            }
-        } catch (Throwable ignored) {
-            // Iterator / drawBox renamed — fail silently rather than crash.
-        }
-        ms.pop();
+        ctx.geometry(type, (pose, vc) -> { for (AABB box : boxes) lineBox(pose, vc, box, fr, fg, fb, fa); });
+        ms.popPose();
     }
 
-    private static void drawBoxReflective(MatrixStack ms, VertexConsumer lines, Box box,
-                                          float r, float g, float b, float a) {
-        // Try (MatrixStack, VertexConsumer, Box, float×4) — 1.21.8 shape
-        try {
-            VertexRendering.class.getMethod("drawBox",
-                    MatrixStack.class, VertexConsumer.class, Box.class,
-                    float.class, float.class, float.class, float.class)
-                .invoke(null, ms, lines, box, r, g, b, a);
-            return;
-        } catch (Throwable ignored) {}
-        // Try (MatrixStack, VertexConsumer, double×6, float×4) — older shape
-        try {
-            VertexRendering.class.getMethod("drawBox",
-                    MatrixStack.class, VertexConsumer.class,
-                    double.class, double.class, double.class,
-                    double.class, double.class, double.class,
-                    float.class, float.class, float.class, float.class)
-                .invoke(null, ms, lines,
-                        box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ,
-                        r, g, b, a);
-            return;
-        } catch (Throwable ignored) {}
-        // Both shapes failed — silently skip this entity's box.
+    private static void lineBox(PoseStack.Pose pose, VertexConsumer vc, AABB bb, float r, float g, float b, float a) {
+        float x1 = (float) bb.minX, y1 = (float) bb.minY, z1 = (float) bb.minZ;
+        float x2 = (float) bb.maxX, y2 = (float) bb.maxY, z2 = (float) bb.maxZ;
+        // 4 edges along X
+        edge(pose, vc, x1, y1, z1, x2, y1, z1, r, g, b, a); edge(pose, vc, x1, y2, z1, x2, y2, z1, r, g, b, a);
+        edge(pose, vc, x1, y1, z2, x2, y1, z2, r, g, b, a); edge(pose, vc, x1, y2, z2, x2, y2, z2, r, g, b, a);
+        // 4 edges along Y
+        edge(pose, vc, x1, y1, z1, x1, y2, z1, r, g, b, a); edge(pose, vc, x2, y1, z1, x2, y2, z1, r, g, b, a);
+        edge(pose, vc, x1, y1, z2, x1, y2, z2, r, g, b, a); edge(pose, vc, x2, y1, z2, x2, y2, z2, r, g, b, a);
+        // 4 edges along Z
+        edge(pose, vc, x1, y1, z1, x1, y1, z2, r, g, b, a); edge(pose, vc, x2, y1, z1, x2, y1, z2, r, g, b, a);
+        edge(pose, vc, x1, y2, z1, x1, y2, z2, r, g, b, a); edge(pose, vc, x2, y2, z1, x2, y2, z2, r, g, b, a);
+    }
+
+    private static void edge(PoseStack.Pose pose, VertexConsumer vc, float ax, float ay, float az, float bx, float by, float bz,
+                             float r, float g, float b, float a) {
+        float dx = bx - ax, dy = by - ay, dz = bz - az;
+        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (len == 0f) return;
+        float nx = dx / len, ny = dy / len, nz = dz / len;
+        vc.addVertex(pose, ax, ay, az).setColor(r, g, b, a).setNormal(pose, nx, ny, nz);
+        vc.addVertex(pose, bx, by, bz).setColor(r, g, b, a).setNormal(pose, nx, ny, nz);
     }
 }

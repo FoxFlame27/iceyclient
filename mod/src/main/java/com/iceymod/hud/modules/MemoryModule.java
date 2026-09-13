@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 /**
  * Shows JVM memory usage (used/max).
@@ -13,7 +13,7 @@ public class MemoryModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         Runtime rt = Runtime.getRuntime();
         long max = rt.maxMemory() / (1024 * 1024);
         long used = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);

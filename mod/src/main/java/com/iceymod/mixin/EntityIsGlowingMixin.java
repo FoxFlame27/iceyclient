@@ -1,8 +1,8 @@
 package com.iceymod.mixin;
 
 import com.iceymod.hud.modules.ItemGlowModule;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Entity.class)
 public abstract class EntityIsGlowingMixin {
 
-    @Inject(method = "isGlowing", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
+    @Inject(method = "isCurrentlyGlowing", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$forceGlow(CallbackInfoReturnable<Boolean> cir) {
         try {
             Entity self = (Entity) (Object) this;

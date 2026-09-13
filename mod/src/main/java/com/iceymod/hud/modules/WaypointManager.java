@@ -2,8 +2,7 @@ package com.iceymod.hud.modules;
 
 import com.google.gson.*;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-
+import net.minecraft.client.Minecraft;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,15 +35,15 @@ public class WaypointManager {
      */
     private static String currentWorldKey() {
         try {
-            MinecraftClient c = MinecraftClient.getInstance();
+            Minecraft c = Minecraft.getInstance();
             if (c == null) return "default";
-            var serverInfo = c.getCurrentServerEntry();
-            if (serverInfo != null && serverInfo.address != null) {
-                return "server:" + serverInfo.address;
+            var serverInfo = c.getCurrentServer();
+            if (serverInfo != null && serverInfo.ip != null) {
+                return "server:" + serverInfo.ip;
             }
-            if (c.isInSingleplayer() && c.getServer() != null
-                    && c.getServer().getSaveProperties() != null) {
-                String level = c.getServer().getSaveProperties().getLevelName();
+            if (c.isLocalServer() && c.getSingleplayerServer() != null
+                    && c.getSingleplayerServer().getWorldData() != null) {
+                String level = c.getSingleplayerServer().getWorldData().getLevelName();
                 if (level != null) return "sp:" + level;
             }
         } catch (Throwable ignored) {}

@@ -1,10 +1,9 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-
 import java.net.InetAddress;
 import java.security.Security;
+import net.minecraft.client.Minecraft;
 
 /**
  * Invisible ping/network optimization: shortens DNS cache TTL so stale
@@ -38,9 +37,9 @@ public class NetDnsCacheModule extends HudModule {
 
         long now = System.currentTimeMillis();
         if (now - lastResolveAt < 30_000) return;
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.getCurrentServerEntry() == null) return;
-        String addr = client.getCurrentServerEntry().address;
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.getCurrentServer() == null) return;
+        String addr = client.getCurrentServer().ip;
         if (addr == null) return;
         String host = addr.contains(":") ? addr.substring(0, addr.indexOf(':')) : addr;
         try {
@@ -50,8 +49,8 @@ public class NetDnsCacheModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(net.minecraft.client.gui.DrawContext context, MinecraftClient client) {}
+    public void render(com.iceymod.compat.Gfx context, Minecraft client) {}
 }

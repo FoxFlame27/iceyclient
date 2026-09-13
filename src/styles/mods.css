@@ -1386,3 +1386,39 @@
   justify-content: flex-start;
   gap: 10px;
 }
+
+/* ── "Copy from…" (installed header) ─────────────────────────────── */
+.mods-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.mods-copy-btn:hover { background: var(--accent-color, #7c5cff); border-color: transparent; color: #fff; }
+.copy-mods-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+.copy-mods-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 14px; border-radius: 10px; text-align: left; cursor: pointer;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); color: var(--text-primary);
+}
+.copy-mods-item:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--accent-color, #7c5cff); }
+.copy-mods-item-name { font-weight: 600; font-size: 13px; }
+.copy-mods-item-ver { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.copy-mods-summary { text-align: left; }
+.copy-mods-summary-title { font-weight: 600; margin-bottom: 8px; }
+.copy-mods-result { list-style: none; margin: 0 0 10px; padding: 0; max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.copy-mods-result li { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 6px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); }
+.copy-mods-result li span { color: var(--text-muted); text-align: right; }
+.copy-mods-result li.ok b::before { content: "✓ "; color: #4ade80; }
+.copy-mods-result li.skip b::before { content: "• "; color: var(--text-muted); }
+.copy-mods-result li.bad b::before { content: "✕ "; color: #f87171; }

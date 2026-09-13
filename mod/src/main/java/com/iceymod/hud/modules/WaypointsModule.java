@@ -2,10 +2,9 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import com.iceymod.hud.settings.BoolSetting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import com.iceymod.compat.Gfx;
 
 /**
  * Renders saved waypoints as a HUD list with name, distance, and direction.
@@ -32,9 +31,9 @@ public class WaypointsModule extends HudModule {
     @Override
     public void tick() {
         if (!deathWaypoint.get()) return;
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null) return;
-        boolean dead = client.player.isDead();
+        boolean dead = client.player.isDeadOrDying();
         if (dead && !wasDead) {
             int x = (int) client.player.getX();
             int y = (int) client.player.getY();
@@ -45,7 +44,7 @@ public class WaypointsModule extends HudModule {
             boolean added = WaypointManager.addWaypointIfNew(
                     "Last Death", x, y, z, 0xFFFF3344, 32.0);
             if (added) {
-                client.player.sendMessage(net.minecraft.text.Text.literal(
+                com.iceymod.compat.Chat.message(net.minecraft.network.chat.Component.literal(
                         "§b[IceyClient] §cLast Death waypointed §8(" + x + ", " + y + ", " + z + ")"), false);
             }
         }
@@ -53,7 +52,7 @@ public class WaypointsModule extends HudModule {
     }
 
     public void addCurrentPosition() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null) return;
         int x = (int) client.player.getX();
         int y = (int) client.player.getY();
@@ -62,10 +61,10 @@ public class WaypointsModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) { return null; }
+    public String getText(Minecraft client) { return null; }
 
     @Override
-    public void render(DrawContext context, MinecraftClient client) {
+    public void render(Gfx context, Minecraft client) {
         if (!isEnabled() || client.player == null) return;
         List<WaypointManager.Waypoint> wps = WaypointManager.getWaypoints();
         if (wps.isEmpty()) {
@@ -73,12 +72,12 @@ public class WaypointsModule extends HudModule {
             // module stays draggable in HudEditScreen and visible in
             // the HUD.
             String empty = "§7No waypoints";
-            int tw = client.textRenderer.getWidth(empty);
+            int tw = client.font.width(empty);
             this.width = tw + 10;
             this.height = 14;
             context.fill(getX(), getY(), getX() + this.width, getY() + this.height, 0x90000000);
             context.fill(getX(), getY(), getX() + 2, getY() + this.height, 0xFF5BC8F5);
-            context.drawTextWithShadow(client.textRenderer, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
+            context.drawString(client.font, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
             return;
         }
 
@@ -106,7 +105,7 @@ public class WaypointsModule extends HudModule {
         int maxWidth = 0;
         String[] texts = new String[shown];
         WaypointManager.Waypoint[] visible = new WaypointManager.Waypoint[shown];
-        float yaw = client.player.getYaw();
+        float yaw = client.player.getYRot();
         for (int i = 0; i < shown; i++) {
             WaypointManager.Waypoint wp = sorted.get(i);
             visible[i] = wp;
@@ -128,14 +127,14 @@ public class WaypointsModule extends HudModule {
             else arrow = "\u2196";
 
             texts[i] = arrow + " " + wp.name + " " + (int) dist + "m";
-            int tw = client.textRenderer.getWidth(texts[i]);
+            int tw = client.font.width(texts[i]);
             if (tw > maxWidth) maxWidth = tw;
         }
         // Trailing "+N more" line if there are extras beyond the cap.
         boolean hasOverflow = sorted.size() > shown;
         String overflowText = hasOverflow ? "§7+ " + (sorted.size() - shown) + " more" : null;
         if (hasOverflow) {
-            int ow = client.textRenderer.getWidth(overflowText);
+            int ow = client.font.width(overflowText);
             if (ow > maxWidth) maxWidth = ow;
         }
         this.width = maxWidth + 10;
@@ -144,13 +143,13 @@ public class WaypointsModule extends HudModule {
             int lineY = y + i * rowH;
             context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
             context.fill(x, lineY, x + 2, lineY + lineH, visible[i].color);
-            context.drawTextWithShadow(client.textRenderer, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
+            context.drawString(client.font, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
         }
         if (hasOverflow) {
             int lineY = y + shown * rowH;
             context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
             context.fill(x, lineY, x + 2, lineY + lineH, 0xFF888888);
-            context.drawTextWithShadow(client.textRenderer, overflowText, x + 6, lineY + 3, 0xFFAAAAAA);
+            context.drawString(client.font, overflowText, x + 6, lineY + 3, 0xFFAAAAAA);
         }
         this.height = (shown + (hasOverflow ? 1 : 0)) * rowH - gap;
     }

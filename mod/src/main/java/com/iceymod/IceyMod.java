@@ -13,6 +13,7 @@ import com.iceymod.screen.LeaderboardScreen;
 import com.iceymod.screen.StructureMenuScreen;
 import com.iceymod.screen.WaypointMenuScreen;
 import com.iceymod.structure.StructureTracker;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.iceymod.structure.BiomeTracker;
 import com.iceymod.screen.BiomeMenuScreen;
 import com.iceymod.chat.ChatCoordParser;
@@ -21,48 +22,46 @@ import com.iceymod.render.HitboxRenderer;
 import com.iceymod.hud.IceyBadgeHud;
 import com.iceymod.compat.KeyBindingCompat;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import com.iceymod.compat.Chat;
+import com.iceymod.compat.ClientCmd;
+import com.iceymod.compat.HudHook;
+import com.iceymod.compat.KeyRegistrar;
+import com.iceymod.compat.ScreenHook;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public class IceyMod implements ClientModInitializer {
     public static final String MOD_ID = "iceymod";
-    public static final Identifier LOGO_TEXTURE = Identifier.of(MOD_ID, "textures/gui/logo.png");
+    public static final Identifier LOGO_TEXTURE = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
     public static final String KEY_CATEGORY = "key.categories.iceymod";
 
-    private static KeyBinding menuKey;
-    private static KeyBinding zoomKey;
-    private static KeyBinding perspectiveKey;
-    private static KeyBinding waypointKey;
-    private static KeyBinding hideHudKey;
-    private static KeyBinding toggleSprintKey;
-    private static KeyBinding toggleBrightKey;
-    private static KeyBinding toggleTotemKey;
-    private static KeyBinding freelookKey;
-    private static KeyBinding copyCoordsKey;
-    private static KeyBinding structureKey;
-    private static KeyBinding freecamKey;
-    private static KeyBinding biomeKey;
-    private static KeyBinding leaderboardKey;
-    private static KeyBinding javaStuffKey;
+    private static KeyMapping menuKey;
+    private static KeyMapping zoomKey;
+    private static KeyMapping perspectiveKey;
+    private static KeyMapping waypointKey;
+    private static KeyMapping hideHudKey;
+    private static KeyMapping toggleSprintKey;
+    private static KeyMapping toggleBrightKey;
+    private static KeyMapping toggleTotemKey;
+    private static KeyMapping freelookKey;
+    private static KeyMapping copyCoordsKey;
+    private static KeyMapping structureKey;
+    private static KeyMapping freecamKey;
+    private static KeyMapping biomeKey;
+    private static KeyMapping leaderboardKey;
+    private static KeyMapping javaStuffKey;
 
     @Override
     public void onInitializeClient() {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.86.82)");
+        System.out.println("[IceyMod] booted (build tag: v1.86.83)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -84,7 +83,7 @@ public class IceyMod implements ClientModInitializer {
         waypointKey     = registerKey("key.iceymod.waypoint",     GLFW.GLFW_KEY_B);
         hideHudKey      = registerKey("key.iceymod.hidehud",      GLFW.GLFW_KEY_H);
         // N moved to leaderboard; user can rebind autosprint via Controls if they want.
-        toggleSprintKey = registerKey("key.iceymod.togglesprint", InputUtil.UNKNOWN_KEY.getCode());
+        toggleSprintKey = registerKey("key.iceymod.togglesprint", InputConstants.UNKNOWN.getValue());
         toggleBrightKey = registerKey("key.iceymod.togglebright", GLFW.GLFW_KEY_G);
         toggleTotemKey  = registerKey("key.iceymod.toggletotem",  GLFW.GLFW_KEY_T);
         freelookKey     = registerKey("key.iceymod.freelook",     GLFW.GLFW_KEY_LEFT_ALT);
@@ -99,8 +98,8 @@ public class IceyMod implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new IceyModScreen());
+                if (com.iceymod.compat.MC.screen(client) == null) {
+                    com.iceymod.compat.MC.setScreen(client, new IceyModScreen());
                 }
             }
             while (wasPressed(perspectiveKey)) {
@@ -110,18 +109,18 @@ public class IceyMod implements ClientModInitializer {
                 }
             }
             while (wasPressed(waypointKey)) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new WaypointMenuScreen());
+                if (com.iceymod.compat.MC.screen(client) == null) {
+                    com.iceymod.compat.MC.setScreen(client, new WaypointMenuScreen());
                 }
             }
             while (wasPressed(structureKey)) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new StructureMenuScreen());
+                if (com.iceymod.compat.MC.screen(client) == null) {
+                    com.iceymod.compat.MC.setScreen(client, new StructureMenuScreen());
                 }
             }
             while (wasPressed(biomeKey)) {
-                if (client.currentScreen == null) {
-                    client.setScreen(new BiomeMenuScreen());
+                if (com.iceymod.compat.MC.screen(client) == null) {
+                    com.iceymod.compat.MC.setScreen(client, new BiomeMenuScreen());
                 }
             }
             while (wasPressed(javaStuffKey)) {
@@ -133,9 +132,9 @@ public class IceyMod implements ClientModInitializer {
                 // category drill-down). Falls back to the client-side
                 // LeaderboardScreen on vanilla servers without iceymod+
                 // — the client gets "unknown command" but no harm done.
-                if (client.player != null && client.currentScreen == null) {
+                if (client.player != null && com.iceymod.compat.MC.screen(client) == null) {
                     try {
-                        client.player.networkHandler.sendChatCommand("leaderboard");
+                        client.player.connection.sendCommand("leaderboard");
                     } catch (Throwable ignored) {}
                 }
             }
@@ -174,12 +173,12 @@ public class IceyMod implements ClientModInitializer {
                 if (shouldBeActive && !FreelookModule.isActive()) {
                     flm.start(client);
                     if (client.player != null) {
-                        client.player.sendMessage(net.minecraft.text.Text.literal("§b[Icey] §aFreelook ON"), true);
+                        com.iceymod.compat.Chat.message(net.minecraft.network.chat.Component.literal("§b[Icey] §aFreelook ON"), true);
                     }
                 } else if (!shouldBeActive && FreelookModule.isActive()) {
                     flm.stop(client);
                     if (client.player != null) {
-                        client.player.sendMessage(net.minecraft.text.Text.literal("§b[Icey] §7Freelook off"), true);
+                        com.iceymod.compat.Chat.message(net.minecraft.network.chat.Component.literal("§b[Icey] §7Freelook off"), true);
                     }
                 }
             }
@@ -191,9 +190,9 @@ public class IceyMod implements ClientModInitializer {
                     int y = (int) Math.floor(client.player.getY());
                     int z = (int) Math.floor(client.player.getZ());
                     String coords = x + ", " + y + ", " + z;
-                    client.keyboard.setClipboard(coords);
-                    client.player.sendMessage(
-                            net.minecraft.text.Text.literal("\u00A7b[Icey] \u00A7rCopied \u00A7a" + coords),
+                    client.keyboardHandler.setClipboard(coords);
+                    com.iceymod.compat.Chat.message(
+                            net.minecraft.network.chat.Component.literal("\u00A7b[Icey] \u00A7rCopied \u00A7a" + coords),
                             true); // actionBar overlay — doesn't spam chat
                 }
             }
@@ -201,11 +200,11 @@ public class IceyMod implements ClientModInitializer {
             HudManager.tick();
         });
 
-        HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player != null && (client.currentScreen == null
-                    || client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen)) {
-                HudManager.render(drawContext);
+        HudHook.register("hud", (g, tickDelta) -> {
+            Minecraft client = Minecraft.getInstance();
+            if (client.player != null && (com.iceymod.compat.MC.screen(client) == null
+                    || com.iceymod.compat.MC.screen(client) instanceof net.minecraft.client.gui.screens.ChatScreen)) {
+                HudManager.render(g);
             }
         });
 
@@ -216,12 +215,12 @@ public class IceyMod implements ClientModInitializer {
         // Keybind N sends /leaderboard to the server to open the
         // server-side chest GUI.)
         try {
-            ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-                dispatcher.register(ClientCommandManager.literal("iceyhuds")
+            ClientCmd.onRegister(dispatcher -> {
+                dispatcher.register(ClientCmd.literal("iceyhuds")
                     .executes(ctx -> {
                         if (!HudManager.isHudVisible()) HudManager.toggleHudVisibility();
                         HudManager.resetAllToDefaults();
-                        ctx.getSource().sendFeedback(net.minecraft.text.Text.literal(
+                        ctx.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
                                 "§b[IceyMod] §aHUDs reset — visible + defaults restored. Open Y menu to reposition."));
                         return 1;
                     }));
@@ -234,20 +233,21 @@ public class IceyMod implements ClientModInitializer {
             // Title screen: no extra corner logo — the Icey Client logo is already drawn
             // in place of the vanilla MINECRAFT logo by LogoDrawerMixin.
 
-            if (screen instanceof HandledScreen) {
-                ScreenEvents.afterRender(screen).register((scr, ctx, mouseX, mouseY, delta) -> {
+            if (screen instanceof AbstractContainerScreen) {
+                ScreenHook.afterRender(screen, (ctx, mouseX, mouseY, delta) -> {
+                    final net.minecraft.client.gui.screens.Screen scr = screen;
                     // Skip brewing stands — tight layout, text overlaps the window
-                    if (scr instanceof net.minecraft.client.gui.screen.ingame.BrewingStandScreen) return;
+                    if (scr instanceof net.minecraft.client.gui.screens.inventory.BrewingStandScreen) return;
                     // Skip double chests — taller window pushes the text too far down
-                    if (scr instanceof net.minecraft.client.gui.screen.ingame.GenericContainerScreen gcs
-                            && gcs.getScreenHandler().getRows() == 6) return;
+                    if (scr instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen gcs
+                            && gcs.getMenu().getRowCount() == 6) return;
 
-                    int sw = client.getWindow().getScaledWidth();
+                    int sw = client.getWindow().getGuiScaledWidth();
                     int windowTop = (scr.height - 166) / 2;
                     int y = Math.max(2, windowTop - 14);
-                    ctx.drawCenteredTextWithShadow(
-                            client.textRenderer,
-                            net.minecraft.text.Text.literal(Branding.colorCode() + Branding.name()),
+                    ctx.drawCenteredString(
+                            client.font,
+                            net.minecraft.network.chat.Component.literal(Branding.colorCode() + Branding.name()),
                             sw / 2, y,
                             0xFFFFFFFF
                     );
@@ -268,24 +268,24 @@ public class IceyMod implements ClientModInitializer {
      * (String, Type, int, String) KeyBinding constructor don't crash the mod.
      * Returns null if registration fails — all call sites null-check.
      */
-    private static KeyBinding registerKey(String translationKey, int code) {
+    private static KeyMapping registerKey(String translationKey, int code) {
         try {
-            KeyBinding kb = KeyBindingCompat.create(translationKey, InputUtil.Type.KEYSYM, code, KEY_CATEGORY);
+            KeyMapping kb = KeyBindingCompat.create(translationKey, InputConstants.Type.KEYSYM, code, KEY_CATEGORY);
             if (kb == null) return null;
-            return KeyBindingHelper.registerKeyBinding(kb);
+            return KeyRegistrar.register(kb);
         } catch (Throwable t) {
             System.out.println("[IceyMod] Failed to register key " + translationKey + ": " + t.getMessage());
             return null;
         }
     }
 
-    private static boolean wasPressed(KeyBinding kb) {
+    private static boolean wasPressed(KeyMapping kb) {
         if (kb == null) return false;
-        try { return kb.wasPressed(); } catch (Throwable t) { return false; }
+        try { return kb.consumeClick(); } catch (Throwable t) { return false; }
     }
 
-    private static boolean isPressed(KeyBinding kb) {
+    private static boolean isPressed(KeyMapping kb) {
         if (kb == null) return false;
-        try { return kb.isPressed(); } catch (Throwable t) { return false; }
+        try { return kb.isDown(); } catch (Throwable t) { return false; }
     }
 }

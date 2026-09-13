@@ -1,11 +1,6 @@
 package com.iceymod.mixin;
 
 import com.iceymod.network.IceyNetwork;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.hud.PlayerListHud;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -14,12 +9,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.PlayerTabOverlay;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.resources.Identifier;
 
 /**
  * Whenever the player-list HUD renders, warm the Icey-network
  * presence cache for every player on the server. The actual badge
  * draw rides on top of every Icey-Client-using player's name via the
- * {@link DrawContext#drawTexture} call piggy-backed at the end of
+ * {@link GuiGraphics#blit} call piggy-backed at the end of
  * render — see {@code drawBadge}.
  *
  * <p>This mixin is intentionally loose ({@code require = 0}, method
@@ -27,10 +27,10 @@ import java.util.UUID;
  * point releases. If the targeted method doesn't exist, the badge is
  * a silent no-op rather than a load-time failure.
  */
-@Mixin(PlayerListHud.class)
+@Mixin(PlayerTabOverlay.class)
 public abstract class PlayerListHudMixin {
 
-    private static final Identifier ICEY_BADGE = Identifier.of("iceymod", "icon.png");
+    private static final Identifier ICEY_BADGE = Identifier.fromNamespaceAndPath("iceymod", "icon.png");
     private static boolean iceymod$warmedThisOpen = false;
     private static boolean iceymod$renderInjectLogged = false;
     private static boolean iceymod$badgeInjectLogged = false;
@@ -51,19 +51,19 @@ public abstract class PlayerListHudMixin {
         at = @At("HEAD"),
         require = 0
     )
-    private void iceymod$onRender(DrawContext ctx, int scaledWindowWidth, net.minecraft.scoreboard.Scoreboard scoreboard, net.minecraft.scoreboard.ScoreboardObjective objective, CallbackInfo ci) {
+    private void iceymod$onRender(GuiGraphics ctx, int scaledWindowWidth, net.minecraft.world.scores.Scoreboard scoreboard, net.minecraft.world.scores.Objective objective, CallbackInfo ci) {
         if (!iceymod$renderInjectLogged) {
             System.out.println("[IceyMod] PlayerListHudMixin: render injector attached and firing");
             iceymod$renderInjectLogged = true;
         }
         try {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if (mc == null || mc.player == null || mc.world == null) return;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc == null || mc.player == null || mc.level == null) return;
 
             // Warm presence cache once per render burst — we don't
             // want to flood the worker with a request per frame.
             Set<UUID> playerUuids = new HashSet<>();
-            for (PlayerListEntry e : mc.player.networkHandler.getPlayerList()) {
+            for (PlayerInfo e : mc.player.connection.getOnlinePlayers()) {
                 if (e == null || e.getProfile() == null) continue;
                 UUID uu = iceymod$profileUuid(e.getProfile());
                 if (uu != null) playerUuids.add(uu);
@@ -74,7 +74,7 @@ public abstract class PlayerListHudMixin {
                 // Reset flag a tick later so we re-warm if TAB stays
                 // open more than a few seconds. Cheap heuristic:
                 // schedule reset on the next mc tick.
-                final MinecraftClient mcRef = mc;
+                final Minecraft mcRef = mc;
                 Thread.ofVirtual().start(() -> {
                     try { Thread.sleep(30_000); } catch (InterruptedException _ignored) {}
                     iceymod$warmedThisOpen = false;
@@ -92,11 +92,11 @@ public abstract class PlayerListHudMixin {
      * like on 1.21.x. Multiple candidates so we survive yarn renames.
      */
     @Inject(
-        method = {"renderLatencyIcon", "method_1759", "method_1735"},
+        method = {"renderPingIcon", "method_1759", "method_1735"},
         at = @At("HEAD"),
         require = 0
     )
-    private void iceymod$drawBadge(DrawContext ctx, int width, int x, int y, PlayerListEntry entry, CallbackInfo ci) {
+    private void iceymod$drawBadge(GuiGraphics ctx, int width, int x, int y, PlayerInfo entry, CallbackInfo ci) {
         if (!iceymod$badgeInjectLogged) {
             System.out.println("[IceyMod] PlayerListHudMixin: badge injector attached and firing");
             iceymod$badgeInjectLogged = true;
@@ -122,11 +122,11 @@ public abstract class PlayerListHudMixin {
     private static boolean iceymod$drawLookupTried;
 
     /** Find DrawContext.drawTexture(RenderPipeline, Identifier, ...) + a pipeline, cache, invoke. */
-    private static void iceymod$drawTextureReflective(DrawContext ctx, Identifier tex, int x, int y, int w, int h) {
+    private static void iceymod$drawTextureReflective(GuiGraphics ctx, Identifier tex, int x, int y, int w, int h) {
         if (!iceymod$drawLookupTried) {
             iceymod$drawLookupTried = true;
             try {
-                for (java.lang.reflect.Method m : DrawContext.class.getMethods()) {
+                for (java.lang.reflect.Method m : GuiGraphics.class.getMethods()) {
                     if (!m.getName().equals("drawTexture")) continue;
                     Class<?>[] p = m.getParameterTypes();
                     if (p.length != 10) continue;

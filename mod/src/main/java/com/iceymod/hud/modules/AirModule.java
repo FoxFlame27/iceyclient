@@ -1,7 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class AirModule extends HudModule {
     public AirModule() {
@@ -10,10 +10,10 @@ public class AirModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
-        int air = client.player.getAir();
-        int max = client.player.getMaxAir();
+        int air = client.player.getAirSupply();
+        int max = client.player.getMaxAirSupply();
         if (air >= max) return null; // hide when full air (on land)
         int pct = (int) (((float) air / max) * 100);
         String color = pct < 25 ? "\u00A7c" : pct < 50 ? "\u00A7e" : "\u00A7b";

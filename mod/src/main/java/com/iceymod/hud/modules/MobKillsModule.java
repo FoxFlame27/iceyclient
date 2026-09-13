@@ -2,12 +2,11 @@ package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.ActionResult;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -32,12 +31,12 @@ public class MobKillsModule extends HudModule {
             if (entity instanceof LivingEntity) {
                 trackedHealth.put(entity.getId(), ((LivingEntity) entity).getHealth());
             }
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.world == null) return;
+            if (client.level == null) return;
             for (Map.Entry<Integer, Float> e : trackedHealth.entrySet()) {
-                Entity ent = client.world.getEntityById(e.getKey());
+                Entity ent = client.level.getEntity(e.getKey());
                 if ((ent == null || !ent.isAlive()) && !counted.contains(e.getKey())) {
                     counted.add(e.getKey());
                     kills++;
@@ -47,7 +46,7 @@ public class MobKillsModule extends HudModule {
     }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         return "\u00A7a\u2694 " + kills + " kills";
     }
 }

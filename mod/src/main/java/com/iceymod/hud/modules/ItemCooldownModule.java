@@ -1,8 +1,8 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 
 public class ItemCooldownModule extends HudModule {
     public ItemCooldownModule() {
@@ -14,11 +14,11 @@ public class ItemCooldownModule extends HudModule {
     public Category getCategory() { return Category.COMBAT; }
 
     @Override
-    public String getText(MinecraftClient client) {
+    public String getText(Minecraft client) {
         if (client.player == null) return null;
-        ItemStack s = client.player.getMainHandStack();
+        ItemStack s = client.player.getMainHandItem();
         if (s.isEmpty()) return null;
-        float cd = client.player.getItemCooldownManager().getCooldownProgress(s, 0f);
+        float cd = client.player.getCooldowns().getCooldownPercent(s, 0f);
         if (cd <= 0) return null;
         int pct = Math.round(cd * 100f);
         return "\u00A7e\u231B " + pct + "% CD";

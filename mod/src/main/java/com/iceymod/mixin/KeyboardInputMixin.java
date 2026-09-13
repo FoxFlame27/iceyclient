@@ -1,10 +1,10 @@
 package com.iceymod.mixin;
 
 import com.iceymod.hud.modules.FreecamModule;
-import net.minecraft.client.input.Input;
-import net.minecraft.client.input.KeyboardInput;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.client.player.KeyboardInput;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -18,14 +18,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * out from under the freecam, possibly into lava.
  */
 @Mixin(KeyboardInput.class)
-public abstract class KeyboardInputMixin extends Input {
+public abstract class KeyboardInputMixin extends ClientInput {
 
     @Inject(method = "tick", at = @At("TAIL"), require = 0, expect = 0)
     private void iceymod$freecamSuppressInput(CallbackInfo ci) {
         try {
             if (FreecamModule.isActive()) {
-                this.playerInput = PlayerInput.DEFAULT;
-                this.movementVector = Vec2f.ZERO;
+                this.keyPresses = Input.EMPTY;
+                this.moveVector = Vec2.ZERO;
             }
         } catch (Throwable ignored) {}
     }
