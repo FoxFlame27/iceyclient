@@ -366,8 +366,26 @@ jobs:
       - name: List release files
         run: ls -la dist/
       - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
-          generate_release_notes: true
-          draft: false
+        # gh CLI instead of an action: the release is created first and every
+        # file is uploaded on its own with retries, so one bad upload leaves a
+        # release with the other assets and a log line naming the culprit.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          TAG="${GITHUB_REF_NAME}"
+          if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes \
+              || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" --notes "Icey Client $TAG"
+          fi
+          rc=0
+          for f in dist/*; do
+            [ -f "$f" ] || continue
+            ok=0
+            for i in 1 2 3; do
+              if gh release upload "$TAG" "$f" -R "$GITHUB_REPOSITORY" --clobber; then ok=1; break; fi
+              echo "upload attempt $i failed for $f, retrying in 20s"; sleep 20
+            done
+            if [ "$ok" != 1 ]; then echo "::error::could not upload $f"; rc=1; fi
+          done
+          exit $rc
