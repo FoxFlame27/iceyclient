@@ -1300,6 +1300,17 @@ function launchMinecraft(installationId) {
         }
       } catch (_) {}
 
+      // 5f) Any options.txt we created ourselves must carry the game's data
+      // version, or Minecraft treats it as pre-1.13 and runs every options
+      // datafixer over it — OptionsKeyLwjgl3Fix then parses key_* values as
+      // LWJGL2 integers, throws on "key.keyboard.l", and the game logs
+      // "Failed to load options" and discards every setting in the file.
+      try {
+        if (_ensureOptionsVersion(installGameDir, clientJar)) {
+          _mcConsole('options.txt had no version stamp — added it so Minecraft keeps your settings', 'info');
+        }
+      } catch (_) {}
+
       // 6) Some mods need a newer Java than the game itself (C2ME on
       // 1.21.11 wants 22+). Bump to the LTS that covers it.
       try {
@@ -3085,6 +3096,38 @@ function _setOptionIf(installGameDir, key, value, when) {
     else { while (lines.length && lines[lines.length - 1] === '') lines.pop(); lines.push(key + ':' + value); }
     fs.mkdirSync(installGameDir, { recursive: true });
     fs.writeFileSync(optionsPath, lines.join('\n') + '\n', 'utf-8');
+    return true;
+  } catch (_) { return false; }
+}
+
+// Insert `version:<dataVersion>` at the top of options.txt when the file has
+// none (only files the launcher wrote from scratch lack it — Minecraft
+// always writes one). The data version comes from version.json inside the
+// client jar ("world_version"), which is what Minecraft itself stamps.
+const _clientDataVersionCache = new Map();
+function _clientDataVersion(clientJar) {
+  if (_clientDataVersionCache.has(clientJar)) return _clientDataVersionCache.get(clientJar);
+  let dv = 0;
+  try {
+    const buf = fs.readFileSync(clientJar);
+    const entry = _zipEntries(buf).find(e => e.name === 'version.json');
+    const raw = entry ? _zipReadEntry(buf, entry) : null;
+    if (raw) dv = Number(JSON.parse(raw.toString('utf-8')).world_version) || 0;
+  } catch (_) {}
+  _clientDataVersionCache.set(clientJar, dv);
+  return dv;
+}
+
+function _ensureOptionsVersion(installGameDir, clientJar) {
+  try {
+    const optionsPath = path.join(installGameDir, 'options.txt');
+    if (!fs.existsSync(optionsPath)) return false;
+    const lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
+    if (lines.some(l => l.startsWith('version:'))) return false;
+    const dv = _clientDataVersion(clientJar);
+    if (!dv) return false;
+    lines.unshift('version:' + dv);
+    fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8');
     return true;
   } catch (_) { return false; }
 }
