@@ -388,4 +388,7 @@ jobs:
             done
             if [ "$ok" != 1 ]; then echo "::error::could not upload $f"; rc=1; fi
           done
+          # A release left behind as a draft by an earlier failed run stays
+          # invisible; always publish and mark it latest.
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest || rc=1
           exit $rc
