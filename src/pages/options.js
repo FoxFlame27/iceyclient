@@ -245,7 +245,7 @@ async function _renderMainOptions(page, settings) {
         <div class="options-toggle-card off" onclick="_optRunSetup()">
           <div class="options-toggle-body">
             <div class="options-toggle-name">Setup</div>
-            <div class="options-toggle-desc">Go through the first-run setup again</div>
+            <div class="options-toggle-desc">Open the setup page again</div>
           </div>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
@@ -415,7 +415,7 @@ async function _optSetHudMenuColor(color) {
 }
 
 function _optRunSetup() {
-  if (typeof SetupWizard !== 'undefined') SetupWizard.open();
+  switchPage('setup');
 }
 
 async function _optResetPlaytime() {

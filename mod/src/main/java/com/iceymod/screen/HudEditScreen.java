@@ -67,7 +67,7 @@ public class HudEditScreen extends IceyScreen {
         for (HudModule module : HudManager.getModules()) {
             if (!module.isEnabled()) continue;
 
-            try { module.render(context, minecraft); } catch (Throwable ignored) {}
+            try { module.renderScaled(context, minecraft); } catch (Throwable ignored) {}
 
             int x = module.getX() - 2;
             int y = module.getY() - 2;

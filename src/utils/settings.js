@@ -8,6 +8,7 @@ const SettingsManager = {
     this._applyAccent();
     this._applyLayout();
     this._applySkin();
+    this._applySetup();
     return this._settings;
   },
 
@@ -27,6 +28,7 @@ const SettingsManager = {
     if (key === 'accentColor') this._applyAccent();
     if (key === 'layoutTheme') this._applyLayout();
     if (key === 'skiflameMode') { this._applySkin(); this._applyAccent(); }
+    if (key === 'setupCompleted') this._applySetup();
     this._notifyListeners(key, value);
   },
 
@@ -38,6 +40,7 @@ const SettingsManager = {
     if ('accentColor' in obj) this._applyAccent();
     if ('layoutTheme' in obj) this._applyLayout();
     if ('skiflameMode' in obj) { this._applySkin(); this._applyAccent(); }
+    if ('setupCompleted' in obj) this._applySetup();
     for (const [k, v] of Object.entries(obj)) {
       this._notifyListeners(k, v);
     }
@@ -67,6 +70,12 @@ const SettingsManager = {
   _applyLayout() {
     const layout = this._settings?.layoutTheme || 'classic';
     document.documentElement.setAttribute('data-layout', layout);
+  },
+
+  // The Setup tab stays in the nav only until setup has been done once
+  // (styles/setup.css keys off data-setup).
+  _applySetup() {
+    document.documentElement.setAttribute('data-setup', this._settings?.setupCompleted ? 'done' : 'todo');
   },
 
   // Secret "Skiflame" skin: flame palette, Skiflame logo + background.

@@ -21,6 +21,7 @@ function switchPage(pageName) {
   if (pageName === 'skins' && typeof SkinsPageInit === 'function') SkinsPageInit();
   if (pageName === 'console' && typeof ConsolePageInit === 'function') ConsolePageInit();
   if (pageName === 'options' && typeof OptionsPageInit === 'function') OptionsPageInit();
+  if (pageName === 'setup' && typeof SetupPageInit === 'function') SetupPageInit();
 }
 
 navTabs.forEach(tab => {
@@ -333,12 +334,11 @@ async function _checkForUpdates() {
 (async () => {
   await SettingsManager.load();
   loadNavProfile();
-  switchPage('home');
+  // First launch opens on the Setup tab; after that, on Play.
+  switchPage(SettingsManager.get('setupCompleted') ? 'home' : 'setup');
   window.icey.getAppVersion().then(v => {
     const el = document.getElementById('titlebar-version');
     if (el && v) el.textContent = 'v' + v;
   }).catch(() => {});
-  // First run: walk through theme, account, in-game menu and preferences.
-  if (!SettingsManager.get('setupCompleted') && typeof SetupWizard !== 'undefined') SetupWizard.open();
   setTimeout(_checkForUpdates, 2000);
 })();
