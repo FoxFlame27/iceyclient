@@ -107,12 +107,43 @@ async function HomePageInit() {
     </div>
   `;
 
+  // Classic home: the player's skin centre stage with the launch button
+  // under it, servers in a glass panel on the right. The installation is
+  // picked from the menu on the launch button's arrow.
+  let _accountType = null;
+  try {
+    const _accts = await window.icey.getAccounts();
+    const _active = (_accts.accounts || []).find(a => a.uuid === _accts.activeUuid);
+    if (_active) _accountType = _active.type;
+  } catch (_) {}
+  const _accountLabel = !_liquidAuthUser ? 'Not signed in'
+    : _accountType === 'offline' ? 'Offline account'
+    : _accountType === 'launcher' ? 'Minecraft Launcher account'
+    : 'Microsoft account';
+  const _skinName = encodeURIComponent(_liquidAuthUser || 'MHF_Steve');
+
   const classicHero = `
-    <div class="home-layout">
-      <!-- Main area: logo + button -->
-      <div class="home-main">
-        <div class="home-hero">
-          ${SettingsManager.isSkiflame() ? '' : `<img class="home-hero-logo" src="assets/text-above-playbutton.png" alt="Icey Client" onerror="this.style.display='none'">`}
+    <div class="home-glass">
+      <div class="hg-stage">
+        <svg class="hg-waves" viewBox="0 0 1200 600" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M-20 330 C 220 210, 420 470, 640 330 S 1020 230, 1220 350"/>
+          <path d="M-20 390 C 260 300, 440 520, 680 390 S 1000 300, 1220 420"/>
+          <path d="M-20 270 C 200 380, 460 180, 660 290 S 1040 390, 1220 260"/>
+        </svg>
+
+        <button class="hg-identity" onclick="_liquidOpenAccount()" title="Accounts">
+          <span class="hg-name">${_escapeHtml(_liquidAuthUser || 'Player')}</span>
+          <span class="hg-tag ${_liquidAuthUser ? 'on' : ''}"><span class="hg-tag-dot"></span>${_accountLabel}</span>
+        </button>
+
+        <div class="hg-skin-wrap">
+          <div class="hg-skin-glow"></div>
+          <img class="hg-skin" alt="" draggable="false"
+               src="https://nmsr.nickac.dev/fullbody/${_skinName}?overlay=true"
+               onerror="_homeSkinFallback(this)">
+        </div>
+
+        <div class="hg-launch-row">
           <div class="home-launch-bar">
             <div class="launch-bar-snow" id="launch-bar-snow"></div>
             <button class="launch-btn launch-btn-idle" id="launch-btn" onclick="HomePlayClick()">
@@ -120,25 +151,38 @@ async function HomePageInit() {
               <span class="launch-btn-subtitle" id="launch-btn-subtitle"><span class="launch-btn-dot"></span> READY TO LAUNCH</span>
             </button>
           </div>
-          <div class="home-timer ${showTimer ? '' : 'hidden'}" id="home-timer">
-            <span class="home-timer-label">Playtime</span>
-            <span class="home-timer-value" id="home-timer-value">00:00:00</span>
-          </div>
+          <button class="hg-launch-caret" id="hg-launch-caret" onclick="_homeToggleInstMenu(event)" title="Choose installation">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="hg-inst-menu hidden" id="hg-inst-menu"></div>
         </div>
 
-        <!-- Installations cards at bottom -->
-        <div class="home-installations-section">
-          <div class="home-inst-header">
-            <span class="home-inst-title">Your Installations</span>
-          </div>
-          <div class="home-inst-cards" id="home-inst-cards"></div>
+        <div class="home-timer ${showTimer ? '' : 'hidden'}" id="home-timer">
+          <span class="home-timer-label">Playtime</span>
+          <span class="home-timer-value" id="home-timer-value">00:00:00</span>
         </div>
       </div>
 
-      <!-- Right: Servers list -->
-      <div class="home-servers-col">
-        <div class="home-servers-title">Servers</div>
-        <div class="home-server-list" id="server-list">
+      <!-- Right: installations (with their pictures), servers on a second tab -->
+      <div class="home-servers-col hg-side" data-tab="${_homeSideTab}">
+        <div class="hg-tabs">
+          <button class="hg-tab" data-tab="installations" onclick="_homeSetSideTab('installations')">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            Installations
+          </button>
+          <button class="hg-tab" data-tab="servers" onclick="_homeSetSideTab('servers')">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><line x1="7" y1="7.5" x2="7.01" y2="7.5"/><line x1="7" y1="16.5" x2="7.01" y2="16.5"/></svg>
+            Servers
+          </button>
+        </div>
+        <div class="hg-pane hg-pane-installations">
+          <div class="home-inst-cards" id="home-inst-cards"></div>
+          <button class="home-add-server-btn" onclick="switchPage('installations')">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Manage installations
+          </button>
+        </div>
+        <div class="home-server-list hg-pane hg-pane-servers" id="server-list">
           <div class="home-server-bar featured" id="featured-server">
             <div class="server-loading">Loading Icey SMP...</div>
           </div>
@@ -169,6 +213,7 @@ async function HomePageInit() {
 
   _initLaunchBarSnow();
   _loadHomeInstallations();
+  _loadHomeInstMenu();
   _loadAllServers();
   if (_serverRefreshInterval) clearInterval(_serverRefreshInterval);
   _serverRefreshInterval = setInterval(_loadAllServers, 120000);
@@ -210,6 +255,69 @@ async function _loadHomeInstallations() {
   }
 }
 
+// Classic home: which tab the side panel shows. Kept while the app runs.
+let _homeSideTab = 'installations';
+function _homeSetSideTab(tab) {
+  _homeSideTab = tab === 'servers' ? 'servers' : 'installations';
+  const side = document.querySelector('.hg-side');
+  if (side) side.dataset.tab = _homeSideTab;
+}
+
+// Classic home: the installation menu behind the launch button's arrow.
+async function _loadHomeInstMenu() {
+  const menu = document.getElementById('hg-inst-menu');
+  if (!menu) return;
+  let installations = [];
+  try { installations = await window.icey.getInstallations(); } catch (_) {}
+  const items = installations.map(inst => {
+    const imageUrl = inst.image
+      ? `file://${inst.image.replace(/\\\\/g, '/')}`
+      : 'assets/installbg-default.png';
+    const platform = inst.platform === 'fabric' ? 'Fabric' : 'Vanilla';
+    return `
+      <button class="hg-inst-item ${inst.selected ? 'selected' : ''}" onclick="_homeSelectInstallation('${inst.id}')">
+        <span class="hg-inst-thumb" style="background-image:url('${imageUrl}')"></span>
+        <span class="hg-inst-text">
+          <span class="hg-inst-name">${_escapeHtml(inst.name)}</span>
+          <span class="hg-inst-meta">${platform} ${_escapeHtml(inst.version)}</span>
+        </span>
+        ${inst.selected ? '<svg class="hg-inst-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+      </button>`;
+  }).join('');
+  menu.innerHTML = `
+    <div class="hg-inst-menu-title">Installation</div>
+    <div class="hg-inst-list">${items || '<div class="hg-inst-none">No installations yet</div>'}</div>
+    <button class="hg-inst-manage" onclick="switchPage('installations')">
+      ${installations.length ? 'Manage installations' : 'Create an installation'}
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>`;
+}
+
+function _homeToggleInstMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('hg-inst-menu');
+  const caret = document.getElementById('hg-launch-caret');
+  if (!menu) return;
+  const open = menu.classList.toggle('hidden') === false;
+  if (caret) caret.classList.toggle('open', open);
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('hg-inst-menu');
+  if (!menu || menu.classList.contains('hidden')) return;
+  if (menu.contains(e.target)) return;
+  menu.classList.add('hidden');
+  const caret = document.getElementById('hg-launch-caret');
+  if (caret) caret.classList.remove('open');
+});
+
+// Cracked names (and offline play) have no skin to render: show Steve.
+function _homeSkinFallback(img) {
+  const steve = 'https://nmsr.nickac.dev/fullbody/MHF_Steve?overlay=true';
+  if (img.src !== steve) img.src = steve;
+  else img.style.visibility = 'hidden';
+}
+
 async function _homeSelectInstallation(id) {
   const installations = await window.icey.getInstallations();
   installations.forEach(i => i.selected = (i.id === id));
@@ -217,6 +325,7 @@ async function _homeSelectInstallation(id) {
     await window.icey.saveInstallation(inst);
   }
   _loadHomeInstallations();
+  _loadHomeInstMenu();
   _homeUpdateLaunchButton(MinecraftLauncher.getState(), SettingsManager.getAll().showSessionTimer !== false);
   Toast.success('Installation selected');
 }
@@ -329,26 +438,27 @@ function _initLaunchBarSnow() {
   setInterval(() => { if (document.getElementById('launch-bar-snow')) mk(); }, 500);
 }
 
-async function _homeGetSelectedVersion() {
+async function _homeGetSelected() {
   try {
     const installations = await window.icey.getInstallations();
-    const selected = installations.find(i => i.selected);
-    return selected ? selected.version : '';
-  } catch (_) { return ''; }
+    return installations.find(i => i.selected) || null;
+  } catch (_) { return null; }
 }
 
 async function _homeUpdateLaunchButton(state, showTimer) {
   const btn = document.getElementById('launch-btn'), timer = document.getElementById('home-timer');
   if (!btn) return;
-  const version = await _homeGetSelectedVersion();
-  const versionStr = version ? ` ${version}` : '';
+  const selected = await _homeGetSelected();
+  const target = selected
+    ? `${selected.platform === 'fabric' ? 'Fabric' : 'Vanilla'} ${_escapeHtml(selected.version)}`
+    : 'No installation selected';
 
   // Same button structure in both layouts — full innerHTML rewrite is
   // safe regardless of layoutTheme.
   btn.className = 'launch-btn';
   if (state === 'idle') {
     btn.classList.add('launch-btn-idle'); btn.disabled = false;
-    btn.innerHTML = `<span class="launch-btn-title">LAUNCH${versionStr}</span><span class="launch-btn-subtitle"><span class="launch-btn-dot"></span> READY TO LAUNCH</span>`;
+    btn.innerHTML = `<span class="launch-btn-title">LAUNCH</span><span class="launch-btn-subtitle"><span class="launch-btn-dot"></span> ${target}</span>`;
     if (timer) timer.classList.remove('visible');
   } else if (state === 'starting') {
     btn.classList.add('launch-btn-starting'); btn.disabled = true;

@@ -90,21 +90,38 @@ async function loadNavProfile() {
     }
   }
 
+  // Account chip in the top bar: head, name, arrow. One click target.
+  const caret = '<svg class="titlebar-chip-caret" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
   if (titlebarProfile) {
     if (auth && auth.username) {
       titlebarProfile.innerHTML = `
-        <img class="titlebar-profile-head" src="https://nmsr.nickac.dev/face/${auth.username}?overlay=true" alt="${auth.username}" onclick="_toggleProfileDropdown()">
+        <button class="titlebar-chip" onclick="_toggleProfileDropdown()" title="Accounts">
+          <img class="titlebar-profile-head" src="https://nmsr.nickac.dev/face/${_escapeAttr(auth.username)}?overlay=true" alt="">
+          <span class="titlebar-chip-name">${_escapeHtml(auth.username)}</span>
+          ${caret}
+        </button>
       `;
       _updateProfileDropdown(auth);
     } else if (hasSavedAccounts) {
       // Generic Steve head — clickable so user can reach the dropdown to
       // switch to / remove a saved account.
       titlebarProfile.innerHTML = `
-        <img class="titlebar-profile-head" src="https://nmsr.nickac.dev/face/MHF_Steve?overlay=true" alt="Manage accounts" title="Manage accounts" onclick="_toggleProfileDropdown()">
+        <button class="titlebar-chip" onclick="_toggleProfileDropdown()" title="Manage accounts">
+          <img class="titlebar-profile-head" src="https://nmsr.nickac.dev/face/MHF_Steve?overlay=true" alt="">
+          <span class="titlebar-chip-name">Accounts</span>
+          ${caret}
+        </button>
       `;
       _updateProfileDropdown(null);
     } else {
-      titlebarProfile.innerHTML = '';
+      titlebarProfile.innerHTML = `
+        <button class="titlebar-chip titlebar-chip-signin" onclick="_toggleProfileDropdown()" title="Sign in">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+          <span class="titlebar-chip-name">Sign in</span>
+          ${caret}
+        </button>
+      `;
+      _updateProfileDropdown(null);
     }
   }
 }
@@ -163,8 +180,8 @@ async function _updateProfileDropdown(auth) {
   ` : `
     <div class="titlebar-dropdown-user">
       <div class="titlebar-dropdown-info">
-        <div class="titlebar-dropdown-name">No active account</div>
-        <div class="titlebar-dropdown-label">${others.length} saved · pick one or remove to free a slot</div>
+        <div class="titlebar-dropdown-name">${others.length ? 'No active account' : 'Not signed in'}</div>
+        <div class="titlebar-dropdown-label">${others.length ? others.length + ' saved · pick one or remove to free a slot' : 'Add an account to play online'}</div>
       </div>
     </div>
   `;
@@ -272,12 +289,12 @@ function _toggleProfileDropdown() {
 document.addEventListener('click', (e) => {
   const dropdown = document.getElementById('titlebar-profile-dropdown');
   if (!dropdown) return;
-  const titlebarHead = document.querySelector('.titlebar-profile-head');
   const navAvatar = document.querySelector('.nav-profile-avatar');
   const navName = document.querySelector('#nav-profile .nav-profile-name');
   const target = e.target;
   if (dropdown.contains(target)) return;
-  if (target === titlebarHead || target === navAvatar || target === navName) return;
+  if (target.closest && target.closest('#titlebar-profile')) return;
+  if (target === navAvatar || target === navName) return;
   dropdown.classList.add('hidden');
 });
 
@@ -317,5 +334,11 @@ async function _checkForUpdates() {
   await SettingsManager.load();
   loadNavProfile();
   switchPage('home');
+  window.icey.getAppVersion().then(v => {
+    const el = document.getElementById('titlebar-version');
+    if (el && v) el.textContent = 'v' + v;
+  }).catch(() => {});
+  // First run: walk through theme, account, in-game menu and preferences.
+  if (!SettingsManager.get('setupCompleted') && typeof SetupWizard !== 'undefined') SetupWizard.open();
   setTimeout(_checkForUpdates, 2000);
 })();

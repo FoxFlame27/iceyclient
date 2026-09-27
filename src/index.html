@@ -22,6 +22,10 @@
        Installations, Settings, Console without touching their
        per-page files. -->
   <link rel="stylesheet" href="styles/pages-polish.css">
+  <!-- Glass design layer: shared surfaces, the top bar, the Classic home
+       and the first-run setup. After pages-polish so it has the last word. -->
+  <link rel="stylesheet" href="styles/glass.css">
+  <link rel="stylesheet" href="styles/setup.css">
 </head>
 <body>
   <!-- Titlebar -->
@@ -29,6 +33,7 @@
     <div class="titlebar-left">
       <img class="titlebar-logo" src="assets/icon.png" alt="Icey" onerror="this.style.display='none'">
       <span class="titlebar-title">ICEY CLIENT</span>
+      <span class="titlebar-version" id="titlebar-version"></span>
     </div>
     <div class="titlebar-right-section">
       <div class="titlebar-profile" id="titlebar-profile"></div>
@@ -111,6 +116,7 @@
   <script src="pages/skins.js"></script>
   <script src="pages/console.js"></script>
   <script src="pages/options.js"></script>
+  <script src="pages/setup.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

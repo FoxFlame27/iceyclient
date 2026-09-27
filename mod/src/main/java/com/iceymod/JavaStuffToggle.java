@@ -29,7 +29,6 @@ import java.util.Set;
 public final class JavaStuffToggle {
 
     private static final String STATUS_FILE = "iceymod-launcher.json";
-    private static final String REQUEST_FILE = "iceymod-request.json";
     private static final String STATE_FILE = "iceymod-javastuff-state.json";
 
     private JavaStuffToggle() {}
@@ -122,9 +121,7 @@ public final class JavaStuffToggle {
     }
 
     private static void writeRequest(boolean enabled) {
-        try {
-            Files.createDirectories(configPath(REQUEST_FILE).getParent());
-            Files.writeString(configPath(REQUEST_FILE), "{\n  \"javaStuffEnabled\": " + enabled + "\n}\n", StandardCharsets.UTF_8);
-        } catch (Throwable ignored) {}
+        // Merged, not overwritten: the Y menu queues its style in the same file.
+        MenuPrefs.updateRequest("javaStuffEnabled", enabled);
     }
 }

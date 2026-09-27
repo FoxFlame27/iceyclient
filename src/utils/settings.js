@@ -88,6 +88,7 @@ const SettingsManager = {
     const g = parseInt(color.slice(3, 5), 16);
     const b = parseInt(color.slice(5, 7), 16);
     document.documentElement.style.setProperty('--accent', color);
+    document.documentElement.style.setProperty('--accent-rgb', `${r},${g},${b}`);
     document.documentElement.style.setProperty('--accent-bright', color);
     document.documentElement.style.setProperty('--accent-dim', `rgba(${r},${g},${b},0.12)`);
     document.documentElement.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.25)`);

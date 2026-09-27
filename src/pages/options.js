@@ -45,6 +45,10 @@ async function _renderMainOptions(page, settings) {
   // it lives alongside Health Indicators / Close on Launch in the
   // main toggle row grid.
   const accentColor = settings.accentColor || '#5bc8f5';
+  // In-game Y menu: 'panels' (glass columns, the default) or 'grid' (the
+  // older button grid). An empty colour means "same as the accent".
+  const hudMenuStyle = settings.hudMenuStyle === 'grid' ? 'grid' : 'panels';
+  const hudMenuColor = settings.hudMenuColor || '';
   const accentChoices = [
     { name: 'Ice Blue', value: '#5bc8f5' },
     { name: 'Purple',   value: '#a78bfa' },
@@ -209,6 +213,44 @@ async function _renderMainOptions(page, settings) {
         </div>
       </div>
 
+      <!-- In-game menu (Y): layout and colour. Handed to the mod at launch. -->
+      <div class="options-section-heading">In-Game Menu</div>
+      <div class="options-toggle-row">
+        <div class="options-toggle-card ${hudMenuStyle === 'panels' ? 'on' : 'off'}" onclick="_optSetHudMenuStyle('${hudMenuStyle === 'panels' ? 'grid' : 'panels'}')">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Panel Menu</div>
+            <div class="options-toggle-desc">${hudMenuStyle === 'panels' ? 'Glass columns by category' : 'Off: the older button grid'}</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${hudMenuStyle === 'panels' ? 'checked' : ''} onchange="_optSetHudMenuStyle(this.checked ? 'panels' : 'grid')">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="options-toggle-card options-accent-card on">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Menu Colour</div>
+            <div class="options-toggle-desc">${hudMenuColor ? 'Highlight in the game menu' : 'Matches the accent colour'}</div>
+          </div>
+          <div class="options-accent-swatches" onclick="event.stopPropagation();">
+            ${accentChoices.map(c => `
+              <button class="options-accent-swatch ${c.value === (hudMenuColor || accentColor) ? 'selected' : ''}"
+                      style="background:${c.value}"
+                      title="${c.name}"
+                      onclick="_optSetHudMenuColor('${c.value}')"></button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="options-toggle-card off" onclick="_optRunSetup()">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Setup</div>
+            <div class="options-toggle-desc">Go through the first-run setup again</div>
+          </div>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
       <!-- Icey Network — community sync. Three soft toggles.
            Lets users opt out of any of the three independently.
            All default-on so the network is populated by default. -->
@@ -356,6 +398,24 @@ async function _optSetLayoutTheme(value) {
   Toast.info(next === 'liquid' ? 'Liquid theme on' : 'Classic theme on');
   if (typeof HomePageInit === 'function') HomePageInit().catch(() => {});
   _optionsRender();
+}
+
+async function _optSetHudMenuStyle(value) {
+  const next = value === 'panels' ? 'panels' : 'grid';
+  await SettingsManager.set('hudMenuStyle', next);
+  Toast.info((next === 'panels' ? 'Panel menu' : 'Grid menu') + ' on. Applies the next time you launch the game.');
+  _optionsRender();
+}
+
+async function _optSetHudMenuColor(color) {
+  // Picking the accent again goes back to following it.
+  const accent = (SettingsManager.get('accentColor') || '#5bc8f5').toLowerCase();
+  await SettingsManager.set('hudMenuColor', color.toLowerCase() === accent ? '' : color);
+  _optionsRender();
+}
+
+function _optRunSetup() {
+  if (typeof SetupWizard !== 'undefined') SetupWizard.open();
 }
 
 async function _optResetPlaytime() {

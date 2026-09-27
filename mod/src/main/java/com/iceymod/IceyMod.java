@@ -10,6 +10,7 @@ import com.iceymod.hud.modules.WaypointsModule;
 import com.iceymod.hud.modules.ZoomModule;
 import com.iceymod.screen.IceyModScreen;
 import com.iceymod.screen.LeaderboardScreen;
+import com.iceymod.screen.PanelMenuScreen;
 import com.iceymod.screen.StructureMenuScreen;
 import com.iceymod.screen.WaypointMenuScreen;
 import com.iceymod.structure.StructureTracker;
@@ -61,7 +62,7 @@ public class IceyMod implements ClientModInitializer {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.86.83)");
+        System.out.println("[IceyMod] booted (build tag: v1.86.84)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -99,7 +100,8 @@ public class IceyMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
                 if (com.iceymod.compat.MC.screen(client) == null) {
-                    com.iceymod.compat.MC.setScreen(client, new IceyModScreen());
+                    com.iceymod.compat.MC.setScreen(client,
+                            MenuPrefs.isPanels() ? new PanelMenuScreen() : new IceyModScreen());
                 }
             }
             while (wasPressed(perspectiveKey)) {

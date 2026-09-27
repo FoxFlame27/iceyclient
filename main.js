@@ -1024,6 +1024,19 @@ function launchMinecraft(installationId) {
         writeSettings(settings);
         _mcToast('Java & Stuff turned ' + (req.javaStuffEnabled ? 'on' : 'off') + ' (requested in-game with U)', 'info');
       }
+      // The Y menu's look can be changed in-game too; keep Settings in step.
+      if (req) {
+        let menuChanged = false;
+        if ((req.hudMenuStyle === 'grid' || req.hudMenuStyle === 'panels') && req.hudMenuStyle !== settings.hudMenuStyle) {
+          settings.hudMenuStyle = req.hudMenuStyle;
+          menuChanged = true;
+        }
+        if (typeof req.hudMenuColor === 'string' && /^#[0-9a-f]{6}$/i.test(req.hudMenuColor) && req.hudMenuColor !== settings.hudMenuColor) {
+          settings.hudMenuColor = req.hudMenuColor.toLowerCase();
+          menuChanged = true;
+        }
+        if (menuChanged) writeSettings(settings);
+      }
       if (req) { try { fs.unlinkSync(reqPath); } catch (_) {} }
     } catch (_) {}
 
@@ -1279,6 +1292,9 @@ function launchMinecraft(installationId) {
           javaStuffEnabled: javaStuffEnabled,
           skiflame: !!settings.skiflameMode,
           javaStuffPacks: (pm && pm.registeredPacks) || [],
+          // Look of the in-game Y menu (MenuPrefs in the mod).
+          hudMenuStyle: settings.hudMenuStyle === 'grid' ? 'grid' : 'panels',
+          hudMenuColor: /^#[0-9a-f]{6}$/i.test(settings.hudMenuColor || '') ? settings.hudMenuColor : (settings.accentColor || '#5bc8f5'),
         });
       } catch (_) {}
 

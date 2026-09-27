@@ -212,7 +212,17 @@ public class IceyModScreen extends IceyScreen {
         addRenderableWidget(Button.builder(
                 Component.literal("\u2699 Edit HUD Layout"),
                 btn -> com.iceymod.compat.MC.setScreen(minecraft, new HudEditScreen(this))
-        ).bounds(centerX - 110, bottomBtnY, 220, 22).build());
+        ).bounds(centerX - 110, bottomBtnY, 108, 22).build());
+
+        // Switch to the glass panel menu (also selectable in the launcher).
+        addRenderableWidget(Button.builder(
+                Component.literal("Panel Menu"),
+                btn -> {
+                    HudManager.save();
+                    com.iceymod.MenuPrefs.setStyle(com.iceymod.MenuPrefs.STYLE_PANELS);
+                    com.iceymod.compat.MC.setScreen(minecraft, new PanelMenuScreen());
+                }
+        ).bounds(centerX + 2, bottomBtnY, 108, 22).build());
 
         addRenderableWidget(Button.builder(
                 Component.translatable("gui.done"),
