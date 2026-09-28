@@ -32,6 +32,7 @@ async function _renderMainOptions(page, settings) {
   const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
   const javaStuffEnabled = !!settings.javaStuffEnabled;
   const perfEnabled = settings.performanceModsEnabled !== false;
+  const scrollBindsEnabled = !!settings.scrollBindsEnabled;
   const closeOnStart = !!settings.closeLauncherOnStart;
   // Icey network — community features. Default-on, can be turned off
   // by privacy-conscious users.
@@ -151,6 +152,9 @@ async function _renderMainOptions(page, settings) {
         ${toggleCard('performanceModsEnabled', perfEnabled, 'Performance Boost', 'Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Krypton (ping) &amp; Dynamic FPS, matched to your version. Fabric only.',
           '<div class="options-toggle-icon-svg"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>')}
         ${toggleCard('javaStuffEnabled', javaStuffEnabled, 'Java &amp; Stuff', 'Actions &amp; Stuff-style animations, 3D items, shaders &amp; sounds. Fabric only. Armor packs stay off — enable in-game.', img('assets/mods/javastuff.png'))}
+      </div>
+      <div class="options-toggle-row">
+        ${toggleCard('scrollBindsEnabled', scrollBindsEnabled, 'Scroll Keybinds', 'Use scroll up and scroll down as keys, for example to jump or attack. Pick the actions in the in-game menu (Y). Needs Icey Mods. Check that your server allows it.', '<img class="options-toggle-icon options-toggle-icon-smooth" src="assets/mods/scrollbinds.svg" alt="">')}
       </div>`,
 
     game: `
@@ -296,6 +300,8 @@ async function _optToggleFeature(key, value) {
   await SettingsManager.setMultiple(updates);
   if (key === 'healthIndicatorsEnabled') {
     Toast.info(value ? 'Health Indicators + Architectury on' : 'Health Indicators + Architectury off');
+  } else if (key === 'scrollBindsEnabled') {
+    Toast.info(value ? 'Scroll Keybinds on. Applies the next time you launch the game.' : 'Scroll Keybinds off. Applies the next time you launch the game.');
   } else if (key === 'javaStuffEnabled') {
     Toast.info(value ? 'Java & Stuff will install on next launch (first time takes a few minutes)' : 'Java & Stuff will be removed on next launch');
   }

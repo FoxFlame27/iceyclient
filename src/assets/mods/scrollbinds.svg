@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" width="88" height="88">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16334d"/>
+      <stop offset="1" stop-color="#0a1626"/>
+    </linearGradient>
+    <linearGradient id="ice" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d8f3ff"/>
+      <stop offset="1" stop-color="#5bc8f5"/>
+    </linearGradient>
+  </defs>
+  <rect width="88" height="88" rx="20" fill="url(#bg)"/>
+  <rect x="1" y="1" width="86" height="86" rx="19" fill="none" stroke="#5bc8f5" stroke-opacity="0.35" stroke-width="2"/>
+  <!-- mouse -->
+  <rect x="27" y="17" width="34" height="54" rx="17" fill="#0d1d30" stroke="#eaf6ff" stroke-width="4"/>
+  <line x1="44" y1="19" x2="44" y2="27" stroke="#eaf6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- wheel -->
+  <rect x="40" y="27" width="8" height="16" rx="4" fill="url(#ice)"/>
+  <!-- up / down -->
+  <path d="M8 39 l7 -9 l7 9" fill="none" stroke="url(#ice)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M66 49 l7 9 l7 -9" fill="none" stroke="url(#ice)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -133,6 +133,8 @@ public class HudManager {
         modules.add(new AntiAFKModule());
         modules.add(new AutoTotemModule());
         modules.add(new SafeWalkModule());
+        // Only there when switched on in the launcher (Settings → Mods)
+        if (ScrollBindsModule.isSwitchedOn()) modules.add(new ScrollBindsModule());
         // Optimization modules (invisible, enabled by default)
         modules.add(new FpsBoostParticlesModule());
         modules.add(new FpsBoostCloudsModule());

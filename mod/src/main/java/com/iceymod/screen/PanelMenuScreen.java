@@ -53,7 +53,8 @@ public class PanelMenuScreen extends IceyScreen {
             "blockunder");
     private static final Set<String> PLAYER_IDS = Set.of(
             "zoom", "perspective", "freelook", "freecam", "fullbright", "autosprint", "autorespawn",
-            "nohurtcam", "nobob", "nofovchange", "antiafk", "safewalk", "automaceswap", "autototem");
+            "nohurtcam", "nobob", "nofovchange", "antiafk", "safewalk", "automaceswap", "autototem",
+            "scrollbinds");
 
     private static final int GROUPS = Group.values().length;
     private static final int MIN_CANVAS_W = 640;

@@ -1292,6 +1292,8 @@ function launchMinecraft(installationId) {
           javaStuffEnabled: javaStuffEnabled,
           skiflame: !!settings.skiflameMode,
           javaStuffPacks: (pm && pm.registeredPacks) || [],
+          // Scroll Keybinds (Settings → Mods): the mod only offers it when on.
+          scrollBindsEnabled: !!settings.scrollBindsEnabled,
           // Look of the in-game Y menu (MenuPrefs in the mod).
           hudMenuStyle: settings.hudMenuStyle === 'grid' ? 'grid' : 'panels',
           hudMenuColor: /^#[0-9a-f]{6}$/i.test(settings.hudMenuColor || '') ? settings.hudMenuColor : (settings.accentColor || '#5bc8f5'),

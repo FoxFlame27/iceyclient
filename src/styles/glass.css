@@ -1070,3 +1070,6 @@ select option { background: #0d1220; color: var(--text-primary); }
 }
 /* Same width on every tab, whatever it holds. */
 #page-options .options-v2 { width: 100%; max-width: 900px; }
+
+/* Drawn logos (SVG) must not get the pixel-art scaling the mod icons use. */
+.options-toggle-icon-smooth { image-rendering: auto; }
