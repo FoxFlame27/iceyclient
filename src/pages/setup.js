@@ -1,6 +1,7 @@
 // Setup: a page of its own (tab "Setup"), built from the same cards as
-// Settings. It opens on the first launch after every install, and from
-// Settings → General.
+// Settings, one step at a time: Theme, Account, In-Game Menu, Game. It
+// opens on the first launch after every install, and from Settings →
+// General.
 // Every choice is saved and applied the moment it's made; the page is
 // drawn once and only the touched card changes after that.
 
@@ -57,33 +58,35 @@ function _setupToggleCard(key, on, name, desc) {
     </label>`;
 }
 
+// The steps of this visit, and which one is showing.
+let _setupSteps = [];
+let _setupStep = 0;
+let _setupSignedInAs = null;   // set when someone signs in on the Account step
+
 async function SetupPageInit() {
-  const page = document.getElementById('page-setup');
-  if (!page) return;
-  const s = SettingsManager.getAll();
   let auth = null;
   try { auth = await window.icey.getAuth(); } catch (_) {}
-  const signedIn = !!(auth && auth.username);
-
-  const layout = s.layoutTheme === 'liquid' ? 'liquid' : 'classic';
-  const accent = (s.accentColor || '#5bc8f5').toLowerCase();
-  const menuStyle = s.hudMenuStyle === 'grid' ? 'grid' : 'panels';
-  const menuColor = (s.hudMenuColor || accent).toLowerCase();
-  const ram = s.allocatedRam || 4096;
-
   // Signing in is only asked of someone who isn't signed in yet.
-  const account = signedIn ? '' : `
-      <div class="options-section-heading">Account</div>
-      <div id="setup-account">${_setupAccountHtml()}</div>`;
+  _setupSteps = ['theme'].concat(auth && auth.username ? [] : ['account'], ['menu', 'game']);
+  _setupStep = 0;
+  _setupSignedInAs = null;
+  _setupRender();
+}
 
-  page.innerHTML = `
-    <div class="options-v2 setup-page">
-      <div class="options-v2-header">
-        <div class="options-v2-title">Setup</div>
-        <div class="setup-intro">Choose how Icey Client looks and plays. Everything here can be changed later in Settings.</div>
-      </div>
+const _SETUP_TITLES = {
+  theme: ['Theme', 'How the launcher looks.'],
+  account: ['Account', 'Sign in to play online with your own skin. You can also do this later from the top bar.'],
+  menu: ['In-Game Menu', 'The menu that opens with Y in game, on Fabric installations.'],
+  game: ['Game', 'A few things about how the game runs.']
+};
 
-      <div class="options-section-heading">Theme</div>
+function _setupStepHtml(id) {
+  const s = SettingsManager.getAll();
+  const accent = (s.accentColor || '#5bc8f5').toLowerCase();
+
+  if (id === 'theme') {
+    const layout = s.layoutTheme === 'liquid' ? 'liquid' : 'classic';
+    return `
       <div class="setup-picks">
         ${_setupPick('layout', 'classic', layout === 'classic', 'classic.jpg', 'Classic', 'Side bar, your skin in the middle')}
         ${_setupPick('layout', 'liquid', layout === 'liquid', 'liquid.jpg', 'Liquid', 'Bottom bar, big menu buttons')}
@@ -96,10 +99,15 @@ async function SetupPageInit() {
           </div>
           <div class="options-accent-swatches" id="setup-accent">${_setupSwatches('accent', accent)}</div>
         </div>
-      </div>
-      ${account}
+      </div>`;
+  }
 
-      <div class="options-section-heading">In-Game Menu</div>
+  if (id === 'account') return `<div id="setup-account">${_setupAccountHtml(_setupSignedInAs)}</div>`;
+
+  if (id === 'menu') {
+    const menuStyle = s.hudMenuStyle === 'grid' ? 'grid' : 'panels';
+    const menuColor = (s.hudMenuColor || accent).toLowerCase();
+    return `
       <div class="setup-picks">
         ${_setupPick('menu', 'panels', menuStyle === 'panels', 'menu-panels.jpg', 'Panels', 'Click to switch on, right-click for settings')}
         ${_setupPick('menu', 'grid', menuStyle === 'grid', 'menu-grid.jpg', 'Grid', 'The original buttons, with pages')}
@@ -108,13 +116,15 @@ async function SetupPageInit() {
         <div class="options-toggle-card options-accent-card on setup-static">
           <div class="options-toggle-body">
             <div class="options-toggle-name">Menu Colour</div>
-            <div class="options-toggle-desc">Opens with Y in game, on Fabric installations</div>
+            <div class="options-toggle-desc">Highlight in the game menu</div>
           </div>
           <div class="options-accent-swatches" id="setup-menu-color">${_setupSwatches('menuColor', menuColor)}</div>
         </div>
-      </div>
+      </div>`;
+  }
 
-      <div class="options-section-heading">Game</div>
+  const ram = s.allocatedRam || 4096;
+  return `
       <div class="options-toggle-row">
         <div class="options-toggle-card on setup-static setup-ram">
           <div class="options-toggle-body">
@@ -128,13 +138,49 @@ async function SetupPageInit() {
         </div>
         ${_setupToggleCard('performanceModsEnabled', s.performanceModsEnabled !== false, 'Performance Boost', 'Sodium, Lithium and other speed-up mods')}
         ${_setupToggleCard('closeLauncherOnStart', !!s.closeLauncherOnStart, 'Close on Launch', 'Close the launcher when the game starts')}
+      </div>`;
+}
+
+// Draws the step that is showing. Called when the step changes, not on
+// every choice: choices only touch their own card.
+function _setupRender() {
+  const page = document.getElementById('page-setup');
+  if (!page) return;
+  const id = _setupSteps[_setupStep];
+  const [title, intro] = _SETUP_TITLES[id];
+  const last = _setupStep === _setupSteps.length - 1;
+  const done = Math.round(((_setupStep + 1) / _setupSteps.length) * 100);
+
+  page.innerHTML = `
+    <div class="options-v2 setup-page">
+      <div class="options-v2-header">
+        <div class="options-v2-title">Setup</div>
+        <div class="setup-progress">
+          <span class="setup-progress-text">Step ${_setupStep + 1} of ${_setupSteps.length}</span>
+          <span class="setup-progress-bar"><span style="width:${done}%"></span></span>
+        </div>
       </div>
 
+      <div class="setup-step-head">
+        <div class="options-section-heading">${title}</div>
+        <div class="setup-intro">${intro}</div>
+      </div>
+      ${_setupStepHtml(id)}
+
       <div class="setup-actions">
-        <button class="options-btn" onclick="_setupDone(false)">Skip</button>
-        <button class="options-btn options-btn-primary" onclick="_setupDone(true)">Finish setup</button>
+        <button class="options-btn setup-skip" onclick="_setupDone(false)">Skip setup</button>
+        ${_setupStep > 0 ? '<button class="options-btn" onclick="_setupGo(-1)">Back</button>' : ''}
+        <button class="options-btn options-btn-primary" onclick="${last ? '_setupDone(true)' : '_setupGo(1)'}">${last ? 'Finish' : 'Next'}</button>
       </div>
     </div>`;
+  page.scrollTop = 0;
+}
+
+function _setupGo(by) {
+  const next = _setupStep + by;
+  if (next < 0 || next >= _setupSteps.length) return;
+  _setupStep = next;
+  _setupRender();
 }
 
 // One handler for everything that is "pick one of these".
@@ -258,6 +304,7 @@ async function _setupLogin(kind) {
   }
   _setupBusy = false;
   if (username) {
+    _setupSignedInAs = username;
     await SettingsManager.set('username', username);
     Toast.success('Signed in as ' + username);
     if (typeof loadNavProfile === 'function') loadNavProfile();
