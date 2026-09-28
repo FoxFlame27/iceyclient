@@ -24,8 +24,10 @@ public class NetNoDelayModule extends HudModule {
     public void tick() {
         if (applied) return;
         try {
+            // Only the Netty hint. sun.net.useExclusiveBind used to be set
+            // here too; it changes how Windows hands out sockets and has
+            // nothing to do with latency.
             System.setProperty("io.netty.tcp.nodelay", "true");
-            System.setProperty("sun.net.useExclusiveBind", "false");
         } catch (Throwable ignored) {}
         applied = true;
     }

@@ -4,8 +4,11 @@ import com.iceymod.hud.HudModule;
 import net.minecraft.client.Minecraft;
 
 /**
- * Invisible ping/network optimization: prefers IPv4 stack to avoid
- * IPv6 fallback timeouts on connection start.
+ * Invisible network option: when a server has both kinds of address, use
+ * the IPv4 one, so a half-working IPv6 route can't slow down connecting.
+ *
+ * It must not switch IPv6 off (java.net.preferIPv4Stack): on a network
+ * that only has IPv6 that leaves the game unable to reach any server.
  */
 public class NetIpv4Module extends HudModule {
     private boolean applied = false;
@@ -24,7 +27,6 @@ public class NetIpv4Module extends HudModule {
     public void tick() {
         if (applied) return;
         try {
-            System.setProperty("java.net.preferIPv4Stack", "true");
             System.setProperty("java.net.preferIPv6Addresses", "false");
         } catch (Throwable ignored) {}
         applied = true;

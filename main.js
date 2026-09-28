@@ -1425,9 +1425,11 @@ function launchMinecraft(installationId) {
       // fall back to the interpreter for hot code.
       '-XX:ReservedCodeCacheSize=256M',
       '-XX:+UseCompressedOops',
-      '-Djava.net.preferIPv4Stack=true',
+      // No -Djava.net.preferIPv4Stack here: it takes IPv6 away from the
+      // game entirely, and on a network that only offers IPv6 (many
+      // mobile hotspots, some providers) that means no server can be
+      // reached at all. Java already prefers IPv4 when a server has both.
       '-Dsun.net.inetaddr.ttl=60',
-      '-Dio.netty.tcp.nodelay=true',
       '-Dio.netty.allocator.maxOrder=9',
       '-Dfml.ignoreInvalidMinecraftCertificates=true'
     );
@@ -1674,19 +1676,26 @@ async function _diagnoseServerConnection(launchId) {
     _mcConsole(`[NET] DNS lookup failed for ${target.host}: address not found`, 'error');
     return;
   }
-  const reachable = await new Promise((resolve) => {
-    const s = net.createConnection({ host: target.host, port: target.port, family: 4 });
+  // Try each kind of address the server has, separately: a PC can have
+  // working IPv6 and no IPv4 (or the other way round).
+  const tryFamily = (family) => new Promise((resolve) => {
+    if (!addresses.some(a => a.family === family)) return resolve(null);
+    const s = net.createConnection({ host: target.host, port: target.port, family });
     const done = (ok) => { try { s.destroy(); } catch (_) {} resolve(ok); };
     s.setTimeout(4000, () => done(false));
     s.on('connect', () => done(true));
     s.on('error', () => done(false));
   });
-  if (reachable) {
-    _mcToast(`${label} is reachable from this PC, but Minecraft's Java was blocked from connecting — allow java.exe (in the IceyClient\\java folder) through Windows Firewall / your antivirus.`, 'error');
-    _mcConsole(`[NET] ${label} answered a test connection from the launcher, so the network is fine. The game's Java process is being blocked (firewall/antivirus).`, 'error');
+  const [v4, v6] = await Promise.all([tryFamily(4), tryFamily(6)]);
+  const found = addresses.map(a => a.address).join(', ');
+  const result = (r) => r === null ? 'no address' : r ? 'reachable' : 'no answer';
+  _mcConsole(`[NET] ${label}: addresses ${found}. IPv4: ${result(v4)}, IPv6: ${result(v6)}.`, 'error');
+  if (v4 || v6) {
+    _mcToast(`${label} can be reached from this PC, but the game could not connect. Something on this PC is stopping the game's Java: allow java.exe (in the IceyClient\\java folder) in your firewall or antivirus, and switch off any VPN to test.`, 'error');
+    _mcConsole(`[NET] The launcher reached ${label}, so the network and the server are fine. The game's Java process is what can't get out (firewall, antivirus or VPN).`, 'error');
   } else {
-    _mcToast(`${label} is not answering — the server is offline or that port is closed. Nothing is wrong on this PC.`, 'error');
-    _mcConsole(`[NET] ${label}: DNS ok (${addresses.map(a => a.address).join(', ')}) but no TCP answer within 4 s → server offline / wrong port.`, 'error');
+    _mcToast(`${label} is not answering — the server is offline or that port is closed. If no server at all works, check the internet connection of this PC.`, 'error');
+    _mcConsole(`[NET] ${label}: found in DNS but no answer within 4 s → server offline, wrong port, or this PC is offline.`, 'error');
   }
 }
 
