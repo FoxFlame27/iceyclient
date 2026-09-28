@@ -2,8 +2,11 @@ const SettingsManager = {
   _settings: null,
   _listeners: [],
 
+  _installStamp: '',
+
   async load() {
     this._settings = await window.icey.getSettings();
+    try { this._installStamp = (await window.icey.getInstallStamp()) || ''; } catch (_) { this._installStamp = ''; }
     this._applyTheme();
     this._applyAccent();
     this._applyLayout();
@@ -75,7 +78,18 @@ const SettingsManager = {
   // The Setup tab stays in the nav only until setup has been done once
   // (styles/setup.css keys off data-setup).
   _applySetup() {
-    document.documentElement.setAttribute('data-setup', this._settings?.setupCompleted ? 'done' : 'todo');
+    document.documentElement.setAttribute('data-setup', this.isSetupDue() ? 'todo' : 'done');
+  },
+
+  // Setup is offered once per install: on the first launch ever, and
+  // again after the app has been installed anew (update or reinstall).
+  isSetupDue() {
+    if (!this._settings?.setupCompleted) return true;
+    return !!this._installStamp && this._settings.setupInstallStamp !== this._installStamp;
+  },
+
+  async markSetupDone() {
+    await this.setMultiple({ setupCompleted: true, setupInstallStamp: this._installStamp });
   },
 
   // Secret "Skiflame" skin: flame palette, Skiflame logo + background.

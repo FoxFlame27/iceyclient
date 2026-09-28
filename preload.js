@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('icey', {
   // Misc
   autoDetectJava: () => ipcRenderer.invoke('auto-detect-java'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getInstallStamp: () => ipcRenderer.invoke('get-install-stamp'),
   openExternal: (url) => ipcRenderer.send('open-external', url),
   getDataDir: () => ipcRenderer.invoke('get-data-dir'),
   getInstallationsDir: () => ipcRenderer.invoke('get-installations-dir'),

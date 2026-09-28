@@ -1,4 +1,5 @@
 let _optionsView = 'main';         // 'main' or 'advanced'
+let _optionsTab = 'general';       // which tab of the main view is open
 let _optionsPanoramaCache = null;  // list of {filename, name}
 const _optionsPanoramaPreviews = {}; // filename -> data URI
 
@@ -65,13 +66,29 @@ async function _renderMainOptions(page, settings) {
   const selectedFilename = settings.selectedPanorama || 'Nether Panorama.zip';
   const selectedEntry = _optionsPanoramaCache.find(p => p.filename === selectedFilename) || _optionsPanoramaCache[0];
 
-  page.innerHTML = `
-    <div class="options-v2">
-      <div class="options-v2-header">
-        <div class="options-v2-title">Settings</div>
-      </div>
+  const toggleCard = (key, on, name, desc, icon) => `
+        <div class="options-toggle-card ${on ? 'on' : 'off'}" onclick="_optToggleFeature('${key}', ${!on})">
+          ${icon || ''}
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">${name}</div>
+            <div class="options-toggle-desc">${desc}</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${on ? 'checked' : ''} onchange="_optToggleFeature('${key}', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>`;
+  const swatches = (selected, handler) => accentChoices.map(c => `
+              <button class="options-accent-swatch ${c.value === selected ? 'selected' : ''}"
+                      style="background:${c.value}"
+                      title="${c.name}"
+                      onclick="${handler}('${c.value}', this)"></button>`).join('');
+  const chevron = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>';
+  const img = (src) => `<img class="options-toggle-icon" src="${src}" alt="">`;
 
-      <!-- Top row: Playtime + Advanced -->
+  // One tab at a time, so no page is a wall of switches.
+  const panes = {
+    general: `
       <div class="options-top-row">
         <div class="options-small-card playtime-card">
           <div class="options-small-body">
@@ -80,16 +97,38 @@ async function _renderMainOptions(page, settings) {
           </div>
           ${auth ? `<button class="options-small-reset" title="Reset" onclick="_optResetPlaytime()">&#x21bb;</button>` : ''}
         </div>
-
-        <div class="options-small-card advanced-card" onclick="_optOpenAdvanced()">
+        <div class="options-small-card advanced-card" onclick="_optRunSetup()">
           <div class="options-small-body">
-            <div class="options-small-label">Advanced</div>
-            <div class="options-small-value">All settings &rsaquo;</div>
+            <div class="options-small-label">Setup</div>
+            <div class="options-small-value">Open setup &rsaquo;</div>
           </div>
         </div>
       </div>
+      <div class="options-toggle-row">
+        ${toggleCard('closeLauncherOnStart', closeOnStart, 'Close on Launch', 'Close the launcher when the game starts')}
+      </div>`,
 
-      <!-- Panorama card -->
+    appearance: `
+      <div class="options-toggle-row">
+        <div class="options-toggle-card ${layoutTheme === 'liquid' ? 'on' : 'off'}" onclick="_optSetLayoutTheme('${layoutTheme === 'liquid' ? 'classic' : 'liquid'}')">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Liquid Theme</div>
+            <div class="options-toggle-desc">${layoutTheme === 'liquid' ? 'On: bottom bar' : 'Off: Classic, side bar'}</div>
+          </div>
+          <label class="toggle" onclick="event.stopPropagation();">
+            <input type="checkbox" ${layoutTheme === 'liquid' ? 'checked' : ''} onchange="_optSetLayoutTheme(this.checked ? 'liquid' : 'classic')">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="options-toggle-card options-accent-card on">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Accent Colour</div>
+            <div class="options-toggle-desc">Buttons and highlights</div>
+          </div>
+          <div class="options-accent-swatches" onclick="event.stopPropagation();">${swatches(accentColor, '_optSetAccent')}</div>
+        </div>
+      </div>
+      <div class="options-section-heading">Title Screen Panorama</div>
       <div class="options-panorama-card" onclick="_optOpenPanoramaPicker()">
         <div class="options-panorama-preview" id="opt-panorama-preview">
           <div class="options-panorama-loading">Loading preview...</div>
@@ -100,121 +139,21 @@ async function _renderMainOptions(page, settings) {
             Show All Panoramas
           </button>
         </div>
-      </div>
+      </div>`,
 
-      <!-- Feature toggle row -->
+    mods: `
       <div class="options-toggle-row">
-        <div class="options-toggle-card ${iceyModsEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('iceyModsEnabled', ${!iceyModsEnabled})">
-          <img class="options-toggle-icon" src="assets/icon.png" alt="Icey">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Icey Mods</div>
-            <div class="options-toggle-desc">Icey mod + panorama pack</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${iceyModsEnabled ? 'checked' : ''} onchange="_optToggleFeature('iceyModsEnabled', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-        <div class="options-toggle-card ${skinChangerEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('skinChangerEnabled', ${!skinChangerEnabled})">
-          <img class="options-toggle-icon" src="assets/mods/skinshuffle.png" alt="SkinShuffle">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Skin Changer</div>
-            <div class="options-toggle-desc">In-game skin swap mod (SkinShuffle)</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${skinChangerEnabled ? 'checked' : ''} onchange="_optToggleFeature('skinChangerEnabled', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-        <div class="options-toggle-card ${healthIndicatorsEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('healthIndicatorsEnabled', ${!healthIndicatorsEnabled})">
-          <img class="options-toggle-icon" src="assets/mods/healthindicators.png" alt="Health Indicators">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Health Indicators</div>
-            <div class="options-toggle-desc">HP bars above player + mob heads</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${healthIndicatorsEnabled ? 'checked' : ''} onchange="_optToggleFeature('healthIndicatorsEnabled', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
+        ${toggleCard('iceyModsEnabled', iceyModsEnabled, 'Icey Mods', 'Icey mod and panorama pack', img('assets/icon.png'))}
+        ${toggleCard('skinChangerEnabled', skinChangerEnabled, 'Skin Changer', 'Swap skins in game (SkinShuffle)', img('assets/mods/skinshuffle.png'))}
+        ${toggleCard('healthIndicatorsEnabled', healthIndicatorsEnabled, 'Health Indicators', 'HP bars above players and mobs', img('assets/mods/healthindicators.png'))}
       </div>
-
-      <!-- Modpack row -->
       <div class="options-toggle-row">
-        <div class="options-toggle-card ${perfEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('performanceModsEnabled', ${!perfEnabled})">
-          <div class="options-toggle-icon-svg"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Performance Boost</div>
-            <div class="options-toggle-desc">Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Krypton (ping) &amp; Dynamic FPS, matched to your version. Fabric only.</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${perfEnabled ? 'checked' : ''} onchange="_optToggleFeature('performanceModsEnabled', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div class="options-toggle-card ${javaStuffEnabled ? 'on' : 'off'}" onclick="_optToggleFeature('javaStuffEnabled', ${!javaStuffEnabled})">
-          <img class="options-toggle-icon" src="assets/mods/javastuff.png" alt="Java &amp; Stuff">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Java &amp; Stuff</div>
-            <div class="options-toggle-desc">Actions &amp; Stuff-style animations, 3D items, shaders &amp; sounds. Fabric only. Armor packs stay off — enable in-game.</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${javaStuffEnabled ? 'checked' : ''} onchange="_optToggleFeature('javaStuffEnabled', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
+        ${toggleCard('performanceModsEnabled', perfEnabled, 'Performance Boost', 'Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Krypton (ping) &amp; Dynamic FPS, matched to your version. Fabric only.',
+          '<div class="options-toggle-icon-svg"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>')}
+        ${toggleCard('javaStuffEnabled', javaStuffEnabled, 'Java &amp; Stuff', 'Actions &amp; Stuff-style animations, 3D items, shaders &amp; sounds. Fabric only. Armor packs stay off — enable in-game.', img('assets/mods/javastuff.png'))}
+      </div>`,
 
-      <!-- Launch / Layout row — promoted out of Advanced so the two
-           most-touched preferences live next to each other. No icons:
-           per user request, this row reads cleaner without them. -->
-      <div class="options-toggle-row">
-        <div class="options-toggle-card ${closeOnStart ? 'on' : 'off'}" onclick="_optToggleFeature('closeLauncherOnStart', ${!closeOnStart})">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Close on Launch</div>
-            <div class="options-toggle-desc">Auto-close launcher when MC starts</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${closeOnStart ? 'checked' : ''} onchange="_optToggleFeature('closeLauncherOnStart', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-        <div class="options-toggle-card ${layoutTheme === 'liquid' ? 'on' : 'off'}" onclick="_optSetLayoutTheme('${layoutTheme === 'liquid' ? 'classic' : 'liquid'}')">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Change Theme</div>
-            <div class="options-toggle-desc">${layoutTheme === 'liquid' ? 'Liquid — bottom nav' : 'Classic — side nav'}</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${layoutTheme === 'liquid' ? 'checked' : ''} onchange="_optSetLayoutTheme(this.checked ? 'liquid' : 'classic')">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-        <!-- Accent color picker — promoted out of Advanced.
-             5 small swatches inside the toggle-card shape; clicking
-             a swatch sets it as the active accent and updates the
-             ring without re-rendering the whole settings page. -->
-        <div class="options-toggle-card options-accent-card on">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Accent Color</div>
-            <div class="options-toggle-desc">UI highlight + button glow</div>
-          </div>
-          <div class="options-accent-swatches" onclick="event.stopPropagation();">
-            ${accentChoices.map(c => `
-              <button class="options-accent-swatch ${c.value === accentColor ? 'selected' : ''}"
-                      style="background:${c.value}"
-                      title="${c.name}"
-                      onclick="_optSetAccent('${c.value}', this)"></button>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-
-      <!-- In-game menu (Y): layout and colour. Handed to the mod at launch. -->
-      <div class="options-section-heading">In-Game Menu</div>
+    game: `
       <div class="options-toggle-row">
         <div class="options-toggle-card ${hudMenuStyle === 'panels' ? 'on' : 'off'}" onclick="_optSetHudMenuStyle('${hudMenuStyle === 'panels' ? 'grid' : 'panels'}')">
           <div class="options-toggle-body">
@@ -226,74 +165,49 @@ async function _renderMainOptions(page, settings) {
             <span class="toggle-slider"></span>
           </label>
         </div>
-
         <div class="options-toggle-card options-accent-card on">
           <div class="options-toggle-body">
             <div class="options-toggle-name">Menu Colour</div>
             <div class="options-toggle-desc">${hudMenuColor ? 'Highlight in the game menu' : 'Matches the accent colour'}</div>
           </div>
-          <div class="options-accent-swatches" onclick="event.stopPropagation();">
-            ${accentChoices.map(c => `
-              <button class="options-accent-swatch ${c.value === (hudMenuColor || accentColor) ? 'selected' : ''}"
-                      style="background:${c.value}"
-                      title="${c.name}"
-                      onclick="_optSetHudMenuColor('${c.value}')"></button>
-            `).join('')}
-          </div>
-        </div>
-
-        <div class="options-toggle-card off" onclick="_optRunSetup()">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Setup</div>
-            <div class="options-toggle-desc">Open the setup page again</div>
-          </div>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+          <div class="options-accent-swatches" onclick="event.stopPropagation();">${swatches(hudMenuColor || accentColor, '_optSetHudMenuColor')}</div>
         </div>
       </div>
+      <div class="options-tab-note">The menu opens with Y in game, on Fabric installations with Icey Mods on.</div>`,
 
-      <!-- Icey Network — community sync. Three soft toggles.
-           Lets users opt out of any of the three independently.
-           All default-on so the network is populated by default. -->
-      <div class="options-section-heading">Icey Network</div>
+    network: `
       <div class="options-toggle-row">
-        <div class="options-toggle-card ${networkCapeShare ? 'on' : 'off'}" onclick="_optToggleFeature('iceyNetworkCapeShare', ${!networkCapeShare})">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Share Cape</div>
-            <div class="options-toggle-desc">Other Icey Client users see your cape</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${networkCapeShare ? 'checked' : ''} onchange="_optToggleFeature('iceyNetworkCapeShare', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
+        ${toggleCard('iceyNetworkCapeShare', networkCapeShare, 'Share Cape', 'Other Icey Client users see your cape')}
+        ${toggleCard('iceyNetworkPresence', networkPresence, 'Show Online', "Show others that you're using Icey Client")}
+        ${toggleCard('iceyNetworkShowBadges', networkShowBadges, 'Show Badges', 'See Icey logos on other players in game')}
+      </div>`
+  };
+  const tabs = [
+    ['general', 'General'], ['appearance', 'Appearance'], ['mods', 'Mods'],
+    ['game', 'In-Game Menu'], ['network', 'Network']
+  ];
+  if (!panes[_optionsTab]) _optionsTab = 'general';
 
-        <div class="options-toggle-card ${networkPresence ? 'on' : 'off'}" onclick="_optToggleFeature('iceyNetworkPresence', ${!networkPresence})">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Show Online</div>
-            <div class="options-toggle-desc">Broadcast that you're using Icey Client</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${networkPresence ? 'checked' : ''} onchange="_optToggleFeature('iceyNetworkPresence', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-        <div class="options-toggle-card ${networkShowBadges ? 'on' : 'off'}" onclick="_optToggleFeature('iceyNetworkShowBadges', ${!networkShowBadges})">
-          <div class="options-toggle-body">
-            <div class="options-toggle-name">Show Badges</div>
-            <div class="options-toggle-desc">See Icey logos on other players in-game</div>
-          </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${networkShowBadges ? 'checked' : ''} onchange="_optToggleFeature('iceyNetworkShowBadges', this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
+  page.innerHTML = `
+    <div class="options-v2">
+      <div class="options-v2-header">
+        <div class="options-v2-title">Settings</div>
       </div>
+      <div class="mods-tab-bar options-tabs">
+        ${tabs.map(([id, label]) => `<button class="mods-tab ${id === _optionsTab ? 'active' : ''}" onclick="_optSetTab('${id}')">${label}</button>`).join('')}
+        <button class="mods-tab" onclick="_optOpenAdvanced()">Advanced</button>
+      </div>
+      ${panes[_optionsTab]}
     </div>
   `;
 
   // Fetch the preview for the selected panorama
-  _optLoadPanoramaPreview(selectedEntry?.filename);
+  if (_optionsTab === 'appearance') _optLoadPanoramaPreview(selectedEntry?.filename);
+}
+
+function _optSetTab(tab) {
+  _optionsTab = tab;
+  _optionsRender();
 }
 
 async function _optLoadPanoramaPreview(filename) {

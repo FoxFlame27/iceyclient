@@ -4613,6 +4613,25 @@ app.whenReady().then(() => {
     return autoDetectJava();
   });
 
+  // Identifies this copy of the app on disk, so Setup can be offered
+  // again after every install: the version, plus the identity of the
+  // program file, which is new whenever the app is installed again
+  // (also the same version). Launching again leaves it alone.
+  ipcMain.handle('get-install-stamp', () => {
+    let version = '0';
+    try { version = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8')).version || '0'; } catch (_) {}
+    // macOS runs an app that was never moved out of Downloads from a
+    // throwaway location that changes per launch; go by version there.
+    if (process.execPath.includes('/AppTranslocation/')) return version;
+    try {
+      const st = fs.statSync(process.execPath, { bigint: true });
+      const when = process.platform === 'win32' ? st.birthtimeMs : process.platform === 'linux' ? st.ctimeMs : 0n;
+      return `${version}:${st.ino}:${when}`;
+    } catch (_) {
+      return version;
+    }
+  });
+
   // App version
   ipcMain.handle('get-app-version', () => {
     try {

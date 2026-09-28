@@ -334,8 +334,8 @@ async function _checkForUpdates() {
 (async () => {
   await SettingsManager.load();
   loadNavProfile();
-  // First launch opens on the Setup tab; after that, on Play.
-  switchPage(SettingsManager.get('setupCompleted') ? 'home' : 'setup');
+  // The first launch after every install opens on the Setup tab.
+  switchPage(SettingsManager.isSetupDue() ? 'setup' : 'home');
   window.icey.getAppVersion().then(v => {
     const el = document.getElementById('titlebar-version');
     if (el && v) el.textContent = 'v' + v;

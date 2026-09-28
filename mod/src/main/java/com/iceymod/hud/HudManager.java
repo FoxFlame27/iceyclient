@@ -114,12 +114,6 @@ public class HudManager {
         modules.add(new LookingAtModule());
         modules.add(new MobKillsModule());
         modules.add(new NetherCoordsModule());
-        // Displays known from PvP clients
-        modules.add(new WatermarkModule());
-        modules.add(new ModuleListModule());
-        modules.add(new TargetHudModule());
-        modules.add(new InventoryHudModule());
-        modules.add(new ReachDisplayModule());
         // Quality-of-life features
         modules.add(new ZoomModule());
         modules.add(new PerspectiveModule());

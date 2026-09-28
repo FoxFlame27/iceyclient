@@ -1,5 +1,6 @@
 // Setup: a page of its own (tab "Setup"), built from the same cards as
-// Settings. It opens on the first launch and again from Settings → Setup.
+// Settings. It opens on the first launch after every install, and from
+// Settings → General.
 // Every choice is saved and applied the moment it's made; the page is
 // drawn once and only the touched card changes after that.
 
@@ -268,7 +269,7 @@ async function _setupLogin(kind) {
 // ── Leaving ────────────────────────────────────────────────────────────
 
 async function _setupDone(finished) {
-  await SettingsManager.set('setupCompleted', true);
+  await SettingsManager.markSetupDone();
   if (finished) Toast.success('All set. Have fun!');
   switchPage('home');
 }
