@@ -823,9 +823,8 @@ select option { background: #0d1220; color: var(--text-primary); }
   box-shadow: 0 0 14px rgba(var(--accent-rgb),0.4);
 }
 
-/* Icons are dark art on white, shown inverted: screen-blend drops the
-   black box that leaves behind, so only the glyph sits on the glass. */
-.nav-icon-img { opacity: 0.62; mix-blend-mode: screen; }
+/* Nav icons are dark glyphs on a transparent background, shown inverted. */
+.nav-icon-img { opacity: 0.62; }
 .nav-tab:hover .nav-icon-img { opacity: 0.9; }
 .nav-icon { color: var(--text-secondary); }
 
