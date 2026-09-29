@@ -10,3 +10,7 @@ image-removebg-preview*.png
 mod/build/*/
 !mod/build/libs/
 mod/.gradle/
+mod/run/
+mod-scroll/build/
+mod-scroll/.gradle/
+mod-scroll/run/

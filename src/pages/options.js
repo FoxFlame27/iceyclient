@@ -154,7 +154,7 @@ async function _renderMainOptions(page, settings) {
         ${toggleCard('javaStuffEnabled', javaStuffEnabled, 'Java &amp; Stuff', 'Actions &amp; Stuff-style animations, 3D items, shaders &amp; sounds. Fabric only. Armor packs stay off — enable in-game.', img('assets/mods/javastuff.png'))}
       </div>
       <div class="options-toggle-row">
-        ${toggleCard('scrollBindsEnabled', scrollBindsEnabled, 'Scroll Keybinds', 'Use scroll up and scroll down as keys, for example to jump or attack. Pick the actions in the in-game menu (Y). Needs Icey Mods. Check that your server allows it.', '<img class="options-toggle-icon options-toggle-icon-smooth" src="assets/mods/scrollbinds.svg" alt="">')}
+        ${toggleCard('scrollBindsEnabled', scrollBindsEnabled, 'Scroll Keybinds', 'Adds Scroll Up and Scroll Down as keys. Bind them in the game under Options → Controls → Key Binds: click an action, then scroll. Works without Icey Mods.', '<img class="options-toggle-icon options-toggle-icon-smooth" src="assets/mods/scrollbinds.svg" alt="">')}
       </div>`,
 
     game: `

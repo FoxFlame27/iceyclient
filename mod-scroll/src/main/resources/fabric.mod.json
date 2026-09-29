@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "iceyscroll",
+  "version": "${version}",
+  "name": "Scroll Keybinds",
+  "description": "Adds Scroll Up and Scroll Down as keys. In Options > Controls > Key Binds, click an action and scroll the wheel to bind it.",
+  "authors": ["Icey Client"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/iceyscroll/icon.png",
+  "environment": "client",
+  "mixins": [
+    "iceyscroll.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "${mc_range}",
+    "java": ">=${java_min}"
+  }
+}

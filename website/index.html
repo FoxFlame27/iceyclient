@@ -177,11 +177,54 @@
       text-shadow: 0 1px 0 rgba(4,7,15,0.8);
     }
 
-    .visit {
+    /* Bottom-right corner: the Scroll Keybinds mod download and the
+       IceyMC link, two slabs side by side. */
+    .corner {
       position: fixed;
       right: 18px;
       bottom: 18px;
       z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+      max-width: calc(100vw - 36px);
+    }
+    .mod { position: relative; }
+    .mod-list {
+      display: none;
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 10px);
+      min-width: 240px;
+      padding: 6px;
+      border-radius: 5px;
+      border: 2px solid var(--line);
+      background: var(--slab);
+      box-shadow: 0 4px 0 var(--slab-edge);
+    }
+    .mod.open .mod-list { display: block; }
+    .mod-list-title {
+      padding: 6px 10px 8px;
+      font-size: 12px;
+      color: var(--dim);
+    }
+    .mod-list a {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px 10px;
+      border-radius: 3px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .mod-list a span { color: var(--dim); font-weight: 400; }
+    .mod-list a:hover { background: var(--ice); color: #06121d; }
+    .mod-list a:hover span { color: #0d3a52; }
+    .visit {
       display: inline-flex;
       align-items: center;
       gap: 8px;
@@ -196,15 +239,16 @@
       text-decoration: none;
       transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.12s ease;
     }
-    .visit:hover { border-color: var(--ice); transform: translateY(-1px); box-shadow: 0 5px 0 var(--slab-edge); }
+    .visit:hover, .mod.open > .visit { border-color: var(--ice); transform: translateY(-1px); box-shadow: 0 5px 0 var(--slab-edge); }
     .visit:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--slab-edge); }
+    button.visit { cursor: pointer; font-family: inherit; }
 
     a:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
     @media (max-width: 820px) {
       main { justify-content: flex-start; padding-top: 20px; }
       .platforms { grid-template-columns: 1fr; max-width: 420px; margin-top: 24px; }
-      footer { padding-right: 20px; padding-bottom: 72px; text-align: center; }
+      footer { padding-right: 20px; padding-bottom: 120px; text-align: center; }
     }
     @media (max-height: 720px) and (min-width: 821px) {
       main { padding-top: 16px; padding-bottom: 12px; }
@@ -260,7 +304,22 @@
     Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
   </footer>
 
-  <a class="visit" href="/studio">Visit IceyMC</a>
+  <div class="corner">
+    <div class="mod" id="mod">
+      <button class="visit" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mod-list">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v4"/></svg>
+        Scroll Keybinds mod
+      </button>
+      <div class="mod-list" id="mod-list">
+        <div class="mod-list-title">Scroll Up and Scroll Down as keys. Fabric mod, no Icey Client needed. Pick your Minecraft version:</div>
+        <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc26.3-1.0.0.jar">26.3<span>.jar</span></a>
+        <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc26.2-1.0.0.jar">26.2<span>.jar</span></a>
+        <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc1.21.11-1.0.0.jar">1.21.11<span>.jar</span></a>
+        <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc1.21.8-1.0.0.jar">1.21.8 to 1.21.10<span>.jar</span></a>
+      </div>
+    </div>
+    <a class="visit" href="/studio">Visit IceyMC</a>
+  </div>
 
   <script>
     // Colour the button of the visitor's own operating system.
@@ -270,6 +329,16 @@
       var os = /Mac/i.test(p) ? 'macos' : /Win/i.test(p) ? 'windows' : /Linux|X11/i.test(p) ? 'linux' : null;
       var el = os && document.querySelector('.platform[data-os="' + os + '"]');
       if (el) el.classList.add('is-current');
+    })();
+
+    // The Scroll Keybinds button opens the list of per-version jars.
+    (function () {
+      var mod = document.getElementById('mod');
+      var btn = mod.querySelector('button');
+      function set(open) { mod.classList.toggle('open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+      btn.addEventListener('click', function () { set(!mod.classList.contains('open')); });
+      document.addEventListener('click', function (e) { if (!mod.contains(e.target)) set(false); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
     })();
 
     // Add the file sizes. The links always point at the newest release,

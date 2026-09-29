@@ -34,7 +34,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
+import com.iceymod.compat.Input;
 
 public class IceyMod implements ClientModInitializer {
     public static final String MOD_ID = "iceymod";
@@ -62,7 +62,7 @@ public class IceyMod implements ClientModInitializer {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.86.90)");
+        System.out.println("[IceyMod] booted (build tag: v1.86.91)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -78,24 +78,24 @@ public class IceyMod implements ClientModInitializer {
         try { BiomeTracker.register(); }       catch (Throwable t) { System.out.println("[IceyMod] BiomeTracker failed: " + t); }
         try { ChatCoordParser.register(); }    catch (Throwable t) { System.out.println("[IceyMod] ChatCoordParser failed: " + t); }
 
-        menuKey         = registerKey("key.iceymod.menu",         GLFW.GLFW_KEY_Y);
-        zoomKey         = registerKey("key.iceymod.zoom",         GLFW.GLFW_KEY_M);
-        perspectiveKey  = registerKey("key.iceymod.perspective",  GLFW.GLFW_KEY_R);
-        waypointKey     = registerKey("key.iceymod.waypoint",     GLFW.GLFW_KEY_B);
-        hideHudKey      = registerKey("key.iceymod.hidehud",      GLFW.GLFW_KEY_H);
+        menuKey         = registerKey("key.iceymod.menu",         InputConstants.KEY_Y);
+        zoomKey         = registerKey("key.iceymod.zoom",         InputConstants.KEY_M);
+        perspectiveKey  = registerKey("key.iceymod.perspective",  InputConstants.KEY_R);
+        waypointKey     = registerKey("key.iceymod.waypoint",     InputConstants.KEY_B);
+        hideHudKey      = registerKey("key.iceymod.hidehud",      InputConstants.KEY_H);
         // N moved to leaderboard; user can rebind autosprint via Controls if they want.
         toggleSprintKey = registerKey("key.iceymod.togglesprint", InputConstants.UNKNOWN.getValue());
-        toggleBrightKey = registerKey("key.iceymod.togglebright", GLFW.GLFW_KEY_G);
-        toggleTotemKey  = registerKey("key.iceymod.toggletotem",  GLFW.GLFW_KEY_T);
-        freelookKey     = registerKey("key.iceymod.freelook",     GLFW.GLFW_KEY_LEFT_ALT);
-        copyCoordsKey   = registerKey("key.iceymod.copycoords",   GLFW.GLFW_KEY_J);
-        structureKey    = registerKey("key.iceymod.structure",    GLFW.GLFW_KEY_V);
-        freecamKey      = registerKey("key.iceymod.freecam",      GLFW.GLFW_KEY_F4);
-        biomeKey        = registerKey("key.iceymod.biome",        GLFW.GLFW_KEY_K);
+        toggleBrightKey = registerKey("key.iceymod.togglebright", InputConstants.KEY_G);
+        toggleTotemKey  = registerKey("key.iceymod.toggletotem",  InputConstants.KEY_T);
+        freelookKey     = registerKey("key.iceymod.freelook",     InputConstants.KEY_LALT);
+        copyCoordsKey   = registerKey("key.iceymod.copycoords",   InputConstants.KEY_J);
+        structureKey    = registerKey("key.iceymod.structure",    InputConstants.KEY_V);
+        freecamKey      = registerKey("key.iceymod.freecam",      InputConstants.KEY_F4);
+        biomeKey        = registerKey("key.iceymod.biome",        InputConstants.KEY_K);
         // Fresh keybind id ("openboard" instead of "leaderboard") so MC
         // doesn't fall back to a stale `;` binding saved in older options.txt.
-        leaderboardKey  = registerKey("key.iceymod.openboard",    GLFW.GLFW_KEY_N);
-        javaStuffKey    = registerKey("key.iceymod.javastuff",    GLFW.GLFW_KEY_U);
+        leaderboardKey  = registerKey("key.iceymod.openboard",    InputConstants.KEY_N);
+        javaStuffKey    = registerKey("key.iceymod.javastuff",    InputConstants.KEY_U);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (wasPressed(menuKey)) {
@@ -272,7 +272,7 @@ public class IceyMod implements ClientModInitializer {
      */
     private static KeyMapping registerKey(String translationKey, int code) {
         try {
-            KeyMapping kb = KeyBindingCompat.create(translationKey, InputConstants.Type.KEYSYM, code, KEY_CATEGORY);
+            KeyMapping kb = KeyBindingCompat.create(translationKey, Input.KEYBOARD, code, KEY_CATEGORY);
             if (kb == null) return null;
             return KeyRegistrar.register(kb);
         } catch (Throwable t) {

@@ -84,7 +84,7 @@ public class WaypointBeamRenderer {
 
                 ms.pushPose();
                 ms.translate(tagX - camPos.x, tagY - camPos.y, tagZ - camPos.z);
-                ms.mulPose(cam.rotation());              // billboard
+                ms.mulPose(new org.joml.Matrix4f().rotation(cam.rotation()));   // billboard; mulPose(Quaternion) went away in 26.3
                 float scale = 0.03f;
                 ms.scale(-scale, -scale, scale);         // text is huge by default; flip so it reads upright
                 ms.translate(-cw / 2f, 0f, 0f);
@@ -109,7 +109,7 @@ public class WaypointBeamRenderer {
         final float v4 = (float) maxY + v1;
 
         ms.pushPose();
-        ms.mulPose(Axis.YP.rotationDegrees(time * 2.25f - 45.0f));
+        ms.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees(time * 2.25f - 45.0f)));
         ctx.geometry(inner, (pose, vc) -> beamLayer(pose, vc, innerColor, yOffset, endY,
                 0.0f, innerRadius, innerRadius, 0.0f, -innerRadius, 0.0f, 0.0f, -innerRadius, 0.0f, 1.0f, v2, v1));
         ms.popPose();

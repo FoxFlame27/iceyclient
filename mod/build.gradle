@@ -19,7 +19,10 @@ apply plugin: (legacy ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-
 version = project.mod_version
 group = project.maven_group
 def javaRelease = legacy ? 21 : 25
-def mcRange = legacy ? '>=1.21.8 <=1.21.11' : '>=26.2 <26.3'
+// A 26.x jar is built per release and declares only that minor (26.2 →
+// '>=26.2 <26.3'), because Mojang's names drift between 26.x releases.
+def mcMinor = legacy ? null : mcVer.tokenize('.')
+def mcRange = legacy ? '>=1.21.8 <=1.21.11' : ">=${mcMinor[0]}.${mcMinor[1]} <${mcMinor[0]}.${(mcMinor[1] as int) + 1}"
 
 base {
     archivesName = project.archives_base_name + '-mc' + mcVer
@@ -36,6 +39,10 @@ base {
 // The source is written in 1.21.11/26.x names; the 1.21.8 leg compiles from a
 // generated copy with those swapped back, so one source tree serves all legs.
 def eraDir = legacy ? 'src/mc121/java' : 'src/mc26/java'
+// 26.x releases drift among themselves too (26.3 swapped GLFW for SDL), so
+// a 26.x leg also overlays src/mc<major><minor>/java, e.g. src/mc263/java.
+def minorDir = legacy ? null : "src/mc${mcVer.tokenize('.')[0]}${mcVer.tokenize('.')[1]}/java"
+if (!legacy && !file(minorDir).isDirectory()) throw new GradleException("No compat overlay for Minecraft ${mcVer}: create ${minorDir} (copy src/mc263/java and adjust)")
 def renameBack = legacy && !mcVer.startsWith('1.21.11')
 def genSrc = layout.buildDirectory.dir('gen-src/java')
 def prepareSources = tasks.register('prepareSources', Sync) {
@@ -46,6 +53,7 @@ def prepareSources = tasks.register('prepareSources', Sync) {
     inputs.property 'renameBack', renameBack
     from 'src/main/java'
     from eraDir
+    if (minorDir != null) from minorDir
     into genSrc
     if (renameBack) {
         filter { String line ->

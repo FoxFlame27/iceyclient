@@ -309,8 +309,7 @@ public class WaypointMenuScreen extends IceyScreen {
 
     private void pollEnter() {
         try {
-            long handle = minecraft.getWindow().handle();
-            boolean down = org.lwjgl.glfw.GLFW.glfwGetKey(handle, org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+            boolean down = com.iceymod.compat.Input.keyDown(com.mojang.blaze3d.platform.InputConstants.KEY_RETURN);
             if (down && !prevEnterDown) {
                 if (state == State.RENAME_INPUT && nameInput != null) { commitRename(); }
                 else if (state == State.EDIT_INPUT && xInput != null) { commitEdit(); }

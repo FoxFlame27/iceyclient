@@ -3,7 +3,8 @@ package com.iceymod.screen;
 import com.iceymod.IceyMod;
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
-import org.lwjgl.glfw.GLFW;
+import com.iceymod.compat.Input;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -250,15 +251,14 @@ public class IceyModScreen extends IceyScreen {
     // take a KeyInput object, so our (int, int, int) override stops
     // overriding anything at runtime → arrow-key navigation silently
     // dies. We poll inside render() instead — works on both 1.21.8 and
-    // 1.21.11 since GLFW key state is independent of MC version.
+    // 1.21.11 (Input.keyDown hides how each version reads the key state).
     private final java.util.HashMap<Integer, Boolean> prevKeyState = new java.util.HashMap<>();
 
-    private boolean keyEdge(int glfwKey) {
+    private boolean keyEdge(int keyCode) {
         try {
-            long handle = minecraft.getWindow().handle();
-            boolean down = GLFW.glfwGetKey(handle, glfwKey) == GLFW.GLFW_PRESS;
-            boolean wasDown = prevKeyState.getOrDefault(glfwKey, false);
-            prevKeyState.put(glfwKey, down);
+            boolean down = Input.keyDown(keyCode);
+            boolean wasDown = prevKeyState.getOrDefault(keyCode, false);
+            prevKeyState.put(keyCode, down);
             return down && !wasDown;
         } catch (Throwable t) { return false; }
     }
@@ -272,17 +272,17 @@ public class IceyModScreen extends IceyScreen {
         int startIdx = page * perPage;
         int localIdx = selectedIndex - startIdx;
 
-        if (keyEdge(GLFW.GLFW_KEY_UP)) {
+        if (keyEdge(InputConstants.KEY_UP)) {
             int next = selectedIndex - gridCols;
             if (next < 0) next = selectedIndex;
             moveSelection(next);
         }
-        if (keyEdge(GLFW.GLFW_KEY_DOWN)) {
+        if (keyEdge(InputConstants.KEY_DOWN)) {
             int next = selectedIndex + gridCols;
             if (next >= filtered.size()) next = selectedIndex;
             moveSelection(next);
         }
-        if (keyEdge(GLFW.GLFW_KEY_LEFT)) {
+        if (keyEdge(InputConstants.KEY_LEFT)) {
             if (localIdx > 0 && selectedIndex > 0) {
                 moveSelection(selectedIndex - 1);
             } else if (page > 0) {
@@ -291,10 +291,10 @@ public class IceyModScreen extends IceyScreen {
                 rebuild();
             }
         }
-        if (keyEdge(GLFW.GLFW_KEY_RIGHT)) {
+        if (keyEdge(InputConstants.KEY_RIGHT)) {
             if (selectedIndex < filtered.size() - 1) moveSelection(selectedIndex + 1);
         }
-        if (keyEdge(GLFW.GLFW_KEY_ENTER) || keyEdge(GLFW.GLFW_KEY_SPACE)) {
+        if (keyEdge(InputConstants.KEY_RETURN) || keyEdge(InputConstants.KEY_SPACE)) {
             if (selectedIndex >= 0 && selectedIndex < filtered.size()) {
                 HudModule m = filtered.get(selectedIndex);
                 if (settingsMode) {
@@ -305,11 +305,11 @@ public class IceyModScreen extends IceyScreen {
                 }
             }
         }
-        if (keyEdge(GLFW.GLFW_KEY_PAGE_DOWN)) {
+        if (keyEdge(InputConstants.KEY_PAGEDOWN)) {
             int totalPages = Math.max(1, (filtered.size() + perPage - 1) / perPage);
             if (page < totalPages - 1) { page++; selectedIndex = page * perPage; rebuild(); }
         }
-        if (keyEdge(GLFW.GLFW_KEY_PAGE_UP)) {
+        if (keyEdge(InputConstants.KEY_PAGEUP)) {
             if (page > 0) { page--; selectedIndex = page * perPage; rebuild(); }
         }
     }

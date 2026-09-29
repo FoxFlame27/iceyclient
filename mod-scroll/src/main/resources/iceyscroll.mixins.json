@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "package": "com.iceyscroll.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "KeyBindsScreenAccessor",
+    "KeyBindsScreenMixin",
+    "KeyMappingAccessor",
+    "KeyNameMixin",
+    "MinecraftMixin",
+    "MouseHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

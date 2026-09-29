@@ -1041,6 +1041,7 @@ function launchMinecraft(installationId) {
     } catch (_) {}
 
     const iceyModsEnabled = settings.iceyModsEnabled !== false;
+    const scrollBindsEnabled = !!settings.scrollBindsEnabled;
     const skinChangerEnabled = !!settings.skinChangerEnabled;
     const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
     const architecturyEnabled = settings.architecturyEnabled !== false;
@@ -1158,6 +1159,34 @@ function launchMinecraft(installationId) {
           }
         }
       } catch (_) {}
+
+      // 1c) Scroll Keybinds (Settings → Mods): a separate mod that adds
+      // Scroll Up / Scroll Down to Options → Controls → Key Binds. It only
+      // needs the Fabric loader, so it goes in even with Icey Mods off.
+      try {
+        const scrollJar = scrollBindsEnabled ? _pickIceyJar('scroll', installation.version) : null;
+        const keep = scrollJar ? scrollJar.name : null;
+        for (const f of fs.readdirSync(modsDir)) {
+          if (/^iceyscroll-.*\.jar$/i.test(f) && f !== keep) {
+            try { fs.unlinkSync(path.join(modsDir, f)); log('info', 'Removed Scroll Keybinds jar: ' + f); } catch (_) {}
+          }
+        }
+        if (scrollJar) {
+          const dest = path.join(modsDir, keep);
+          const srcStat = fs.statSync(scrollJar.path);
+          const destStat = fs.existsSync(dest) ? fs.statSync(dest) : null;
+          if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
+            fs.copyFileSync(scrollJar.path, dest);
+            log('info', 'Installed Scroll Keybinds: ' + dest);
+            _mcConsole('Scroll Keybinds installed — bind Scroll Up / Scroll Down in Options → Controls → Key Binds', 'info');
+          }
+        } else if (scrollBindsEnabled) {
+          log('warn', `Scroll Keybinds jar not bundled for MC ${installation.version}`);
+          _mcConsole(`Scroll Keybinds not available for Minecraft ${installation.version}`, 'warn');
+        }
+      } catch (e) {
+        log('warn', 'Scroll Keybinds install failed: ' + e.message);
+      }
 
       // 2) Install correct Fabric API for THIS MC version. Hardcoded version
       // maps drift fast and skip MC versions silently — query Modrinth for the
@@ -1292,8 +1321,6 @@ function launchMinecraft(installationId) {
           javaStuffEnabled: javaStuffEnabled,
           skiflame: !!settings.skiflameMode,
           javaStuffPacks: (pm && pm.registeredPacks) || [],
-          // Scroll Keybinds (Settings → Mods): the mod only offers it when on.
-          scrollBindsEnabled: !!settings.scrollBindsEnabled,
           // Look of the in-game Y menu (MenuPrefs in the mod).
           hudMenuStyle: settings.hudMenuStyle === 'grid' ? 'grid' : 'panels',
           hudMenuColor: /^#[0-9a-f]{6}$/i.test(settings.hudMenuColor || '') ? settings.hudMenuColor : (settings.accentColor || '#5bc8f5'),
@@ -2388,9 +2415,12 @@ async function _ensureBundledMods(installGameDir, mcVersion, enabledKeys) {
 // build (1.21.9, 1.21.10, …) pick the closest lower build whose declared
 // range still covers the target — the loader accepts it and the compat
 // shims inside the mod handle the API drift.
+// `kind` picks the jar family: 'client' is the Icey mod, 'scroll' is the
+// standalone Scroll Keybinds mod (mod-scroll/, no Icey dependency).
 function _pickIceyJar(kind, mcVersion) {
-  const pattern = /^iceymod-mc(.+)-1\.0\.0\.jar$/i;
-  const dirs = [path.join(__dirname, 'mod', 'build', 'libs'), DATA_DIR, path.join(__dirname, 'resources')];
+  const prefix = kind === 'scroll' ? 'iceyscroll' : 'iceymod';
+  const pattern = new RegExp('^' + prefix + '-mc(.+)-1\\.0\\.0\\.jar$', 'i');
+  const dirs = [path.join(__dirname, 'mod', 'build', 'libs'), path.join(__dirname, 'mod-scroll', 'build', 'libs'), DATA_DIR, path.join(__dirname, 'resources')];
   const found = [];
   for (const dir of dirs) {
     try {
@@ -4196,7 +4226,7 @@ app.whenReady().then(() => {
       const m = _readJsonSafe(path.join(srcGame, mf));
       for (const f of ((m && m.files) || [])) managed.add(String(f).replace(/^mods\//, ''));
     }
-    const isLauncherOwned = (f) => managed.has(f) || /^Icey/.test(f) || /^iceymod-mc.*\.jar$/i.test(f) || /^fabric-api.*\.jar$/i.test(f);
+    const isLauncherOwned = (f) => managed.has(f) || /^Icey/.test(f) || /^iceymod-mc.*\.jar$/i.test(f) || /^iceyscroll-mc.*\.jar$/i.test(f) || /^fabric-api.*\.jar$/i.test(f);
 
     const jars = [];
     try {

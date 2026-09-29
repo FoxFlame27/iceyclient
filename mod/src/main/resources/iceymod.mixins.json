@@ -15,9 +15,7 @@
     "SplashTextMixin",
     "AbstractClientPlayerEntityMixin",
     "PlayerListHudMixin",
-    "PlayerNameBadgeMixin",
-    "KeyMappingAccessor",
-    "MouseScrollMixin"
+    "PlayerNameBadgeMixin"
   ],
   "injectors": {
     "defaultRequire": 1

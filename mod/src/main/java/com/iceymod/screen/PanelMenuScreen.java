@@ -17,7 +17,8 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.lwjgl.glfw.GLFW;
+import com.iceymod.compat.Input;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -53,8 +54,7 @@ public class PanelMenuScreen extends IceyScreen {
             "blockunder");
     private static final Set<String> PLAYER_IDS = Set.of(
             "zoom", "perspective", "freelook", "freecam", "fullbright", "autosprint", "autorespawn",
-            "nohurtcam", "nobob", "nofovchange", "antiafk", "safewalk", "automaceswap", "autototem",
-            "scrollbinds");
+            "nohurtcam", "nobob", "nofovchange", "antiafk", "safewalk", "automaceswap", "autototem");
 
     private static final int GROUPS = Group.values().length;
     private static final int MIN_CANVAS_W = 640;
@@ -174,9 +174,8 @@ public class PanelMenuScreen extends IceyScreen {
     }
 
     private void pollMouse(int mouseX, int mouseY) {
-        long handle = minecraft.getWindow().handle();
-        leftDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-        boolean rightDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
+        leftDown = Input.mouseDown(InputConstants.MOUSE_BUTTON_LEFT);
+        boolean rightDown = Input.mouseDown(InputConstants.MOUSE_BUTTON_RIGHT);
         leftPressed = leftDown && !prevLeft;
         rightPressed = rightDown && !prevRight;
         prevLeft = leftDown;

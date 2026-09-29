@@ -35,7 +35,7 @@ public class AntiAFKModule extends HudModule {
         if (now - lastActionAt < intervalMs) return;
 
         client.player.setYRot(client.player.getYRot() + 1.0f);
-        if (swingHand.get()) client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        if (swingHand.get()) com.iceymod.compat.Input.swingMainHand(client.player);
         lastActionAt = now;
     }
 

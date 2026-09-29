@@ -8,7 +8,8 @@ import com.iceymod.compat.IceyScreen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.iceymod.compat.Input;
+import com.mojang.blaze3d.platform.InputConstants;
 
 /**
  * HUD module-position editor.
@@ -98,8 +99,7 @@ public class HudEditScreen extends IceyScreen {
     private void updateDrag(int mouseX, int mouseY) {
         Minecraft c = Minecraft.getInstance();
         if (c == null || c.getWindow() == null) return;
-        long handle = c.getWindow().handle();
-        boolean leftDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        boolean leftDown = Input.mouseDown(InputConstants.MOUSE_BUTTON_LEFT);
 
         // Just-pressed → look for a module under cursor and begin drag.
         if (leftDown && !prevLeftDown && dragging == null) {

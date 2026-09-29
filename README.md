@@ -1,6 +1,15 @@
 loll  pllb ty for downloading 
 get `Icey Client Setup.exe` for windows (run once to install)
 
+## Download Scroll Keybinds (standalone mod)
+
+Scroll Up and Scroll Down as keys: in Options → Controls → Key Binds click an action, then scroll. A Fabric client mod that only needs the Fabric loader, so it works with or without Icey Client. Also switchable in the launcher under Settings → Mods.
+
+- **MC 26.3** → [iceyscroll-mc26.3-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc26.3-1.0.0.jar)
+- **MC 26.2** → [iceyscroll-mc26.2-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc26.2-1.0.0.jar)
+- **MC 1.21.11** → [iceyscroll-mc1.21.11-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc1.21.11-1.0.0.jar)
+- **MC 1.21.8 to 1.21.10** → [iceyscroll-mc1.21.8-1.0.0.jar](https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc1.21.8-1.0.0.jar)
+
 ## Download iceymod+
 
 Two flavors. Both downloadable directly from the latest GitHub release — no launcher required.
@@ -29,6 +38,11 @@ get arm 64x .dmg for mac but make sure to run this command if the app says iceyc
 xacttr -cr /Applications/Icey\ Client.app 
 
 ---
+
+## What's new in v1.86.91
+
+- **Scroll Keybinds is its own mod now.** It left the in-game Y menu. Scroll Up and Scroll Down are plain keys in Options → Controls → Key Binds: click an action, turn the wheel, done. While an action is waiting for a key the wheel is taken as that key and the list does not move. The mod (`mod-scroll/`, jar `iceyscroll-mc<version>-1.0.0.jar`) has no Icey or Fabric API dependency, so it can be downloaded on its own from the release or from iceymc.com; the launcher's Settings → Mods switch installs it per installation.
+- **Minecraft 26.3.** Mojang replaced GLFW with SDL in 26.3 (new key codes, no window handle to poll, `PoseStack.mulPose(Quaternion)` and `swing(hand)` gone). The mod now builds a 26.3 jar too: the shared code reads keys and mouse buttons through a small per-version `Input` class (`src/mc262/java`, `src/mc263/java`), and each 26.x jar declares only its own minor version. The launcher picks the exact jar, so 26.2 and 26.3 both get the right build.
 
 ## What's new in v1.86.83
 

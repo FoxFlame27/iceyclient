@@ -1,0 +1,56 @@
+plugins {
+    // Same two Loom plugins as ../mod: '-remap' for obfuscated 1.21.x,
+    // the plain one for 26.1+ where the game ships unobfuscated.
+    id 'net.fabricmc.fabric-loom-remap' version '1.17.20' apply false
+    id 'net.fabricmc.fabric-loom' version '1.17.20' apply false
+}
+
+def mcVer = project.minecraft_version
+def legacy = mcVer.startsWith('1.')
+apply plugin: (legacy ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom')
+
+version = project.mod_version
+group = project.maven_group
+def javaRelease = legacy ? 21 : 25
+// A 26.x jar is built per release and declares only that minor (26.2 →
+// '>=26.2 <26.3'), because Mojang's names drift between 26.x releases.
+def mcMinor = legacy ? null : mcVer.tokenize('.')
+def mcRange = legacy ? '>=1.21.8 <=1.21.11' : ">=${mcMinor[0]}.${mcMinor[1]} <${mcMinor[0]}.${(mcMinor[1] as int) + 1}"
+
+base {
+    archivesName = project.archives_base_name + '-mc' + mcVer
+}
+
+repositories {
+    mavenCentral()
+}
+
+// No Fabric API: the mod only needs the loader, so it runs in any Fabric
+// installation, with or without Icey Client.
+dependencies {
+    minecraft "com.mojang:minecraft:${mcVer}"
+    if (legacy) {
+        mappings loom.officialMojangMappings()
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    } else {
+        implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "java_min", javaRelease
+    inputs.property "mc_range", mcRange
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version, "java_min": javaRelease, "mc_range": mcRange
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = javaRelease
+}
+
+java {
+    sourceCompatibility = legacy ? JavaVersion.VERSION_21 : JavaVersion.VERSION_25
+    targetCompatibility = legacy ? JavaVersion.VERSION_21 : JavaVersion.VERSION_25
+}
