@@ -14,3 +14,4 @@ mod/run/
 mod-scroll/build/
 mod-scroll/.gradle/
 mod-scroll/run/
+mod/build/libs/iceymod-mc*.jar
