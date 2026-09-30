@@ -1,7 +1,11 @@
 package com.iceymod;
 
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -33,6 +37,33 @@ import net.minecraft.world.phys.Vec3;
 public final class Compat {
 
     private Compat() {}
+
+    /** {@code VertexConsumer.setLineWidth(float)}, or null where the version has no such method.
+     *  1.21.11 and 26.x moved the width of {@code RenderTypes.lines()} out of the render type and
+     *  into every vertex ({@code VertexFormatElement.LINE_WIDTH}); a line vertex that skips it
+     *  throws "Missing elements in vertex: LineWidth", and since the lines buffer is shared with
+     *  the block outline the game crashes the same frame. 1.21.8-1.21.10 have no such method (the
+     *  width lives on the render type). Resolved by signature, the only VertexConsumer method that
+     *  takes one float, because the 1.21.x jars run with intermediary names. */
+    private static final MethodHandle SET_LINE_WIDTH = findSetLineWidth();
+
+    private static MethodHandle findSetLineWidth() {
+        for (Method m : VertexConsumer.class.getMethods()) {
+            if (m.getParameterCount() != 1 || m.getParameterTypes()[0] != float.class || m.getReturnType() != VertexConsumer.class) continue;
+            try { return MethodHandles.publicLookup().unreflect(m); } catch (Throwable ignored) {}
+        }
+        return null;
+    }
+
+    /** Sets the width of a line vertex where the vertex format wants one (see {@link #SET_LINE_WIDTH});
+     *  a no-op on versions whose lines render type carries the width itself. Same width as the
+     *  vanilla block outline: 2.5px at 1920 wide, scaled up with the window. */
+    public static void lineWidth(VertexConsumer vc) {
+        if (SET_LINE_WIDTH == null) return;
+        float width = 2.5f;
+        try { width = Math.max(2.5f, Minecraft.getInstance().getWindow().getWidth() / 1920f * 2.5f); } catch (Throwable ignored) {}
+        try { SET_LINE_WIDTH.invoke(vc, width); } catch (Throwable ignored) {}
+    }
 
     /** Camera position. 1.21.8 had {@code getPos()}; 1.21.11 removed it.
      *  Falls back to reading the {@code pos} field by NAME (not just

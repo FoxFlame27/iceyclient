@@ -39,6 +39,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.92
+
+- **Hitboxes no longer crash Minecraft 1.21.11.** Turning the Hitboxes HUD on (or running `/iceyhuds`, which re-enables every module) crashed the game with `Missing elements in vertex: LineWidth`. Since 1.21.11 every line vertex carries its own width, and the hitbox edges never set one; because the lines buffer is shared with the block outline, vanilla crashed on the very next frame. The edges now set the same width as the vanilla block outline on 1.21.11 and 26.x, and skip it on 1.21.8 to 1.21.10 where the render type still owns the width.
+
 ## What's new in v1.86.91
 
 - **Scroll Keybinds is its own mod now.** It left the in-game Y menu. Scroll Up and Scroll Down are plain keys in Options → Controls → Key Binds: click an action, turn the wheel, done. While an action is waiting for a key the wheel is taken as that key and the list does not move. The mod (`mod-scroll/`, jar `iceyscroll-mc<version>-1.0.0.jar`) has no Icey or Fabric API dependency, so it can be downloaded on its own from the release or from iceymc.com; the launcher's Settings → Mods switch installs it per installation.

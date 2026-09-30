@@ -93,6 +93,8 @@ public class HitboxRenderer {
         if (len == 0f) return;
         float nx = dx / len, ny = dy / len, nz = dz / len;
         vc.addVertex(pose, ax, ay, az).setColor(r, g, b, a).setNormal(pose, nx, ny, nz);
+        com.iceymod.Compat.lineWidth(vc);
         vc.addVertex(pose, bx, by, bz).setColor(r, g, b, a).setNormal(pose, nx, ny, nz);
+        com.iceymod.Compat.lineWidth(vc);
     }
 }
