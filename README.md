@@ -39,6 +39,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.93
+
+- **The Last Death waypoint now always comes.** It used to depend on the mod catching the exact tick your health hit zero, which it could miss, and then your loot was anywhere. The waypoint is now taken from the death location the server itself sends with every login and respawn (the same spot a recovery compass points at), so it is exact, it still comes after a crash, a disconnect or an auto-respawn, and it is labelled with the dimension when you died in the Nether or the End.
+
 ## What's new in v1.86.92
 
 - **Hitboxes no longer crash Minecraft 1.21.11.** Turning the Hitboxes HUD on (or running `/iceyhuds`, which re-enables every module) crashed the game with `Missing elements in vertex: LineWidth`. Since 1.21.11 every line vertex carries its own width, and the hitbox edges never set one; because the lines buffer is shared with the block outline, vanilla crashed on the very next frame. The edges now set the same width as the vanilla block outline on 1.21.11 and 26.x, and skip it on 1.21.8 to 1.21.10 where the render type still owns the width.

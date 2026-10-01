@@ -22,6 +22,8 @@ public class WaypointsModule extends HudModule {
             new BoolSetting("deathWaypoint", "Auto-Waypoint on Death", true));
 
     private static boolean wasDead = false;
+    /** The server-reported death spot last turned into a waypoint (see {@link #tick()}). */
+    private static String lastDeathSeen = null;
 
     public WaypointsModule() {
         super("waypoints", "Waypoints", 0, 0);
@@ -33,22 +35,41 @@ public class WaypointsModule extends HudModule {
         if (!deathWaypoint.get()) return;
         Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null) return;
+        // The server tells the client where it last died (sent with every
+        // login and respawn, it is what the recovery compass points at), so
+        // this catches deaths the local check misses: auto-respawn racing
+        // the tick, a crash or disconnect while dead, dying before the mod
+        // ticked. It is also the exact spot, not where the camera was.
+        try {
+            java.util.Optional<net.minecraft.core.GlobalPos> last = client.player.getLastDeathLocation();
+            if (last.isPresent()) {
+                net.minecraft.core.GlobalPos gp = last.get();
+                String key = gp.dimension().identifier() + "@" + gp.pos().getX() + "," + gp.pos().getY() + "," + gp.pos().getZ();
+                if (!key.equals(lastDeathSeen)) {
+                    lastDeathSeen = key;
+                    String path = gp.dimension().identifier().getPath();
+                    String suffix = path.equals("the_nether") ? " (Nether)" : path.equals("the_end") ? " (End)" : "";
+                    deathWaypoint("Last Death" + suffix, gp.pos().getX(), gp.pos().getY(), gp.pos().getZ());
+                }
+            }
+        } catch (Throwable ignored) {}
+        // Local check: the moment the player drops to 0 health, before the
+        // respawn packet comes back.
         boolean dead = client.player.isDeadOrDying();
         if (dead && !wasDead) {
-            int x = (int) client.player.getX();
-            int y = (int) client.player.getY();
-            int z = (int) client.player.getZ();
-            // Dedup so dying repeatedly in the same lava pit doesn't
-            // create 20 "Last Death" waypoints. 32-block radius — close
-            // deaths overwrite, distant deaths still register.
-            boolean added = WaypointManager.addWaypointIfNew(
-                    "Last Death", x, y, z, 0xFFFF3344, 32.0);
-            if (added) {
-                com.iceymod.compat.Chat.message(net.minecraft.network.chat.Component.literal(
-                        "§b[IceyClient] §cLast Death waypointed §8(" + x + ", " + y + ", " + z + ")"), false);
-            }
+            deathWaypoint("Last Death", (int) client.player.getX(), (int) client.player.getY(), (int) client.player.getZ());
         }
         wasDead = dead;
+    }
+
+    /** Dedup so dying repeatedly in the same lava pit doesn't create 20 "Last Death" waypoints:
+     *  32-block radius, close deaths overwrite, distant deaths still register. */
+    private static void deathWaypoint(String name, int x, int y, int z) {
+        boolean added = WaypointManager.addWaypointIfNew(name, x, y, z, 0xFFFF3344, 32.0);
+        if (added) {
+            com.iceymod.compat.Chat.message(net.minecraft.network.chat.Component.literal(
+                    "§b[IceyClient] §c" + name + " waypointed §8(" + x + ", " + y + ", " + z + ")"), false);
+        }
     }
 
     public void addCurrentPosition() {
