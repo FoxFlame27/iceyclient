@@ -1,26 +1,21 @@
 package com.iceymod.chat;
 
-import com.iceymod.hud.modules.WaypointManager;
-import com.iceymod.compat.ClientCmd;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Detects coordinate triples in chat messages and rewrites them as
- * clickable links that drop a waypoint at those coords. Click handling
- * goes through a client-side {@code /iceywp <x> <y> <z>} command so we
- * don't have to inject input handlers into ChatHud.
+ * clickable links that copy the coordinates. The click is vanilla's own
+ * copy-to-clipboard action: the mod registers no commands, so nothing of
+ * ours shows up in command completion or reaches a server.
  *
  * Pattern matches {@code (123, 64, -567)}, {@code 123 64 -567},
  * {@code 123/64/-567}, etc. — three integers separated by any combo of
@@ -49,38 +44,6 @@ public final class ChatCoordParser {
         } catch (Throwable t) {
             System.out.println("[IceyMod] ClientReceiveMessageEvents.MODIFY_GAME unavailable: " + t.getMessage());
         }
-
-        // Register the click-target command. /iceywp <x> <y> <z> [name]
-        try {
-            ClientCmd.onRegister(dispatcher ->
-                dispatcher.register(ClientCmd.literal("iceywp")
-                        .then(ClientCmd.argument("x", IntegerArgumentType.integer())
-                            .then(ClientCmd.argument("y", IntegerArgumentType.integer())
-                                .then(ClientCmd.argument("z", IntegerArgumentType.integer())
-                                    .executes(ctx -> addWaypoint(
-                                            IntegerArgumentType.getInteger(ctx, "x"),
-                                            IntegerArgumentType.getInteger(ctx, "y"),
-                                            IntegerArgumentType.getInteger(ctx, "z"),
-                                            "Chat"))
-                                    .then(ClientCmd.argument("name", StringArgumentType.greedyString())
-                                        .executes(ctx -> addWaypoint(
-                                                IntegerArgumentType.getInteger(ctx, "x"),
-                                                IntegerArgumentType.getInteger(ctx, "y"),
-                                                IntegerArgumentType.getInteger(ctx, "z"),
-                                                StringArgumentType.getString(ctx, "name")))))))));
-        } catch (Throwable t) {
-            System.out.println("[IceyMod] Client command registration failed: " + t.getMessage());
-        }
-    }
-
-    private static int addWaypoint(int x, int y, int z, String name) {
-        WaypointManager.addWaypoint(name, x, y, z);
-        Minecraft c = Minecraft.getInstance();
-        if (c != null && c.player != null) {
-            com.iceymod.compat.Chat.message(Component.literal(
-                    "§b[IceyClient] §aWaypoint added: §f" + name + " §8(" + x + ", " + y + ", " + z + ")"), false);
-        }
-        return 1;
     }
 
     /**
@@ -119,9 +82,9 @@ public final class ChatCoordParser {
                 Style clickStyle = Style.EMPTY
                         .withColor(ChatFormatting.AQUA)
                         .withUnderlined(true)
-                        .withClickEvent(new ClickEvent.RunCommand("/iceywp " + x + " " + y + " " + z))
+                        .withClickEvent(new ClickEvent.CopyToClipboard(x + " " + y + " " + z))
                         .withHoverEvent(new HoverEvent.ShowText(
-                                Component.literal("§b[IceyClient] §7Click to waypoint §f"
+                                Component.literal("§b[IceyClient] §7Click to copy §f"
                                         + x + ", " + y + ", " + z)));
                 out.append(Component.literal(seen).setStyle(clickStyle));
                 last = m.end();

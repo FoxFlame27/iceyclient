@@ -233,7 +233,7 @@ async function _loadHomeInstallations() {
     container.innerHTML = installations.map(inst => {
       const isSelected = inst.selected;
       const imageUrl = inst.image
-        ? `file://${inst.image.replace(/\\\\/g, '/')}`
+        ? `file://${inst.image.replace(/\\/g, '/')}`
         : 'assets/installbg-default.png';
       const platformLabel = inst.platform === 'fabric' ? 'Fabric' : 'Vanilla';
       const platformClass = inst.platform === 'fabric' ? 'fabric' : 'vanilla';
@@ -271,7 +271,7 @@ async function _loadHomeInstMenu() {
   try { installations = await window.icey.getInstallations(); } catch (_) {}
   const items = installations.map(inst => {
     const imageUrl = inst.image
-      ? `file://${inst.image.replace(/\\\\/g, '/')}`
+      ? `file://${inst.image.replace(/\\/g, '/')}`
       : 'assets/installbg-default.png';
     const platform = inst.platform === 'fabric' ? 'Fabric' : 'Vanilla';
     return `

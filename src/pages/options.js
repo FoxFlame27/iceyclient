@@ -683,7 +683,7 @@ async function _optAutoDetectJava() {
 }
 async function _optBrowseJava() {
   const filePath = await window.icey.selectFile([
-    { name: 'Java Executable', extensions: process.platform === 'win32' ? ['exe'] : ['*'] }
+    { name: 'Java Executable', extensions: /win/i.test(navigator.platform || '') ? ['exe'] : ['*'] }
   ]);
   if (!filePath) return;
   const desc = document.getElementById('opt-java-desc');

@@ -25,7 +25,6 @@ import com.iceymod.compat.KeyBindingCompat;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import com.iceymod.compat.Chat;
-import com.iceymod.compat.ClientCmd;
 import com.iceymod.compat.HudHook;
 import com.iceymod.compat.KeyRegistrar;
 import com.iceymod.compat.ScreenHook;
@@ -62,7 +61,7 @@ public class IceyMod implements ClientModInitializer {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.86.93)");
+        System.out.println("[IceyMod] booted (build tag: v1.86.94)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -209,27 +208,6 @@ public class IceyMod implements ClientModInitializer {
                 HudManager.render(g);
             }
         });
-
-        // Client-side commands: /iceyhuds resets the HUD module state
-        // (force visible, reset positions, re-enable modules that the
-        // auto-disable-on-error logic killed in older builds).
-        // (/lb removed in v1.84.7 per user — only /leaderboard now.
-        // Keybind N sends /leaderboard to the server to open the
-        // server-side chest GUI.)
-        try {
-            ClientCmd.onRegister(dispatcher -> {
-                dispatcher.register(ClientCmd.literal("iceyhuds")
-                    .executes(ctx -> {
-                        if (!HudManager.isHudVisible()) HudManager.toggleHudVisibility();
-                        HudManager.resetAllToDefaults();
-                        ctx.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(
-                                "§b[IceyMod] §aHUDs reset — visible + defaults restored. Open Y menu to reposition."));
-                        return 1;
-                    }));
-            });
-        } catch (Throwable t) {
-            System.out.println("[IceyMod] Client command registration failed: " + t);
-        }
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             // Title screen: no extra corner logo — the Icey Client logo is already drawn

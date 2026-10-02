@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const https = require('https');
 const http = require('http');
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, execFileSync } = require('child_process');
 const crypto = require('crypto');
 
 let mainWindow = null;
@@ -133,8 +133,16 @@ function log(level, message) {
 // ── Atomic JSON write ──────────────────────────────────
 function writeJsonAtomic(filePath, data) {
   const tmp = filePath + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tmp, filePath);
+  const json = JSON.stringify(data, null, 2);
+  fs.writeFileSync(tmp, json, 'utf-8');
+  try {
+    fs.renameSync(tmp, filePath);
+  } catch (_) {
+    // Windows refuses to rename over a file another program has open
+    // (antivirus, the game reading its config): write it in place instead.
+    fs.writeFileSync(filePath, json, 'utf-8');
+    try { fs.unlinkSync(tmp); } catch (_e) { /* */ }
+  }
   _mirrorToBackup(filePath);
 }
 
@@ -1942,6 +1950,27 @@ function _findJavaWithMajor(required) {
   return best ? best.bin : null;
 }
 
+// Unpacks a .tar.gz or .zip. Arguments go to the program directly (no
+// shell), so a path with spaces, quotes or an ampersand cannot break it.
+// On Windows the system bsdtar is named by its full path: a `tar` earlier
+// on PATH (Git for Windows ships GNU tar) reads "C:\..." as a remote host
+// and cannot open zips. Windows older than 10 1803 has no tar at all, so
+// PowerShell is the fallback there.
+function _extractArchive(archive, destDir) {
+  const opts = { timeout: 180000, stdio: 'ignore', windowsHide: true };
+  if (process.platform !== 'win32') {
+    execFileSync('tar', ['-xf', archive, '-C', destDir], opts);
+    return;
+  }
+  const sysTar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+  if (fs.existsSync(sysTar)) {
+    try { execFileSync(sysTar, ['-xf', archive, '-C', destDir], opts); return; } catch (_) { /* fall through to PowerShell */ }
+  }
+  const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
+  execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
+    `Expand-Archive -LiteralPath ${q(archive)} -DestinationPath ${q(destDir)} -Force`], opts);
+}
+
 async function _downloadJavaRuntime(required) {
   const osName = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'windows' : 'linux';
   const arch = process.arch === 'arm64' ? 'aarch64' : 'x64';
@@ -1953,8 +1982,7 @@ async function _downloadJavaRuntime(required) {
   await downloadFile(url, archive);
   try { fs.rmSync(destDir, { recursive: true, force: true }); } catch (_) {}
   fs.mkdirSync(destDir, { recursive: true });
-  // `tar` handles both .tar.gz and .zip on macOS/Linux and on Windows 10+ (bsdtar).
-  execSync(`tar -xf "${archive}" -C "${destDir}"`, { timeout: 180000, stdio: 'ignore' });
+  _extractArchive(archive, destDir);
   try { fs.unlinkSync(archive); } catch (_) {}
   const bin = _findJavaBinUnder(destDir, 3);
   if (!bin) throw new Error('Downloaded runtime has no java binary');

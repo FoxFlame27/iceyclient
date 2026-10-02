@@ -39,6 +39,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.94
+
+- **No more custom commands.** The mod no longer registers any command: `/iceyhuds` and `/iceywp` are gone. Clicking coordinates in chat now copies them to the clipboard (vanilla's own click action) instead of running a command; add a waypoint from the waypoint menu.
+- **Windows fixes.** Installation pictures now show on the home page (Windows paths were not converted). The Browse button for the Java path works again (it failed on every system). Downloading a Java runtime always unpacks with Windows' own tar, with PowerShell as a fallback, instead of whichever `tar` is first on PATH. Settings still save when another program has the file open.
+
 ## What's new in v1.86.93
 
 - **The Last Death waypoint now always comes.** It used to depend on the mod catching the exact tick your health hit zero, which it could miss, and then your loot was anywhere. The waypoint is now taken from the death location the server itself sends with every login and respawn (the same spot a recovery compass points at), so it is exact, it still comes after a crash, a disconnect or an auto-respawn, and it is labelled with the dimension when you died in the Nether or the End.
