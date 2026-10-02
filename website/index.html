@@ -191,6 +191,31 @@
       background: var(--slab-edge);
       box-shadow: 0 5px 0 var(--slab-edge);
     }
+    .film-frame { position: relative; }
+    /* Until it plays the poster is just a picture: say that it is a video */
+    .play {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 26px 16px 22px;
+      border-radius: 6px;
+      border: 2px solid #a5e2fb;
+      background: var(--ice);
+      box-shadow: 0 5px 0 var(--ice-edge);
+      color: #06121d;
+      font: 700 20px 'Outfit', 'Inter', system-ui, sans-serif;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.12s ease;
+    }
+    .play[hidden] { display: none; }
+    .play span { font: 500 14px 'Inter', system-ui, sans-serif; color: #0d3a52; }
+    .play:hover { border-color: #fff; transform: translate(-50%, calc(-50% - 2px)); box-shadow: 0 7px 0 var(--ice-edge); }
+    .play:active { transform: translate(-50%, calc(-50% + 4px)); box-shadow: 0 1px 0 var(--ice-edge); }
 
     footer {
       padding: 14px 20px 18px;
@@ -281,7 +306,7 @@
       .extra { margin-top: 18px; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .platform, .visit { transition: none; }
+      .platform, .visit, .play { transition: none; }
     }
   </style>
 </head>
@@ -324,10 +349,16 @@
     </p>
 
     <section class="film">
-      <h2>See it in action</h2>
-      <video controls preload="none" playsinline poster="icey-client/promo-poster.jpg" width="1920" height="1080">
-        <source src="icey-client/icey-client-promo.mp4" type="video/mp4">
-      </video>
+      <h2>Watch the video</h2>
+      <div class="film-frame">
+        <video id="film" controls preload="none" playsinline poster="icey-client/promo-poster.jpg" width="1920" height="1080">
+          <source src="icey-client/icey-client-promo.mp4" type="video/mp4">
+        </video>
+        <button class="play" id="play" type="button" hidden>
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M6 3v18l15-9z"/></svg>
+          Play video <span>3:19</span>
+        </button>
+      </div>
     </section>
   </main>
 
@@ -360,6 +391,18 @@
       var os = /Mac/i.test(p) ? 'macos' : /Win/i.test(p) ? 'windows' : /Linux|X11/i.test(p) ? 'linux' : null;
       var el = os && document.querySelector('.platform[data-os="' + os + '"]');
       if (el) el.classList.add('is-current');
+    })();
+
+    // A big play button over the poster; the player's own controls take over once it runs.
+    (function () {
+      var film = document.getElementById('film');
+      var play = document.getElementById('play');
+      film.controls = false;
+      play.hidden = false;
+      function started() { play.hidden = true; film.controls = true; }
+      play.addEventListener('click', function () { started(); film.play(); });
+      film.addEventListener('click', function () { if (!film.controls) { started(); film.play(); } });
+      film.addEventListener('play', started);
     })();
 
     // The Scroll Keybinds button opens the list of per-version jars.
