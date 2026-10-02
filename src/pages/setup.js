@@ -67,13 +67,14 @@ async function SetupPageInit() {
   let auth = null;
   try { auth = await window.icey.getAuth(); } catch (_) {}
   // Signing in is only asked of someone who isn't signed in yet.
-  _setupSteps = ['theme'].concat(auth && auth.username ? [] : ['account'], ['menu', 'game']);
+  _setupSteps = ['language', 'theme'].concat(auth && auth.username ? [] : ['account'], ['menu', 'game']);
   _setupStep = 0;
   _setupSignedInAs = null;
   _setupRender();
 }
 
 const _SETUP_TITLES = {
+  language: ['Language', 'The language of the launcher.'],
   theme: ['Theme', 'How the launcher looks.'],
   account: ['Account', 'Sign in to play online with your own skin. You can also do this later from the top bar.'],
   menu: ['In-Game Menu', 'The menu that opens with Y in game, on Fabric installations.'],
@@ -83,6 +84,19 @@ const _SETUP_TITLES = {
 function _setupStepHtml(id) {
   const s = SettingsManager.getAll();
   const accent = (s.accentColor || '#5bc8f5').toLowerCase();
+
+  if (id === 'language') {
+    // Each language under its own name, so it is never itself translated.
+    const current = SettingsManager.language();
+    return `
+      <div class="setup-langs" data-no-i18n>
+        ${I18N.languages.map(l => `
+          <button class="setup-lang ${l.code === current ? 'selected' : ''}" lang="${l.code}" onclick="_setupLanguage('${l.code}', this)">
+            <span class="setup-lang-name">${l.name}</span>
+            <span class="setup-pick-check">${_SETUP_CHECK}</span>
+          </button>`).join('')}
+      </div>`;
+  }
 
   if (id === 'theme') {
     const layout = s.layoutTheme === 'liquid' ? 'liquid' : 'classic';
@@ -181,6 +195,16 @@ function _setupGo(by) {
   if (next < 0 || next >= _setupSteps.length) return;
   _setupStep = next;
   _setupRender();
+}
+
+// The page is in the new language the moment it is picked: the text on
+// screen is translated in place, nothing is drawn again.
+async function _setupLanguage(code, el) {
+  if (el && el.parentElement) {
+    el.parentElement.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+  await SettingsManager.setLanguage(code);
 }
 
 // One handler for everything that is "pick one of these".

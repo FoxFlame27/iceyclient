@@ -107,6 +107,15 @@ async function _renderMainOptions(page, settings) {
       </div>
       <div class="options-toggle-row">
         ${toggleCard('closeLauncherOnStart', closeOnStart, 'Close on Launch', 'Close the launcher when the game starts')}
+        <div class="options-toggle-card options-accent-card options-language-card on">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Language</div>
+            <div class="options-toggle-desc">Launcher text and menus</div>
+          </div>
+          <select class="options-select" data-no-i18n onclick="event.stopPropagation();" onchange="_optSetLanguage(this.value)">
+            ${I18N.languages.map(l => `<option value="${l.code}" ${l.code === SettingsManager.language() ? 'selected' : ''}>${l.name}</option>`).join('')}
+          </select>
+        </div>
       </div>`,
 
     appearance: `
@@ -332,6 +341,11 @@ async function _optSetHudMenuColor(color) {
   const accent = (SettingsManager.get('accentColor') || '#5bc8f5').toLowerCase();
   await SettingsManager.set('hudMenuColor', color.toLowerCase() === accent ? '' : color);
   _optionsRender();
+}
+
+// Text on screen is translated in place; the page does not need redrawing.
+async function _optSetLanguage(code) {
+  await SettingsManager.setLanguage(code);
 }
 
 function _optRunSetup() {

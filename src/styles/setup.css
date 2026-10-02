@@ -197,3 +197,33 @@
   gap: 10px !important;
 }
 .setup-page .setup-ram .options-slider input[type="range"] { flex: 1; width: auto; }
+
+/* ── Language: one tile per language, each in its own name ── */
+.setup-langs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+.setup-lang {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 2px solid var(--glass-line);
+  background: rgba(10,14,26,0.6);
+  color: var(--text-primary);
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  transition: border-color 0.12s ease;
+}
+.setup-lang:hover { border-color: var(--glass-line-strong); }
+.setup-lang:active { transform: none; }
+.setup-lang.selected { border-color: var(--accent); }
+.setup-lang-name { flex: 1; min-width: 0; }
+.setup-lang.selected .setup-pick-check {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #06121d;
+}

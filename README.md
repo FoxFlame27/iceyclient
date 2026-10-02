@@ -39,6 +39,10 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.95
+
+- **Languages.** The launcher now comes in German, Spanish, French, Portuguese, Italian, Dutch, Polish, Turkish and Russian as well as English. Choose one in the first step of Setup or under Settings → General → Language; the whole launcher switches on the spot, no restart. Until you choose, it follows your system language. Text without a translation (mod descriptions from Modrinth, server names, game output) stays as it is.
+
 ## What's new in v1.86.94
 
 - **No more custom commands.** The mod no longer registers any command: `/iceyhuds` and `/iceywp` are gone. Clicking coordinates in chat now copies them to the clipboard (vanilla's own click action) instead of running a command; add a waypoint from the waypoint menu.

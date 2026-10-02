@@ -7,6 +7,7 @@ const SettingsManager = {
   async load() {
     this._settings = await window.icey.getSettings();
     try { this._installStamp = (await window.icey.getInstallStamp()) || ''; } catch (_) { this._installStamp = ''; }
+    this._applyLanguage();
     this._applyTheme();
     this._applyAccent();
     this._applyLayout();
@@ -32,6 +33,7 @@ const SettingsManager = {
     if (key === 'layoutTheme') this._applyLayout();
     if (key === 'skiflameMode') { this._applySkin(); this._applyAccent(); }
     if (key === 'setupCompleted') this._applySetup();
+    if (key === 'language') this._applyLanguage();
     this._notifyListeners(key, value);
   },
 
@@ -44,6 +46,7 @@ const SettingsManager = {
     if ('layoutTheme' in obj) this._applyLayout();
     if ('skiflameMode' in obj) { this._applySkin(); this._applyAccent(); }
     if ('setupCompleted' in obj) this._applySetup();
+    if ('language' in obj || 'languageChosen' in obj) this._applyLanguage();
     for (const [k, v] of Object.entries(obj)) {
       this._notifyListeners(k, v);
     }
@@ -58,6 +61,22 @@ const SettingsManager = {
 
   _notifyListeners(key, value) {
     this._listeners.forEach(l => l(key, value));
+  },
+
+  // The launcher language. Until one has been chosen (Setup or Settings)
+  // it follows the system language where we have it.
+  language() {
+    if (typeof I18N === 'undefined') return 'en';
+    const s = this._settings || {};
+    return s.languageChosen && I18N.has(s.language) ? s.language : I18N.detect();
+  },
+
+  async setLanguage(code) {
+    await this.setMultiple({ language: code, languageChosen: true });
+  },
+
+  _applyLanguage() {
+    if (typeof I18N !== 'undefined') I18N.setLanguage(this.language());
   },
 
   _applyTheme() {
