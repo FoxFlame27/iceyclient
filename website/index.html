@@ -185,55 +185,6 @@
     .extra a:hover { color: var(--ice); }
     .extra span { margin: 0 10px; opacity: 0.5; }
 
-    /* The film: one more slab, the player's own controls */
-    .film {
-      width: 100%;
-      margin-top: 34px;
-    }
-    .film h2 {
-      margin-bottom: 12px;
-      font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-      font-size: 20px;
-      font-weight: 700;
-      color: #fff;
-      text-shadow: 0 2px 0 rgba(4,7,15,0.7);
-    }
-    .film video {
-      display: block;
-      width: 100%;
-      height: auto;
-      aspect-ratio: 16 / 9;
-      border-radius: 6px;
-      border: 2px solid var(--line);
-      background: var(--slab-edge);
-      box-shadow: 0 5px 0 var(--slab-edge);
-    }
-    .film-frame { position: relative; }
-    /* Until it plays the poster is just a picture: say that it is a video */
-    .play {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 16px 26px 16px 22px;
-      border-radius: 6px;
-      border: 2px solid #a5e2fb;
-      background: var(--ice);
-      box-shadow: 0 5px 0 var(--ice-edge);
-      color: #06121d;
-      font: 700 20px 'Outfit', 'Inter', system-ui, sans-serif;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.12s ease;
-    }
-    .play[hidden] { display: none; }
-    .play span { font: 500 14px 'Inter', system-ui, sans-serif; color: #0d3a52; }
-    .play:hover { border-color: #fff; transform: translate(-50%, calc(-50% - 2px)); box-shadow: 0 7px 0 var(--ice-edge); }
-    .play:active { transform: translate(-50%, calc(-50% + 4px)); box-shadow: 0 1px 0 var(--ice-edge); }
-
     footer {
       padding: 14px 20px 18px;
       padding-right: 190px;
@@ -243,8 +194,8 @@
       text-shadow: 0 1px 0 rgba(4,7,15,0.8);
     }
 
-    /* Bottom-right corner: the Scroll Keybinds mod download and the
-       IceyMC link, two slabs side by side. */
+    /* Bottom-right corner: the video page and the IceyMC link, two
+       slabs side by side. */
     .corner {
       position: fixed;
       right: 18px;
@@ -256,40 +207,7 @@
       gap: 10px;
       max-width: calc(100vw - 36px);
     }
-    .mod { position: relative; }
-    .mod-list {
-      display: none;
-      position: absolute;
-      right: 0;
-      bottom: calc(100% + 10px);
-      min-width: 240px;
-      padding: 6px;
-      border-radius: 5px;
-      border: 2px solid var(--line);
-      background: var(--slab);
-      box-shadow: 0 4px 0 var(--slab-edge);
-    }
-    .mod.open .mod-list { display: block; }
-    .mod-list-title {
-      padding: 6px 10px 8px;
-      font-size: 12px;
-      color: var(--dim);
-    }
-    .mod-list a {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 8px 10px;
-      border-radius: 3px;
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 500;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-    .mod-list a span { color: var(--dim); font-weight: 400; }
-    .mod-list a:hover { background: var(--ice); color: #06121d; }
-    .mod-list a:hover span { color: #0d3a52; }
+
     .visit {
       display: inline-flex;
       align-items: center;
@@ -305,9 +223,8 @@
       text-decoration: none;
       transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.12s ease;
     }
-    .visit:hover, .mod.open > .visit { border-color: var(--ice); transform: translateY(-1px); box-shadow: 0 5px 0 var(--slab-edge); }
+    .visit:hover { border-color: var(--ice); transform: translateY(-1px); box-shadow: 0 5px 0 var(--slab-edge); }
     .visit:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--slab-edge); }
-    button.visit { cursor: pointer; font-family: inherit; }
 
     a:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
@@ -323,7 +240,7 @@
       .extra { margin-top: 18px; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .platform, .visit, .play { transition: none; }
+      .platform, .visit { transition: none; }
     }
   </style>
 </head>
@@ -364,19 +281,6 @@
     <p class="extra">
       <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/Icey.Client-x64.dmg">Intel Mac build</a><span>/</span><a href="https://github.com/FoxFlame27/iceyclient/releases" target="_blank" rel="noopener">Older versions</a>
     </p>
-
-    <section class="film">
-      <h2>Watch the video</h2>
-      <div class="film-frame">
-        <video id="film" controls preload="none" playsinline poster="icey-client/promo-poster.jpg" width="1920" height="1080">
-          <source src="icey-client/icey-client-promo.mp4?v=3" type="video/mp4">
-        </video>
-        <button class="play" id="play" type="button" hidden>
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M6 3v18l15-9z"/></svg>
-          Play video <span>3:19</span>
-        </button>
-      </div>
-    </section>
   </main>
 
   <footer>
@@ -384,177 +288,15 @@
   </footer>
 
   <div class="corner">
-    <div class="mod" id="mod">
-      <button class="visit" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="mod-list">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v4"/></svg>
-        Scroll Keybinds mod
-      </button>
-      <div class="mod-list" id="mod-list">
-        <div class="mod-list-title">Scroll Up and Scroll Down as keys. Fabric mod, no Icey Client needed. Pick your Minecraft version:</div>
-        <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc26.3-1.0.0.jar">26.3<span>.jar</span></a>
-        <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc26.2-1.0.0.jar">26.2<span>.jar</span></a>
-        <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc1.21.11-1.0.0.jar">1.21.11<span>.jar</span></a>
-        <a href="https://github.com/FoxFlame27/iceyclient/releases/latest/download/iceyscroll-mc1.21.8-1.0.0.jar">1.21.8 to 1.21.10<span>.jar</span></a>
-      </div>
-    </div>
+    <a class="visit" href="/video">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M6 3v18l15-9z"/></svg>
+      Watch the video
+    </a>
     <a class="visit" href="/studio">Visit IceyMC</a>
   </div>
 
+  <script src="icey-client/pano.js?v=1"></script>
   <script>
-    // The game's title-screen panoramas as the background: six faces of a
-    // cube around the camera, turning slowly, a new place every three
-    // minutes with a short cross-fade. Without WebGL the wallpaper stays.
-    (function () {
-      var SETS = ['cherry-grove', 'end-city-v2', 'trial-chamber', 'snowy-mountain', 'lush-cave-v2', 'ancient-city-v2',
-                  'pale-garden', 'coral-reef', 'mountain', 'nether', 'dripstone', 'sinkhole', 'sv-spawn',
-                  'sv-winter-spawn', 'amplified-terrain', 'ancient-city'];
-      var HOLD = 180000, FADE = 2500, SPIN = 2.2; // ms, ms, degrees per second
-      var canvas = document.getElementById('pano');
-      var gl = canvas && (canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, powerPreference: 'low-power' })
-                          || canvas.getContext('experimental-webgl'));
-      if (!gl) return;
-      var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      function shader(type, src) {
-        var sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
-        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
-        return sh;
-      }
-      var prog = gl.createProgram();
-      gl.attachShader(prog, shader(gl.VERTEX_SHADER,
-        'attribute vec2 p; varying vec2 v; void main() { v = p; gl_Position = vec4(p, 0.0, 1.0); }'));
-      gl.attachShader(prog, shader(gl.FRAGMENT_SHADER,
-        'precision mediump float; varying vec2 v;' +
-        'uniform sampler2D f0, f1, f2, f3, f4, f5; uniform float yaw, pitch, aspect, tanHalf, alpha;' +
-        'vec4 face(int i, vec2 st) {' +
-        '  if (i == 0) return texture2D(f0, st); if (i == 1) return texture2D(f1, st);' +
-        '  if (i == 2) return texture2D(f2, st); if (i == 3) return texture2D(f3, st);' +
-        '  if (i == 4) return texture2D(f4, st); return texture2D(f5, st); }' +
-        'void main() {' +
-        '  vec3 r = normalize(vec3(v.x * tanHalf * aspect, v.y * tanHalf, 1.0));' +
-        '  float cp = cos(pitch), sp = sin(pitch);' +
-        '  r = vec3(r.x, r.y * cp - r.z * sp, r.y * sp + r.z * cp);' +
-        '  float cy = cos(yaw), sy = sin(yaw);' +
-        '  r = vec3(r.x * cy + r.z * sy, r.y, -r.x * sy + r.z * cy);' +
-        '  float h = atan(r.x, r.z);' +   // 0 = front face, grows turning right
-        '  float q = floor((h + 0.7853982) / 1.5707963);' +
-        '  float hl = h - q * 1.5707963;' +
-        '  float horiz = length(r.xz);' +
-        '  float u = tan(hl), w = r.y / (horiz * cos(hl));' +
-        '  vec4 c;' +
-        '  if (w > 1.0)       c = face(4, vec2(r.x / r.y, r.z / r.y) * 0.5 + 0.5);' +
-        '  else if (w < -1.0) c = face(5, vec2(r.x / -r.y, -r.z / -r.y) * 0.5 + 0.5);' +
-        '  else { int i = int(mod(q + 4.0, 4.0)); c = face(i, vec2(u * 0.5 + 0.5, 0.5 - w * 0.5)); }' +
-        '  gl_FragColor = vec4(c.rgb, alpha); }'));
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-      gl.useProgram(prog);
-      var buf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-      var loc = gl.getAttribLocation(prog, 'p');
-      gl.enableVertexAttribArray(loc);
-      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      for (var i = 0; i < 6; i++) gl.uniform1i(gl.getUniformLocation(prog, 'f' + i), i);
-      var U = {};
-      ['yaw', 'pitch', 'aspect', 'tanHalf', 'alpha'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-      // Load one set's six faces into textures; resolves with the textures.
-      function load(name) {
-        return Promise.all([0, 1, 2, 3, 4, 5].map(function (i) {
-          return new Promise(function (ok, fail) {
-            var img = new Image();
-            img.onload = function () { ok(img); };
-            img.onerror = fail;
-            img.src = 'icey-client/panoramas/' + name + '/' + i + '.jpg';
-          });
-        })).then(function (imgs) {
-          return imgs.map(function (img) {
-            var t = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, t);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            return t;
-          });
-        });
-      }
-      function drop(texs) { texs.forEach(function (t) { gl.deleteTexture(t); }); }
-      function bind(texs) {
-        for (var i = 0; i < 6; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, texs[i]); }
-      }
-
-      // Visit the places in a random order, then shuffle again.
-      var order = [], next = 0;
-      function pick() {
-        if (next >= order.length) {
-          order = SETS.slice();
-          for (var i = order.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = order[i]; order[i] = order[j]; order[j] = t; }
-          if (current && order[0] === current.name && order.length > 1) { var t2 = order[0]; order[0] = order[1]; order[1] = t2; }
-          next = 0;
-        }
-        return order[next++];
-      }
-
-      var current = null, incoming = null, fadeStart = 0, lastSwitch = 0, loading = false;
-      var start = performance.now(), yaw0 = Math.random() * Math.PI * 2;
-
-      function size() {
-        var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-        var w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
-        if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h); }
-        return w / h;
-      }
-
-      function draw(texs, alpha, t) {
-        bind(texs);
-        gl.uniform1f(U.alpha, alpha);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      }
-
-      function frame(now) {
-        if (!current) return;
-        var t = (now - start) / 1000;
-        var aspect = size();
-        var yaw = still ? yaw0 : yaw0 + t * SPIN * Math.PI / 180;
-        var pitch = still ? -0.06 : -0.08 + Math.sin(t * 0.09) * 0.07;
-        gl.uniform1f(U.aspect, aspect);
-        gl.uniform1f(U.tanHalf, Math.tan(0.5 * (aspect > 1 ? 1.15 : 1.5)));
-        gl.uniform1f(U.yaw, yaw);
-        gl.uniform1f(U.pitch, pitch);
-        draw(current.texs, 1, t);
-        if (incoming) {
-          var k = Math.min(1, (now - fadeStart) / FADE);
-          draw(incoming.texs, k, t);
-          if (k >= 1) { drop(current.texs); current = incoming; incoming = null; lastSwitch = now; }
-        } else if (now - lastSwitch > HOLD && !loading && !document.hidden) {
-          loading = true;
-          var name = pick();
-          load(name).then(function (texs) { incoming = { name: name, texs: texs }; fadeStart = performance.now(); })
-            .catch(function () {}).then(function () { loading = false; });
-        }
-        if (!still || !drawnOnce) requestAnimationFrame(frame);
-        drawnOnce = true;
-      }
-      var drawnOnce = false;
-
-      var first = pick();
-      load(first).then(function (texs) {
-        current = { name: first, texs: texs };
-        lastSwitch = performance.now();
-        canvas.classList.add('on');
-        requestAnimationFrame(frame);
-      }).catch(function () {});
-
-      // Nothing to animate while the tab is hidden; pick up again when it shows.
-      document.addEventListener('visibilitychange', function () { if (!document.hidden && current) requestAnimationFrame(frame); });
-      window.addEventListener('resize', function () { if (still && current) requestAnimationFrame(frame); });
-    })();
-
     // Colour the button of the visitor's own operating system.
     (function () {
       var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '') + ' ' + navigator.userAgent;
@@ -562,28 +304,6 @@
       var os = /Mac/i.test(p) ? 'macos' : /Win/i.test(p) ? 'windows' : /Linux|X11/i.test(p) ? 'linux' : null;
       var el = os && document.querySelector('.platform[data-os="' + os + '"]');
       if (el) el.classList.add('is-current');
-    })();
-
-    // A big play button over the poster; the player's own controls take over once it runs.
-    (function () {
-      var film = document.getElementById('film');
-      var play = document.getElementById('play');
-      film.controls = false;
-      play.hidden = false;
-      function started() { play.hidden = true; film.controls = true; }
-      play.addEventListener('click', function () { started(); film.play(); });
-      film.addEventListener('click', function () { if (!film.controls) { started(); film.play(); } });
-      film.addEventListener('play', started);
-    })();
-
-    // The Scroll Keybinds button opens the list of per-version jars.
-    (function () {
-      var mod = document.getElementById('mod');
-      var btn = mod.querySelector('button');
-      function set(open) { mod.classList.toggle('open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
-      btn.addEventListener('click', function () { set(!mod.classList.contains('open')); });
-      document.addEventListener('click', function (e) { if (!mod.contains(e.target)) set(false); });
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
     })();
 
     // Add the file sizes. The links always point at the newest release,

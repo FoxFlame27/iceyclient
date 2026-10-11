@@ -39,6 +39,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.98
+
+- **Shuffle panoramas.** The title-screen panorama can now change on every launch: pick Shuffle in Settings → Appearance → Title Screen Panorama, or switch on Shuffle Panoramas on the Theme step of Setup. Each launch installs a different one of the 16 bundled panoramas, never the same one twice in a row.
+- **iceymc.com** keeps the download page to the downloads: the video has moved to iceymc.com/video, reached from the Watch the video button in the corner, and the Scroll Keybinds button is gone (the jars are still on the GitHub release).
+
 ## What's new in v1.86.97
 
 - **HUD look restored.** v1.86.96 moved every HUD module into rounded glass boxes; that is undone and the modules draw the way they did before. Anyone who updated in between is moved back too: boxes v1.86.96 had switched to its own colours go back to the plain black box, while colours you picked yourself are kept.

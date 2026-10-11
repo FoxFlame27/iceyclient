@@ -113,6 +113,7 @@ function _setupStepHtml(id) {
           </div>
           <div class="options-accent-swatches" id="setup-accent">${_setupSwatches('accent', accent)}</div>
         </div>
+        ${_setupToggleCard('panoramaShuffle', s.selectedPanorama === 'shuffle', 'Shuffle Panoramas', 'A different title screen panorama every launch')}
       </div>`;
   }
 
@@ -239,6 +240,18 @@ function _setupMarkSwatch(containerId, color) {
 async function _setupToggle(key, input) {
   const card = input.closest('.options-toggle-card');
   if (card) { card.classList.toggle('on', input.checked); card.classList.toggle('off', !input.checked); }
+  if (key === 'panoramaShuffle') {
+    // Shuffle is a choice in the panorama picker, not a setting of its own.
+    // Turning it off goes back to the panorama picked before.
+    const s = SettingsManager.getAll();
+    if (input.checked) {
+      const was = s.selectedPanorama && s.selectedPanorama !== 'shuffle' ? s.selectedPanorama : (s.panoramaBeforeShuffle || 'Nether Panorama.zip');
+      await SettingsManager.setMultiple({ selectedPanorama: 'shuffle', panoramaBeforeShuffle: was });
+    } else {
+      await SettingsManager.set('selectedPanorama', s.panoramaBeforeShuffle || 'Nether Panorama.zip');
+    }
+    return;
+  }
   await SettingsManager.set(key, !!input.checked);
 }
 

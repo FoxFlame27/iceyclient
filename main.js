@@ -1137,7 +1137,18 @@ function launchMinecraft(installationId) {
 
       if (iceyModsEnabled) {
         try {
-          const selectedPanorama = settings.selectedPanorama || 'Nether Panorama.zip';
+          let selectedPanorama = settings.selectedPanorama || 'Nether Panorama.zip';
+          if (selectedPanorama === 'shuffle') {
+            // A different panorama every launch: never the one installed now
+            // (recognised by its size), so two launches in a row differ.
+            const installedSize = fs.existsSync(destIceyPack) ? fs.statSync(destIceyPack).size : -1;
+            const dir = getPanoramasDir();
+            let choices = listPanoramaFiles().filter(f => {
+              try { return fs.statSync(path.join(dir, f)).size !== installedSize; } catch (_) { return true; }
+            });
+            if (!choices.length) choices = listPanoramaFiles();
+            selectedPanorama = choices.length ? choices[Math.floor(Math.random() * choices.length)] : 'Nether Panorama.zip';
+          }
           const srcPanorama = path.join(__dirname, 'resources', 'panoramas', selectedPanorama);
           const altPanorama = path.join(process.resourcesPath || '', 'panoramas', selectedPanorama);
           const panoSrc = fs.existsSync(srcPanorama) ? srcPanorama : (fs.existsSync(altPanorama) ? altPanorama : null);

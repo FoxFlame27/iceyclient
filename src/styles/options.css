@@ -608,6 +608,13 @@
   background-position: center;
   background-color: #1a2340;
 }
+.panorama-option-shuffle .panorama-option-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: linear-gradient(135deg, #1a2340, #0e1424);
+}
 .panorama-option-name {
   position: absolute;
   left: 0; right: 0; bottom: 0;

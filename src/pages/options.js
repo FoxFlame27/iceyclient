@@ -65,7 +65,10 @@ async function _renderMainOptions(page, settings) {
     try { _optionsPanoramaCache = await window.icey.getPanoramas(); } catch (_) { _optionsPanoramaCache = []; }
   }
   const selectedFilename = settings.selectedPanorama || 'Nether Panorama.zip';
-  const selectedEntry = _optionsPanoramaCache.find(p => p.filename === selectedFilename) || _optionsPanoramaCache[0];
+  const shuffle = selectedFilename === 'shuffle';
+  // Shuffle shows whichever panorama comes first as its picture.
+  const selectedEntry = shuffle ? _optionsPanoramaCache[0]
+    : (_optionsPanoramaCache.find(p => p.filename === selectedFilename) || _optionsPanoramaCache[0]);
 
   const toggleCard = (key, on, name, desc, icon) => `
         <div class="options-toggle-card ${on ? 'on' : 'off'}" onclick="_optToggleFeature('${key}', ${!on})">
@@ -144,7 +147,7 @@ async function _renderMainOptions(page, settings) {
           <div class="options-panorama-loading">Loading preview...</div>
         </div>
         <div class="options-panorama-overlay">
-          <div class="options-panorama-name">${selectedEntry ? _optEscape(selectedEntry.name) : 'No panorama'}</div>
+          <div class="options-panorama-name">${shuffle ? 'Shuffle' : selectedEntry ? _optEscape(selectedEntry.name) : 'No panorama'}</div>
           <button class="options-panorama-btn" onclick="event.stopPropagation(); _optOpenPanoramaPicker()">
             Show All Panoramas
           </button>
@@ -245,6 +248,8 @@ async function _optLoadPanoramaPreview(filename) {
   }
 }
 
+const _OPT_SHUFFLE_ICON = '<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>';
+
 async function _optOpenPanoramaPicker() {
   if (!_optionsPanoramaCache) {
     _optionsPanoramaCache = await window.icey.getPanoramas();
@@ -259,6 +264,11 @@ async function _optOpenPanoramaPicker() {
       </div>
       <div class="panorama-picker-subtitle">Pick one — it replaces the current panorama on next launch.</div>
       <div class="panorama-picker-grid" id="panorama-picker-grid">
+        <div class="panorama-option panorama-option-shuffle ${selected === 'shuffle' ? 'selected' : ''}" onclick="_optSelectPanorama('shuffle')">
+          <div class="panorama-option-preview">${_OPT_SHUFFLE_ICON}</div>
+          <div class="panorama-option-name">Shuffle</div>
+          ${selected === 'shuffle' ? '<div class="panorama-option-check">&#10003;</div>' : ''}
+        </div>
         ${_optionsPanoramaCache.map(p => `
           <div class="panorama-option ${p.filename === selected ? 'selected' : ''}"
                data-filename="${_optEscape(p.filename)}"
