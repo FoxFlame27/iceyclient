@@ -48,10 +48,11 @@ public class StructureLocatorModule extends HudModule {
             // Minimal "scanning…" row so the user can tell the module is on and working
             String empty = "§7Scanning chunks…";
             int tw = client.font.width(empty);
-            this.width = tw + textInset() + 4;
+            this.width = tw + 10;
             this.height = 14;
-            box(context, getX(), getY(), this.width, this.height, 0xFF5BC8F5);
-            context.drawString(client.font, empty, getX() + textInset(), getY() + 3, 0xFFFFFFFF, textShadow.get());
+            context.fill(getX(), getY(), getX() + this.width, getY() + this.height, 0x90000000);
+            context.fill(getX(), getY(), getX() + 2, getY() + this.height, 0xFF5BC8F5);
+            context.drawString(client.font, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
             return;
         }
 
@@ -89,13 +90,14 @@ public class StructureLocatorModule extends HudModule {
             int tw = client.font.width(texts[i]);
             if (tw > maxWidth) maxWidth = tw;
         }
-        this.width = maxWidth + textInset() + 4;
+        this.width = maxWidth + 10;
 
         int x = getX(), y = getY();
         for (int i = 0; i < limit; i++) {
             int lineY = y + i * rowH;
-            box(context, x, lineY, this.width, lineH, colors[i]);
-            context.drawString(client.font, texts[i], x + textInset(), lineY + 3, 0xFFFFFFFF, textShadow.get());
+            context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
+            context.fill(x, lineY, x + 2, lineY + lineH, colors[i]);
+            context.drawString(client.font, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
         }
         this.height = limit * rowH - gap;
     }

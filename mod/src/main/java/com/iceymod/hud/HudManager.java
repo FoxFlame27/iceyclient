@@ -127,7 +127,6 @@ public class HudManager {
 
         load();
         migrateRenderSafe(defaultEnabled);
-        migrateLook();
         applyCenterDefaults();
     }
 
@@ -159,28 +158,6 @@ public class HudManager {
                 }
             }
             save(); // persists with the migration flag below
-        } catch (Exception ignored) {}
-    }
-
-    /**
-     * One-shot: modules whose box is still the old plain black (the previous
-     * defaults) move to the glass look. Colours the user picked are kept.
-     */
-    private static void migrateLook() {
-        if (configPath == null || !Files.exists(configPath)) return;
-        try {
-            JsonObject root = JsonParser.parseString(Files.readString(configPath)).getAsJsonObject();
-            JsonObject migrations = root.has("migrations") && root.get("migrations").isJsonObject()
-                    ? root.getAsJsonObject("migrations") : null;
-            if (migrations != null && migrations.has("look2") && migrations.get("look2").getAsBoolean()) return;
-            for (HudModule m : modules) {
-                if (!m.getSettings().contains(m.backgroundColor)) continue;
-                if ((m.backgroundColor.get() & 0xFFFFFF) == 0 && m.backgroundOpacity.get() == 55) {
-                    m.backgroundColor.set(m.backgroundColor.getDefault());
-                    m.backgroundOpacity.set(m.backgroundOpacity.getDefault());
-                }
-            }
-            save();
         } catch (Exception ignored) {}
     }
 
@@ -305,7 +282,6 @@ public class HudManager {
         // re-run on every launch and stomp on the user's later choices.
         JsonObject migrations = new JsonObject();
         migrations.addProperty("renderSafe", true);
-        migrations.addProperty("look2", true);
         root.add("migrations", migrations);
 
         try {

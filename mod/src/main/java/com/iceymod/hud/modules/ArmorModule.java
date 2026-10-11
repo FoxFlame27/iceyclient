@@ -1,7 +1,6 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
-import com.iceymod.hud.Paint;
 import net.minecraft.client.Minecraft;
 import com.iceymod.compat.Gfx;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -12,8 +11,7 @@ public class ArmorModule extends HudModule {
             EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
     };
 
-    // Per-slot sizing: a 20px glass tile holding a 16px item, the durability
-    // bar sits inside the tile under the item.
+    // Per-slot sizing
     private static final int SLOT_SIZE = 20;
     private static final int ITEM_SIZE = 16;
     private static final int BAR_WIDTH = 16;
@@ -37,21 +35,18 @@ public class ArmorModule extends HudModule {
         return null;
     }
 
-    private int slotHeight() { return SLOT_SIZE + barHeight.get() + 3; }
-
     @Override
     public void render(Gfx context, Minecraft client) {
         if (!isEnabled() || client.player == null) return;
         int bx = getX();
         int by = getY();
-        this.width = SLOT_SIZE;
-        int sh = slotHeight();
+        this.width = ITEM_SIZE;
 
         int drawn = 0;
         for (EquipmentSlot slot : ARMOR_SLOTS) {
             ItemStack stack = client.player.getItemBySlot(slot);
             if (!stack.isEmpty()) {
-                drawSlot(context, stack, bx, by + drawn * (sh + SLOT_GAP));
+                drawSlot(context, stack, bx, by + drawn * (SLOT_SIZE + SLOT_GAP));
                 drawn++;
             }
         }
@@ -60,20 +55,19 @@ public class ArmorModule extends HudModule {
         if (showHeldItem.get()) {
             ItemStack held = client.player.getMainHandItem();
             if (!held.isEmpty()) {
-                drawSlot(context, held, bx, by + drawn * (sh + SLOT_GAP));
+                drawSlot(context, held, bx, by + drawn * (SLOT_SIZE + SLOT_GAP));
                 drawn++;
             }
         }
 
-        this.height = Math.max(drawn * (sh + SLOT_GAP) - SLOT_GAP, sh);
+        this.height = Math.max(drawn * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP, SLOT_SIZE);
     }
 
     private void drawSlot(Gfx context, ItemStack stack, int x, int y) {
-        int sh = slotHeight();
-        box(context, x, y, SLOT_SIZE, sh, 0);
-        context.renderItem(stack, x + 2, y + 2);
+        // Item icon
+        context.renderItem(stack, x, y);
 
-        // Durability bar under the item, inside the tile
+        // Durability bar directly under the item
         if (stack.isDamageableItem()) {
             int max = stack.getMaxDamage();
             int dmg = stack.getDamageValue();
@@ -81,11 +75,11 @@ public class ArmorModule extends HudModule {
             float ratio = (float) remaining / max;
             int color = getDurabilityColor(ratio);
 
-            int barY = y + 2 + ITEM_SIZE + 1;
+            int barY = y + ITEM_SIZE + 1;
             int bh = barHeight.get();
-            Paint.fill(context, x + 2, barY, BAR_WIDTH, bh, 1, 0x66000000);
-            int fillW = Math.max(1, Math.round(BAR_WIDTH * ratio));
-            Paint.fill(context, x + 2, barY, fillW, bh, 1, color);
+            context.fill(x, barY, x + BAR_WIDTH, barY + bh, 0xFF222222);
+            int fillW = Math.max(1, (int) (BAR_WIDTH * ratio));
+            context.fill(x, barY, x + fillW, barY + bh, color);
         }
     }
 

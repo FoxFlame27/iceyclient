@@ -2,7 +2,6 @@ package com.iceymod.screen;
 
 import com.iceymod.hud.HudManager;
 import com.iceymod.hud.HudModule;
-import com.iceymod.hud.Paint;
 import net.minecraft.client.Minecraft;
 import com.iceymod.compat.Gfx;
 import com.iceymod.compat.IceyScreen;
@@ -13,8 +12,7 @@ import com.iceymod.compat.Input;
 import com.mojang.blaze3d.platform.InputConstants;
 
 /**
- * HUD module-position editor: the live HUD over a dimmed world, each module
- * in a rounded frame with its name on a tag, the one under the mouse lit up.
+ * HUD module-position editor.
  *
  * History note: this screen previously overrode {@code mouseClicked /
  * mouseDragged / mouseReleased} on Screen. In 1.21.11 those methods
@@ -29,7 +27,6 @@ import com.mojang.blaze3d.platform.InputConstants;
  * state machine ourselves. Works identically on 1.21.8 and 1.21.11.
  */
 public class HudEditScreen extends IceyScreen {
-    private static final int FRAME = 3;
     private final Screen parent;
     private HudModule dragging = null;
     private int dragOffsetX, dragOffsetY;
@@ -61,43 +58,34 @@ public class HudEditScreen extends IceyScreen {
             updateDrag(mouseX, mouseY);
         } catch (Throwable ignored) {}
 
-        context.fill(0, 0, this.width, this.height, 0x8C070A14);
+        context.fill(0, 0, this.width, this.height, 0x80000000);
 
-        // Help card at the bottom, above Done, where the HUD rarely sits
-        String title = "Drag modules to reposition";
-        String hint = "Hover a module to see its name";
-        int tw = Math.max(font.width(title), font.width(hint)) + 24;
-        int tx = this.width / 2 - tw / 2;
-        int cy = this.height - 62;
-        Paint.panel(context, tx, cy, tw, 30, 5, Paint.alpha(Paint.PANEL, 0xD6), true, 0);
-        context.drawCenteredString(font, title, this.width / 2, cy + 5, Paint.TEXT);
-        context.drawCenteredString(font, hint, this.width / 2, cy + 16, Paint.MUTED);
+        context.drawCenteredString(font,
+                "§b§lDrag modules to reposition", this.width / 2, 8, 0xFFFFFFFF);
+        context.drawCenteredString(font,
+                "§7Click and drag any module below", this.width / 2, 20, 0xFFFFFFFF);
 
         for (HudModule module : HudManager.getModules()) {
-            if (!module.isEnabled() || !isVisible(module)) continue;
+            if (!module.isEnabled()) continue;
 
             try { module.renderScaled(context, minecraft); } catch (Throwable ignored) {}
 
-            int x = module.getX() - FRAME;
-            int y = module.getY() - FRAME;
-            int w = module.getWidth() + FRAME * 2;
-            int h = module.getHeight() + FRAME * 2;
+            int x = module.getX() - 2;
+            int y = module.getY() - 2;
+            int w = module.getWidth() + 4;
+            int h = module.getHeight() + 4;
 
             boolean isHovered = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
             boolean isDragged = module == dragging;
-            int frame = isDragged ? Paint.ACCENT : isHovered ? 0xC0FFFFFF : 0x48FFFFFF;
-            Paint.outline(context, x, y, w, h, 4, frame);
+            int borderColor = isDragged ? 0xFF5BC8F5 : isHovered ? 0xAAFFFFFF : 0x60FFFFFF;
 
-            // Name tag for the module under the mouse, above its frame
-            // (below it when there is no room). Only one, so tags never
-            // pile onto neighbouring modules.
-            if (isHovered || isDragged) {
-                String name = module.getName();
-                int nw = font.width(name) + 8;
-                int ny = y >= 13 ? y - 12 : y + h + 2;
-                Paint.fill(context, x, ny, nw, 10, 3, isDragged ? Paint.ACCENT : Paint.alpha(Paint.PANEL, 0xE6));
-                context.drawString(font, name, x + 4, ny + 1, isDragged ? 0xFF06121D : Paint.TEXT, false);
-            }
+            context.fill(x, y, x + w, y + 1, borderColor);
+            context.fill(x, y + h - 1, x + w, y + h, borderColor);
+            context.fill(x, y, x + 1, y + h, borderColor);
+            context.fill(x + w - 1, y, x + w, y + h, borderColor);
+
+            int labelColor = isDragged ? 0xFF5BC8F5 : 0xFFAAAAAA;
+            context.drawString(font, module.getName(), x + 2, y - 11, labelColor);
         }
 
         superRender(context, mouseX, mouseY, delta);
@@ -129,11 +117,11 @@ public class HudEditScreen extends IceyScreen {
                 var modules = HudManager.getModules();
                 for (int i = modules.size() - 1; i >= 0; i--) {
                     HudModule module = modules.get(i);
-                    if (!module.isEnabled() || !isVisible(module)) continue;
-                    int x = module.getX() - FRAME;
-                    int y = module.getY() - FRAME;
-                    int w = module.getWidth() + FRAME * 2;
-                    int h = module.getHeight() + FRAME * 2;
+                    if (!module.isEnabled()) continue;
+                    int x = module.getX() - 2;
+                    int y = module.getY() - 2;
+                    int w = module.getWidth() + 4;
+                    int h = module.getHeight() + 4;
                     if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h) {
                         dragging = module;
                         dragOffsetX = mouseX - module.getX();
@@ -160,11 +148,6 @@ public class HudEditScreen extends IceyScreen {
         }
 
         prevLeftDown = leftDown;
-    }
-
-    /** Modules that draw nothing (Full Bright, the Net and FPS tweaks) have no frame to drag. */
-    private static boolean isVisible(HudModule module) {
-        return module.getCategory() != HudModule.Category.OPTIMIZATION && module.getSettings().contains(module.textColor);
     }
 
     @Override
