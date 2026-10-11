@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -8,6 +8,71 @@ const { spawn, execSync, execFileSync } = require('child_process');
 const crypto = require('crypto');
 
 let mainWindow = null;
+
+// Every open launcher window gets the message. There is one window
+// normally; "New Window" in the macOS Dock menu opens more, each a full
+// launcher, so two games or two accounts can run side by side.
+function broadcast(channel, payload) {
+  for (const w of BrowserWindow.getAllWindows()) {
+    if (w.isDestroyed()) continue;
+    try { w.webContents.send(channel, payload); } catch (_) {}
+  }
+}
+
+function appIconPath() {
+  return process.platform === 'linux'
+    ? path.join(__dirname, 'src', 'assets', 'iconlinux.png')
+    : path.join(__dirname, 'src', 'assets', 'icon.png');
+}
+
+// A launcher window. The first one becomes mainWindow; the others are
+// plain windows that close when closed.
+function createWindow(onReady) {
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 1024,
+    minHeight: 700,
+    frame: false,
+    transparent: false,
+    titleBarStyle: 'hidden',
+    backgroundColor: '#080c18',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    },
+    icon: appIconPath(),
+    show: false
+  });
+
+  win.loadFile(path.join(__dirname, 'src', 'index.html'));
+
+  win.once('ready-to-show', () => {
+    if (onReady) onReady();
+    win.show();
+  });
+
+  // On macOS the main window hides instead of closing so dock
+  // re-activation works; extra windows simply close.
+  win.on('close', (e) => {
+    if (process.platform === 'darwin' && !app.isQuitting && win === mainWindow) {
+      e.preventDefault();
+      win.hide();
+    }
+  });
+
+  win.on('closed', () => {
+    if (win !== mainWindow) return;
+    mainWindow = null;
+    for (const [id, entry] of mcProcesses.entries()) {
+      try { entry.proc.kill(); } catch (_) {}
+      mcProcesses.delete(id);
+    }
+  });
+  return win;
+}
 // Map of active MC processes, keyed by a unique launch id. Multiple instances
 // (one per account/installation) can coexist — launching a new one doesn't
 // terminate the previous.
@@ -315,7 +380,7 @@ function readSettings() {
   } catch (e) {
     log('warn', 'Corrupt settings.json, resetting: ' + e.message);
     if (mainWindow) {
-      mainWindow.webContents.send('mc-event', { type: 'toast', level: 'error', message: 'settings.json was corrupt and has been reset.' });
+      broadcast('mc-event', { type: 'toast', level: 'error', message: 'settings.json was corrupt and has been reset.' });
     }
   }
   const defaults = getDefaultSettings();
@@ -352,7 +417,7 @@ function downloadFile(url, dest) {
           downloadedBytes += chunk.length;
           file.write(chunk);
           if (mainWindow && totalBytes > 0) {
-            mainWindow.webContents.send('download-progress', {
+            broadcast('download-progress', {
               downloaded: downloadedBytes,
               total: totalBytes,
               percent: Math.round((downloadedBytes / totalBytes) * 100)
@@ -613,7 +678,7 @@ async function _loadFabricProfile(mcDir, version, libDir) {
           .sort((a, b) => _compareVersions(_parseVersion(loaderVerOf(b)), _parseVersion(loaderVerOf(a))));
         if (fabricDirs.length === 0) {
           log('warn', 'No fabric-loader dir for MC ' + version + ' — install Fabric for this version (or recreate the installation)');
-          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'No Fabric loader installed for ' + version + ' — launching vanilla', level: 'warn' });
+          if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'No Fabric loader installed for ' + version + ' — launching vanilla', level: 'warn' });
         }
         if (fabricDirs.length > 0) {
           versionId = fabricDirs[0];
@@ -720,7 +785,7 @@ function launchMinecraft(installationId) {
       if (prismJava) {
         javaPath = prismJava;
         log('info', '[LAUNCH] Using Prism Java: ' + javaPath);
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Using Prism Java: ' + javaPath, level: 'info' });
+        if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Using Prism Java: ' + javaPath, level: 'info' });
       } else {
         log('warn', '[LAUNCH] Prism Java NOT found');
       }
@@ -731,7 +796,7 @@ function launchMinecraft(installationId) {
       return reject(new Error('JAVA_NOT_FOUND'));
     }
     log('info', '[LAUNCH] Final Java path: ' + javaPath);
-    if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Java: ' + javaPath, level: 'info' });
+    if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Java: ' + javaPath, level: 'info' });
 
     // Shared .minecraft for libraries/assets/versions
     const mcDir = getDefaultMcDir();
@@ -742,7 +807,7 @@ function launchMinecraft(installationId) {
     const prismLibDir = (process.platform === 'linux' && process.arch === 'arm64') ? findPrismLibraries(version) : null;
     const libDir = prismLibDir || path.join(mcDir, 'libraries');
     log('info', '[LAUNCH] Library dir: ' + libDir + (prismLibDir ? ' (from Prism)' : ' (default)'));
-    if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Libraries: ' + libDir, level: 'info' });
+    if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Libraries: ' + libDir, level: 'info' });
     const assetsDir = path.join(mcDir, 'assets');
 
     // Per-installation game directory for isolated mods/config/saves
@@ -837,7 +902,7 @@ function launchMinecraft(installationId) {
           // Auto-download missing library
           try {
             log('info', 'Downloading missing lib: ' + (lib.name || artifact.path));
-            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading library: ' + (lib.name || artifact.path), level: 'info' });
+            if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Downloading library: ' + (lib.name || artifact.path), level: 'info' });
             await downloadFile(artifact.url, jarPath);
           } catch (dlErr) {
             log('warn', 'Failed to download lib: ' + (lib.name || artifact.path) + ' - ' + dlErr.message);
@@ -860,7 +925,7 @@ function launchMinecraft(installationId) {
             const libUrl = 'https://libraries.minecraft.net/' + mavenPath;
             try {
               log('info', 'Downloading missing lib (maven): ' + lib.name);
-              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading library: ' + lib.name, level: 'info' });
+              if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Downloading library: ' + lib.name, level: 'info' });
               await downloadFile(libUrl, jarPath);
             } catch (dlErr) {
               log('warn', 'Failed to download lib from maven: ' + lib.name + ' - ' + dlErr.message);
@@ -894,7 +959,7 @@ function launchMinecraft(installationId) {
           for (const url of urls) {
             try {
               log('info', 'Downloading arm64 native: ' + arm64JarName + ' from ' + url);
-              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading arm64 native: ' + arm64JarName, level: 'info' });
+              if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Downloading arm64 native: ' + arm64JarName, level: 'info' });
               await downloadFile(url, arm64JarPath);
               downloaded = true;
               break;
@@ -926,7 +991,7 @@ function launchMinecraft(installationId) {
       // Try to download the client jar from version JSON
       const clientDl = versionJson.downloads?.client;
       if (clientDl?.url) {
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading client jar...', level: 'info' });
+        if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Downloading client jar...', level: 'info' });
         try {
           await downloadFile(clientDl.url, clientJar);
         } catch (dlErr) {
@@ -944,7 +1009,7 @@ function launchMinecraft(installationId) {
     const assetIndex = versionJson.assetIndex?.id || version;
     const assetIndexPath = path.join(assetsDir, 'indexes', assetIndex + '.json');
     if (!fs.existsSync(assetIndexPath) && versionJson.assetIndex?.url) {
-      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading asset index...', level: 'info' });
+      if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Downloading asset index...', level: 'info' });
       try {
         await downloadFile(versionJson.assetIndex.url, assetIndexPath);
       } catch (e) {
@@ -966,7 +1031,7 @@ function launchMinecraft(installationId) {
           if (!fs.existsSync(objPath)) missing++;
         }
         if (missing > 0) {
-          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Downloading ${missing} asset files...`, level: 'info' });
+          if (mainWindow) broadcast('mc-event', { type: 'console-log', message: `Downloading ${missing} asset files...`, level: 'info' });
           let done = 0;
           // Download in batches of 10 for speed
           const missingList = [];
@@ -987,10 +1052,10 @@ function launchMinecraft(installationId) {
             }));
             done += batch.length;
             if (mainWindow && done % 50 === 0) {
-              mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Assets: ${done}/${missing}`, level: 'info' });
+              broadcast('mc-event', { type: 'console-log', message: `Assets: ${done}/${missing}`, level: 'info' });
             }
           }
-          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Assets downloaded: ${done}/${missing}`, level: 'info' });
+          if (mainWindow) broadcast('mc-event', { type: 'console-log', message: `Assets downloaded: ${done}/${missing}`, level: 'info' });
         }
       } catch (e) {
         log('warn', 'Asset download error: ' + e.message);
@@ -1082,7 +1147,7 @@ function launchMinecraft(installationId) {
             if (!destStat || srcStat.size !== destStat.size || srcStat.mtimeMs > destStat.mtimeMs) {
               fs.copyFileSync(panoSrc, destIceyPack);
               log('info', 'Installed panorama: ' + selectedPanorama);
-              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Panorama: ' + selectedPanorama, level: 'info' });
+              if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Panorama: ' + selectedPanorama, level: 'info' });
             }
             _registerResourcepackLine(installGameDir, iceyPackName);
           } else {
@@ -1233,7 +1298,7 @@ function launchMinecraft(installationId) {
             if (fabricApiPattern.test(f) && f !== correctApiJar) {
               fs.unlinkSync(path.join(modsDir, f));
               log('info', 'Removed wrong-version Fabric API: ' + f);
-              if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Removed wrong Fabric API: ' + f, level: 'info' });
+              if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Removed wrong Fabric API: ' + f, level: 'info' });
             }
           }
         } catch (_) {}
@@ -1241,18 +1306,18 @@ function launchMinecraft(installationId) {
         // Download correct Fabric API if not already present
         if (!fs.existsSync(correctApiDest)) {
           log('info', 'Downloading Fabric API ' + correctApiJar + ' for MC ' + installation.version);
-          if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Downloading ' + correctApiJar, level: 'info' });
+          if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Downloading ' + correctApiJar, level: 'info' });
           try {
             await downloadFile(fabricApiFile.url, correctApiDest);
             log('info', 'Fabric API installed to ' + correctApiDest);
-            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'Fabric API installed', level: 'info' });
+            if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'Fabric API installed', level: 'info' });
           } catch (e) {
             log('warn', 'Failed to download Fabric API: ' + e.message);
           }
         }
       } else {
         log('warn', 'No Fabric API version found on Modrinth for MC ' + installation.version + ' — skipping auto-install');
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'No Fabric API for MC ' + installation.version + ' on Modrinth — skipping', level: 'warn' });
+        if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'No Fabric API for MC ' + installation.version + ' on Modrinth — skipping', level: 'warn' });
       }
 
       // 3) Settings-toggle mods (SkinShuffle, Architectury, Health
@@ -1408,7 +1473,7 @@ function launchMinecraft(installationId) {
       if (totalMcMb > safeMb) {
         const msg = `WARNING: Launching instance #${mcProcesses.size + 1} would allocate ${totalMcMb} MB of Xmx across all MC instances (system has ${systemMb} MB). Consider closing one or lowering RAM per installation to avoid freezing.`;
         log('warn', msg);
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: msg, level: 'warn' });
+        if (mainWindow) broadcast('mc-event', { type: 'console-log', message: msg, level: 'warn' });
       } else {
         log('info', `Launching concurrent instance #${mcProcesses.size + 1} (total Xmx ${totalMcMb} / ${systemMb} MB system)`);
       }
@@ -1540,7 +1605,7 @@ function launchMinecraft(installationId) {
     log('info', `Launching MC directly: java ${version} (${cpParts.length} libs, main: ${mainClass})`);
 
     if (mainWindow) {
-      mainWindow.webContents.send('mc-event', { type: 'console-log', message: `Launching ${version} (${cpParts.length} libraries)`, level: 'info' });
+      broadcast('mc-event', { type: 'console-log', message: `Launching ${version} (${cpParts.length} libraries)`, level: 'info' });
     }
 
     try {
@@ -1581,10 +1646,10 @@ function launchMinecraft(installationId) {
           pushTail(text);
           log('info', `[MC #${launchId} ${launchUsername}] ` + text);
           if (mainWindow) {
-            mainWindow.webContents.send('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'info', launchId });
+            broadcast('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'info', launchId });
           }
           if (text.includes('Setting user:') || text.includes('LWJGL') || text.includes('OpenAL')) {
-            if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started', launchId });
+            if (mainWindow) broadcast('mc-event', { type: 'mc-started', launchId });
           }
           // Plain-language explanation for "Connection refused: getsockopt" & co.
           try {
@@ -1600,7 +1665,7 @@ function launchMinecraft(installationId) {
           pushTail('[err] ' + text);
           log('error', `[MC #${launchId} ${launchUsername}-ERR] ` + text);
           if (mainWindow) {
-            mainWindow.webContents.send('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'error', launchId });
+            broadcast('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'error', launchId });
           }
         }
       });
@@ -1611,7 +1676,7 @@ function launchMinecraft(installationId) {
         if (!Array.from(mcProcesses.values()).some(p => p.uuid === launchUuid)) {
           stopPresenceHeartbeat(launchUuid);
         }
-        if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-error', message: err.message, launchId });
+        if (mainWindow) broadcast('mc-event', { type: 'mc-error', message: err.message, launchId });
       });
 
       proc.on('close', (code) => {
@@ -1621,7 +1686,7 @@ function launchMinecraft(installationId) {
           stopPresenceHeartbeat(launchUuid);
         }
         if (mainWindow) {
-          mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code, launchId });
+          broadcast('mc-event', { type: 'mc-stopped', code, launchId });
 
           // Only surface a crash modal if the exit *looks* like a crash.
           // Normal closes can produce many different codes across platforms
@@ -1631,7 +1696,7 @@ function launchMinecraft(installationId) {
           const lastLines = tail.slice(-60).join('\n');
           const looksLikeCrash = /(Exception|Error|SEVERE|Traceback|crash-reports?|Minecraft has crashed|OutOfMemory|SIGSEGV)/i.test(lastLines);
           if (!cleanCode && looksLikeCrash) {
-            mainWindow.webContents.send('mc-event', {
+            broadcast('mc-event', {
               type: 'mc-crashed',
               launchId,
               code,
@@ -1646,7 +1711,7 @@ function launchMinecraft(installationId) {
 
       // Signal started quickly
       setTimeout(() => {
-        if (mcProcesses.has(launchId) && mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-started', launchId });
+        if (mcProcesses.has(launchId) && mainWindow) broadcast('mc-event', { type: 'mc-started', launchId });
       }, 1500);
 
       if (settings.closeLauncherOnStart) {
@@ -1660,8 +1725,8 @@ function launchMinecraft(installationId) {
     }
     } catch (fatalErr) {
       log('error', '[LAUNCH] FATAL: ' + fatalErr.message + '\n' + fatalErr.stack);
-      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message: 'FATAL ERROR: ' + fatalErr.message, level: 'error' });
-      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'mc-stopped', code: 1 });
+      if (mainWindow) broadcast('mc-event', { type: 'console-log', message: 'FATAL ERROR: ' + fatalErr.message, level: 'error' });
+      if (mainWindow) broadcast('mc-event', { type: 'mc-stopped', code: 1 });
       reject(fatalErr);
     }
   });
@@ -1669,10 +1734,10 @@ function launchMinecraft(installationId) {
 
 // ── Small helpers shared by the launch-time installers ────────────────
 function _mcConsole(message, level) {
-  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'console-log', message, level: level || 'info' });
+  if (mainWindow) broadcast('mc-event', { type: 'console-log', message, level: level || 'info' });
 }
 function _mcToast(message, level) {
-  if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'toast', level: level || 'info', message });
+  if (mainWindow) broadcast('mc-event', { type: 'toast', level: level || 'info', message });
 }
 
 // ── Server-connection diagnostics ────────────────────────────────────
@@ -3850,7 +3915,7 @@ async function ensureFreshAuth(account) {
       const refreshed = await refreshMicrosoftTokens(account.refreshToken, account);
       updateAccountInPlace(refreshed);
       if (mainWindow && !mainWindow.isDestroyed()) {
-        try { mainWindow.webContents.send('account-refreshed', { uuid: refreshed.uuid }); } catch (_) {}
+        try { broadcast('account-refreshed', { uuid: refreshed.uuid }); } catch (_) {}
       }
       return refreshed;
     } catch (e) {
@@ -3947,58 +4012,25 @@ app.whenReady().then(() => {
   });
   splash.loadFile(path.join(__dirname, 'src', 'splash.html'));
 
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1024,
-    minHeight: 700,
-    frame: false,
-    transparent: false,
-    titleBarStyle: 'hidden',
-    backgroundColor: '#080c18',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false
-    },
-    icon: appIcon,
-    show: false
-  });
+  mainWindow = createWindow(() => splash.destroy());
 
-  mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
-
-  mainWindow.once('ready-to-show', () => {
-    splash.destroy();
-    mainWindow.show();
-
-  });
-
-  // On macOS, hide instead of close so dock re-activation works
-  mainWindow.on('close', (e) => {
-    if (process.platform === 'darwin' && !app.isQuitting) {
-      e.preventDefault();
-      mainWindow.hide();
-    }
-  });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-    for (const [id, entry] of mcProcesses.entries()) {
-      try { entry.proc.kill(); } catch (_) {}
-      mcProcesses.delete(id);
-    }
-  });
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setMenu(Menu.buildFromTemplate([
+      { label: 'New Window', click: () => { createWindow(); } }
+    ]));
+  }
 
   // ── IPC Handlers ───────────────────────────────────
   // Window controls
-  ipcMain.on('window-minimize', () => mainWindow && mainWindow.minimize());
-  ipcMain.on('window-maximize', () => {
-    if (!mainWindow) return;
-    if (mainWindow.isMaximized()) mainWindow.unmaximize();
-    else mainWindow.maximize();
+  const senderWindow = (e) => (e && BrowserWindow.fromWebContents(e.sender)) || mainWindow;
+  ipcMain.on('window-minimize', (e) => { const w = senderWindow(e); if (w) w.minimize(); });
+  ipcMain.on('window-maximize', (e) => {
+    const w = senderWindow(e);
+    if (!w) return;
+    if (w.isMaximized()) w.unmaximize();
+    else w.maximize();
   });
-  ipcMain.on('window-close', () => mainWindow && mainWindow.close());
+  ipcMain.on('window-close', (e) => { const w = senderWindow(e); if (w) w.close(); });
 
   // Minecraft
   ipcMain.handle('launch-mc', async (_, installationId) => {
@@ -4106,7 +4138,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('select-file', async (_, filters) => {
-    const result = await dialog.showOpenDialog(mainWindow, {
+    const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || mainWindow, {
       properties: ['openFile'],
       filters: filters || [{ name: 'All Files', extensions: ['*'] }]
     });
@@ -4237,7 +4269,7 @@ app.whenReady().then(() => {
   // Launcher-managed jars (Icey mod, Fabric API, Settings/Performance mods,
   // Java & Stuff pack files) are skipped — the target gets its own copies.
   ipcMain.handle('copy-mods-from-installation', async (_, sourceId, targetId) => {
-    const send = (payload) => { try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('copy-mods-progress', payload); } catch (_) {} };
+    const send = (payload) => { try { if (mainWindow && !mainWindow.isDestroyed()) broadcast('copy-mods-progress', payload); } catch (_) {} };
     const installations = readInstallations();
     const src = installations.find(i => i.id === sourceId);
     const dst = installations.find(i => i.id === targetId);
@@ -4775,7 +4807,7 @@ app.whenReady().then(() => {
 
     try {
       // Step 1: Get latest stable Fabric loader version
-      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'fabric-progress', message: 'Fetching Fabric loader versions...' });
+      if (mainWindow) broadcast('mc-event', { type: 'fabric-progress', message: 'Fetching Fabric loader versions...' });
 
       const loaderVersions = await new Promise((resolve, reject) => {
         https.get(`https://meta.fabricmc.net/v2/versions/loader/${mcVersion}`, { headers: { 'User-Agent': 'IceyClient/1.0.0' } }, (res) => {
@@ -4795,7 +4827,7 @@ app.whenReady().then(() => {
       log('info', `Installing Fabric: MC ${mcVersion} + Loader ${loaderVersion}`);
 
       // Step 2: Get the profile JSON
-      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'fabric-progress', message: 'Downloading Fabric profile...' });
+      if (mainWindow) broadcast('mc-event', { type: 'fabric-progress', message: 'Downloading Fabric profile...' });
 
       const profileJson = await new Promise((resolve, reject) => {
         https.get(`https://meta.fabricmc.net/v2/versions/loader/${mcVersion}/${loaderVersion}/profile/json`, { headers: { 'User-Agent': 'IceyClient/1.0.0' } }, (res) => {
@@ -4816,7 +4848,7 @@ app.whenReady().then(() => {
       log('info', 'Saved Fabric profile JSON to ' + jsonPath);
 
       // Step 4: Download all Fabric libraries
-      if (mainWindow) mainWindow.webContents.send('mc-event', { type: 'fabric-progress', message: 'Downloading Fabric libraries...' });
+      if (mainWindow) broadcast('mc-event', { type: 'fabric-progress', message: 'Downloading Fabric libraries...' });
 
       const libDir = path.join(mcDir, 'libraries');
       const libs = profileJson.libraries || [];
@@ -4874,7 +4906,7 @@ app.whenReady().then(() => {
         }
 
         if (mainWindow) {
-          mainWindow.webContents.send('mc-event', {
+          broadcast('mc-event', {
             type: 'fabric-progress',
             message: `Downloading Fabric libraries (${downloaded}/${libs.length})...`
           });
@@ -5032,7 +5064,7 @@ app.whenReady().then(() => {
 
         completed++;
         if (mainWindow) {
-          mainWindow.webContents.send('mc-event', {
+          broadcast('mc-event', {
             type: 'lib-progress',
             completed,
             total,
@@ -5505,7 +5537,7 @@ app.whenReady().then(() => {
 
         completed++;
         if (mainWindow) {
-          mainWindow.webContents.send('mc-event', { type: 'lib-progress', completed, total });
+          broadcast('mc-event', { type: 'lib-progress', completed, total });
         }
       }
 
@@ -5527,5 +5559,7 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (mainWindow) {
     mainWindow.show();
+  } else if (!BrowserWindow.getAllWindows().some((w) => !w.isDestroyed())) {
+    mainWindow = createWindow();
   }
 });

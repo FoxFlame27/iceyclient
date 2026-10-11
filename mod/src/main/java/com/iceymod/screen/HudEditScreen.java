@@ -66,7 +66,7 @@ public class HudEditScreen extends IceyScreen {
                 "§7Click and drag any module below", this.width / 2, 20, 0xFFFFFFFF);
 
         for (HudModule module : HudManager.getModules()) {
-            if (!module.isEnabled()) continue;
+            if (!module.isEnabled() || !isVisible(module)) continue;
 
             try { module.renderScaled(context, minecraft); } catch (Throwable ignored) {}
 
@@ -117,7 +117,7 @@ public class HudEditScreen extends IceyScreen {
                 var modules = HudManager.getModules();
                 for (int i = modules.size() - 1; i >= 0; i--) {
                     HudModule module = modules.get(i);
-                    if (!module.isEnabled()) continue;
+                    if (!module.isEnabled() || !isVisible(module)) continue;
                     int x = module.getX() - 2;
                     int y = module.getY() - 2;
                     int w = module.getWidth() + 4;
@@ -148,6 +148,11 @@ public class HudEditScreen extends IceyScreen {
         }
 
         prevLeftDown = leftDown;
+    }
+
+    /** Modules that draw nothing (Full Bright, the Net and FPS tweaks) have no box to drag or label. */
+    private static boolean isVisible(HudModule module) {
+        return module.getCategory() != HudModule.Category.OPTIMIZATION && module.getSettings().contains(module.textColor);
     }
 
     @Override

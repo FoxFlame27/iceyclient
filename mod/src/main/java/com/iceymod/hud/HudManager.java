@@ -127,6 +127,7 @@ public class HudManager {
 
         load();
         migrateRenderSafe(defaultEnabled);
+        migrateLookBack();
         applyCenterDefaults();
     }
 
@@ -158,6 +159,31 @@ public class HudManager {
                 }
             }
             save(); // persists with the migration flag below
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * One-shot: v1.86.96 moved boxes still on the plain black default to its
+     * own glass colours (navy at 72%). That look is gone again, so boxes
+     * still on exactly those values go back to the plain default; anything
+     * else the user chose themselves stays.
+     */
+    private static void migrateLookBack() {
+        if (configPath == null || !Files.exists(configPath)) return;
+        try {
+            JsonObject root = JsonParser.parseString(Files.readString(configPath)).getAsJsonObject();
+            JsonObject migrations = root.has("migrations") && root.get("migrations").isJsonObject()
+                    ? root.getAsJsonObject("migrations") : null;
+            if (migrations == null || !migrations.has("look2")) return;
+            if (migrations.has("look3") && migrations.get("look3").getAsBoolean()) return;
+            for (HudModule m : modules) {
+                if (!m.getSettings().contains(m.backgroundColor)) continue;
+                if ((m.backgroundColor.get() & 0xFFFFFF) == 0x0A0E1A && m.backgroundOpacity.get() == 72) {
+                    m.backgroundColor.set(m.backgroundColor.getDefault());
+                    m.backgroundOpacity.set(m.backgroundOpacity.getDefault());
+                }
+            }
+            save();
         } catch (Exception ignored) {}
     }
 
@@ -282,6 +308,7 @@ public class HudManager {
         // re-run on every launch and stomp on the user's later choices.
         JsonObject migrations = new JsonObject();
         migrations.addProperty("renderSafe", true);
+        migrations.addProperty("look3", true);
         root.add("migrations", migrations);
 
         try {

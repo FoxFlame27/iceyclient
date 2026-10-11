@@ -39,6 +39,13 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.97
+
+- **HUD look restored.** v1.86.96 moved every HUD module into rounded glass boxes; that is undone and the modules draw the way they did before. Anyone who updated in between is moved back too: boxes v1.86.96 had switched to its own colours go back to the plain black box, while colours you picked yourself are kept.
+- **New Window on Mac.** Right-click the Icey Client icon in the Dock and choose New Window to open a second launcher window, so two games or two accounts can be run side by side. Each window has its own title-bar buttons, and launcher messages (downloads, game output) reach every open window.
+- **HUD editor** no longer shows stray labels for modules that draw nothing (Full Bright, the FPS and Net tweaks).
+- **iceymc.com** now has the game's own title-screen panoramas as its background: a slowly turning cube like the title screen, with a different place every three minutes.
+
 ## What's new in v1.86.95
 
 - **Languages.** The launcher now comes in German, Spanish, French, Portuguese, Italian, Dutch, Polish, Turkish and Russian as well as English. Choose one in the first step of Setup or under Settings → General → Language; the whole launcher switches on the spot, no restart. Until you choose, it follows your system language. Text without a translation (mod descriptions from Modrinth, server names, game output) stays as it is.
