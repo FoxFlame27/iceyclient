@@ -1,6 +1,7 @@
 package com.iceymod.hud.modules;
 
 import com.iceymod.hud.HudModule;
+import com.iceymod.hud.Paint;
 import java.util.Collection;
 import net.minecraft.client.Minecraft;
 import com.iceymod.compat.Gfx;
@@ -9,14 +10,17 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 
 /**
- * Shows active potion effects with remaining duration.
+ * Shows active potion effects with remaining duration: one themed row per
+ * effect, the pill green for beneficial and red for harmful.
  */
 public class PotionModule extends HudModule {
+    private static final int ROW_H = 14;
+    private static final int ROW_GAP = 2;
+
     public PotionModule() {
         super("potions", "Potions", 5, 124);
         setEnabled(false);
     }
-
 
     @Override
     public String getText(Minecraft client) {
@@ -26,14 +30,15 @@ public class PotionModule extends HudModule {
     @Override
     public void render(Gfx context, Minecraft client) {
         if (!isEnabled() || client.player == null) return;
+        int inset = textInset();
 
         Collection<MobEffectInstance> effects = client.player.getActiveEffects();
         if (effects.isEmpty()) {
-            this.width = client.font.width("No effects") + 10;
-            this.height = 14;
-            context.fill(getX(), getY(), getX() + width, getY() + height, 0x90000000);
-            context.fill(getX(), getY(), getX() + 2, getY() + height, 0xFF5BC8F5);
-            context.drawString(client.font, "No effects", getX() + 6, getY() + 3, 0xFF888888);
+            String empty = "No effects";
+            this.width = inset + client.font.width(empty) + 4;
+            this.height = ROW_H;
+            box(context, getX(), getY(), width, height, barColor.get());
+            context.drawString(client.font, empty, getX() + inset, getY() + 3, Paint.MUTED, textShadow.get());
             return;
         }
 
@@ -57,23 +62,23 @@ public class PotionModule extends HudModule {
                 color = 0xFFCCCCCC;
             }
 
-            String line = name + ampStr + " \u00A77" + duration;
-            int lineW = client.font.width(line) + 10;
+            String label = name + ampStr;
+            int lineW = inset + client.font.width(label + "  " + duration) + 4;
             if (lineW > maxWidth) maxWidth = lineW;
 
-            int lineY = by + row * 14;
-            context.fill(bx, lineY, bx + lineW, lineY + 13, 0x90000000);
-            context.fill(bx, lineY, bx + 2, lineY + 13, color);
-            context.drawString(client.font, line, bx + 6, lineY + 3, color);
+            int lineY = by + row * (ROW_H + ROW_GAP);
+            box(context, bx, lineY, lineW, ROW_H, color);
+            context.drawString(client.font, label, bx + inset, lineY + 3, textColor.get(), textShadow.get());
+            context.drawString(client.font, duration, bx + inset + client.font.width(label + "  "), lineY + 3, Paint.MUTED, textShadow.get());
             row++;
         }
 
         this.width = maxWidth;
-        this.height = Math.max(row * 14, 14);
+        this.height = Math.max(row * (ROW_H + ROW_GAP) - ROW_GAP, ROW_H);
     }
 
     private String formatDuration(int ticks) {
-        if (ticks < 0) return "\u221E";
+        if (ticks < 0) return "∞";
         int secs = ticks / 20;
         int min = secs / 60;
         int sec = secs % 60;

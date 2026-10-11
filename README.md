@@ -39,6 +39,11 @@ xacttr -cr /Applications/Icey\ Client.app
 
 ---
 
+## What's new in v1.86.96
+
+- **The HUD looks new.** Every HUD module now sits in a rounded navy glass box with a hairline edge and a small accent pill on the left, instead of a flat black bar. Keystrokes are glass keys that light up in the accent colour, the Armor module shows each piece on its own tile with the durability bar inside it, and Potions, Waypoints, Structure Locator and Biome Locator rows use the same look. A line written as "Label: value" dims the label so the value stands out. New per-module options under the Y menu: Corners, Outline and Muted Label, next to the existing Background, Opacity, Accent Bar and Padding. Modules still on the old plain black box move to the new look once; colours you picked yourself are kept.
+- **HUD editor.** Each module gets a rounded frame, the one under the mouse shows its name on a tag and the one being dragged lights up in the accent colour. The help card moved to the bottom above Done so it no longer covers modules at the top, and modules that draw nothing (Full Bright, the FPS and Net tweaks) no longer leave a stray label at the corner.
+
 ## What's new in v1.86.95
 
 - **Languages.** The launcher now comes in German, Spanish, French, Portuguese, Italian, Dutch, Polish, Turkish and Russian as well as English. Choose one in the first step of Setup or under Settings → General → Language; the whole launcher switches on the spot, no restart. Until you choose, it follows your system language. Text without a translation (mod descriptions from Modrinth, server names, game output) stays as it is.

@@ -94,11 +94,10 @@ public class WaypointsModule extends HudModule {
             // the HUD.
             String empty = "§7No waypoints";
             int tw = client.font.width(empty);
-            this.width = tw + 10;
+            this.width = tw + textInset() + 4;
             this.height = 14;
-            context.fill(getX(), getY(), getX() + this.width, getY() + this.height, 0x90000000);
-            context.fill(getX(), getY(), getX() + 2, getY() + this.height, 0xFF5BC8F5);
-            context.drawString(client.font, empty, getX() + 6, getY() + 3, 0xFFFFFFFF);
+            box(context, getX(), getY(), this.width, this.height, 0xFF5BC8F5);
+            context.drawString(client.font, empty, getX() + textInset(), getY() + 3, 0xFFFFFFFF, textShadow.get());
             return;
         }
 
@@ -158,19 +157,17 @@ public class WaypointsModule extends HudModule {
             int ow = client.font.width(overflowText);
             if (ow > maxWidth) maxWidth = ow;
         }
-        this.width = maxWidth + 10;
+        this.width = maxWidth + textInset() + 4;
 
         for (int i = 0; i < shown; i++) {
             int lineY = y + i * rowH;
-            context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
-            context.fill(x, lineY, x + 2, lineY + lineH, visible[i].color);
-            context.drawString(client.font, texts[i], x + 6, lineY + 3, 0xFFFFFFFF);
+            box(context, x, lineY, this.width, lineH, visible[i].color);
+            context.drawString(client.font, texts[i], x + textInset(), lineY + 3, 0xFFFFFFFF, textShadow.get());
         }
         if (hasOverflow) {
             int lineY = y + shown * rowH;
-            context.fill(x, lineY, x + this.width, lineY + lineH, 0x90000000);
-            context.fill(x, lineY, x + 2, lineY + lineH, 0xFF888888);
-            context.drawString(client.font, overflowText, x + 6, lineY + 3, 0xFFAAAAAA);
+            box(context, x, lineY, this.width, lineH, 0xFF888888);
+            context.drawString(client.font, overflowText, x + textInset(), lineY + 3, 0xFFAAAAAA, textShadow.get());
         }
         this.height = (shown + (hasOverflow ? 1 : 0)) * rowH - gap;
     }

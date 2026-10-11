@@ -30,15 +30,18 @@ public abstract class HudModule {
     // in the settings screen. Instances still exist for modules that DO
     // use the default render().
     public final ColorSetting textColor = new ColorSetting("textColor", "Text Color", 0xFFFFFFFF);
-    public final ColorSetting barColor  = new ColorSetting("barColor",  "Bar Color",  0xFF5BC8F5);
-    // Look of the standard text box. The defaults draw exactly what the
-    // box looked like before these existed.
+    public final ColorSetting barColor  = new ColorSetting("barColor",  "Bar Color",  Paint.ACCENT);
+    // Look of the standard box: navy glass, rounded, hairline, accent pill.
+    // Widgets that draw themselves read the same fields through box().
     public final DoubleSetting scale = new DoubleSetting("scale", "Size", 1.0, 0.5, 2.0, 0.1);
     public final BoolSetting background = new BoolSetting("background", "Background", true);
-    public final ColorSetting backgroundColor = new ColorSetting("backgroundColor", "Background Color", 0xFF000000);
-    public final IntSetting backgroundOpacity = new IntSetting("backgroundOpacity", "Background Opacity", 55, 0, 100, 5);
+    public final ColorSetting backgroundColor = new ColorSetting("backgroundColor", "Background Color", 0xFF000000 | Paint.PANEL);
+    public final IntSetting backgroundOpacity = new IntSetting("backgroundOpacity", "Background Opacity", 72, 0, 100, 5);
+    public final IntSetting corners = new IntSetting("corners", "Corners", Paint.RADIUS, 0, 6);
+    public final BoolSetting outline = new BoolSetting("outline", "Outline", true);
     public final BoolSetting accentBar = new BoolSetting("accentBar", "Accent Bar", true);
     public final BoolSetting textShadow = new BoolSetting("textShadow", "Text Shadow", true);
+    public final BoolSetting mutedLabel = new BoolSetting("mutedLabel", "Muted Label", true);
     public final BoolSetting rainbow = new BoolSetting("rainbow", "Rainbow Text", false);
     public final IntSetting padding = new IntSetting("padding", "Padding", 3, 1, 8);
 
@@ -58,8 +61,11 @@ public abstract class HudModule {
                 settings.add(background);
                 settings.add(backgroundColor);
                 settings.add(backgroundOpacity);
+                settings.add(corners);
+                settings.add(outline);
                 settings.add(accentBar);
                 settings.add(textShadow);
+                settings.add(mutedLabel);
                 settings.add(rainbow);
                 settings.add(padding);
             }
@@ -106,24 +112,63 @@ public abstract class HudModule {
         if (text == null) return;
 
         int color = textColor.get();
-        if (rainbow.get()) {
+        boolean rb = rainbow.get();
+        if (rb) {
             // Colour codes inside the text would win over the rainbow.
-            text = text.replaceAll("\u00A7.", "");
+            text = text.replaceAll("§.", "");
             color = rainbowColor(0);
         }
         int pad = padding.get();
-        int bar = accentBar.get() ? 2 : 0;
-        int textX = bar + pad + 1;
+        int textX = textInset();
         int textWidth = client.font.width(text);
         this.width = textX + textWidth + pad + 1;
         this.height = 8 + pad * 2;
 
-        if (background.get() && backgroundOpacity.get() > 0) {
-            int alpha = Math.round(backgroundOpacity.get() * 2.55f);
-            context.fill(x, y, x + width, y + height, (alpha << 24) | (backgroundColor.get() & 0xFFFFFF));
+        box(context, x, y, width, height, barColor.get());
+        drawText(context, client, text, x + textX, y + pad, color, !rb && mutedLabel.get());
+    }
+
+    // ---- the themed look, shared with widgets that draw themselves ----
+
+    /** Where text starts inside a themed box: after the accent pill and padding. */
+    protected int textInset() {
+        return (accentBar.get() ? 6 : 1) + padding.get();
+    }
+
+    /**
+     * Draws a themed box: glass background, hairline, accent pill on the left
+     * in {@code accent} (0 for none). Reads this module's style settings, which
+     * are the defaults for widgets that don't expose them.
+     */
+    protected void box(Gfx g, int bx, int by, int w, int h, int accent) {
+        int r = corners.get();
+        int a = Math.round(backgroundOpacity.get() * 2.55f);
+        if (background.get() && a > 0) Paint.fill(g, bx, by, w, h, r, Paint.alpha(backgroundColor.get(), a));
+        if (outline.get()) Paint.outline(g, bx, by, w, h, r, Paint.HAIRLINE);
+        if (accent != 0 && accentBar.get()) Paint.fill(g, bx + 3, by + 3, 2, h - 6, 1, accent);
+    }
+
+    /**
+     * Draws a line of HUD text. With {@code muted}, a "Label: value" line gets
+     * its label dimmed so the value stands out.
+     */
+    protected void drawText(Gfx g, Minecraft client, String text, int tx, int ty, int color, boolean muted) {
+        boolean shadow = textShadow.get();
+        if (muted) {
+            int i = text.indexOf(": ");
+            if (i > 0 && i <= 24 && text.lastIndexOf('§', i) < 0) {
+                String label = text.substring(0, i + 1);
+                g.drawString(client.font, label, tx, ty, mutedOf(color), shadow);
+                g.drawString(client.font, text.substring(i + 2), tx + client.font.width(label + " "), ty, color, shadow);
+                return;
+            }
         }
-        if (bar > 0) context.fill(x, y, x + bar, y + height, barColor.get());
-        context.drawString(client.font, text, x + textX, y + pad, color, textShadow.get());
+        g.drawString(client.font, text, tx, ty, color, shadow);
+    }
+
+    /** A dimmer version of a text colour for labels. */
+    protected static int mutedOf(int color) {
+        return (color & 0xFFFFFF) | 0xA6000000;
     }
 
     /** Colour of the rainbow right now; {@code offset} shifts it, so lines of a list differ. */
