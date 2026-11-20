@@ -710,7 +710,10 @@ async function HomePlayClick() {
   const selected = installations.find(i => i.selected);
   if (!selected) { Toast.info('Select an installation first'); return; }
   const joinServer = _deckJoinTarget();
-  if (joinServer) _deck.focusKey = _deckKey(joinServer.address);
+  if (joinServer) {
+    _deck.focusKey = _deckKey(joinServer.address);
+    _deckSetPref(joinServer.key, { installationId: selected.id });
+  }
   _hqLaunchBurst();
   await MinecraftLauncher.launch(selected.id, joinServer ? { server: joinServer.address } : undefined);
 }
@@ -741,6 +744,57 @@ const _deck = {
 const DECK_DEFAULT_ICON = 'assets/server-default.png';
 const DECK_DEFAULT_TINT = '112,196,84';
 
+// What the player decided about a server card, kept in settings under
+// `serverPrefs`, keyed like the cards: { pinnedAt, hidden, name, installationId }.
+function _deckPrefs() { return SettingsManager.get('serverPrefs') || {}; }
+async function _deckSetPref(key, change) {
+  const all = { ..._deckPrefs() };
+  const cur = { ...(all[key] || {}), ...change };
+  for (const k of Object.keys(cur)) if (cur[k] === null || cur[k] === false || cur[k] === '') delete cur[k];
+  if (Object.keys(cur).length) all[key] = cur; else delete all[key];
+  await SettingsManager.set('serverPrefs', all);
+}
+
+// Server icons outside the deck (the Info page's list): an <img> marked
+// with data-server-icon="<address>" starts as the grass block and gets the
+// server's own icon once the launcher has asked the server for it.
+const _serverIconAsk = new Map();   // address → Promise<icon | null>
+function _fillServerIcons(root) {
+  if (!root || !window.icey || !window.icey.pingServer) return;
+  root.querySelectorAll('img[data-server-icon]').forEach((img) => {
+    const address = img.dataset.serverIcon;
+    if (!_serverIconAsk.has(address)) {
+      _serverIconAsk.set(address, window.icey.pingServer(address).then(p => (p && p.icon) || null).catch(() => null));
+    }
+    _serverIconAsk.get(address).then((icon) => { if (icon && img.isConnected) img.src = icon; });
+  });
+}
+
+// "mcpvp" for mcpvp.com, eu.mcpvp.club and mcpvp.hub alike.
+function _deckNetworkLabel(key) {
+  return _deckNameFor(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// A card whose server gave no icon (an address that only exists inside a
+// network, like mcpvp.hub, or a regional or verification host) takes the
+// icon of another card of the same network.
+function _deckBorrowIcons() {
+  const items = _deck.items.servers;
+  let changed = false;
+  for (const it of items) {
+    if (it.icon) continue;
+    if (_deckKey(FEATURED_SERVER.address) === it.key) continue;
+    const a = _deckNetworkLabel(it.key);
+    if (a.length < 4 || /^\d+$/.test(a)) continue;
+    const from = items.find(o => o !== it && o.icon && !o.borrowed && (() => {
+      const b = _deckNetworkLabel(o.key);
+      return b === a || (Math.min(a.length, b.length) >= 5 && (a.includes(b) || b.includes(a)));
+    })());
+    if (from) { it.icon = from.icon; it.tint = from.tint; it.borrowed = true; changed = true; }
+  }
+  return changed;
+}
+
 function _deckKey(address) {
   return String(address || '').trim().toLowerCase().replace(/:25565$/, '');
 }
@@ -768,29 +822,36 @@ async function _deckInit() {
   const deck = document.getElementById('hq-deck');
   if (!deck) return;
   deck.addEventListener('wheel', _deckOnWheel, { passive: false });
+  // Right-click beside the cards: bring hidden servers back, add one.
+  deck.oncontextmenu = (e) => { if (_deck.mode === 'servers') { e.preventDefault(); _deckOpenMenu(e, null); } };
   // What we had last time shows at once; fresh data replaces it.
   _deckRender();
   await Promise.all([_deckLoadServers(), _deckLoadInstallations()]);
   _deckRender();
   _homeUpdateLaunchButton(MinecraftLauncher.getState(), SettingsManager.getAll().showSessionTimer !== false);
   _deckRefreshStatus(false);
+  if (!_deck.restored) { _deck.restored = true; _deckApplyServerInstallation(_deckJoinTarget()); }
 }
 
 async function _deckLoadServers() {
   let known = [];
   try { known = (await window.icey.getKnownServers()) || []; } catch (_) {}
   const custom = SettingsManager.get('customServers') || [];
+  const prefs = _deckPrefs();
   const seen = new Set();
   const out = [];
   const add = (address, name, icon, extra) => {
     const key = _deckKey(address);
     if (!key || seen.has(key)) return;
     seen.add(key);
+    const pref = prefs[key] || {};
+    if (pref.hidden) return;
     let clean = String(name || '').replace(/§./g, '').trim();
     if (/^(a )?minecraft server$/i.test(clean)) clean = '';      // the game's default name says nothing
     const old = _deck.items.servers.find(s => s.key === key);
     out.push({
-      key, address: key, name: clean || _deckNameFor(key),
+      key, address: key, name: pref.name || clean || _deckNameFor(key),
+      pinnedAt: pref.pinnedAt || 0,
       icon: icon || (old && old.icon) || null,
       tint: old ? old.tint : null,
       customIndex: -1, ...extra,
@@ -806,6 +867,9 @@ async function _deckLoadServers() {
     if (out.length >= 7) break;
     if (!/bedrock/i.test(s.address)) add(s.address, s.name, null);      // Bedrock servers cannot be joined from here
   }
+  // Pinned cards first, in the order they were pinned; the rest as they came.
+  const pinned = out.filter(s => s.pinnedAt).sort((a, b) => a.pinnedAt - b.pinnedAt);
+  out.splice(0, out.length, ...pinned, ...out.filter(s => !s.pinnedAt));
   _deck.items.servers = out;
   const at = _deck.focusKey ? out.findIndex(s => s.key === _deck.focusKey) : -1;
   _deck.index.servers = at >= 0 ? at : Math.min(_deck.index.servers, Math.max(0, out.length - 1));
@@ -827,6 +891,7 @@ async function _deckReloadServers() {
   if (!document.getElementById('hq-deck')) return;
   await _deckLoadServers();
   if (_deck.mode === 'servers') _deckRender();
+  _homeUpdateLaunchButton(MinecraftLauncher.getState(), SettingsManager.getAll().showSessionTimer !== false);
   _deckRefreshStatus(false);
 }
 
@@ -862,6 +927,13 @@ function _deckRender() {
   track.dataset.mode = _deck.mode;
 
   if (!items.length) {
+    if (_deck.mode === 'servers') {
+      const empty = document.createElement('div');
+      empty.className = 'home-inst-empty hq-empty';
+      empty.textContent = 'Add Server';
+      empty.onclick = () => _showAddServerModal();
+      track.appendChild(empty);
+    }
     if (_deck.mode === 'installations') {
       const empty = document.createElement('div');
       empty.className = 'home-inst-empty hq-empty';
@@ -887,6 +959,13 @@ function _deckRender() {
     card.appendChild(art);
 
     if (_deck.mode === 'servers') {
+      card.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); _deckGo(i); _deckOpenMenu(e, it); };
+      if (it.pinnedAt) {
+        const pin = document.createElement('span');
+        pin.className = 'hq-card-pin';
+        pin.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M15 3l6 6-3 1-3.5 3.5.5 4.5-2 2-4-5-5 5v-1.5l4.5-4.5-5-4 2-2 4.5.5L14 6z"/></svg>';
+        card.appendChild(pin);
+      }
       const icon = document.createElement('img');
       icon.className = 'hq-card-icon';
       icon.alt = '';
@@ -930,13 +1009,20 @@ function _deckRender() {
 // far. The card takes its colour from the server's icon.
 function _deckPaintServer(card, it) {
   // Its own icon (from the multiplayer list or the status lookup), else a grass block.
-  const src = it.icon || DECK_DEFAULT_ICON;
+  // Icey's own server wears the Icey mark while it has none to give.
+  const own = !it.icon && it.key === _deckKey(FEATURED_SERVER.address);
+  const src = it.icon || (own ? 'assets/icon.png' : DECK_DEFAULT_ICON);
   const icon = card.querySelector('.hq-card-icon');
-  if (icon && icon.getAttribute('src') !== src) { icon.style.visibility = ''; icon.src = src; }
+  if (icon && icon.getAttribute('src') !== src) {
+    icon.style.visibility = '';
+    icon.style.imageRendering = own ? 'auto' : '';      // a big picture scaled down, not pixel art
+    icon.src = src;
+  }
   const art = card.querySelector('.hq-card-art');
   if (art) art.style.backgroundImage = `url("${src}")`;
-  card.style.setProperty('--tint', it.tint || (it.icon ? '' : DECK_DEFAULT_TINT));
-  if (!it.tint && it.icon) card.style.removeProperty('--tint');
+  if (it.tint) card.style.setProperty('--tint', it.tint);
+  else if (it.icon || own) card.style.removeProperty('--tint');
+  else card.style.setProperty('--tint', DECK_DEFAULT_TINT);
   const meta = card.querySelector('.hq-card-meta');
   const st = _deck.status.get(it.key);
   if (meta) {
@@ -1000,12 +1086,34 @@ function _deckGo(i) {
   if (_deck.mode === 'servers') {
     _deck.focusKey = items[i].key;
     _homeUpdateLaunchButton(MinecraftLauncher.getState(), SettingsManager.getAll().showSessionTimer !== false);
+    // The installation this server was last joined with comes along,
+    // once the deck rests on the card.
+    clearTimeout(_deck.saveTimer);
+    const item = items[i];
+    _deck.saveTimer = setTimeout(() => _deckApplyServerInstallation(item), 320);
   } else {
     // The front card is the selected installation; save once the deck rests.
     clearTimeout(_deck.saveTimer);
     const id = items[i].id;
     _deck.saveTimer = setTimeout(() => _deckSelectInstallation(id), 260);
   }
+}
+
+// Each server remembers the installation it was last joined with (set in
+// HomePlayClick). Bringing its card to the front selects that installation
+// again, so a 1.21 network and a snapshot server each start the right game.
+// Only a change of card does this: picking another installation by hand and
+// pressing Join is how the memory is changed.
+async function _deckApplyServerInstallation(item) {
+  if (!item || _deck.mode !== 'servers') return;
+  const want = (_deckPrefs()[item.key] || {}).installationId;
+  if (!want) return;
+  let installations = [];
+  try { installations = (await window.icey.getInstallations()) || []; } catch (_) {}
+  const target = installations.find(i => i.id === want);
+  if (!target || target.selected) return;
+  await _deckSelectInstallation(want);
+  await _deckLoadInstallations();
 }
 
 async function _deckSelectInstallation(id) {
@@ -1030,6 +1138,128 @@ function _deckOnWheel(e) {
     _deckStep(_deck.wheelAcc > 0 ? 1 : -1);
     _deck.wheelAcc = 0;
   }
+}
+
+// ── Right-click on a server card: pin, move, rename, hide ──
+function _deckCloseMenu() {
+  const m = document.getElementById('hq-menu');
+  if (m) m.remove();
+}
+
+function _deckOpenMenu(e, it) {
+  _deckCloseMenu();
+  const prefs = _deckPrefs();
+  const hiddenCount = Object.values(prefs).filter(p => p && p.hidden).length;
+  const pinned = _deck.items.servers.filter(s => s.pinnedAt);
+  const at = it ? pinned.findIndex(s => s.key === it.key) : -1;
+  const menu = document.createElement('div');
+  menu.id = 'hq-menu';
+  menu.className = 'hq-menu';
+  const item = (label, icon, fn, cls) => {
+    const b = document.createElement('button');
+    b.className = 'hq-menu-item' + (cls ? ' ' + cls : '');
+    b.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg><span></span>`;
+    b.lastChild.textContent = label;
+    b.onclick = () => { _deckCloseMenu(); fn(); };
+    menu.appendChild(b);
+  };
+  const line = () => { if (menu.lastChild && !menu.lastChild.classList.contains('hq-menu-line')) menu.appendChild(Object.assign(document.createElement('div'), { className: 'hq-menu-line' })); };
+  if (it) {
+    const head = document.createElement('div');
+    head.className = 'hq-menu-head';
+    head.setAttribute('data-no-i18n', '');
+    head.textContent = it.name;
+    menu.appendChild(head);
+    if (at < 0) item('Pin to front', '<path d="M12 17v5"/><path d="M8 3h8l-1 6 3 4H6l3-4z"/>', () => _deckPin(it, true));
+    else {
+      item('Unpin', '<path d="M12 17v5"/><path d="M8 3h8l-1 6 3 4H6l3-4z"/><line x1="3" y1="3" x2="21" y2="21"/>', () => _deckPin(it, false));
+      if (at > 0) item('Move left', '<polyline points="15 18 9 12 15 6"/>', () => _deckMovePin(it, -1));
+      if (at < pinned.length - 1) item('Move right', '<polyline points="9 18 15 12 9 6"/>', () => _deckMovePin(it, 1));
+    }
+    item('Rename', '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', () => _deckRename(it));
+    item('Hide', '<path d="M17.9 17.9A10.4 10.4 0 0 1 12 20C5 20 1 12 1 12a18.6 18.6 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9.6 9.6 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2"/><line x1="1" y1="1" x2="23" y2="23"/>', () => _deckHide(it), 'danger');
+  }
+  if (hiddenCount) {
+    line();
+    item(`Show hidden servers (${hiddenCount})`, '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>', () => _deckUnhideAll());
+  }
+  if (!it) item('Add Server', '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', () => _showAddServerModal());
+  document.body.appendChild(menu);
+  // Cards sit at the bottom of the window, so the menu opens upwards when it has to.
+  const w = menu.offsetWidth, h = menu.offsetHeight;
+  menu.style.left = Math.max(8, Math.min(e.clientX, window.innerWidth - w - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(e.clientY, window.innerHeight - h - 8)) + 'px';
+}
+
+document.addEventListener('mousedown', (e) => {
+  const m = document.getElementById('hq-menu');
+  if (m && !m.contains(e.target)) _deckCloseMenu();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _deckCloseMenu(); });
+window.addEventListener('blur', _deckCloseMenu);
+
+async function _deckPin(it, on) {
+  await _deckSetPref(it.key, { pinnedAt: on ? Date.now() : null });
+  _deck.focusKey = it.key;
+  _deckReloadServers();
+}
+
+// Pinned cards keep their order by pin time; moving one swaps times with its neighbour.
+async function _deckMovePin(it, dir) {
+  const pinned = _deck.items.servers.filter(s => s.pinnedAt);
+  const at = pinned.findIndex(s => s.key === it.key);
+  const other = pinned[at + dir];
+  if (at < 0 || !other) return;
+  const a = it.pinnedAt, b = other.pinnedAt;
+  await _deckSetPref(it.key, { pinnedAt: b });
+  await _deckSetPref(other.key, { pinnedAt: a });
+  _deck.focusKey = it.key;
+  _deckReloadServers();
+}
+
+async function _deckHide(it) {
+  await _deckSetPref(it.key, { hidden: true, pinnedAt: null });
+  _deck.focusKey = null;
+  _deckReloadServers();
+}
+
+async function _deckUnhideAll() {
+  const prefs = _deckPrefs();
+  for (const key of Object.keys(prefs)) if (prefs[key] && prefs[key].hidden) await _deckSetPref(key, { hidden: null });
+  _deckReloadServers();
+}
+
+function _deckRename(it) {
+  showModal(`
+    <div class="modal-header">
+      <h2 class="modal-title">Rename Server</h2>
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="14" height="14" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Server Name</label>
+        <input class="form-input" type="text" id="deck-rename-input" maxlength="40" spellcheck="false">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn modal-btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn-primary" id="deck-rename-save">Save</button>
+    </div>
+  `);
+  const input = document.getElementById('deck-rename-input');
+  const save = async () => {
+    // An empty name gives the card back its own name.
+    await _deckSetPref(it.key, { name: input.value.trim() || null });
+    closeModal();
+    _deck.focusKey = it.key;
+    _deckReloadServers();
+  };
+  input.value = it.name;
+  input.onkeydown = (e) => { if (e.key === 'Enter') save(); };
+  document.getElementById('deck-rename-save').onclick = save;
+  setTimeout(() => { input.focus(); input.select(); }, 100);
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1087,6 +1317,7 @@ async function _deckRefreshStatus(force) {
     if (it.icon && !it.tint) it.tint = await _deckTint(it.icon);
     paint(it);
   }));
+  if (_deckBorrowIcons()) items.forEach(paint);
 }
 
 // The card's colour comes from its server icon: the average of the

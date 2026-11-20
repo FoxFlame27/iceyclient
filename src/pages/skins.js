@@ -305,7 +305,7 @@ function _infoRenderServers(searchQuery) {
   } else {
     blocks += filtered.map(s => `
       <div class="info-server-row">
-        <img class="info-server-icon" src="https://api.mcsrvstat.us/icon/${encodeURIComponent(s.address)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        <img class="info-server-icon" src="assets/server-default.png" data-server-icon="${_escAttr(s.address)}" alt="">
         <div class="info-server-text" onclick="_infoCopyServerIp('${_escAttr(s.address)}')">
           <div class="info-server-name">${_escHtml(s.name)}</div>
           <div class="info-server-ip">${_escHtml(s.address)}</div>
@@ -316,6 +316,7 @@ function _infoRenderServers(searchQuery) {
   }
 
   container.innerHTML = blocks;
+  if (typeof _fillServerIcons === 'function') _fillServerIcons(container);
 }
 
 function _infoSearchResultHtml(q, data, featured) {
@@ -328,7 +329,7 @@ function _infoSearchResultHtml(q, data, featured) {
   const isFeatured = featured.some(s => s.address.toLowerCase() === q.toLowerCase());
   return `
     <div class="info-server-row info-server-row-result">
-      <img class="info-server-icon info-server-icon-lg" src="https://api.mcsrvstat.us/icon/${encodeURIComponent(q)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <img class="info-server-icon info-server-icon-lg" src="assets/server-default.png" data-server-icon="${_escAttr(q)}" alt="">
       <div class="info-server-text" onclick="_infoCopyServerIp('${_escAttr(q)}')">
         <div class="info-server-name">${_escHtml(q)}</div>
         <div class="info-server-ip">

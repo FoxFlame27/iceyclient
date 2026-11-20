@@ -274,6 +274,7 @@
   transition: transform 0.44s cubic-bezier(0.22, 0.9, 0.24, 1),
               filter 0.32s ease, opacity 0.32s ease,
               border-color 0.32s ease, box-shadow 0.32s ease;
+  will-change: transform;
 }
 .hq-card:hover { filter: grayscale(0.5) brightness(0.92); }
 .hq-card:active { transform-origin: 50% 100%; }
@@ -566,3 +567,167 @@
   .hq.launching .launch-btn { animation: none; }
 }
 .hq .launch-btn-starting { color: #fff; opacity: 1; }
+
+/* ── Right-click menu of a server card ── */
+.hq-menu {
+  position: fixed;
+  z-index: 3000;
+  min-width: 210px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(10,15,28,0.90);
+  border: 1px solid rgba(255,255,255,0.16);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 18px 50px rgba(0,0,0,0.55);
+  animation: hqMenuIn 0.14s ease-out both;
+}
+@keyframes hqMenuIn { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }
+.hq-menu-head {
+  padding: 7px 10px 6px;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+.hq-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.12s ease;
+}
+.hq-menu-item svg { color: rgba(255,255,255,0.7); flex-shrink: 0; }
+.hq-menu-item:hover { background: rgba(255,255,255,0.10); }
+.hq-menu-item:active { transform: none; }
+.hq-menu-item.danger:hover { background: rgba(239,68,68,0.22); }
+.hq-menu-item.danger:hover svg { color: #fca5a5; }
+.hq-menu-line { height: 1px; margin: 5px 6px; background: rgba(255,255,255,0.12); }
+
+/* A pinned card carries a small pin. */
+.hq-card-pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(5,9,19,0.62);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #fff;
+}
+.hq-card.right .hq-card-pin { right: auto; left: 8px; }
+.hq-card.active:has(.hq-card-remove) .hq-card-pin { right: 34px; }
+
+/* ───────────────────────────────────────────────────────────────
+   Frost on the other pages (Installations, Mods, Info, Console,
+   Settings, Setup).
+   They stand in the same framed scene as the home page, only darker so
+   text reads, and their cards are the home page's dark glass with the
+   white hairline. Page titles are set like the player's name.
+   ─────────────────────────────────────────────────────────────── */
+:root[data-layout="frost"] #page-container::before {
+  content: '';
+  position: absolute;
+  inset: 0 8px 8px 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 18px 50px rgba(0,0,0,0.42);
+  background:
+    linear-gradient(180deg, rgba(6,12,26,0.66) 0%, rgba(5,9,19,0.80) 55%, rgba(4,7,15,0.90) 100%),
+    url('../assets/background.png') center 38% / cover no-repeat;
+}
+/* Skiflame: its artwork has the name painted in, so only the dark glass
+   of the frame is drawn and the blurred backdrop shows through. */
+:root[data-layout="frost"][data-skin="skiflame"] #page-container::before {
+  background: linear-gradient(180deg, rgba(12,8,30,0.50) 0%, rgba(8,5,20,0.72) 100%);
+}
+/* Pages scroll inside the frame, not across its rounded corners. */
+:root[data-layout="frost"] .page:not(#page-home) {
+  inset: 1px 9px 9px 1px;
+  border-radius: 21px;
+  padding: 22px 28px 26px;
+  color: #fff;
+}
+
+:root[data-layout="frost"] .options-card,
+:root[data-layout="frost"] .options-small-card,
+:root[data-layout="frost"] .options-toggle-card,
+:root[data-layout="frost"] .options-panorama-card,
+:root[data-layout="frost"] .install-card,
+:root[data-layout="frost"] .installations-detail-panel,
+:root[data-layout="frost"] .console-placeholder,
+:root[data-layout="frost"] .mods-tab-bar,
+:root[data-layout="frost"] .mod-list-item,
+:root[data-layout="frost"] .mods-dropzone-full,
+:root[data-layout="frost"] .info-middle-col,
+:root[data-layout="frost"] .info-left-col,
+:root[data-layout="frost"] .info-servers-col,
+:root[data-layout="frost"] .options-section .options-row,
+:root[data-layout="frost"] .setup-pick,
+:root[data-layout="frost"] .setup-lang {
+  background: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%), rgba(8,14,28,0.56) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(0,0,0,0.30) !important;
+}
+:root[data-layout="frost"] .options-section .options-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+:root[data-layout="frost"] .install-card:hover,
+:root[data-layout="frost"] .options-toggle-card:hover,
+:root[data-layout="frost"] .options-small-card:hover,
+:root[data-layout="frost"] .options-panorama-card:hover,
+:root[data-layout="frost"] .mod-list-item:hover,
+:root[data-layout="frost"] .options-section .options-row:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%), rgba(8,14,28,0.56) !important;
+  border-color: rgba(255,255,255,0.30) !important;
+}
+/* What is chosen is framed in black, as on the home page's cards. */
+:root[data-layout="frost"] .install-card.selected,
+:root[data-layout="frost"] .setup-pick.selected,
+:root[data-layout="frost"] .setup-lang.selected {
+  border-color: #000 !important;
+  box-shadow: 0 0 0 2px #000, inset 0 1px 0 rgba(255,255,255,0.2), 0 12px 34px rgba(var(--accent-rgb),0.28) !important;
+}
+:root[data-layout="frost"] .console-output {
+  background: rgba(4,7,15,0.72) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+}
+
+:root[data-layout="frost"] .installations-title,
+:root[data-layout="frost"] .mods-browse-title,
+:root[data-layout="frost"] .mods-guard-title,
+:root[data-layout="frost"] .options-v2-title,
+:root[data-layout="frost"] .setup-title,
+:root[data-layout="frost"] .console-title,
+:root[data-layout="frost"] .info-title {
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.2em !important;
+  text-transform: uppercase;
+  color: #fff !important;
+  background: none !important;
+  -webkit-text-fill-color: #fff !important;
+  text-shadow: 0 3px 22px rgba(0,0,0,0.7);
+}
