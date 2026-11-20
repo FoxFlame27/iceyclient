@@ -258,7 +258,9 @@ jobs:
 
   build-linux-arm64:
     needs: [build-mod, build-scroll, build-smp]
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04 (Nov 2026), whose rpmbuild fails
+    # on the spec file that electron-builder's bundled fpm 1.9.3 writes.
+    runs-on: ubuntu-24.04
     # Bail fast instead of hanging at the default 6-hour timeout. Cold
     # arm64-electron build is ~6 min; 20 minutes is generous.
     timeout-minutes: 20
