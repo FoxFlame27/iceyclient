@@ -760,7 +760,7 @@ function _mergeFabricLibsIntoClasspath(cpParts, fabricLibs) {
     }
 }
 
-function launchMinecraft(installationId) {
+function launchMinecraft(installationId, opts = {}) {
   return new Promise(async (resolve, reject) => {
     try {
     log('info', '[LAUNCH] Starting launch for: ' + installationId);
@@ -1613,6 +1613,18 @@ function launchMinecraft(installationId) {
     args.push('--accessToken', launchToken);
     args.push('--userType', launchUserType);
 
+    // Home page server cards: start the game straight into that server.
+    const joinTarget = _parseServerAddress(opts && opts.server);
+    if (joinTarget) {
+      if (_supportsQuickPlay(installation.version)) {
+        args.push('--quickPlayMultiplayer', joinTarget.host + ':' + joinTarget.port);
+      } else {
+        args.push('--server', joinTarget.host, '--port', String(joinTarget.port));
+      }
+      _recordRecentServer(joinTarget.host, joinTarget.port);
+      log('info', '[LAUNCH] Joining server ' + joinTarget.host + ':' + joinTarget.port);
+    }
+
     log('info', `Launching MC directly: java ${version} (${cpParts.length} libs, main: ${mainClass})`);
 
     if (mainWindow) {
@@ -1763,7 +1775,386 @@ const _diagInflight = new Set();
 
 function _noteConnectTarget(launchId, text) {
   const m = text.match(/Connecting to ([^\s,]+), (\d+)/);
-  if (m) _lastConnectTarget.set(launchId, { host: m[1], port: parseInt(m[2], 10), at: Date.now() });
+  if (m) {
+    _lastConnectTarget.set(launchId, { host: m[1], port: parseInt(m[2], 10), at: Date.now() });
+    try { _recordRecentServer(m[1], parseInt(m[2], 10)); } catch (_) {}
+  }
+}
+
+// ── Servers the player has been on (home page cards) ──
+// Every "Connecting to <host>, <port>" the game prints is remembered with
+// the time, and the multiplayer lists (servers.dat) of all installations
+// supply the names and icons.
+const RECENT_SERVERS_FILE = path.join(DATA_DIR, 'recent-servers.json');
+
+function _parseServerAddress(address) {
+  const m = String(address || '').trim().match(/^([A-Za-z0-9._-]{1,253})(?::(\d{1,5}))?$/);
+  if (!m) return null;
+  const port = m[2] ? parseInt(m[2], 10) : 25565;
+  if (port < 1 || port > 65535) return null;
+  return { host: m[1], port };
+}
+
+function _serverKey(host, port) {
+  const h = String(host || '').toLowerCase().replace(/\.$/, '');
+  return port && port !== 25565 ? h + ':' + port : h;
+}
+
+// --quickPlayMultiplayer arrived in 1.20; older versions take --server/--port.
+function _supportsQuickPlay(version) {
+  const m = String(version || '').match(/^1\.(\d+)/);
+  return m ? parseInt(m[1], 10) >= 20 : true;
+}
+
+function _isLocalHost(host) {
+  return /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.0\.0\.0|\[?::1)/i.test(host);
+}
+
+// First run of this feature: the game's own logs already say where the
+// player has been ("Connecting to <host>, <port>"), so the list starts
+// with their real history instead of empty.
+function _seedRecentServersFromLogs() {
+  const seen = new Map(); // address → last time
+  let installations = [];
+  try { installations = readInstallations(); } catch (_) {}
+  for (const inst of installations) {
+    const dir = path.join(getInstallGameDir(inst.id), 'logs');
+    let files = [];
+    try {
+      files = fs.readdirSync(dir).filter(f => /\.log(\.gz)?$/.test(f)).map(f => {
+        const st = fs.statSync(path.join(dir, f));
+        return { file: path.join(dir, f), at: st.mtimeMs, size: st.size };
+      }).sort((x, y) => y.at - x.at).slice(0, 40);
+    } catch (_) { continue; }
+    for (const f of files) {
+      if (f.size > 6 * 1024 * 1024) continue;
+      let text = '';
+      try {
+        const raw = fs.readFileSync(f.file);
+        text = (f.file.endsWith('.gz') ? require('zlib').gunzipSync(raw) : raw).toString('utf8');
+      } catch (_) { continue; }
+      const re = /Connecting to ([^\s,]+), (\d+)/g;
+      let m;
+      while ((m = re.exec(text))) {
+        if (_isLocalHost(m[1]) || !_parseServerAddress(m[1])) continue;
+        const address = _serverKey(m[1], parseInt(m[2], 10));
+        const at = f.at - 600000 + Math.min(599999, m.index / 50);   // later in the file = more recent
+        if (!(seen.get(address) >= at)) seen.set(address, at);
+      }
+    }
+  }
+  return Array.from(seen, ([address, lastPlayed]) => ({ address, lastPlayed: Math.round(lastPlayed) }))
+    .sort((x, y) => y.lastPlayed - x.lastPlayed).slice(0, 40);
+}
+
+function _readRecentServers() {
+  if (!fs.existsSync(RECENT_SERVERS_FILE)) {
+    let seeded = [];
+    try { seeded = _seedRecentServersFromLogs(); } catch (e) { log('warn', 'recent servers seed failed: ' + e.message); }
+    _writeJsonSafe(RECENT_SERVERS_FILE, seeded);
+    return seeded;
+  }
+  const list = _readJsonSafe(RECENT_SERVERS_FILE);
+  return Array.isArray(list) ? list.filter(e => e && typeof e.address === 'string') : [];
+}
+
+function _recordRecentServer(host, port) {
+  if (!host || _isLocalHost(host)) return;
+  const address = _serverKey(host, port);
+  const list = _readRecentServers().filter(e => e.address !== address);
+  list.unshift({ address, lastPlayed: Date.now() });
+  _writeJsonSafe(RECENT_SERVERS_FILE, list.slice(0, 40));
+}
+
+// servers.dat is uncompressed NBT: { servers: [ { name, ip, icon? } ] }.
+function _readServersDat(file) {
+  let buf;
+  try { buf = fs.readFileSync(file); } catch (_) { return []; }
+  try {
+    if (buf[0] === 0x1f && buf[1] === 0x8b) buf = require('zlib').gunzipSync(buf);
+    let o = 0;
+    const str = () => { const n = buf.readUInt16BE(o); o += 2; const v = buf.toString('utf8', o, o + n); o += n; return v; };
+    const payload = (t) => {
+      switch (t) {
+        case 1: o += 1; return buf.readInt8(o - 1);
+        case 2: o += 2; return buf.readInt16BE(o - 2);
+        case 3: o += 4; return buf.readInt32BE(o - 4);
+        case 4: o += 8; return 0;
+        case 5: o += 4; return 0;
+        case 6: o += 8; return 0;
+        case 7: { const n = buf.readInt32BE(o); o += 4 + n; return null; }
+        case 8: return str();
+        case 9: {
+          const et = buf.readUInt8(o); o += 1;
+          const n = buf.readInt32BE(o); o += 4;
+          const a = [];
+          for (let i = 0; i < n; i++) a.push(payload(et));
+          return a;
+        }
+        case 10: {
+          const obj = {};
+          for (;;) {
+            const tt = buf.readUInt8(o); o += 1;
+            if (tt === 0) break;
+            const k = str();
+            obj[k] = payload(tt);
+          }
+          return obj;
+        }
+        case 11: { const n = buf.readInt32BE(o); o += 4 + n * 4; return null; }
+        case 12: { const n = buf.readInt32BE(o); o += 4 + n * 8; return null; }
+        default: throw new Error('bad tag ' + t);
+      }
+    };
+    if (buf.readUInt8(o) !== 10) return [];
+    o += 1; str();
+    const root = payload(10);
+    return (Array.isArray(root.servers) ? root.servers : [])
+      .filter(e => e && typeof e.ip === 'string' && e.ip.trim())
+      .map(e => ({
+        name: typeof e.name === 'string' ? e.name : '',
+        address: e.ip.trim(),
+        icon: typeof e.icon === 'string' && e.icon.length < 60000 ? 'data:image/png;base64,' + e.icon.replace(/\s+/g, '') : null
+      }));
+  } catch (e) {
+    log('warn', 'servers.dat unreadable (' + file + '): ' + e.message);
+    return [];
+  }
+}
+
+// Played servers first (newest on top), then the rest of the saved lists.
+function _listKnownServers() {
+  const byKey = new Map();
+  for (const r of _readRecentServers()) {
+    const t = _parseServerAddress(r.address);
+    if (!t) continue;
+    byKey.set(_serverKey(t.host, t.port), { address: r.address, name: '', icon: null, lastPlayed: r.lastPlayed || 0 });
+  }
+  let installations = [];
+  try { installations = readInstallations(); } catch (_) {}
+  for (const inst of installations) {
+    for (const e of _readServersDat(path.join(getInstallGameDir(inst.id), 'servers.dat'))) {
+      const t = _parseServerAddress(e.address);
+      if (!t || _isLocalHost(t.host)) continue;
+      const key = _serverKey(t.host, t.port);
+      const have = byKey.get(key);
+      if (have) {
+        if (!have.name && e.name) have.name = e.name;
+        if (!have.icon && e.icon) have.icon = e.icon;
+      } else {
+        byKey.set(key, { address: key, name: e.name, icon: e.icon, lastPlayed: 0, saved: true });
+      }
+      byKey.get(key).saved = true;
+    }
+  }
+  // Networks hand players on to regional hosts (naw.example.com,
+  // fra.example.com, ...), and each hop is logged. One card per network:
+  // the ones in the multiplayer list if there are any, else the newest.
+  const groups = new Map();
+  for (const e of byKey.values()) {
+    const g = _serverGroup(e.address);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(e);
+  }
+  const out = [];
+  for (const list of groups.values()) {
+    list.sort((a, b) => b.lastPlayed - a.lastPlayed);
+    const saved = list.filter(e => e.saved);
+    if (saved.length) { saved[0].lastPlayed = list[0].lastPlayed; out.push(...saved); }
+    else out.push(list[0]);
+  }
+  const icons = _serverIcons();
+  return out.sort((a, b) => b.lastPlayed - a.lastPlayed).slice(0, 24)
+    .map(({ address, name, icon, lastPlayed }) => ({
+      address, name, lastPlayed,
+      icon: icon || icons[address] || icons[_serverGroup(address)] || null,
+    }));
+}
+
+// ── Asking a server for its status ourselves ──
+// The same "server list ping" the game's multiplayer screen sends: it
+// returns the player count and the server's icon. Icons are kept on disk,
+// so a card still has its picture when the server is down or the player
+// is offline.
+const SERVER_ICONS_FILE = path.join(DATA_DIR, 'server-icons.json');
+let _serverIconCache = null;
+function _serverIcons() {
+  if (!_serverIconCache) {
+    const o = _readJsonSafe(SERVER_ICONS_FILE);
+    _serverIconCache = o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+  }
+  return _serverIconCache;
+}
+function _rememberServerIcon(key, icon) {
+  const cache = _serverIcons();
+  if (cache[key] === icon) return;
+  cache[key] = icon;
+  const keys = Object.keys(cache);
+  if (keys.length > 80) delete cache[keys[0]];
+  _writeJsonSafe(SERVER_ICONS_FILE, cache);
+}
+
+function _mcVarInt(n) {
+  const out = [];
+  n >>>= 0;
+  do { let b = n & 0x7f; n >>>= 7; if (n) b |= 0x80; out.push(b); } while (n);
+  return Buffer.from(out);
+}
+function _mcReadVarInt(buf, at) {
+  let v = 0, shift = 0, i = at;
+  for (;;) {
+    if (i >= buf.length) return null;              // not all here yet
+    const b = buf[i++];
+    v |= (b & 0x7f) << shift;
+    if (!(b & 0x80)) return { value: v >>> 0, next: i };
+    shift += 7;
+    if (shift > 35) throw new Error('bad varint');
+  }
+}
+
+async function _mcResolve(host, port) {
+  // Most networks publish their real host and port in a SRV record.
+  if (port === 25565 && !/^[\d.]+$/.test(host)) {
+    try {
+      const recs = await require('dns').promises.resolveSrv('_minecraft._tcp.' + host);
+      if (recs && recs.length) return { host: recs[0].name, port: recs[0].port };
+    } catch (_) {}
+  }
+  return { host, port };
+}
+
+function _mcPingOnce(target, host, port, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const net = require('net');
+    let done = false, buf = Buffer.alloc(0);
+    const finish = (err, val) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      sock.destroy();
+      err ? reject(err) : resolve(val);
+    };
+    const timer = setTimeout(() => finish(new Error('timeout')), timeoutMs);
+    const sock = net.connect({ host: target.host, port: target.port });
+    sock.on('error', (e) => finish(e));
+    sock.on('connect', () => {
+      const hostBytes = Buffer.from(host, 'utf8');
+      const portBytes = Buffer.alloc(2); portBytes.writeUInt16BE(port);
+      // Handshake (protocol -1 = "just asking"), next state 1 = status.
+      const body = Buffer.concat([_mcVarInt(0x00), _mcVarInt(-1), _mcVarInt(hostBytes.length), hostBytes, portBytes, _mcVarInt(1)]);
+      sock.write(Buffer.concat([_mcVarInt(body.length), body, Buffer.from([0x01, 0x00])]));
+    });
+    sock.on('data', (chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      if (buf.length > 2 * 1024 * 1024) return finish(new Error('response too large'));
+      try {
+        const len = _mcReadVarInt(buf, 0);
+        if (!len || buf.length < len.next + len.value) return;
+        const id = _mcReadVarInt(buf, len.next);
+        const strLen = _mcReadVarInt(buf, id.next);
+        finish(null, JSON.parse(buf.toString('utf8', strLen.next, strLen.next + strLen.value)));
+      } catch (e) { finish(e); }
+    });
+  });
+}
+
+let _pingRunning = 0;
+const _pingWaiting = [];
+function _pingQueue(job) {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      _pingRunning++;
+      job().then(resolve, reject).finally(() => {
+        _pingRunning--;
+        const next = _pingWaiting.shift();
+        if (next) next();
+      });
+    };
+    if (_pingRunning < 4) run(); else _pingWaiting.push(run);
+  });
+}
+
+// { online, players, max, icon } for one address; icon may come from the
+// disk cache or, for a regional or verification host of a network
+// (eu.example.net), from the network's main address.
+async function _pingServer(address) {
+  const t = _parseServerAddress(address);
+  if (!t) return null;
+  const key = _serverKey(t.host, t.port);
+  // A few at a time, and a second try: a burst of pings at once loses some.
+  const ask = (host, port) => _pingQueue(async () => {
+    const target = await _mcResolve(host, port);
+    try { return await _mcPingOnce(target, host, port, 4000); }
+    catch (_) { return await _mcPingOnce(target, host, port, 6000); }
+  });
+  const out = { online: false, players: 0, max: 0, icon: null };
+  try {
+    const st = await ask(t.host, t.port);
+    out.online = true;
+    out.players = Number(st?.players?.online) || 0;
+    out.max = Number(st?.players?.max) || 0;
+    if (typeof st?.favicon === 'string' && st.favicon.startsWith('data:image/png;base64,') && st.favicon.length < 90000) {
+      out.icon = st.favicon.replace(/\s+/g, '');
+      _rememberServerIcon(key, out.icon);
+    }
+  } catch (_) {}
+  if (!out.icon) out.icon = _serverIcons()[key] || null;
+  if (!out.icon) {
+    const base = _serverGroup(key);
+    if (base !== key) {
+      out.icon = _serverIcons()[base] || null;
+      if (!out.icon) {
+        try {
+          const st = await ask(base, 25565);
+          if (typeof st?.favicon === 'string' && st.favicon.startsWith('data:image/png;base64,') && st.favicon.length < 90000) {
+            out.icon = st.favicon.replace(/\s+/g, '');
+            _rememberServerIcon(base, out.icon);
+          }
+        } catch (_) {}
+      }
+    }
+  }
+  return out;
+}
+
+// Hosting domains where every subdomain is somebody else's server.
+const _SHARED_HOSTS = /(^|\.)(mc\.gg|minehut\.gg|modrinth\.gg|aternos\.me|exaroton\.me|falixsrv\.me|ploudos\.me|feathermc\.gg|play\.hosting|joinmc\.link|progamer\.me|mcserver\.us)$/;
+function _serverGroup(address) {
+  const host = String(address).replace(/:\d+$/, '');
+  if (/^[\d.]+$/.test(host) || _SHARED_HOSTS.test(host)) return address;
+  return host.split('.').slice(-2).join('.');
+}
+
+// The active player's skin as a data URL, for the animated model on the
+// home page (a data URL keeps WebGL clear of cross-origin rules).
+const _skinTextureCache = new Map(); // lowercase name → { at, value }
+const STEVE_TEXTURE = 'https://textures.minecraft.net/texture/31f477eb1a7beee631c2ca64d06f8f68fa93a3386d04452ab27f43acdf1b60cb';
+
+async function _fetchSkinTexture(username) {
+  const name = String(username || '').trim();
+  const key = name.toLowerCase();
+  const hit = _skinTextureCache.get(key);
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.value;
+  let skinUrl = null, slim = false;
+  if (/^[A-Za-z0-9_]{1,16}$/.test(name)) {
+    try {
+      const profile = await httpGet('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name));
+      if (profile && profile.id) {
+        const sess = await httpGet('https://sessionserver.mojang.com/session/minecraft/profile/' + profile.id);
+        const prop = sess && sess.properties && sess.properties.find(p => p.name === 'textures');
+        if (prop) {
+          const skin = JSON.parse(Buffer.from(prop.value, 'base64').toString('utf8')).textures?.SKIN;
+          if (skin && skin.url) { skinUrl = skin.url.replace(/^http:/, 'https:'); slim = skin.metadata?.model === 'slim'; }
+        }
+      }
+    } catch (_) {}
+  }
+  const res = await fetch(skinUrl || STEVE_TEXTURE);
+  if (!res.ok) throw new Error('skin download failed: ' + res.status);
+  const bytes = Buffer.from(await res.arrayBuffer());
+  const value = { dataUrl: 'data:image/png;base64,' + bytes.toString('base64'), slim, isDefault: !skinUrl };
+  _skinTextureCache.set(key, { at: Date.now(), value });
+  return value;
 }
 
 function _looksLikeConnectFailure(text) {
@@ -4044,9 +4435,19 @@ app.whenReady().then(() => {
   ipcMain.on('window-close', (e) => { const w = senderWindow(e); if (w) w.close(); });
 
   // Minecraft
-  ipcMain.handle('launch-mc', async (_, installationId) => {
+  ipcMain.handle('get-known-servers', () => {
+    try { return _listKnownServers(); } catch (e) { log('warn', 'get-known-servers: ' + e.message); return []; }
+  });
+  ipcMain.handle('ping-server', async (_, address) => {
+    try { return await _pingServer(address); } catch (e) { return null; }
+  });
+  ipcMain.handle('get-skin-texture', async (_, username) => {
+    try { return await _fetchSkinTexture(username); } catch (e) { return { error: e.message }; }
+  });
+
+  ipcMain.handle('launch-mc', async (_, installationId, opts) => {
     try {
-      return await launchMinecraft(installationId);
+      return await launchMinecraft(installationId, opts || {});
     } catch (e) {
       return { error: e.message };
     }

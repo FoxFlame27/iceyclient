@@ -42,7 +42,7 @@ async function _renderMainOptions(page, settings) {
   // Layout theme: 'classic' (sidebar left) or 'liquid' (bottom nav +
   // 4-button home). The default is 'classic' so existing users don't
   // get a surprise UI rearrangement on first launch after upgrading.
-  const layoutTheme = settings.layoutTheme === 'liquid' ? 'liquid' : 'classic';
+  const layoutTheme = ['liquid', 'frost'].includes(settings.layoutTheme) ? settings.layoutTheme : 'classic';
   // Accent color — promoted out of Advanced Settings → Appearance so
   // it lives alongside Health Indicators / Close on Launch in the
   // main toggle row grid.
@@ -123,15 +123,14 @@ async function _renderMainOptions(page, settings) {
 
     appearance: `
       <div class="options-toggle-row">
-        <div class="options-toggle-card ${layoutTheme === 'liquid' ? 'on' : 'off'}" onclick="_optSetLayoutTheme('${layoutTheme === 'liquid' ? 'classic' : 'liquid'}')">
+        <div class="options-toggle-card on">
           <div class="options-toggle-body">
-            <div class="options-toggle-name">Liquid Theme</div>
-            <div class="options-toggle-desc">${layoutTheme === 'liquid' ? 'On: bottom bar' : 'Off: Classic, side bar'}</div>
+            <div class="options-toggle-name">Layout Theme</div>
+            <div class="options-toggle-desc">How the launcher is laid out</div>
           </div>
-          <label class="toggle" onclick="event.stopPropagation();">
-            <input type="checkbox" ${layoutTheme === 'liquid' ? 'checked' : ''} onchange="_optSetLayoutTheme(this.checked ? 'liquid' : 'classic')">
-            <span class="toggle-slider"></span>
-          </label>
+          <select class="options-select" data-no-i18n onclick="event.stopPropagation();" onchange="_optSetLayoutTheme(this.value)">
+            ${[['classic', 'Classic'], ['liquid', 'Liquid'], ['frost', 'Frost']].map(([v, n]) => `<option value="${v}" ${v === layoutTheme ? 'selected' : ''}>${n}</option>`).join('')}
+          </select>
         </div>
         <div class="options-toggle-card options-accent-card on">
           <div class="options-toggle-body">
@@ -332,9 +331,9 @@ async function _optToggleFeature(key, value) {
 // <html> so the CSS swap is instant — we just re-render Home and the
 // settings page so any home-specific markup picks up the change.
 async function _optSetLayoutTheme(value) {
-  const next = value === 'liquid' ? 'liquid' : 'classic';
+  const next = ['liquid', 'frost'].includes(value) ? value : 'classic';
   await SettingsManager.set('layoutTheme', next);
-  Toast.info(next === 'liquid' ? 'Liquid theme on' : 'Classic theme on');
+  Toast.info(next === 'liquid' ? 'Liquid theme on' : next === 'frost' ? 'Frost theme on' : 'Classic theme on');
   if (typeof HomePageInit === 'function') HomePageInit().catch(() => {});
   _optionsRender();
 }

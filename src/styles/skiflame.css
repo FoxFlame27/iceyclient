@@ -1,0 +1,94 @@
+/* ───────────────────────────────────────────────────────────────
+   Skiflame (the secret mode), for every layout theme.
+
+   The Skiflame artwork has the name painted into it, so shown sharp it
+   ran through whatever stood on top: the skin, the buttons, the cards.
+   Here it is the same soft backdrop the normal look uses (its sunset
+   and blue fire still colour the window), and the name appears once,
+   as the real logo: in the top bar and over the home page. The launch
+   button takes the logo's blue-to-violet, and the accent follows
+   (SettingsManager._applyAccent) unless the player chose their own.
+
+   Loaded last.
+   ─────────────────────────────────────────────────────────────── */
+
+/* ── Backdrop ── */
+:root[data-skin="skiflame"] body::before {
+  inset: -30px;
+  background-image: url('../assets/skiflame-bg.jpg');
+  background-position: center 45%;
+  filter: blur(16px) saturate(135%);
+}
+:root[data-skin="skiflame"] body::after {
+  background:
+    radial-gradient(120% 90% at 50% 40%, rgba(12,9,30,0.40) 0%, rgba(7,5,18,0.86) 82%);
+}
+
+/* ── The logo in the top bar, in place of the icon and the typed name ── */
+:root[data-skin="skiflame"] .titlebar-logo {
+  content: url('../assets/skiflame-logo.png');
+  width: auto !important;
+  height: 40px !important;
+  margin: 0 -4px;
+  border-radius: 0 !important;
+  image-rendering: auto !important;
+  filter: drop-shadow(0 2px 10px rgba(110,110,255,0.55));
+}
+:root[data-skin="skiflame"][data-layout="frost"] .titlebar-logo { height: 52px !important; }
+:root[data-skin="skiflame"] .titlebar-title { display: none; }
+
+/* ── The logo over the player's name (Classic and Frost home) ── */
+:root[data-skin="skiflame"] .hg-identity::before {
+  content: '';
+  width: clamp(210px, 25vw, 330px);
+  aspect-ratio: 3 / 1;
+  margin-bottom: -6px;
+  background: url('../assets/skiflame-logo.png') center / contain no-repeat;
+  filter: drop-shadow(0 10px 28px rgba(96,96,255,0.55));
+  animation: skiflameFloat 6s ease-in-out infinite;
+}
+:root[data-skin="skiflame"] .hq .hg-identity::before { width: clamp(170px, 18vw, 240px); }
+:root[data-skin="skiflame"] .hg-name { font-size: clamp(17px, 1.7vw, 23px); letter-spacing: 0.3em; opacity: 0.92; }
+@keyframes skiflameFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+/* Liquid home: the logo where the Icey mark stands. */
+.home-skiflame-logo {
+  width: clamp(260px, 34vw, 520px);
+  filter: drop-shadow(0 16px 44px rgba(96,96,255,0.55)) drop-shadow(0 0 90px rgba(150,90,255,0.25));
+}
+
+/* ── Launch button: the logo's fire, cyan through violet ── */
+:root[data-skin="skiflame"] .launch-btn-idle {
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0) 58%),
+    linear-gradient(100deg, #1fa2ff 0%, #5d6dff 50%, #a24bff 100%);
+  border-color: rgba(255,255,255,0.42);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5),
+              0 14px 46px rgba(104,96,255,0.50),
+              0 6px 18px rgba(0,0,0,0.4);
+}
+:root[data-skin="skiflame"] .launch-btn-idle:hover {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0) 58%),
+    linear-gradient(100deg, #37b0ff 0%, #7180ff 50%, #b463ff 100%);
+  border-color: rgba(255,255,255,0.6);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6),
+              0 18px 60px rgba(120,100,255,0.62),
+              0 6px 18px rgba(0,0,0,0.4);
+}
+:root[data-skin="skiflame"] .launch-btn-idle .launch-btn-title { text-shadow: 0 1px 8px rgba(20,10,60,0.55); }
+:root[data-skin="skiflame"] .launch-btn-idle .launch-btn-dot { background: #fff; opacity: 0.9; }
+
+/* ── Frost scene: the artwork a little clearer than the backdrop, the
+      painted name still out of focus behind the skin ── */
+:root[data-skin="skiflame"] .hq-scene-img {
+  background-position: center 45%;
+  filter: blur(8px) saturate(130%) brightness(0.92);
+}
+:root[data-skin="skiflame"] .hq.launching .hq-scene-img { filter: blur(11px) saturate(150%) brightness(1.1); }
+:root[data-skin="skiflame"] .hq-scene-shade {
+  background:
+    radial-gradient(62% 52% at 50% 38%, rgba(12,8,30,0) 0%, rgba(12,8,30,0.46) 100%),
+    linear-gradient(180deg, rgba(12,8,30,0.55) 0%, rgba(12,8,30,0.12) 26%, rgba(12,8,30,0.22) 44%, rgba(8,5,20,0.82) 68%, rgba(6,4,16,0.95) 100%);
+}

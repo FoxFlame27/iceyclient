@@ -1,0 +1,568 @@
+/* ───────────────────────────────────────────────────────────────
+   Classic home: the scene and the card deck.
+
+   The wallpaper is shown sharp here (everywhere else it is the blurred
+   backdrop), framed like a window into the world, with snow falling in
+   front of it. On it: the player's name, the animated skin, the launch
+   button, and a row of glass cards with the chosen one in front.
+
+   Everything sits on dark imagery, so text is white in both themes.
+   Loaded after glass.css.
+   ─────────────────────────────────────────────────────────────── */
+
+.home-glass.hq {
+  --hq-ch: clamp(150px, 25vh, 214px);          /* card height */
+  --hq-cw: calc(var(--hq-ch) * 0.74);          /* card width */
+  --tint: var(--accent-rgb);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  grid-template-columns: none;
+  gap: 0;
+  padding: 0 8px 8px 0;
+  color: #fff;
+  isolation: isolate;
+}
+
+/* ── Scene ── */
+.hq-scene {
+  position: absolute;
+  inset: 0 8px 8px 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 18px 50px rgba(0,0,0,0.42);
+  background: #0a1220;
+}
+.hq-scene-img {
+  position: absolute;
+  inset: -4%;
+  background: url('../assets/background.png') center 38% / cover no-repeat;
+  animation: hqDrift 48s ease-in-out infinite alternate;
+  will-change: transform;
+}
+:root[data-skin="skiflame"] .hq-scene-img { background-image: url('../assets/skiflame-bg.jpg'); }
+@keyframes hqDrift {
+  from { transform: translate3d(-1.6%, -0.8%, 0) scale(1.02); }
+  to   { transform: translate3d(1.6%, 0.8%, 0) scale(1.07); }
+}
+.hq-snow { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Dusk over the top, night under the cards. */
+.hq-scene-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(62% 52% at 50% 38%, rgba(6,12,26,0) 0%, rgba(6,12,26,0.50) 100%),
+    linear-gradient(180deg, rgba(6,12,26,0.58) 0%, rgba(6,12,26,0.16) 26%, rgba(6,12,26,0.22) 44%, rgba(5,9,19,0.80) 68%, rgba(4,7,15,0.95) 100%);
+}
+@media (prefers-reduced-motion: reduce) { .hq-scene-img { animation: none; } }
+
+/* ── Name ── */
+.hq .hg-identity { margin-top: clamp(10px, 2.4vh, 24px); flex-shrink: 0; z-index: 2; }
+.hq .hg-identity:hover { background: rgba(255,255,255,0.08); }
+.hq .hg-name { color: #fff; text-shadow: 0 3px 22px rgba(0,0,0,0.75), 0 1px 2px rgba(0,0,0,0.5); }
+.hq .hg-tag {
+  color: rgba(255,255,255,0.86);
+  background: rgba(8,14,28,0.46);
+  border-color: rgba(255,255,255,0.18);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+}
+
+/* Playtime: a glass chip in the corner of the scene. */
+.hq .home-timer {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  z-index: 3;
+  display: none;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 13px;
+  background: rgba(8,14,28,0.5);
+  border: 1px solid rgba(255,255,255,0.16);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.hq .home-timer.visible { display: flex; }
+.hq .home-timer-label { color: rgba(255,255,255,0.6); }
+
+/* ── Skin ── */
+.hq-skin {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 120px;
+  width: min(100%, 560px);
+  margin-top: -10px;
+}
+.hq-skin-glow {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: min(460px, 60vh);
+  height: min(460px, 60vh);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(var(--accent-rgb),0.26), rgba(var(--accent-rgb),0.07) 55%, transparent 100%);
+  pointer-events: none;
+}
+.hq-skin-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: grab;
+  filter: drop-shadow(0 22px 30px rgba(0,0,0,0.55));
+  transition: opacity 0.45s ease;
+  outline: none;
+}
+.hq-skin-canvas:active { cursor: grabbing; }
+.hq-skin-canvas.shown { opacity: 1; }
+.hq-skin-img {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  height: 100%;
+  transform: translateX(-50%);
+  object-fit: contain;
+  display: none;
+  pointer-events: none;
+  filter: drop-shadow(0 22px 30px rgba(0,0,0,0.55));
+}
+.hq-skin-img.shown { display: block; }
+
+/* ── Launch button: over the feet, so the skin stands behind the glass ── */
+.hq-launch-row {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-shrink: 0;
+  margin-top: -26px;
+}
+.hq-launch-row .launch-btn {
+  height: 66px;
+  min-width: 340px;
+  max-width: min(560px, 70vw);
+  padding: 0 52px;
+}
+.hq-launch-row .launch-btn-subtitle { max-width: 100%; white-space: nowrap; overflow: hidden; }
+.hq-launch-row .launch-btn-subtitle > span:not(.launch-btn-dot) { overflow: hidden; text-overflow: ellipsis; }
+.launch-btn-sep { opacity: 0.55; flex-shrink: 0; }
+
+/* ── Servers | Installations ── */
+.hq-switch-row {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: clamp(10px, 1.8vh, 16px);
+}
+.hq-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(8,14,28,0.52);
+  border: 1px solid rgba(255,255,255,0.16);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(0,0,0,0.30);
+}
+.hq-switch-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.10) 100%);
+  border: 1px solid rgba(255,255,255,0.26);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 12px rgba(0,0,0,0.25);
+  transition: transform 0.32s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+.hq-switch[data-mode="installations"] .hq-switch-thumb { transform: translateX(100%); }
+.hq-switch-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 148px;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.62);
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+.hq-switch-btn:hover { color: #fff; }
+.hq-switch-btn:active { transform: none; }
+.hq-switch[data-mode="servers"] .hq-switch-btn[data-mode="servers"],
+.hq-switch[data-mode="installations"] .hq-switch-btn[data-mode="installations"] { color: #fff; }
+.hq-switch[data-mode="servers"] .hq-switch-btn[data-mode="servers"] svg,
+.hq-switch[data-mode="installations"] .hq-switch-btn[data-mode="installations"] svg { color: rgb(var(--accent-rgb)); }
+
+.hq-add,
+.hq-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(8,14,28,0.52);
+  border: 1px solid rgba(255,255,255,0.16);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 24px rgba(0,0,0,0.30);
+  transition: background 0.18s ease, border-color 0.18s ease, opacity 0.2s ease, transform 0.18s ease;
+}
+.hq-add { width: 42px; height: 42px; border-radius: 14px; }
+.hq-add:hover,
+.hq-arrow:hover { background: rgba(var(--accent-rgb),0.24); border-color: rgba(var(--accent-rgb),0.6); }
+
+/* ── Deck ── */
+.hq-deck {
+  position: relative;
+  z-index: 3;
+  flex-shrink: 0;
+  width: 100%;
+  height: calc(var(--hq-ch) + 30px);
+  margin-top: 4px;
+}
+.hq-track { position: absolute; inset: 0; }
+.hq-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 50%;
+}
+.hq-arrow-left { left: clamp(14px, 4vw, 56px); }
+.hq-arrow-right { right: clamp(22px, 4vw, 64px); }
+.hq-arrow:active { transform: scale(0.94); }
+.hq-deck.at-start .hq-arrow-left,
+.hq-deck.at-end .hq-arrow-right { opacity: 0.3; pointer-events: none; }
+
+.hq-card {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  width: var(--hq-cw);
+  height: var(--hq-ch);
+  margin-left: calc(var(--hq-cw) / -2);
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  text-align: left;
+  color: #fff;
+  background: #0d1424;
+  border: 1px solid rgba(255,255,255,0.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 12px 26px rgba(0,0,0,0.5);
+  transform-origin: 50% 100%;
+  filter: grayscale(1) brightness(var(--dim, 0.7));
+  transition: transform 0.44s cubic-bezier(0.22, 0.9, 0.24, 1),
+              filter 0.32s ease, opacity 0.32s ease,
+              border-color 0.32s ease, box-shadow 0.32s ease;
+}
+.hq-card:hover { filter: grayscale(0.5) brightness(0.92); }
+.hq-card:active { transform-origin: 50% 100%; }
+.hq-card.active {
+  filter: none;
+  /* The chosen card is framed in black. */
+  border-color: #000;
+  box-shadow: 0 0 0 2px #000,
+              inset 0 1px 0 rgba(255,255,255,0.34),
+              0 16px 46px rgba(var(--tint),0.30),
+              0 14px 28px rgba(0,0,0,0.55);
+}
+.hq-card:focus-visible { outline: 2px solid rgba(255,255,255,0.8); outline-offset: 2px; }
+
+.hq-card-art {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+/* A server card is tinted glass: its own icon, blown up and blurred,
+   with the icon itself on top. */
+.hq-card-server .hq-card-art {
+  inset: -28%;
+  filter: blur(16px) saturate(170%) brightness(0.86);
+}
+/* The icon is drawn at exactly its own 64 pixels: any other size smears
+   or staggers the pixels, which is what made it look bad. */
+.hq-card-icon {
+  position: absolute;
+  left: 50%;
+  top: 37%;
+  z-index: 2;
+  width: 64px;
+  height: 64px;
+  transform: translate(-50%, -50%);
+  border-radius: 10px;
+  image-rendering: pixelated;
+  background: rgba(5,9,19,0.35);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.18);
+  -webkit-user-drag: none;
+}
+/* An installation card is its picture. */
+.hq-card-inst::before {
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.03) 26%, rgba(255,255,255,0) 44%),
+    linear-gradient(180deg, rgba(5,9,19,0) 34%, rgba(5,9,19,0.88) 100%) !important;
+}
+/* Shine along the top, shade for the label at the bottom. */
+.hq-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.04) 26%, rgba(255,255,255,0) 44%),
+    linear-gradient(180deg, rgba(5,9,19,0) 46%, rgba(5,9,19,0.86) 100%);
+}
+.hq-card-meta {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 7px;
+  border-radius: 999px;
+  background: rgba(5,9,19,0.62);
+  border: 1px solid rgba(255,255,255,0.14);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.hq-card-meta.shown { display: inline-flex; }
+.hq-dot { width: 6px; height: 6px; border-radius: 50%; background: #8b93a3; }
+.hq-dot.on { background: #4ade80; box-shadow: 0 0 7px rgba(74,222,128,0.8); }
+
+.hq-card-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 4;
+  display: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+  background: rgba(5,9,19,0.62);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.8);
+}
+.hq-card.active .hq-card-remove { display: flex; }
+.hq-card-remove:hover { background: rgba(239,68,68,0.7); color: #fff; }
+
+.hq-card-ribbon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 10px 10px;
+}
+.hq-card-name {
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+}
+.hq-card-sub {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hq-empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 22px 28px;
+  color: rgba(255,255,255,0.8);
+  background: rgba(8,14,28,0.52);
+  border-color: rgba(255,255,255,0.2);
+  cursor: pointer;
+}
+
+/* Cards on the right show their right half: label and count move there. */
+.hq-card.right .hq-card-ribbon { align-items: flex-end; text-align: right; }
+.hq-card.right .hq-card-name,
+.hq-card.right .hq-card-sub { max-width: 100%; }
+.hq-card.right .hq-card-meta { left: auto; right: 8px; }
+
+/* ───────────────────────────────────────────────────────────────
+   Frost: the navigation sits in the top bar instead of a side bar.
+   Same buttons, laid out in a row in the middle of the bar; the top
+   bar and the pages then use the full width of the window.
+   ─────────────────────────────────────────────────────────────── */
+:root[data-layout="frost"] { --sidebar-width: 0px; --topbar-h: 78px; }
+:root[data-layout="frost"] #titlebar { left: 8px; }
+:root[data-layout="frost"] #page-container { left: 8px; }
+
+:root[data-layout="frost"] #sidebar-nav {
+  top: 8px;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  width: auto;
+  height: var(--topbar-h);
+  transform: translateX(-50%);
+  flex-direction: row;
+  align-items: center;
+  padding: 0;
+  z-index: 1001;
+  /* It lies on the top bar's glass, so it brings none of its own. */
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  -webkit-app-region: no-drag;
+}
+:root[data-layout="frost"] .nav-tabs-group {
+  flex-direction: row;
+  align-items: center;
+  width: auto;
+  padding: 0;
+  gap: 6px;
+}
+:root[data-layout="frost"] .nav-tab { width: 72px; height: 60px; border-radius: 18px; }
+:root[data-layout="frost"] .nav-icon-img,
+:root[data-layout="frost"] .nav-tab img.nav-icon-img { width: 34px; height: 34px; }
+:root[data-layout="frost"] .nav-icon { width: 29px; height: 29px; }
+:root[data-layout="frost"] #titlebar { border-radius: 22px; padding-left: 20px; }
+:root[data-layout="frost"] .titlebar-logo { width: 40px; height: 40px; }
+:root[data-layout="frost"] .titlebar-title { font-size: 17px; }
+:root[data-layout="frost"] .titlebar-chip { height: 44px; font-size: 14px; }
+:root[data-layout="frost"] .titlebar-chip .titlebar-profile-head { width: 28px; height: 28px; }
+:root[data-layout="frost"] .titlebar-profile-dropdown { top: 64px; }
+:root[data-layout="frost"] .titlebar-btn { width: 40px; height: 40px; }
+/* The marker goes under the button, the tooltip below the bar. */
+:root[data-layout="frost"] .nav-tab.active::before {
+  left: 50%;
+  top: auto;
+  bottom: 5px;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 3px;
+  border-radius: 999px;
+}
+:root[data-layout="frost"] .nav-tab::after {
+  left: 50%;
+  top: calc(100% + 14px);
+  bottom: auto;
+  transform: translateX(-50%) translateY(-4px);
+}
+:root[data-layout="frost"] .nav-tab:hover::after { transform: translateX(-50%) translateY(0); }
+
+/* ───────────────────────────────────────────────────────────────
+   Pressing play.
+   A ring of light and a spray of snow leave the button (one shot, see
+   _hqLaunchBurst). While the game starts (.launching) the scene rushes
+   closer, the cards drop away and the skin runs; everything settles
+   back once the game is up.
+   ─────────────────────────────────────────────────────────────── */
+.hq-scene-img { transition: scale 1.6s cubic-bezier(0.2, 0.7, 0.2, 1), filter 1.2s ease; }
+.hq-skin { transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hq-skin-glow { transition: opacity 0.6s ease, transform 0.9s ease; }
+.hq-deck, .hq-switch-row { transition: transform 0.55s cubic-bezier(0.3, 0, 0.2, 1), opacity 0.4s ease; }
+
+.hq.launching .hq-scene-img { scale: 1.22; filter: blur(3px) brightness(1.12) saturate(125%); }
+.hq.launching .hq-skin { transform: scale(1.07) translateY(-6px); }
+.hq.launching .hq-skin-glow { opacity: 1; transform: translate(-50%, -50%) scale(1.5); }
+.hq.launching .hq-deck { transform: translateY(46px) scale(0.96); opacity: 0; pointer-events: none; }
+.hq.launching .hq-switch-row { transform: translateY(20px); opacity: 0; pointer-events: none; }
+.hq.launching .launch-btn { animation: hqPulse 1.5s ease-in-out infinite; }
+@keyframes hqPulse {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 0 rgba(var(--accent-rgb),0.45); }
+  50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 16px rgba(var(--accent-rgb),0); }
+}
+
+.hq-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: -1; pointer-events: none; }
+.hq-burst-ring {
+  position: absolute;
+  left: -170px;
+  top: -33px;
+  width: 340px;
+  height: 66px;
+  border-radius: 20px;
+  border: 2px solid rgba(var(--accent-rgb),0.95);
+  box-shadow: 0 0 28px rgba(var(--accent-rgb),0.7), inset 0 0 18px rgba(var(--accent-rgb),0.5);
+  animation: hqRing 0.85s cubic-bezier(0.15, 0.7, 0.2, 1) both;
+}
+.hq-burst-ring.late { animation-delay: 0.14s; border-color: rgba(255,255,255,0.8); }
+@keyframes hqRing {
+  from { transform: scale(1); opacity: 0.95; }
+  to   { transform: scale(2.3, 4.4); opacity: 0; }
+}
+/* A sheet of light running through the whole scene, left to right. */
+.hq-burst-sweep {
+  position: absolute;
+  left: -50vw;
+  top: -60vh;
+  width: 26vw;
+  height: 120vh;
+  background: linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.20) 45%, rgba(var(--accent-rgb),0.26) 55%, rgba(255,255,255,0) 100%);
+  transform: translateX(-40vw) skewX(-14deg);
+  animation: hqSweep 0.9s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+@keyframes hqSweep {
+  from { transform: translateX(-40vw) skewX(-14deg); opacity: 0; }
+  20%  { opacity: 1; }
+  to   { transform: translateX(120vw) skewX(-14deg); opacity: 0; }
+}
+.hq-burst-flake {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--s);
+  height: var(--s);
+  margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  background: #fff;
+  box-shadow: 0 0 8px rgba(var(--accent-rgb),0.9);
+  animation: hqFlake 1.15s cubic-bezier(0.12, 0.7, 0.25, 1) var(--d) both;
+}
+@keyframes hqFlake {
+  from { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  70%  { opacity: 1; }
+  to   { transform: translate(var(--dx), calc(var(--dy) + 70px)) rotate(200deg) scale(0.3); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hq-scene-img, .hq-skin, .hq-deck, .hq-switch-row { transition: none; }
+  .hq.launching .launch-btn { animation: none; }
+}
+.hq .launch-btn-starting { color: #fff; opacity: 1; }

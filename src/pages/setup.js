@@ -99,11 +99,12 @@ function _setupStepHtml(id) {
   }
 
   if (id === 'theme') {
-    const layout = s.layoutTheme === 'liquid' ? 'liquid' : 'classic';
+    const layout = ['liquid', 'frost'].includes(s.layoutTheme) ? s.layoutTheme : 'classic';
     return `
-      <div class="setup-picks">
+      <div class="setup-picks setup-picks-3">
         ${_setupPick('layout', 'classic', layout === 'classic', 'classic.jpg', 'Classic', 'Side bar, your skin in the middle')}
         ${_setupPick('layout', 'liquid', layout === 'liquid', 'liquid.jpg', 'Liquid', 'Bottom bar, big menu buttons')}
+        ${_setupPick('layout', 'frost', layout === 'frost', 'frost.jpg', 'Frost', 'Your skin in the scene, cards to scroll')}
       </div>
       <div class="options-toggle-row">
         <div class="options-toggle-card options-accent-card on setup-static">
@@ -215,7 +216,7 @@ async function _setupChoose(group, value, el) {
     el.classList.add('selected');
   }
   if (group === 'layout') {
-    await SettingsManager.set('layoutTheme', value === 'liquid' ? 'liquid' : 'classic');
+    await SettingsManager.set('layoutTheme', ['liquid', 'frost'].includes(value) ? value : 'classic');
     if (typeof HomePageInit === 'function') HomePageInit().catch(() => {});
   } else if (group === 'accent') {
     const followed = !SettingsManager.get('hudMenuColor');

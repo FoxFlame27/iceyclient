@@ -125,7 +125,10 @@ const SettingsManager = {
   },
 
   _applyAccent() {
-    const color = this._settings?.accentColor || '#5bc8f5';
+    let color = this._settings?.accentColor || '#5bc8f5';
+    // Skiflame brings its own colour (the violet-blue of its logo) unless
+    // the player picked an accent of their own.
+    if (this.isSkiflame() && color.toLowerCase() === '#5bc8f5') color = '#7d7bff';
     const r = parseInt(color.slice(1, 3), 16);
     const g = parseInt(color.slice(3, 5), 16);
     const b = parseInt(color.slice(5, 7), 16);

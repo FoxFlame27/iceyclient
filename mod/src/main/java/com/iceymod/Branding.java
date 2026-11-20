@@ -49,8 +49,22 @@ public final class Branding {
     }
     public static int logoWidth()  { return isSkiflame() ? 720 : 1536; }
     public static int logoHeight() { return isSkiflame() ? 240 : 1024; }
+    /** Where the Skiflame logo starts on the title screen (GUI pixels from the top). */
+    public static final int SKIFLAME_LOGO_TOP = 10;
+
     /** How wide the logo should be drawn on the title screen (GUI pixels). */
     public static int logoTargetWidth(int screenWidth) {
-        return isSkiflame() ? Math.min(300, Math.max(96, screenWidth - 40)) : Math.min(200, Math.max(64, screenWidth - 40));
+        if (!isSkiflame()) return Math.min(200, Math.max(64, screenWidth - 40));
+        int w = Math.min(250, Math.max(96, screenWidth - 40));
+        // The Skiflame logo is wide and low (3:1), and the first button of
+        // the title screen (Singleplayer) sits at height/4 + 48. On a small
+        // window or a large GUI scale the logo used to run into it, so it
+        // only gets the room that is really there above the button.
+        try {
+            int sh = net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScaledHeight();
+            int room = (sh / 4 + 48) - 10 - SKIFLAME_LOGO_TOP;
+            w = Math.min(w, room * logoWidth() / logoHeight());
+        } catch (Throwable ignored) {}
+        return Math.max(72, w);
     }
 }

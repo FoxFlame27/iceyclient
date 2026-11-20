@@ -65,7 +65,7 @@ const MinecraftLauncher = {
     return this._state;
   },
 
-  async launch(installationId) {
+  async launch(installationId, opts) {
     if (this._state !== 'idle') return;
     if (!installationId) {
       Toast.info('Select an installation first');
@@ -73,7 +73,7 @@ const MinecraftLauncher = {
     }
 
     this._setState('starting');
-    const result = await window.icey.launchMinecraft(installationId);
+    const result = await window.icey.launchMinecraft(installationId, opts);
 
     if (result.error) {
       this._setState('idle');

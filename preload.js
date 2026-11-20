@@ -2,7 +2,10 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('icey', {
   // Minecraft
-  launchMinecraft: (installationId) => ipcRenderer.invoke('launch-mc', installationId),
+  launchMinecraft: (installationId, opts) => ipcRenderer.invoke('launch-mc', installationId, opts),
+  getKnownServers: () => ipcRenderer.invoke('get-known-servers'),
+  pingServer: (address) => ipcRenderer.invoke('ping-server', address),
+  getSkinTexture: (username) => ipcRenderer.invoke('get-skin-texture', username),
   stopMinecraft: (launchId) => ipcRenderer.send('stop-mc', launchId),
   getRunningMc: () => ipcRenderer.invoke('get-running-mc'),
   onMcEvent: (callback) => {
