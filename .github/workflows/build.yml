@@ -64,9 +64,12 @@ jobs:
         run: |
           cd mod
           chmod +x gradlew
-          # The build downloads Minecraft and Fabric from several servers;
-          # one of them hiccuping failed whole releases, so it gets three tries.
-          for i in 1 2 3; do
+          # The build downloads its libraries from Maven Central, which at
+          # times answers GitHub's runners with "429 Too Many Requests" (it
+          # failed three releases in a row on 2026-11-21, a different job
+          # each time). A rate limit needs time, so: five tries, waiting
+          # one minute longer after each.
+          for i in 1 2 3 4 5; do
             echo "gradle build attempt $i"
             if ./gradlew build --no-daemon \
                 -Pminecraft_version=${{ matrix.mc }} \
@@ -74,8 +77,8 @@ jobs:
                 -Pfabric_version=${{ matrix.fabric }}; then
               exit 0
             fi
-            echo "Attempt $i failed, retrying in 20s..."
-            sleep 20
+            echo "Attempt $i failed, waiting $((i * 60))s before the next..."
+            sleep $((i * 60))
           done
           exit 1
       - uses: actions/upload-artifact@v4
@@ -117,17 +120,20 @@ jobs:
         run: |
           cd mod-scroll
           chmod +x gradlew
-          # The build downloads Minecraft and Fabric from several servers;
-          # one of them hiccuping failed whole releases, so it gets three tries.
-          for i in 1 2 3; do
+          # The build downloads its libraries from Maven Central, which at
+          # times answers GitHub's runners with "429 Too Many Requests" (it
+          # failed three releases in a row on 2026-11-21, a different job
+          # each time). A rate limit needs time, so: five tries, waiting
+          # one minute longer after each.
+          for i in 1 2 3 4 5; do
             echo "gradle build attempt $i"
             if ./gradlew build --no-daemon \
                 -Pminecraft_version=${{ matrix.mc }} \
                 -Ploader_version=${{ matrix.loader }}; then
               exit 0
             fi
-            echo "Attempt $i failed, retrying in 20s..."
-            sleep 20
+            echo "Attempt $i failed, waiting $((i * 60))s before the next..."
+            sleep $((i * 60))
           done
           exit 1
       - uses: actions/upload-artifact@v4
@@ -410,9 +416,12 @@ jobs:
         run: |
           cd mod-smp
           chmod +x gradlew
-          # The build downloads Minecraft and Fabric from several servers;
-          # one of them hiccuping failed whole releases, so it gets three tries.
-          for i in 1 2 3; do
+          # The build downloads its libraries from Maven Central, which at
+          # times answers GitHub's runners with "429 Too Many Requests" (it
+          # failed three releases in a row on 2026-11-21, a different job
+          # each time). A rate limit needs time, so: five tries, waiting
+          # one minute longer after each.
+          for i in 1 2 3 4 5; do
             echo "gradle build attempt $i"
             if ./gradlew build --no-daemon \
                 -Pminecraft_version=${{ matrix.mc }} \
@@ -420,8 +429,8 @@ jobs:
                 -Pfabric_version=${{ matrix.fabric }}; then
               exit 0
             fi
-            echo "Attempt $i failed, retrying in 20s..."
-            sleep 20
+            echo "Attempt $i failed, waiting $((i * 60))s before the next..."
+            sleep $((i * 60))
           done
           exit 1
       - uses: actions/upload-artifact@v4
