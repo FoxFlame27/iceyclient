@@ -273,7 +273,7 @@ const CharacterRig = {
   _displayFor(id) {
     if (id === 'bow') return this._DISPLAY.bow;
     if (id === 'fishing_rod') return this._DISPLAY.rod;
-    if (/_(sword|axe|pickaxe)$/.test(id) || id === 'mace') return this._DISPLAY.handheld;
+    if (/_(sword|axe|pickaxe)$/.test(id) || id === 'mace' || id === 'trident') return this._DISPLAY.handheld;   // the trident too: the player asked for it held like a sword
     return this._DISPLAY.generated;
   },
 
@@ -299,25 +299,6 @@ const CharacterRig = {
       return [x2, y3, z3];
     };
     const side = left ? -1 : 1;
-    if (id === 'trident') {
-      // A trident is not held like a sword: the game carries it upright
-      // like a staff, prongs up and tipped forward, the fist a good third
-      // of the way up the shaft. The picture's diagonal (butt lower left,
-      // prongs upper right) is laid along that line, edge-on to the body,
-      // and stretched to the length of the game's trident.
-      const lean = 28 * k, size = 1.22, r2 = Math.SQRT1_2;
-      const along = [0, Math.cos(lean), Math.sin(lean)];        // up the shaft
-      const across = [0, -Math.sin(lean), Math.cos(lean)];      // across the picture
-      const grip = [-3.3, -3.3];                                // where the fist closes, in the picture
-      const map = (g) => {
-        const a = (g[0] + g[1]) * r2, b = (g[1] - g[0]) * r2;
-        return [g[2], a * along[1] + b * across[1], a * along[2] + b * across[2]];
-      };
-      return {
-        point: (g) => { const m = map([g[0] - grip[0], g[1] - grip[1], g[2]]); return [-side + size * m[0], -9.6 + size * m[1], 0.6 + size * m[2]]; },
-        normal: (n) => map(n),
-      };
-    }
     return {
       point: (g) => { const r = rotate(g); const q = [mv[0] + d.scale * r[0], mv[1] + d.scale * r[1], mv[2] + d.scale * r[2]]; return [-q[0] - side, q[2] - 10, q[1] + 2]; },
       normal: (n) => { const r = rotate(n); return [-r[0], r[2], r[1]]; },
