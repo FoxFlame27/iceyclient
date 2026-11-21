@@ -183,7 +183,12 @@ app.get('/dl/:system', (req, res) => {
   const peer = String(req.socket.remoteAddress || '');
   const fromNginx = /^(::ffff:)?127\.|^::1$/.test(peer);
   const ip = fromNginx ? String(req.headers['x-real-ip'] || peer) : peer;
-  if (ua && ip && !DL_BOTS.test(ua)) {
+  // Only a click on the site's own download button counts. Crawlers that
+  // disguise themselves as a phone fetch these links directly, without the
+  // page as referrer; and no phone installs a desktop launcher.
+  const fromSite = /^https:\/\/(www\.)?iceymc\.com\//.test(String(req.headers['referer'] || ''));
+  const phone = /iphone|ipad|ipod|android|mobile/i.test(ua);
+  if (ua && ip && fromSite && !phone && !DL_BOTS.test(ua)) {
     const id = crypto.createHash('sha256').update(dlSalt + '|' + ip + '|' + ua).digest('hex').slice(0, 32);
     const now = new Date().toISOString();
     const d = dl.devices[id] || (dl.devices[id] = { first: now, last: now, n: 0, systems: [] });
