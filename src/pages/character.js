@@ -31,6 +31,7 @@ async function CharacterPageInit() {
   const names = [];
   for (const m of CharacterRig.ARMOR) if (m !== 'none') for (const s of CharacterRig.SLOTS) names.push(CharacterRig.armorIcon(m, s));
   for (const id of Object.keys(CharacterRig.ITEMS)) names.push('item/' + id);
+  names.push('item/enchanted_book');                 // the picture on the Enchanted switch
   const icons = await CharacterRig.textures(names);
   _chrIcons = icons;
   const haveIcons = names.some(n => icons[n]);
@@ -75,8 +76,9 @@ async function CharacterPageInit() {
         <h1 class="chr-title">Character</h1>
         <div class="chr-head-actions">
           <button class="chr-enchant ${_chrCfg.enchanted ? 'on' : ''}" id="chr-enchant" onclick="_chrToggleEnchant()">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
+            ${icons['item/enchanted_book'] ? `<img class="chr-enchant-book" src="${icons['item/enchanted_book']}" alt="" draggable="false">` : ''}
             Enchanted
+            <span class="chr-switch"><span class="chr-switch-knob"></span></span>
           </button>
           <button class="chr-preview" onclick="_chrPreviewStart()">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>

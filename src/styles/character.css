@@ -377,3 +377,49 @@
   text-transform: uppercase;
   color: rgb(var(--accent-rgb));
 }
+
+/* ── Enchanted: a plain switch, like the launcher's other toggles ──
+   (replaces the purple button and its star) */
+.chr-enchant,
+.chr-enchant.on {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 38px;
+  padding: 0 12px 0 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(8,14,28,0.56);
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.chr-enchant:hover,
+.chr-enchant.on:hover { border-color: rgba(255,255,255,0.34); background: rgba(255,255,255,0.10); }
+.chr-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  transition: background 0.2s ease;
+}
+.chr-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  transition: transform 0.2s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+.chr-enchant.on .chr-switch { background: rgb(var(--accent-rgb)); }
+.chr-enchant.on .chr-switch-knob { transform: translateX(16px); }
+
+/* The game's enchanted book on the switch, at twice its 16 pixels; the
+   heading's three buttons share one height so it fits. */
+.chr-enchant-book { width: 32px; height: 32px; margin: 0 -2px 0 -8px; image-rendering: pixelated; -webkit-user-drag: none; }
+.chr-back, .chr-preview, .chr-enchant, .chr-enchant.on { height: 44px; }
