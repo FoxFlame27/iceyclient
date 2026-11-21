@@ -64,10 +64,20 @@ jobs:
         run: |
           cd mod
           chmod +x gradlew
-          ./gradlew build --no-daemon \
-            -Pminecraft_version=${{ matrix.mc }} \
-            -Ploader_version=${{ matrix.loader }} \
-            -Pfabric_version=${{ matrix.fabric }}
+          # The build downloads Minecraft and Fabric from several servers;
+          # one of them hiccuping failed whole releases, so it gets three tries.
+          for i in 1 2 3; do
+            echo "gradle build attempt $i"
+            if ./gradlew build --no-daemon \
+                -Pminecraft_version=${{ matrix.mc }} \
+                -Ploader_version=${{ matrix.loader }} \
+                -Pfabric_version=${{ matrix.fabric }}; then
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 20s..."
+            sleep 20
+          done
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: mod-jar-mc${{ matrix.mc }}
@@ -107,9 +117,19 @@ jobs:
         run: |
           cd mod-scroll
           chmod +x gradlew
-          ./gradlew build --no-daemon \
-            -Pminecraft_version=${{ matrix.mc }} \
-            -Ploader_version=${{ matrix.loader }}
+          # The build downloads Minecraft and Fabric from several servers;
+          # one of them hiccuping failed whole releases, so it gets three tries.
+          for i in 1 2 3; do
+            echo "gradle build attempt $i"
+            if ./gradlew build --no-daemon \
+                -Pminecraft_version=${{ matrix.mc }} \
+                -Ploader_version=${{ matrix.loader }}; then
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 20s..."
+            sleep 20
+          done
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: scroll-jar-mc${{ matrix.mc }}
@@ -390,10 +410,20 @@ jobs:
         run: |
           cd mod-smp
           chmod +x gradlew
-          ./gradlew build --no-daemon \
-            -Pminecraft_version=${{ matrix.mc }} \
-            -Pyarn_mappings=${{ matrix.yarn }} \
-            -Pfabric_version=${{ matrix.fabric }}
+          # The build downloads Minecraft and Fabric from several servers;
+          # one of them hiccuping failed whole releases, so it gets three tries.
+          for i in 1 2 3; do
+            echo "gradle build attempt $i"
+            if ./gradlew build --no-daemon \
+                -Pminecraft_version=${{ matrix.mc }} \
+                -Pyarn_mappings=${{ matrix.yarn }} \
+                -Pfabric_version=${{ matrix.fabric }}; then
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 20s..."
+            sleep 20
+          done
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: smp-jar-mc${{ matrix.mc }}
