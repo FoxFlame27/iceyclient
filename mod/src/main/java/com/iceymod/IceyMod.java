@@ -20,7 +20,6 @@ import com.iceymod.screen.BiomeMenuScreen;
 import com.iceymod.chat.ChatCoordParser;
 import com.iceymod.render.WaypointBeamRenderer;
 import com.iceymod.render.HitboxRenderer;
-import com.iceymod.hud.IceyBadgeHud;
 import com.iceymod.compat.KeyBindingCompat;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -61,13 +60,14 @@ public class IceyMod implements ClientModInitializer {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.87.9)");
+        System.out.println("[IceyMod] booted (build tag: v1.87.10)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
         // entirely-broken Icey.
         try { HudManager.init(); }            catch (Throwable t) { System.out.println("[IceyMod] HudManager.init failed: " + t); }
-        try { IceyBadgeHud.register(); }      catch (Throwable t) { System.out.println("[IceyMod] IceyBadgeHud.register failed: " + t); }
+        // No Icey logo over other players' heads or in front of their names:
+        // it floated far from the player and too large (removed in v1.87.10).
         try { WaypointManager.init(); }        catch (Throwable t) { System.out.println("[IceyMod] WaypointManager.init failed: " + t); }
         try { WaypointBeamRenderer.register(); } catch (Throwable t) { System.out.println("[IceyMod] WaypointBeamRenderer failed: " + t); }
         try { HitboxRenderer.register(); }     catch (Throwable t) { System.out.println("[IceyMod] HitboxRenderer failed: " + t); }
