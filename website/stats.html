@@ -154,6 +154,10 @@
     .row-bar i { display: block; height: 100%; background: var(--ice); }
     .row-count { text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
 
+    .sub { margin-top: 30px; font: 700 20px 'Outfit', 'Inter', system-ui, sans-serif; color: #fff; text-shadow: 0 2px 0 rgba(4,7,15,0.7); }
+    .total-all { text-align: center; padding: 16px 18px 14px; }
+    .all-number { font: 700 40px/1 'Outfit', 'Inter', system-ui, sans-serif; color: #fff; font-variant-numeric: tabular-nums; }
+    .all-label { margin-top: 7px; font-size: 14px; font-weight: 500; color: var(--dim); }
     .note { margin-top: 14px; font-size: 13px; line-height: 1.5; color: #c3cddc; text-shadow: 0 1px 0 rgba(4,7,15,0.8); }
     .state { margin-top: 22px; font-size: 15px; color: var(--text); }
 
@@ -209,8 +213,24 @@
 
     <div id="stats" hidden>
       <section class="total">
-        <div class="total-number" id="total">0</div>
-        <div class="total-label" id="total-label"></div>
+        <div class="total-number" id="people">0</div>
+        <div class="total-label" id="people-label"></div>
+      </section>
+
+      <section class="systems">
+        <div class="slab"><div class="slab-number" id="p-win">0</div><div class="slab-label">Windows</div></div>
+        <div class="slab"><div class="slab-number" id="p-mac-arm">0</div><div class="slab-label">Mac, Apple chip</div></div>
+        <div class="slab"><div class="slab-number" id="p-mac-intel">0</div><div class="slab-label">Mac, Intel</div></div>
+        <div class="slab"><div class="slab-number" id="p-linux">0</div><div class="slab-label">Linux</div></div>
+      </section>
+
+      <p class="note" id="people-note"></p>
+
+      <h2 class="sub">Every download ever</h2>
+
+      <section class="versions total-all">
+        <div class="all-number" id="total">0</div>
+        <div class="all-label" id="total-label"></div>
       </section>
 
       <section class="systems">
@@ -225,7 +245,7 @@
         <div id="rows"></div>
       </section>
 
-      <p class="note">These are downloads of the installer, counted by GitHub, where the files are hosted. It counts downloads, not people: someone who downloads three versions is counted three times.</p>
+      <p class="note">This second count comes from GitHub, where the files are hosted, and goes back to the first version. It counts every download: someone who downloads three versions is in it three times.</p>
     </div>
 
     <a class="back" href="/">
@@ -300,7 +320,7 @@
       // questions an hour from one address.
       try {
         var saved = JSON.parse(sessionStorage.getItem(KEY) || 'null');
-        if (saved && Date.now() - saved.at < 10 * 60 * 1000) { show(saved.stats); return; }
+        if (saved && Date.now() - saved.at < 10 * 60 * 1000) { show(saved.stats); var haveSaved = true; }
       } catch (e) {}
 
       var all = [];
@@ -312,12 +332,35 @@
             if (list.length === 100 && n < 10) return page(n + 1);
           });
       }
+      // Different devices: counted on this site, each one once, from the
+      // day the download buttons started going through it.
+      fetch('/dl-stats').then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); }).then(function (d) {
+        var fmt = function (n) { return n.toLocaleString('en'); };
+        var since = new Date(d.since).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        document.getElementById('people').textContent = fmt(d.devices);
+        document.getElementById('people-label').textContent = (d.devices === 1 ? 'device has' : 'different devices have') + ' downloaded Icey Client';
+        document.getElementById('p-win').textContent = fmt(d.systems['win']);
+        document.getElementById('p-mac-arm').textContent = fmt(d.systems['mac-arm']);
+        document.getElementById('p-mac-intel').textContent = fmt(d.systems['mac-intel']);
+        document.getElementById('p-linux').textContent = fmt(d.systems['linux']);
+        document.getElementById('people-note').textContent = 'Counted on this site since ' + since + '. Each device is counted once, however often it downloads.';
+      }).catch(function () {
+        document.getElementById('people').textContent = '?';
+        document.getElementById('people-label').textContent = 'The device count could not be loaded right now.';
+      });
+
+      if (haveSaved) return;
       page(1).then(function () {
         var stats = tally(all);
         try { sessionStorage.setItem(KEY, JSON.stringify({ at: Date.now(), stats: stats })); } catch (e) {}
         show(stats);
       }).catch(function () {
-        document.getElementById('state').textContent = 'The numbers could not be loaded right now. Try again in a few minutes.';
+        // GitHub did not answer (it limits how often one address may ask):
+        // the device count above does not depend on it and still shows.
+        document.getElementById('total').textContent = '?';
+        document.getElementById('total-label').textContent = 'GitHub\'s count could not be loaded right now. Try again in a few minutes.';
+        document.getElementById('state').hidden = true;
+        document.getElementById('stats').hidden = false;
       });
     })();
   </script>

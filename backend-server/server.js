@@ -127,6 +127,87 @@ setInterval(() => {
   }
 }, 60_000).unref();
 
+// ── Downloads, counted per device ─────────────────────────────────
+// The download buttons on iceymc.com point at /dl/<system>. Each request
+// is passed straight on to the newest release file on GitHub; before that
+// the device is noted, once. GitHub's own numbers count every download,
+// so one person fetching fifty versions shows as fifty: here that person
+// is one.
+//
+// A device is the visitor's address plus their browser, kept only as a
+// salted hash (the address itself is never stored, and the salt never
+// leaves this machine). Crawlers are passed on without being counted.
+const crypto = require('crypto');
+const DL_FILE = path.join(DATA_DIR, 'downloads.json');
+const DL_SALT_FILE = path.join(DATA_DIR, 'downloads.salt');
+const DL_TARGETS = {
+  'win':       'Icey.Client.Setup.exe',
+  'mac-arm':   'Icey.Client-arm64.dmg',
+  'mac-intel': 'Icey.Client-x64.dmg',
+  'linux':     'Icey.Client-aarch64.rpm',
+};
+const DL_RELEASE = 'https://github.com/FoxFlame27/iceyclient/releases/latest/download/';
+const DL_BOTS = /bot|crawl|spider|slurp|preview|monitor|curl|wget|python|httpclient|headless|facebookexternalhit|whatsapp|discord|telegram|scan/i;
+
+let dlSalt;
+try { dlSalt = fs.readFileSync(DL_SALT_FILE, 'utf8'); }
+catch (_) { dlSalt = crypto.randomBytes(32).toString('hex'); fs.writeFileSync(DL_SALT_FILE, dlSalt, { mode: 0o600 }); }
+
+// { since, devices: { <hash>: { first, last, n, systems: [..] } } }
+let dl = { since: new Date().toISOString(), devices: {} };
+try {
+  const saved = JSON.parse(fs.readFileSync(DL_FILE, 'utf8'));
+  if (saved && saved.devices) dl = saved;
+} catch (_) {}
+let dlDirty = false;
+function dlSave() {
+  if (!dlDirty) return;
+  dlDirty = false;
+  try {
+    fs.writeFileSync(DL_FILE + '.tmp', JSON.stringify(dl));
+    fs.renameSync(DL_FILE + '.tmp', DL_FILE);
+  } catch (e) { console.error('downloads.json not saved: ' + e.message); }
+}
+setInterval(dlSave, 15_000).unref();
+process.on('SIGTERM', () => { dlSave(); process.exit(0); });
+process.on('SIGINT', () => { dlSave(); process.exit(0); });
+
+app.get('/dl/:system', (req, res) => {
+  const file = DL_TARGETS[req.params.system];
+  if (!file) return res.status(404).json({ error: 'unknown system' });
+  const ua = String(req.headers['user-agent'] || '');
+  // nginx hands the visitor's address over in X-Real-IP. That header is
+  // only believed when the request really comes from nginx on this
+  // machine: this port is also open to the outside (the launcher uses it),
+  // and anyone could send a made-up address there to inflate the count.
+  const peer = String(req.socket.remoteAddress || '');
+  const fromNginx = /^(::ffff:)?127\.|^::1$/.test(peer);
+  const ip = fromNginx ? String(req.headers['x-real-ip'] || peer) : peer;
+  if (ua && ip && !DL_BOTS.test(ua)) {
+    const id = crypto.createHash('sha256').update(dlSalt + '|' + ip + '|' + ua).digest('hex').slice(0, 32);
+    const now = new Date().toISOString();
+    const d = dl.devices[id] || (dl.devices[id] = { first: now, last: now, n: 0, systems: [] });
+    d.last = now;
+    d.n += 1;
+    if (!d.systems.includes(req.params.system)) d.systems.push(req.params.system);
+    dlDirty = true;
+  }
+  res.setHeader('cache-control', 'no-store');
+  res.redirect(302, DL_RELEASE + file);
+});
+
+// Numbers only: how many different devices, in total and per system.
+app.get('/dl-stats', (_req, res) => {
+  const out = { since: dl.since, devices: 0, downloads: 0, systems: { 'win': 0, 'mac-arm': 0, 'mac-intel': 0, 'linux': 0 } };
+  for (const d of Object.values(dl.devices)) {
+    out.devices += 1;
+    out.downloads += d.n;
+    for (const s of d.systems) if (s in out.systems) out.systems[s] += 1;
+  }
+  res.setHeader('cache-control', 'no-store');
+  res.json(out);
+});
+
 app.get('/', (_req, res) => res.json({ ok: true, service: 'icey-client-network' }));
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'icey-client-network' }));
 
