@@ -86,7 +86,6 @@ async function CharacterPageInit() {
       </div>
       <div class="chr-body">
         <div class="chr-stage">
-          <div class="chr-stage-rays"></div>
           <div class="chr-stage-glow"></div>
           <div class="chr-stage-floor"></div>
           <canvas class="chr-canvas" id="chr-canvas"></canvas>
@@ -194,7 +193,6 @@ function _chrSyncSlots() {
       : (key === 'main' || key === 'off') ? 'item/' + value : CharacterRig.armorIcon(value, key);
     const src = name && _chrIcons[name];
     el.classList.toggle('filled', !!src);
-    el.classList.toggle('enchanted', !!src && !!_chrCfg.enchanted);
     el.innerHTML = src ? `<img src="${src}" alt="" draggable="false">` : '';
   });
   const held = document.getElementById('chr-held');

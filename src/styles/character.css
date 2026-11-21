@@ -278,22 +278,6 @@
 
 .chr-body { grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.1fr); }
 
-/* Shafts of light fanning out behind him, turning very slowly. */
-.chr-stage-rays {
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  width: 170%;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  background: repeating-conic-gradient(from 0deg, rgba(var(--accent-rgb),0.10) 0deg 7deg, rgba(var(--accent-rgb),0) 7deg 20deg);
-  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgba(0,0,0,0.5) 45%, transparent 72%);
-  mask-image: radial-gradient(closest-side, #000 0%, rgba(0,0,0,0.5) 45%, transparent 72%);
-  animation: chrRays 70s linear infinite;
-  pointer-events: none;
-}
-@keyframes chrRays { to { transform: translate(-50%, -50%) rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .chr-stage-rays { animation: none; } }
 .chr-stage-floor { bottom: 15%; width: 50%; height: 8%; }
 .chr-canvas { inset: 0 0 52px 0; height: calc(100% - 52px); }
 
@@ -326,18 +310,9 @@
 .chr-slot:hover { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.10); transform: translateY(-1px); }
 .chr-slot:active { transform: none; }
 .chr-slot img { width: 32px; height: 32px; image-rendering: pixelated; -webkit-user-drag: none; }
-.chr-slot.filled { border-color: rgba(var(--accent-rgb),0.55); background: rgba(var(--accent-rgb),0.14); }
-/* An enchanted piece shimmers in its slot too. */
-.chr-slot.enchanted { border-color: rgba(190,130,255,0.75); background: rgba(150,84,230,0.20); overflow: hidden; }
-.chr-slot.enchanted::after {
-  content: '';
-  position: absolute;
-  inset: -40%;
-  background: linear-gradient(115deg, rgba(190,130,255,0) 40%, rgba(214,170,255,0.55) 50%, rgba(190,130,255,0) 60%);
-  animation: chrShine 2.6s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes chrShine { from { transform: translateX(-60%); } to { transform: translateX(60%); } }
+/* A slot with something in it looks like any other, only a little brighter:
+   no coloured box around it. */
+.chr-slot.filled { border-color: rgba(255,255,255,0.28); background: rgba(5,9,19,0.6); }
 
 /* One grid, two hands. */
 .chr-hands .chr-section-head { margin-bottom: 12px; }
