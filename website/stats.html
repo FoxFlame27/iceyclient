@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Icey Client — Downloads</title>
+  <meta name="description" content="How often Icey Client has been downloaded, by system and by version.">
+  <meta name="theme-color" content="#080c18">
+  <meta property="og:title" content="Icey Client — Downloads">
+  <meta property="og:description" content="How often Icey Client has been downloaded.">
+  <meta property="og:url" content="https://iceymc.com/stats">
+  <link rel="icon" type="image/png" href="/icey-client/favicon.png">
+  <link rel="apple-touch-icon" href="/icey-client/apple-touch-icon.png">
+  <link rel="preload" as="font" type="font/woff2" href="/icey-client/fonts/outfit-700.woff2" crossorigin>
+  <style>
+    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('/icey-client/fonts/inter-400.woff2') format('woff2'); }
+    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('/icey-client/fonts/inter-500.woff2') format('woff2'); }
+    @font-face { font-family: 'Outfit'; font-style: normal; font-weight: 700; font-display: swap; src: url('/icey-client/fonts/outfit-700.woff2') format('woff2'); }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* Same colours and slab shapes as the download page. */
+    :root {
+      --ink: #080c18;
+      --slab: #0e1424;
+      --slab-edge: #04070f;
+      --line: #27324a;
+      --ice: #5bc8f5;
+      --ice-edge: #1f7fab;
+      --text: #e8eef6;
+      --dim: #9aa8bd;
+    }
+
+    html { height: 100%; }
+    body {
+      min-height: 100%;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--ink);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .bg {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background: var(--ink) url('/icey-client/background.jpg') center/cover no-repeat;
+    }
+    .bg canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+    .bg canvas.on { opacity: 1; }
+    .bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(8,12,24,0.5);
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 28px 20px 24px;
+      text-align: center;
+    }
+
+    .logo {
+      display: block;
+      width: min(360px, 70vw);
+      height: auto;
+    }
+
+    h1 {
+      margin-top: 4px;
+      font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+      font-size: clamp(22px, 3vw, 30px);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: #fff;
+      text-shadow: 0 2px 0 rgba(4,7,15,0.7);
+    }
+
+    /* The numbers: flat slabs like the download buttons, nothing glowing. */
+    .total {
+      width: 100%;
+      margin-top: 22px;
+      padding: 22px 20px 20px;
+      border-radius: 6px;
+      border: 2px solid #a5e2fb;
+      background: var(--ice);
+      box-shadow: 0 5px 0 var(--ice-edge);
+      color: #06121d;
+    }
+    .total-number {
+      font: 700 clamp(48px, 9vw, 84px)/1 'Outfit', 'Inter', system-ui, sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+    .total-label { margin-top: 8px; font-size: 16px; font-weight: 500; color: #0d3a52; }
+
+    .systems {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      width: 100%;
+      margin-top: 16px;
+    }
+    .slab {
+      padding: 16px 12px 14px;
+      border-radius: 5px;
+      border: 2px solid var(--line);
+      background: var(--slab);
+      box-shadow: 0 4px 0 var(--slab-edge);
+    }
+    .slab-number { font: 700 30px/1 'Outfit', 'Inter', system-ui, sans-serif; color: #fff; font-variant-numeric: tabular-nums; }
+    .slab-label { margin-top: 7px; font-size: 13.5px; font-weight: 500; color: var(--dim); }
+
+    .versions {
+      width: 100%;
+      margin-top: 16px;
+      padding: 16px 18px 12px;
+      border-radius: 5px;
+      border: 2px solid var(--line);
+      background: var(--slab);
+      box-shadow: 0 4px 0 var(--slab-edge);
+      text-align: left;
+    }
+    .versions h2 { font: 700 16px 'Outfit', 'Inter', system-ui, sans-serif; color: #fff; margin-bottom: 10px; }
+    .row {
+      display: grid;
+      grid-template-columns: 84px 1fr 52px;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 0;
+      font-size: 14px;
+    }
+    .row + .row { border-top: 1px solid #1a2338; }
+    .row-name { font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+    .row-bar { height: 10px; border-radius: 2px; background: #141c30; overflow: hidden; }
+    .row-bar i { display: block; height: 100%; background: var(--ice); }
+    .row-count { text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+    .note { margin-top: 14px; font-size: 13px; line-height: 1.5; color: #c3cddc; text-shadow: 0 1px 0 rgba(4,7,15,0.8); }
+    .state { margin-top: 22px; font-size: 15px; color: var(--text); }
+
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 22px;
+      padding: 12px 20px 12px 16px;
+      border-radius: 5px;
+      border: 2px solid var(--line);
+      background: var(--slab);
+      box-shadow: 0 4px 0 var(--slab-edge);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.12s ease;
+    }
+    .back:hover { border-color: var(--ice); transform: translateY(-1px); box-shadow: 0 5px 0 var(--slab-edge); }
+    .back:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--slab-edge); }
+
+    footer {
+      padding: 14px 20px 18px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #c3cddc;
+      text-shadow: 0 1px 0 rgba(4,7,15,0.8);
+      text-align: center;
+    }
+
+    a:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+    a:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+    @media (max-width: 820px) {
+      main { justify-content: flex-start; padding-top: 20px; }
+      .systems { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .back { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"><canvas id="pano"></canvas></div>
+
+  <main>
+    <a href="/"><img class="logo" src="/icey-client/logo.png" width="612" height="210" alt="Icey Client"></a>
+    <h1>Downloads</h1>
+
+    <p class="state" id="state">Counting…</p>
+
+    <div id="stats" hidden>
+      <section class="total">
+        <div class="total-number" id="total">0</div>
+        <div class="total-label" id="total-label"></div>
+      </section>
+
+      <section class="systems">
+        <div class="slab"><div class="slab-number" id="n-win">0</div><div class="slab-label">Windows</div></div>
+        <div class="slab"><div class="slab-number" id="n-mac-arm">0</div><div class="slab-label">Mac, Apple chip</div></div>
+        <div class="slab"><div class="slab-number" id="n-mac-intel">0</div><div class="slab-label">Mac, Intel</div></div>
+        <div class="slab"><div class="slab-number" id="n-linux">0</div><div class="slab-label">Linux</div></div>
+      </section>
+
+      <section class="versions">
+        <h2>Latest versions</h2>
+        <div id="rows"></div>
+      </section>
+
+      <p class="note">These are downloads of the installer, counted by GitHub, where the files are hosted. It counts downloads, not people: someone who downloads three versions is counted three times.</p>
+    </div>
+
+    <a class="back" href="/">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><path d="M12 4v11"/><path d="M6 10l6 6 6-6"/><path d="M5 20h14"/></svg>
+      Download Icey Client
+    </a>
+  </main>
+
+  <footer>
+    Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
+  </footer>
+
+  <script src="/icey-client/pano.js?v=1"></script>
+  <script>
+    // The counts come straight from GitHub's public list of releases; every
+    // file there carries its own download count. Only the installers are
+    // added up (the mod files next to them are fetched by the launcher).
+    (function () {
+      var API = 'https://api.github.com/repos/FoxFlame27/iceyclient/releases?per_page=100&page=';
+      var KEY = 'icey-stats-v1';
+
+      function system(name) {
+        if (!/^Icey\.Client/.test(name)) return null;
+        if (/\.exe$/i.test(name)) return 'win';
+        if (/\.dmg$/i.test(name) || /-arm64\.zip$/i.test(name)) return /arm64/i.test(name) ? 'macArm' : 'macIntel';
+        if (/\.(rpm|deb|AppImage)$/i.test(name)) return 'linux';
+        return null;
+      }
+
+      function tally(releases) {
+        var out = { total: 0, win: 0, macArm: 0, macIntel: 0, linux: 0, versions: [], count: releases.length };
+        releases.forEach(function (r) {
+          var n = 0;
+          (r.assets || []).forEach(function (a) {
+            var s = system(a.name);
+            if (!s) return;
+            out[s] += a.download_count;
+            n += a.download_count;
+          });
+          out.total += n;
+          out.versions.push({ tag: r.tag_name, n: n });
+        });
+        out.versions = out.versions.slice(0, 10);       // GitHub lists the newest first
+        return out;
+      }
+
+      function show(s) {
+        var fmt = function (n) { return n.toLocaleString('en'); };
+        document.getElementById('total').textContent = fmt(s.total);
+        document.getElementById('total-label').textContent = 'downloads across ' + fmt(s.count) + ' versions';
+        document.getElementById('n-win').textContent = fmt(s.win);
+        document.getElementById('n-mac-arm').textContent = fmt(s.macArm);
+        document.getElementById('n-mac-intel').textContent = fmt(s.macIntel);
+        document.getElementById('n-linux').textContent = fmt(s.linux);
+        var top = Math.max.apply(null, s.versions.map(function (v) { return v.n; }).concat([1]));
+        var rows = document.getElementById('rows');
+        rows.textContent = '';
+        s.versions.forEach(function (v) {
+          var row = document.createElement('div'); row.className = 'row';
+          var name = document.createElement('span'); name.className = 'row-name'; name.textContent = v.tag;
+          var bar = document.createElement('span'); bar.className = 'row-bar';
+          var fill = document.createElement('i'); fill.style.width = (v.n / top * 100).toFixed(1) + '%'; bar.appendChild(fill);
+          var count = document.createElement('span'); count.className = 'row-count'; count.textContent = fmt(v.n);
+          row.appendChild(name); row.appendChild(bar); row.appendChild(count);
+          rows.appendChild(row);
+        });
+        document.getElementById('state').hidden = true;
+        document.getElementById('stats').hidden = false;
+      }
+
+      // The same numbers for ten minutes: GitHub only answers so many
+      // questions an hour from one address.
+      try {
+        var saved = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+        if (saved && Date.now() - saved.at < 10 * 60 * 1000) { show(saved.stats); return; }
+      } catch (e) {}
+
+      var all = [];
+      function page(n) {
+        return fetch(API + n, { headers: { Accept: 'application/vnd.github+json' } })
+          .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+          .then(function (list) {
+            all = all.concat(list);
+            if (list.length === 100 && n < 10) return page(n + 1);
+          });
+      }
+      page(1).then(function () {
+        var stats = tally(all);
+        try { sessionStorage.setItem(KEY, JSON.stringify({ at: Date.now(), stats: stats })); } catch (e) {}
+        show(stats);
+      }).catch(function () {
+        document.getElementById('state').textContent = 'The numbers could not be loaded right now. Try again in a few minutes.';
+      });
+    })();
+  </script>
+</body>
+</html>
