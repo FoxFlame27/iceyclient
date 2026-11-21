@@ -21,6 +21,7 @@ function switchPage(pageName) {
   if (pageName === 'skins' && typeof SkinsPageInit === 'function') SkinsPageInit();
   if (pageName === 'console' && typeof ConsolePageInit === 'function') ConsolePageInit();
   if (pageName === 'character' && typeof CharacterPageInit === 'function') CharacterPageInit();
+  if (pageName === 'friends' && typeof FriendsPageInit === 'function') FriendsPageInit();
   if (pageName === 'options' && typeof OptionsPageInit === 'function') OptionsPageInit();
   if (pageName === 'setup' && typeof SetupPageInit === 'function') SetupPageInit();
 }
@@ -56,7 +57,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Profile avatar in sidebar + titlebar
+// The account may just have changed: the friends list belongs to the account.
+function _socialAccountChanged() { if (typeof Social !== 'undefined' && Social._timer) Social.sync(); }
+
 async function loadNavProfile() {
+  _socialAccountChanged();
   const container = document.getElementById('nav-profile');
   const titlebarProfile = document.getElementById('titlebar-profile');
   const auth = await window.icey.getAuth();
@@ -342,4 +347,6 @@ async function _checkForUpdates() {
     if (el && v) el.textContent = 'v' + v;
   }).catch(() => {});
   setTimeout(_checkForUpdates, 2000);
+  // Friends: start asking who is online (notices show on every page).
+  setTimeout(() => { if (typeof Social !== 'undefined') Social.start(); }, 1500);
 })();

@@ -3040,6 +3040,90 @@ function _zipReadEntry(buf, entry) {
   return null;
 }
 
+// ── Friends and messages (the Friends tab) ──
+// The friends service runs behind https://iceymc.com/net. It has to know
+// which Minecraft account is calling, so the launcher proves it the way a
+// game client proves itself to a server: ask for a challenge, tell Mojang
+// "I am joining <challenge>" with the account's access token, and let the
+// service check that with Mojang. The access token never goes to our
+// server; what comes back is a token of the service's own, kept on disk.
+const SOCIAL_BASE = 'https://iceymc.com/net';
+const SOCIAL_TOKEN_FILE = path.join(DATA_DIR, 'social-token.json');
+let _socialToken = null;          // { uuid, token }
+let _socialSigningIn = null;
+
+function _socialSavedToken(uuid) {
+  if (_socialToken && _socialToken.uuid === uuid) return _socialToken.token;
+  const saved = _readJsonSafe(SOCIAL_TOKEN_FILE);
+  if (saved && saved.uuid === uuid && typeof saved.token === 'string') { _socialToken = saved; return saved.token; }
+  return null;
+}
+
+async function _socialSignIn() {
+  const stored = readAuth();
+  if (!stored) throw new Error('NO_ACCOUNT');
+  if (stored.type === 'offline') throw new Error('OFFLINE_ACCOUNT');
+  const auth = await ensureFreshAuth(stored);
+  if (!auth || !auth.accessToken || !auth.uuid) throw new Error('SESSION_EXPIRED');
+  const post = (url, body) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const ch = await (await post(SOCIAL_BASE + '/social/auth/challenge')).json();
+  if (!ch || !ch.serverId) throw new Error('SERVICE_DOWN');
+  const join = await post('https://sessionserver.mojang.com/session/minecraft/join', {
+    accessToken: auth.accessToken,
+    selectedProfile: String(auth.uuid).replace(/-/g, ''),
+    serverId: ch.serverId,
+  });
+  if (join.status !== 204 && join.status !== 200) throw new Error('SESSION_EXPIRED');
+  const res = await post(SOCIAL_BASE + '/social/auth/verify', { username: auth.username, serverId: ch.serverId });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || !data.token) throw new Error('NOT_VERIFIED');
+  _socialToken = { uuid: auth.uuid, token: data.token };
+  _writeJsonSafe(SOCIAL_TOKEN_FILE, _socialToken);
+  return data.token;
+}
+
+// One call to the friends service as the active account. Signs in first
+// when there is no token, and once more when the service forgot it.
+async function _socialCall(method, route, body) {
+  if (!/^\/social\/[a-z\/]{1,40}(\?[A-Za-z0-9=&-]{0,80})?$/.test(String(route))) return { error: 'BAD_ROUTE' };
+  const stored = readAuth();
+  if (!stored) return { error: 'NO_ACCOUNT' };
+  if (stored.type === 'offline') return { error: 'OFFLINE_ACCOUNT' };
+  const signIn = () => (_socialSigningIn || (_socialSigningIn = _socialSignIn().finally(() => { _socialSigningIn = null; })));
+  try {
+    let token = _socialSavedToken(stored.uuid) || await signIn();
+    const send = (t) => fetch(SOCIAL_BASE + route, {
+      method: method === 'GET' ? 'GET' : 'POST',
+      headers: { authorization: 'Bearer ' + t, 'content-type': 'application/json' },
+      body: method === 'GET' ? undefined : JSON.stringify(body || {}),
+    });
+    let res = await send(token);
+    if (res.status === 401) { _socialToken = null; token = await signIn(); res = await send(token); }
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, data };
+  } catch (e) {
+    const known = ['NO_ACCOUNT', 'OFFLINE_ACCOUNT', 'SESSION_EXPIRED', 'NOT_VERIFIED', 'SERVICE_DOWN'];
+    return { error: known.includes(e.message) ? e.message : 'NETWORK' };
+  }
+}
+
+// A notice for the running game: the mod reads this file and shows it in
+// the top right corner (SocialNoticeHud). Written into every installation
+// that has a game open.
+function _socialNotifyGame(title, text) {
+  const seen = new Set();
+  for (const entry of mcProcesses.values()) {
+    if (!entry || !entry.installationId || seen.has(entry.installationId)) continue;
+    seen.add(entry.installationId);
+    _writeJsonSafe(path.join(getInstallGameDir(entry.installationId), 'config', 'iceymod-notice.json'), {
+      id: Date.now(),
+      title: String(title || '').slice(0, 60),
+      text: String(text || '').slice(0, 120),
+    });
+  }
+  return seen.size;
+}
+
 // ── Armor and item pictures for the character on the home page ──
 // The player's own game jar has them; nothing of Minecraft's is shipped
 // with the launcher. Names are logical ("armor/diamond", "leggings/iron",
@@ -4544,6 +4628,10 @@ app.whenReady().then(() => {
   // Minecraft
   ipcMain.handle('get-known-servers', () => {
     try { return _listKnownServers(); } catch (e) { log('warn', 'get-known-servers: ' + e.message); return []; }
+  });
+  ipcMain.handle('social-call', async (_, method, route, body) => _socialCall(method, route, body));
+  ipcMain.handle('social-notify-game', (_, title, text) => {
+    try { return _socialNotifyGame(title, text); } catch (_e) { return 0; }
   });
   ipcMain.handle('get-gear-textures', (_, names) => {
     try { return _getGearTextures(names); } catch (e) { log('warn', 'get-gear-textures: ' + e.message); return {}; }
@@ -6072,6 +6160,8 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   app.isQuitting = true;
+  // Friends see this player go offline at once, not a minute later.
+  try { if (_socialToken) fetch(SOCIAL_BASE + '/social/leave', { method: 'POST', headers: { authorization: 'Bearer ' + _socialToken.token } }).catch(() => {}); } catch (_) {}
 });
 
 app.on('window-all-closed', () => {

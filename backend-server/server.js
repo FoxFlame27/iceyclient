@@ -155,11 +155,11 @@ catch (_) { dlSalt = crypto.randomBytes(32).toString('hex'); fs.writeFileSync(DL
 
 // { since, devices: { <hash>: { first, last, n, systems: [..] } } }
 let dl = { since: new Date().toISOString(), devices: {} };
+let dlDirty = false;
 try {
   const saved = JSON.parse(fs.readFileSync(DL_FILE, 'utf8'));
   if (saved && saved.devices) dl = saved;
-} catch (_) {}
-let dlDirty = false;
+} catch (_) { dlDirty = true; }      // first run: write the file, so "since" stays the same across restarts
 function dlSave() {
   if (!dlDirty) return;
   dlDirty = false;
@@ -169,8 +169,8 @@ function dlSave() {
   } catch (e) { console.error('downloads.json not saved: ' + e.message); }
 }
 setInterval(dlSave, 15_000).unref();
-process.on('SIGTERM', () => { dlSave(); process.exit(0); });
-process.on('SIGINT', () => { dlSave(); process.exit(0); });
+process.on('SIGTERM', () => { dlSave(); if (typeof socialSave === 'function') socialSave(); process.exit(0); });
+process.on('SIGINT', () => { dlSave(); if (typeof socialSave === 'function') socialSave(); process.exit(0); });
 
 app.get('/dl/:system', (req, res) => {
   const file = DL_TARGETS[req.params.system];
@@ -206,6 +206,243 @@ app.get('/dl-stats', (_req, res) => {
   }
   res.setHeader('cache-control', 'no-store');
   res.json(out);
+});
+
+// ── Friends and messages ──────────────────────────────────────────
+// Who is who: a player proves their Minecraft account the way a game
+// server does. The launcher asks for a challenge, tells Mojang's session
+// server "I am joining <challenge>" with its own access token (which
+// never comes here), and this server asks Mojang whether that player
+// really did. Then it hands out a token of its own for the calls below.
+//
+// Friends are mutual: one asks, the other accepts. Only friends see each
+// other online and can write to each other. Everything is kept in one
+// JSON file; messages are capped per pair.
+const SOCIAL_FILE = path.join(DATA_DIR, 'social.json');
+const SOCIAL_ONLINE_MS = 60_000;
+const SOCIAL_MAX_TEXT = 500;
+const SOCIAL_KEEP_PER_PAIR = 300;
+
+let social = { nextId: 1, users: {}, friends: {}, requests: {}, messages: {}, unread: {}, tokens: {} };
+try {
+  const saved = JSON.parse(fs.readFileSync(SOCIAL_FILE, 'utf8'));
+  if (saved && saved.users) social = Object.assign(social, saved);
+} catch (_) {}
+let socialDirty = false;
+function socialSave() {
+  if (!socialDirty) return;
+  socialDirty = false;
+  try {
+    fs.writeFileSync(SOCIAL_FILE + '.tmp', JSON.stringify(social), { mode: 0o600 });
+    fs.renameSync(SOCIAL_FILE + '.tmp', SOCIAL_FILE);
+  } catch (e) { console.error('social.json not saved: ' + e.message); }
+}
+setInterval(socialSave, 10_000).unref();
+
+const socialOnline = new Map();      // uuid -> { at, inGame }
+const socialChallenges = new Map();  // serverId -> created ms
+const socialSendTimes = new Map();   // uuid -> [ms, ...] for the rate limit
+
+const sha = (v) => crypto.createHash('sha256').update(String(v)).digest('hex');
+const pairKey = (a, b) => (a < b ? a + ':' + b : b + ':' + a);
+const listOf = (obj, key) => obj[key] || (obj[key] = []);
+const areFriends = (a, b) => (social.friends[a] || []).includes(b);
+const nameOf = (uuid) => (social.users[uuid] && social.users[uuid].name) || 'Player';
+const isOnline = (uuid) => { const o = socialOnline.get(uuid); return !!o && Date.now() - o.at < SOCIAL_ONLINE_MS; };
+function socialIssueToken(uuid, name) {
+  const token = crypto.randomBytes(32).toString('hex');
+  social.tokens[sha(token)] = { uuid, at: Date.now() };
+  social.users[uuid] = Object.assign(social.users[uuid] || {}, { name, lastSeen: Date.now() });
+  // One player, a handful of devices: drop that player's oldest tokens.
+  const mine = Object.entries(social.tokens).filter(([, t]) => t.uuid === uuid).sort((x, y) => y[1].at - x[1].at);
+  for (const [h] of mine.slice(5)) delete social.tokens[h];
+  socialDirty = true;
+  return token;
+}
+
+const socialJson = express.json({ limit: '8kb' });
+
+app.post('/social/auth/challenge', (_req, res) => {
+  const now = Date.now();
+  for (const [id, at] of socialChallenges) if (now - at > 120_000) socialChallenges.delete(id);
+  if (socialChallenges.size > 5000) return res.status(503).json({ error: 'busy' });
+  const serverId = crypto.randomBytes(15).toString('hex');
+  socialChallenges.set(serverId, now);
+  res.json({ serverId });
+});
+
+app.post('/social/auth/verify', socialJson, async (req, res) => {
+  try {
+    const username = String((req.body && req.body.username) || '');
+    const serverId = String((req.body && req.body.serverId) || '');
+    if (!/^[A-Za-z0-9_]{1,16}$/.test(username) || !socialChallenges.has(serverId)) return res.status(400).json({ error: 'bad request' });
+    socialChallenges.delete(serverId);
+    const r = await fetch('https://sessionserver.mojang.com/session/minecraft/hasJoined?username=' + encodeURIComponent(username) + '&serverId=' + serverId);
+    if (r.status !== 200) return res.status(403).json({ error: 'not verified' });
+    const profile = await r.json();
+    const uuid = normalizeUuid(profile && profile.id);
+    if (!uuid) return res.status(403).json({ error: 'not verified' });
+    res.json({ token: socialIssueToken(uuid, profile.name || username), uuid, name: profile.name || username });
+  } catch (e) {
+    res.status(502).json({ error: 'verification unavailable' });
+  }
+});
+
+// For testing on a spare port only: never set SOCIAL_TEST on the real service.
+if (process.env.SOCIAL_TEST === '1') {
+  app.post('/social/auth/test', socialJson, (req, res) => {
+    const uuid = normalizeUuid(req.body && req.body.uuid);
+    if (!uuid) return res.status(400).json({ error: 'bad uuid' });
+    res.json({ token: socialIssueToken(uuid, String(req.body.name || 'Tester')), uuid });
+  });
+}
+
+function socialAuth(req, res, next) {
+  const m = /^Bearer ([0-9a-f]{64})$/.exec(String(req.headers.authorization || ''));
+  const t = m && social.tokens[sha(m[1])];
+  if (!t) return res.status(401).json({ error: 'sign in again' });
+  req.me = t.uuid;
+  next();
+}
+
+function socialState(me, since) {
+  const person = (u) => ({ uuid: u, name: nameOf(u) });
+  const mineUnread = social.unread[me] || {};
+  const friends = (social.friends[me] || []).map((u) => {
+    const o = socialOnline.get(u);
+    const online = isOnline(u);
+    return { uuid: u, name: nameOf(u), online, inGame: online && !!o.inGame, lastSeen: (social.users[u] && social.users[u].lastSeen) || 0, unread: mineUnread[u] || 0 };
+  });
+  // Messages to or from me that the caller has not seen yet.
+  const fresh = [];
+  if (since >= 0) {
+    for (const u of social.friends[me] || []) {
+      for (const msg of social.messages[pairKey(me, u)] || []) if (msg.id > since) fresh.push(msg);
+    }
+    fresh.sort((x, y) => x.id - y.id);
+  }
+  return {
+    me: person(me),
+    friends,
+    incoming: (social.requests[me] || []).map(person),
+    outgoing: Object.keys(social.requests).filter(to => social.requests[to].includes(me)).map(person),
+    messages: fresh.slice(-100),
+    lastId: social.nextId - 1,
+  };
+}
+
+// The launcher calls this every few seconds: "I am here", and what is new?
+app.post('/social/sync', socialJson, socialAuth, (req, res) => {
+  const me = req.me;
+  socialOnline.set(me, { at: Date.now(), inGame: !!(req.body && req.body.inGame) });
+  if (social.users[me]) social.users[me].lastSeen = Date.now();
+  const since = Number.isFinite(Number(req.body && req.body.since)) ? Number(req.body.since) : -1;
+  res.json(socialState(me, since));
+});
+
+// Leaving (the launcher closes): offline at once instead of a minute later.
+app.post('/social/leave', socialAuth, (req, res) => {
+  socialOnline.delete(req.me);
+  res.json({ ok: true });
+});
+
+app.post('/social/friends/add', socialJson, socialAuth, async (req, res) => {
+  const me = req.me;
+  const name = String((req.body && req.body.name) || '').trim();
+  if (!/^[A-Za-z0-9_]{1,16}$/.test(name)) return res.status(400).json({ status: 'unknown' });
+  // Someone already seen here, else ask Mojang who carries that name.
+  let other = Object.keys(social.users).find(u => social.users[u].name.toLowerCase() === name.toLowerCase());
+  if (!other) {
+    try {
+      const r = await fetch('https://api.mojang.com/users/profiles/minecraft/' + encodeURIComponent(name));
+      if (r.status === 200) {
+        const p = await r.json();
+        other = normalizeUuid(p && p.id);
+        if (other && !social.users[other]) social.users[other] = { name: p.name || name, lastSeen: 0 };
+      }
+    } catch (_) { return res.status(502).json({ status: 'unavailable' }); }
+  }
+  if (!other) return res.json({ status: 'unknown' });
+  if (other === me) return res.json({ status: 'self' });
+  if (areFriends(me, other)) return res.json({ status: 'friends', name: nameOf(other) });
+  if ((social.friends[me] || []).length >= 200) return res.json({ status: 'full' });
+  if ((social.requests[me] || []).includes(other)) {
+    // They had asked already: that makes it mutual.
+    social.requests[me] = social.requests[me].filter(u => u !== other);
+    listOf(social.friends, me).push(other);
+    listOf(social.friends, other).push(me);
+    socialDirty = true;
+    return res.json({ status: 'friends', name: nameOf(other) });
+  }
+  const theirs = listOf(social.requests, other);
+  if (!theirs.includes(me)) {
+    if (theirs.length >= 100) return res.json({ status: 'full' });
+    theirs.push(me);
+    socialDirty = true;
+  }
+  res.json({ status: 'requested', name: nameOf(other) });
+});
+
+app.post('/social/friends/respond', socialJson, socialAuth, (req, res) => {
+  const me = req.me;
+  const other = normalizeUuid(req.body && req.body.uuid);
+  if (!other || !(social.requests[me] || []).includes(other)) return res.status(404).json({ error: 'no such request' });
+  social.requests[me] = social.requests[me].filter(u => u !== other);
+  if (req.body.accept && !areFriends(me, other)) {
+    listOf(social.friends, me).push(other);
+    listOf(social.friends, other).push(me);
+  }
+  socialDirty = true;
+  res.json({ ok: true });
+});
+
+// Unfriend, or take back a request that was not answered yet.
+app.post('/social/friends/remove', socialJson, socialAuth, (req, res) => {
+  const me = req.me;
+  const other = normalizeUuid(req.body && req.body.uuid);
+  if (!other) return res.status(400).json({ error: 'bad uuid' });
+  social.friends[me] = (social.friends[me] || []).filter(u => u !== other);
+  social.friends[other] = (social.friends[other] || []).filter(u => u !== me);
+  if (social.requests[other]) social.requests[other] = social.requests[other].filter(u => u !== me);
+  if (social.unread[me]) delete social.unread[me][other];
+  socialDirty = true;
+  res.json({ ok: true });
+});
+
+// A conversation: the last messages with one friend. Opening it reads it.
+app.get('/social/messages', socialAuth, (req, res) => {
+  const me = req.me;
+  const other = normalizeUuid(req.query.with);
+  if (!other || !areFriends(me, other)) return res.status(403).json({ error: 'not friends' });
+  if (social.unread[me] && social.unread[me][other]) { delete social.unread[me][other]; socialDirty = true; }
+  res.json({ messages: (social.messages[pairKey(me, other)] || []).slice(-100) });
+});
+
+app.post('/social/messages', socialJson, socialAuth, (req, res) => {
+  const me = req.me;
+  const other = normalizeUuid(req.body && req.body.to);
+  const text = String((req.body && req.body.text) || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, SOCIAL_MAX_TEXT);
+  if (!other || !areFriends(me, other)) return res.status(403).json({ error: 'not friends' });
+  if (!text) return res.status(400).json({ error: 'empty' });
+  const now = Date.now();
+  const times = (socialSendTimes.get(me) || []).filter(t => now - t < 60_000);
+  if (times.length >= 40) return res.status(429).json({ error: 'slow down' });
+  times.push(now);
+  socialSendTimes.set(me, times);
+  const msg = { id: social.nextId++, from: me, to: other, text, at: now };
+  const list = listOf(social.messages, pairKey(me, other));
+  list.push(msg);
+  if (list.length > SOCIAL_KEEP_PER_PAIR) list.splice(0, list.length - SOCIAL_KEEP_PER_PAIR);
+  const u = social.unread[other] || (social.unread[other] = {});
+  u[me] = (u[me] || 0) + 1;
+  socialDirty = true;
+  res.json({ message: msg });
+});
+
+app.post('/social/read', socialJson, socialAuth, (req, res) => {
+  const other = normalizeUuid(req.body && req.body.with);
+  if (other && social.unread[req.me] && social.unread[req.me][other]) { delete social.unread[req.me][other]; socialDirty = true; }
+  res.json({ ok: true });
 });
 
 app.get('/', (_req, res) => res.json({ ok: true, service: 'icey-client-network' }));
