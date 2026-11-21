@@ -225,3 +225,180 @@
 @media (max-width: 1100px) {
   .chr-section-split { grid-template-columns: 1fr; }
 }
+
+/* ── Enchanted toggle, beside the Armor heading ── */
+.chr-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.chr-section-head .chr-section-title { margin: 0; }
+.chr-enchant {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.72);
+  background: rgba(5,9,19,0.5);
+  border: 1px solid rgba(255,255,255,0.14);
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+.chr-enchant:hover { color: #fff; border-color: rgba(190,130,255,0.6); }
+.chr-enchant.on {
+  color: #fff;
+  background: linear-gradient(100deg, rgba(128,64,204,0.75), rgba(190,110,255,0.75));
+  border-color: #000;
+  box-shadow: 0 0 0 2px #000, 0 0 20px rgba(160,90,255,0.6);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Polish pass: actions in the heading, inventory slots beside the
+   model, one item grid for both hands, light behind the stage.
+   ─────────────────────────────────────────────────────────────── */
+.chr-head-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.chr-enchant { height: 38px; padding: 0 16px; border-radius: 12px; font-size: 13px; }
+.chr-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 18px 0 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #06121d;
+  background: linear-gradient(180deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0) 60%), rgba(var(--accent-rgb),0.9);
+  border: 1px solid rgba(255,255,255,0.4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 8px 26px rgba(var(--accent-rgb),0.32);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.chr-preview:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 12px 34px rgba(var(--accent-rgb),0.46); }
+.chr-preview:active { transform: none; }
+
+.chr-body { grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.1fr); }
+
+/* Shafts of light fanning out behind him, turning very slowly. */
+.chr-stage-rays {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 170%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(var(--accent-rgb),0.10) 0deg 7deg, rgba(var(--accent-rgb),0) 7deg 20deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgba(0,0,0,0.5) 45%, transparent 72%);
+  mask-image: radial-gradient(closest-side, #000 0%, rgba(0,0,0,0.5) 45%, transparent 72%);
+  animation: chrRays 70s linear infinite;
+  pointer-events: none;
+}
+@keyframes chrRays { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .chr-stage-rays { animation: none; } }
+.chr-stage-floor { bottom: 15%; width: 50%; height: 8%; }
+.chr-canvas { inset: 0 0 52px 0; height: calc(100% - 52px); }
+
+/* Inventory slots: armor down the left, hands on the right. */
+.chr-slots {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-58%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 2;
+}
+.chr-slots-left { left: 14px; }
+.chr-slots-right { right: 14px; }
+.chr-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border-radius: 12px;
+  background: rgba(5,9,19,0.55);
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+.chr-slot:hover { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.10); transform: translateY(-1px); }
+.chr-slot:active { transform: none; }
+.chr-slot img { width: 32px; height: 32px; image-rendering: pixelated; -webkit-user-drag: none; }
+.chr-slot.filled { border-color: rgba(var(--accent-rgb),0.55); background: rgba(var(--accent-rgb),0.14); }
+/* An enchanted piece shimmers in its slot too. */
+.chr-slot.enchanted { border-color: rgba(190,130,255,0.75); background: rgba(150,84,230,0.20); overflow: hidden; }
+.chr-slot.enchanted::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, rgba(190,130,255,0) 40%, rgba(214,170,255,0.55) 50%, rgba(190,130,255,0) 60%);
+  animation: chrShine 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes chrShine { from { transform: translateX(-60%); } to { transform: translateX(60%); } }
+
+/* One grid, two hands. */
+.chr-hands .chr-section-head { margin-bottom: 12px; }
+.chr-seg {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(5,9,19,0.55);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+.chr-seg-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.10) 100%);
+  border: 1px solid rgba(255,255,255,0.26);
+  transition: transform 0.28s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+.chr-hands[data-hand="off"] .chr-seg-thumb { transform: translateX(100%); }
+.chr-seg-btn {
+  position: relative;
+  height: 30px;
+  padding: 0 18px;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(255,255,255,0.55);
+  transition: color 0.18s ease;
+}
+.chr-seg-btn:active { transform: none; }
+.chr-hands[data-hand="main"] .chr-seg-btn[data-hand="main"],
+.chr-hands[data-hand="off"] .chr-seg-btn[data-hand="off"] { color: #fff; }
+.chr-held { font-size: 13px; font-weight: 700; color: rgb(var(--accent-rgb)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chr-hand { display: none; }
+.chr-hands[data-hand="main"] .chr-hand-main,
+.chr-hands[data-hand="off"] .chr-hand-off { display: block; }
+
+.chr-row-label { width: 96px; font-size: 13px; }
+.chr-panel { gap: 14px; }
+
+/* Everything on one screen: slightly smaller choices, start options as two rows. */
+.chr-chip { width: 44px; height: 44px; border-radius: 11px; }
+.chr-chip-word { width: auto; height: 34px; padding: 0 13px; }
+.chr-chips { gap: 7px; }
+.chr-section { padding: 12px 16px 14px; }
+.chr-panel { gap: 12px; }
+.chr-row + .chr-row { margin-top: 7px; }
+.chr-start .chr-row-title {
+  width: 132px;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(var(--accent-rgb));
+}

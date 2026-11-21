@@ -3049,10 +3049,11 @@ const GEAR_CACHE_DIR = path.join(DATA_DIR, 'cache', 'gear');
 const _gearMemory = new Map();   // name → data URL
 
 function _gearJarPaths(name) {
-  const m = /^(armor|leggings|item)\/([a-z0-9_]{1,40})$/.exec(name);
+  const m = /^(armor|leggings|item|misc)\/([a-z0-9_]{1,40})$/.exec(name);
   if (!m) return [];
   const T = 'assets/minecraft/textures/';
   if (m[1] === 'item') return [T + 'item/' + m[2] + '.png'];
+  if (m[1] === 'misc') return [T + 'misc/' + m[2] + '.png'];           // the enchantment glint
   if (m[1] === 'armor') return [T + 'entity/equipment/humanoid/' + m[2] + '.png', T + 'models/armor/' + m[2] + '_layer_1.png'];
   return [T + 'entity/equipment/humanoid_leggings/' + m[2] + '.png', T + 'models/armor/' + m[2] + '_layer_2.png'];
 }

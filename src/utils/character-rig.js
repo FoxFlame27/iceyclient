@@ -28,7 +28,7 @@ const CharacterRig = {
   },
   ANIMATIONS: ['run', 'walk', 'fly', 'wave', 'crouch', 'hit'],
   SOUNDS: ['off', 'frost', 'power', 'impact'],
-  DEFAULTS: { helmet: 'none', chest: 'none', legs: 'none', boots: 'none', main: 'none', off: 'none', startAnim: 'run', startSound: 'frost' },
+  DEFAULTS: { helmet: 'none', chest: 'none', legs: 'none', boots: 'none', main: 'none', off: 'none', enchanted: false, startAnim: 'run', startSound: 'frost' },
 
   get() {
     const saved = (typeof SettingsManager !== 'undefined' && SettingsManager.get('character')) || {};
@@ -37,6 +37,7 @@ const CharacterRig = {
     for (const h of ['main', 'off']) if (cfg[h] !== 'none' && !this.ITEMS[cfg[h]]) cfg[h] = 'none';
     if (!this.ANIMATIONS.includes(cfg.startAnim)) cfg.startAnim = 'run';
     if (!this.SOUNDS.includes(cfg.startSound)) cfg.startSound = 'frost';
+    cfg.enchanted = !!cfg.enchanted;
     return cfg;
   },
 
@@ -79,6 +80,9 @@ const CharacterRig = {
     const names = [];
     for (const s of this.SLOTS) if (cfg[s] !== 'none') names.push((s === 'legs' ? 'leggings/' : 'armor/') + cfg[s]);
     for (const h of ['main', 'off']) if (cfg[h] !== 'none') names.push('item/' + cfg[h]);
+    // The game's own glint pictures (their names changed over the versions).
+    const GLINTS = ['misc/enchanted_glint_armor', 'misc/enchanted_glint_entity', 'misc/enchanted_glint_item', 'misc/enchanted_item_glint'];
+    if (cfg.enchanted && names.length) names.push(...GLINTS);
     const tex = await this.textures(names);
     const images = {};
     await Promise.all(names.map(async (n) => { if (tex[n]) images[n] = await this._image(tex[n]); }));
@@ -92,6 +96,12 @@ const CharacterRig = {
       }
       if (cfg.main !== 'none' && images['item/' + cfg.main]) this._addItem(viewer, 'rightArm', images['item/' + cfg.main], made, cfg.main);
       if (cfg.off !== 'none' && images['item/' + cfg.off]) this._addItem(viewer, 'leftArm', images['item/' + cfg.off], made, cfg.off);
+      if (cfg.enchanted && made.length) {
+        const pick = (list) => { for (const n of list) if (images[n]) return images[n]; return null; };
+        this._addGlint(viewer, made,
+          pick(['misc/enchanted_glint_armor', 'misc/enchanted_glint_entity', 'misc/enchanted_glint_item', 'misc/enchanted_item_glint']),
+          pick(['misc/enchanted_glint_item', 'misc/enchanted_item_glint', 'misc/enchanted_glint_entity', 'misc/enchanted_glint_armor']));
+      }
     } catch (e) {
       console.warn('[character] gear failed:', e);
       this.clear(viewer);
@@ -99,6 +109,7 @@ const CharacterRig = {
   },
 
   clear(viewer) {
+    if (viewer && viewer.__glintFrame) { cancelAnimationFrame(viewer.__glintFrame); viewer.__glintFrame = 0; }
     for (const g of (viewer && viewer.__gear) || []) {
       try {
         if (g.object.parent) g.object.parent.remove(g.object);
@@ -262,7 +273,7 @@ const CharacterRig = {
   _displayFor(id) {
     if (id === 'bow') return this._DISPLAY.bow;
     if (id === 'fishing_rod') return this._DISPLAY.rod;
-    if (/_(sword|axe|pickaxe)$/.test(id) || id === 'mace' || id === 'trident') return this._DISPLAY.handheld;
+    if (/_(sword|axe|pickaxe)$/.test(id) || id === 'mace') return this._DISPLAY.handheld;
     return this._DISPLAY.generated;
   },
 
@@ -288,6 +299,25 @@ const CharacterRig = {
       return [x2, y3, z3];
     };
     const side = left ? -1 : 1;
+    if (id === 'trident') {
+      // A trident is not held like a sword: the game carries it upright
+      // like a staff, prongs up and tipped forward, the fist a good third
+      // of the way up the shaft. The picture's diagonal (butt lower left,
+      // prongs upper right) is laid along that line, edge-on to the body,
+      // and stretched to the length of the game's trident.
+      const lean = 28 * k, size = 1.22, r2 = Math.SQRT1_2;
+      const along = [0, Math.cos(lean), Math.sin(lean)];        // up the shaft
+      const across = [0, -Math.sin(lean), Math.cos(lean)];      // across the picture
+      const grip = [-3.3, -3.3];                                // where the fist closes, in the picture
+      const map = (g) => {
+        const a = (g[0] + g[1]) * r2, b = (g[1] - g[0]) * r2;
+        return [g[2], a * along[1] + b * across[1], a * along[2] + b * across[2]];
+      };
+      return {
+        point: (g) => { const m = map([g[0] - grip[0], g[1] - grip[1], g[2]]); return [-side + size * m[0], -9.6 + size * m[1], 0.6 + size * m[2]]; },
+        normal: (n) => map(n),
+      };
+    }
     return {
       point: (g) => { const r = rotate(g); const q = [mv[0] + d.scale * r[0], mv[1] + d.scale * r[1], mv[2] + d.scale * r[2]]; return [-q[0] - side, q[2] - 10, q[1] + 2]; },
       normal: (n) => { const r = rotate(n); return [-r[0], r[2], r[1]]; },
@@ -309,6 +339,79 @@ const CharacterRig = {
     // shoulder joint, which is the arm's own group: it swings with the arm.
     real[arm].add(mesh);
     made.push({ object: mesh, geometry, material, texture });
+  },
+
+  // ── Enchantment glint ──
+  // The game draws an enchanted thing twice: once normally, then again
+  // with the glint picture added on top as light, sliding slowly across.
+  // Same here: every piece of gear gets a twin with the same shape whose
+  // material adds only the glint (its own colour is black, the glint is
+  // its glow), cut out by the piece's own picture so it shines only
+  // where there is armor. One loop slides the glint for the whole model.
+  _glintCanvas(img) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    if (img) { g.imageSmoothingEnabled = false; g.drawImage(img, 0, 0, img.width, img.width, 0, 0, 64, 64); return c; }
+    // No glint picture in this game version's files: streaks of the same purple.
+    g.fillStyle = '#000'; g.fillRect(0, 0, 64, 64);
+    for (let i = 0; i < 46; i++) {
+      const x = Math.random() * 64, y = Math.random() * 64, len = 6 + Math.random() * 16;
+      const grad = g.createLinearGradient(x, y, x + len, y + len * 0.4);
+      grad.addColorStop(0, 'rgba(128,64,204,0)'); grad.addColorStop(0.5, 'rgba(150,84,230,0.9)'); grad.addColorStop(1, 'rgba(128,64,204,0)');
+      g.strokeStyle = grad; g.lineWidth = 1 + Math.random() * 2;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + len, y + len * 0.4); g.stroke();
+    }
+    return c;
+  },
+
+  _addGlint(viewer, made, armorImg, itemImg) {
+    const REPEAT = 1000, ADD = 2;                    // three.js: RepeatWrapping, AdditiveBlending
+    const layer = (img, repeat) => {
+      const t = this._texture(viewer, this._glintCanvas(img));
+      t.wrapS = t.wrapT = REPEAT;
+      t.repeat.set(repeat, repeat);
+      t.rotation = 0.17;                             // the game turns the glint about 10 degrees
+      t.needsUpdate = true;
+      return t;
+    };
+    const armorGlint = layer(armorImg, 2.2);
+    const itemGlint = layer(itemImg || armorImg, 1.6);
+    const twins = [];
+    for (const piece of made.slice()) {
+      const mesh = piece.object;
+      if (!mesh.isMesh || !mesh.parent) continue;
+      const isItem = !!piece.geometry;                // held items own their geometry, armor borrows the model's
+      const material = mesh.material.clone();
+      material.color.setRGB(0, 0, 0);
+      material.emissive.setRGB(1, 1, 1);
+      material.emissiveMap = isItem ? itemGlint : armorGlint;
+      material.emissiveIntensity = isItem ? 0.34 : 0.26;   // a shimmer over the piece, not a coat of paint
+      material.blending = ADD;
+      material.transparent = true;
+      material.depthWrite = false;
+      material.alphaTest = isItem ? 0 : 0.05;         // armor: only where the armor picture has something
+      material.polygonOffset = true;
+      material.polygonOffsetFactor = -1;
+      material.polygonOffsetUnits = -1;
+      const twin = new mesh.constructor(mesh.geometry, material);
+      twin.position.copy(mesh.position);
+      twin.rotation.copy(mesh.rotation);
+      twin.scale.copy(mesh.scale);
+      twin.renderOrder = 2;
+      mesh.parent.add(twin);
+      twins.push({ object: twin, material });
+    }
+    made.push(...twins, { object: { parent: null }, texture: armorGlint }, { object: { parent: null }, texture: itemGlint });
+    const t0 = performance.now();
+    const slide = () => {
+      if (!viewer.__gear || viewer.__gear !== made) return;
+      const t = (performance.now() - t0) / 1000;
+      armorGlint.offset.set((t * 0.055) % 1, (t * 0.02) % 1);
+      itemGlint.offset.set((t * 0.09) % 1, (t * 0.03) % 1);
+      viewer.__glintFrame = requestAnimationFrame(slide);
+    };
+    viewer.__glintFrame = requestAnimationFrame(slide);
   },
 
   // ── Start animation ──

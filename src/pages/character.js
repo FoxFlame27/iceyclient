@@ -7,6 +7,8 @@ let _chrViewer = null;
 let _chrObserver = null;
 let _chrCfg = null;
 let _chrAnimTimer = null;
+let _chrIcons = {};          // picture name → data URL, for the slots beside the model
+let _chrHand = 'main';       // which hand the item grid is showing
 
 const _CHR_SLOT_LABEL = { helmet: 'Helmet', chest: 'Chestplate', legs: 'Leggings', boots: 'Boots' };
 const _CHR_ANIM_LABEL = { run: 'Run', walk: 'Walk', fly: 'Fly', wave: 'Wave', crouch: 'Crouch', hit: 'Attack' };
@@ -30,6 +32,7 @@ async function CharacterPageInit() {
   for (const m of CharacterRig.ARMOR) if (m !== 'none') for (const s of CharacterRig.SLOTS) names.push(CharacterRig.armorIcon(m, s));
   for (const id of Object.keys(CharacterRig.ITEMS)) names.push('item/' + id);
   const icons = await CharacterRig.textures(names);
+  _chrIcons = icons;
   const haveIcons = names.some(n => icons[n]);
 
   const noneIcon = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><line x1="6" y1="18" x2="18" y2="6"/></svg>';
@@ -60,6 +63,8 @@ async function CharacterPageInit() {
       ${list.map(v => `<button class="chr-chip chr-chip-word ${_chrCfg[group] === v ? 'selected' : ''}" data-group="${group}" data-value="${v}" onclick="_chrPick('${group}', '${v}')">${labels[v]}</button>`).join('')}
     </div>`;
 
+  const slot = (key, label) => `<button class="chr-slot" data-slot="${key}" title="${label}" onclick="_chrSlotClick('${key}')"></button>`;
+
   page.innerHTML = `
     <div class="chr">
       <div class="chr-head">
@@ -68,13 +73,30 @@ async function CharacterPageInit() {
           Back
         </button>
         <h1 class="chr-title">Character</h1>
+        <div class="chr-head-actions">
+          <button class="chr-enchant ${_chrCfg.enchanted ? 'on' : ''}" id="chr-enchant" onclick="_chrToggleEnchant()">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
+            Enchanted
+          </button>
+          <button class="chr-preview" onclick="_chrPreviewStart()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>
+            Preview
+          </button>
+        </div>
       </div>
       <div class="chr-body">
         <div class="chr-stage">
+          <div class="chr-stage-rays"></div>
           <div class="chr-stage-glow"></div>
           <div class="chr-stage-floor"></div>
           <canvas class="chr-canvas" id="chr-canvas"></canvas>
           <div class="chr-stage-hint">Drag to turn</div>
+          <div class="chr-slots chr-slots-left">
+            ${slot('helmet', 'Helmet')}${slot('chest', 'Chestplate')}${slot('legs', 'Leggings')}${slot('boots', 'Boots')}
+          </div>
+          <div class="chr-slots chr-slots-right">
+            ${slot('main', 'Main Hand')}${slot('off', 'Off Hand')}
+          </div>
           <div class="chr-presets">
             <button class="chr-preset" onclick="_chrPreset('diamond')">Full Diamond</button>
             <button class="chr-preset" onclick="_chrPreset('netherite')">Full Netherite</button>
@@ -87,21 +109,25 @@ async function CharacterPageInit() {
             <h2 class="chr-section-title">Armor</h2>
             ${armorRows}
           </section>
-          <section class="chr-section">
-            <h2 class="chr-section-title">Main Hand</h2>
-            ${hand('main')}
+          <section class="chr-section chr-hands" id="chr-hands" data-hand="${_chrHand}">
+            <div class="chr-section-head">
+              <div class="chr-seg">
+                <span class="chr-seg-thumb"></span>
+                <button class="chr-seg-btn" data-hand="main" onclick="_chrSetHand('main')">Main Hand</button>
+                <button class="chr-seg-btn" data-hand="off" onclick="_chrSetHand('off')">Off Hand</button>
+              </div>
+              <span class="chr-held" id="chr-held" data-no-i18n></span>
+            </div>
+            <div class="chr-hand chr-hand-main">${hand('main')}</div>
+            <div class="chr-hand chr-hand-off">${hand('off')}</div>
           </section>
-          <section class="chr-section">
-            <h2 class="chr-section-title">Off Hand</h2>
-            ${hand('off')}
-          </section>
-          <section class="chr-section chr-section-split">
-            <div>
-              <h2 class="chr-section-title">Start Animation</h2>
+          <section class="chr-section chr-start">
+            <div class="chr-row">
+              <span class="chr-row-label chr-row-title">Start Animation</span>
               ${words('startAnim', CharacterRig.ANIMATIONS, _CHR_ANIM_LABEL)}
             </div>
-            <div>
-              <h2 class="chr-section-title">Start Sound</h2>
+            <div class="chr-row">
+              <span class="chr-row-label chr-row-title">Start Sound</span>
               ${words('startSound', CharacterRig.SOUNDS, _CHR_SOUND_LABEL)}
             </div>
           </section>
@@ -109,6 +135,7 @@ async function CharacterPageInit() {
       </div>
     </div>`;
 
+  _chrSyncSlots();
   _chrInitViewer();
 }
 
@@ -133,6 +160,10 @@ async function _chrInitViewer() {
     viewer.globalLight.intensity = 2.6;
     viewer.cameraLight.intensity = 1.1;
     viewer.animation = new skinview3d.IdleAnimation();
+    // He turns slowly to show everything, until the player takes hold of him.
+    viewer.autoRotate = true;
+    viewer.autoRotateSpeed = 0.55;
+    canvas.addEventListener('pointerdown', () => { viewer.autoRotate = false; }, { once: true });
     _chrViewer = viewer;
     await CharacterRig.apply(viewer, _chrCfg);
     canvas.classList.add('shown');
@@ -152,10 +183,49 @@ function _chrMark(group) {
   document.querySelectorAll(`.chr-chip[data-group="${group}"]`).forEach(b => b.classList.toggle('selected', b.dataset.value === _chrCfg[group]));
 }
 
+// The six slots beside the model, like the game's inventory: what he
+// wears on the left, what he holds on the right.
+function _chrSyncSlots() {
+  if (!_chrCfg) return;
+  document.querySelectorAll('.chr-slot').forEach((el) => {
+    const key = el.dataset.slot;
+    const value = _chrCfg[key];
+    const name = value === 'none' ? null
+      : (key === 'main' || key === 'off') ? 'item/' + value : CharacterRig.armorIcon(value, key);
+    const src = name && _chrIcons[name];
+    el.classList.toggle('filled', !!src);
+    el.classList.toggle('enchanted', !!src && !!_chrCfg.enchanted);
+    el.innerHTML = src ? `<img src="${src}" alt="" draggable="false">` : '';
+  });
+  const held = document.getElementById('chr-held');
+  if (held) held.textContent = _chrCfg[_chrHand] === 'none' ? '' : (CharacterRig.ITEMS[_chrCfg[_chrHand]] || '');
+}
+
+// A hand slot opens that hand's items; an armor slot takes the piece off.
+function _chrSlotClick(key) {
+  if (key === 'main' || key === 'off') { _chrSetHand(key); return; }
+  if (_chrCfg && _chrCfg[key] !== 'none') _chrPick(key, 'none');
+}
+
+function _chrSetHand(hand) {
+  _chrHand = hand === 'off' ? 'off' : 'main';
+  const sec = document.getElementById('chr-hands');
+  if (sec) sec.dataset.hand = _chrHand;
+  _chrSyncSlots();
+}
+
+// What pressing Launch will look and sound like.
+function _chrPreviewStart() {
+  if (!_chrCfg) return;
+  CharacterRig.playSound(_chrCfg.startSound);
+  _chrPlayStart();
+}
+
 async function _chrPick(group, value) {
   if (!_chrCfg) return;
   _chrCfg[group] = value;
   _chrMark(group);
+  _chrSyncSlots();
   await CharacterRig.save(_chrCfg);
   if (group === 'startSound') { CharacterRig.playSound(value); return; }
   if (group === 'startAnim') { _chrPlayStart(); return; }
@@ -170,10 +240,22 @@ function _chrPlayStart() {
   _chrAnimTimer = setTimeout(() => { if (_chrViewer) _chrViewer.animation = new skinview3d.IdleAnimation(); }, 3600);
 }
 
+// The purple glint of enchanted gear, on the armor and on what he holds.
+async function _chrToggleEnchant() {
+  if (!_chrCfg) return;
+  _chrCfg.enchanted = !_chrCfg.enchanted;
+  const b = document.getElementById('chr-enchant');
+  if (b) b.classList.toggle('on', _chrCfg.enchanted);
+  _chrSyncSlots();
+  await CharacterRig.save(_chrCfg);
+  if (_chrViewer) CharacterRig.apply(_chrViewer, _chrCfg);
+}
+
 async function _chrPreset(material) {
   if (!_chrCfg) return;
   for (const s of CharacterRig.SLOTS) { _chrCfg[s] = material; _chrMark(s); }
   if (material === 'none') { _chrCfg.main = 'none'; _chrCfg.off = 'none'; _chrMark('main'); _chrMark('off'); }
+  _chrSyncSlots();
   await CharacterRig.save(_chrCfg);
   if (_chrViewer) CharacterRig.apply(_chrViewer, _chrCfg);
 }
