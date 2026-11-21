@@ -11,7 +11,7 @@
    ─────────────────────────────────────────────────────────────── */
 
 .home-glass.hq {
-  --hq-ch: clamp(170px, 28vh, 244px);          /* card height */
+  --hq-ch: clamp(170px, 27vh, 236px);          /* card height */
   --hq-cw: calc(var(--hq-ch) * 0.74);          /* card width */
   --tint: var(--accent-rgb);
   position: relative;
@@ -135,13 +135,13 @@
 }
 .hq-skin-img.shown { display: block; }
 
-/* ── Launch button: over the feet, so the skin stands behind the glass ── */
+/* ── Launch button: right under his feet ── */
 .hq-launch-row {
   position: relative;
   z-index: 4;
   display: flex;
   flex-shrink: 0;
-  margin-top: -26px;
+  margin-top: 4px;
 }
 .hq-launch-row .launch-btn {
   height: 66px;
@@ -309,11 +309,10 @@
   left: 50%;
   top: 37%;
   z-index: 2;
-  /* 96 = one and a half times, which is whole pixels on a Retina screen. */
-  width: 96px;
-  height: 96px;
+  width: 64px;
+  height: 64px;
   transform: translate(-50%, -50%);
-  border-radius: 14px;
+  border-radius: 10px;
   image-rendering: pixelated;
   background: rgba(5,9,19,0.35);
   box-shadow: 0 10px 22px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.18);
@@ -740,9 +739,4 @@
   background: none !important;
   -webkit-text-fill-color: #fff !important;
   text-shadow: 0 3px 22px rgba(0,0,0,0.7);
-}
-
-/* A short window has smaller cards: the icon goes back to its own 64 pixels. */
-@media (max-height: 760px) {
-  .hq-card-icon { width: 64px; height: 64px; border-radius: 10px; }
 }

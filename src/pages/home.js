@@ -1391,7 +1391,7 @@ async function _hqInitSkin(username) {
     await viewer.loadSkin(tex.dataUrl, { model: tex.slim ? 'slim' : 'default' });
     if (!canvas.isConnected) { viewer.dispose(); return; }
     viewer.fov = 38;
-    viewer.zoom = 0.98;
+    viewer.zoom = 0.9;                 // head to feet inside the space between the name and the button
     viewer.controls.enableZoom = false;
     viewer.controls.enablePan = false;
     viewer.playerWrapper.rotation.y = -0.42;

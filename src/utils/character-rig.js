@@ -179,7 +179,7 @@ const CharacterRig = {
 
   // A flat item as a slab one pixel thick: front, back, and an edge
   // wherever a pixel has no neighbour.
-  _itemGeometry(viewer, img) {
+  _itemGeometry(viewer, img, place) {
     const c = document.createElement('canvas');
     c.width = c.height = 16;
     const g = c.getContext('2d');
@@ -190,7 +190,11 @@ const CharacterRig = {
     const pos = [], nor = [], uv = [], idx = [];
     const quad = (v, n, u, w) => {
       const base = pos.length / 3;
-      for (const p of v) { pos.push(p[0], p[1], p[2]); nor.push(n[0], n[1], n[2]); uv.push(u, w); }
+      const nn = place ? place.normal(n) : n;
+      for (const p of v) {
+        const pp = place ? place.point(p) : p;
+        pos.push(pp[0], pp[1], pp[2]); nor.push(nn[0], nn[1], nn[2]); uv.push(u, w);
+      }
       idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
     };
     const T = 0.5;
@@ -215,13 +219,53 @@ const CharacterRig = {
     return { geometry, canvas: c };
   },
 
-  // Things held by a grip (the picture's lower left corner goes in the fist).
-  _TOOLS: new Set(['diamond_sword', 'netherite_sword', 'iron_sword', 'trident', 'mace', 'diamond_axe', 'netherite_axe', 'diamond_pickaxe', 'netherite_pickaxe', 'fishing_rod']),
+  // How the game holds an item in third person: the `thirdperson_righthand`
+  // display values of its item models (degrees, pixels, scale).
+  _DISPLAY: {
+    handheld:  { rot: [0, -90, 55],    move: [0, 4, 0.5],   scale: 0.85 },   // swords, axes, pickaxes, mace
+    rod:       { rot: [0, 90, 55],     move: [0, 4, 2.5],   scale: 0.85 },   // fishing rod
+    bow:       { rot: [-80, 260, -40], move: [-1, -2, 2.5], scale: 0.9 },
+    generated: { rot: [0, 0, 0],       move: [0, 3, 1],     scale: 0.55 },   // everything flat: totem, apple, pearl...
+  },
+  _displayFor(id) {
+    if (id === 'bow') return this._DISPLAY.bow;
+    if (id === 'fishing_rod') return this._DISPLAY.rod;
+    if (/_(sword|axe|pickaxe)$/.test(id) || id === 'mace' || id === 'trident') return this._DISPLAY.handheld;
+    return this._DISPLAY.generated;
+  },
+
+  // The game's own chain for an item in the hand, worked out once:
+  //   hand:  rotate X -90, rotate Y 180, move (±1, 2, -10) pixels
+  //   item:  move, rotate X then Y then Z, scale   (the display values)
+  // and then from the game's model axes (y down, facing -z) to the
+  // viewer's (y up, facing +z). With g a point of the slab, centred, in
+  // pixels:   q = move + scale * Rx*Ry*Rz * g
+  //           out = (-q.x - side, q.z - 10, q.y + 2)
+  // measured from the arm's shoulder joint; side is +1 for the right arm.
+  // The left hand mirrors: move.x and the Y and Z angles change sign.
+  _handTransform(id, left) {
+    const d = this._displayFor(id);
+    const k = Math.PI / 180;
+    const rx = d.rot[0] * k, ry = d.rot[1] * k * (left ? -1 : 1), rz = d.rot[2] * k * (left ? -1 : 1);
+    const mv = [d.move[0] * (left ? -1 : 1), d.move[1], d.move[2]];
+    const cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry), cz = Math.cos(rz), sz = Math.sin(rz);
+    const rotate = (v) => {
+      let x = v[0] * cz - v[1] * sz, y = v[0] * sz + v[1] * cz, z = v[2];        // Z
+      const x2 = x * cy + z * sy, z2 = -x * sy + z * cy;                          // Y
+      const y3 = y * cx - z2 * sx, z3 = y * sx + z2 * cx;                         // X
+      return [x2, y3, z3];
+    };
+    const side = left ? -1 : 1;
+    return {
+      point: (g) => { const r = rotate(g); const q = [mv[0] + d.scale * r[0], mv[1] + d.scale * r[1], mv[2] + d.scale * r[2]]; return [-q[0] - side, q[2] - 10, q[1] + 2]; },
+      normal: (n) => { const r = rotate(n); return [-r[0], r[2], r[1]]; },
+    };
+  },
 
   _addItem(viewer, arm, img, made, id) {
     const real = viewer.playerObject.skin;
     const limb = real[arm].innerLayer;
-    const { geometry, canvas } = this._itemGeometry(viewer, img);
+    const { geometry, canvas } = this._itemGeometry(viewer, img, this._handTransform(id, arm === 'leftArm'));
     const texture = this._texture(viewer, canvas);
     const material = limb.material.clone();
     material.map = texture;
@@ -229,21 +273,9 @@ const CharacterRig = {
     material.alphaTest = 0;
     material.side = 2;
     const mesh = new limb.constructor(geometry, material);
-    // The limb's box hangs from -6 to +6 around its group's origin, the fist
-    // at the bottom; the model looks along +z. The slab is turned edge-on to
-    // the body (its picture's right becomes "forward").
-    if (this._TOOLS.has(id)) {
-      // Grip in the fist, the blade forward and a little up.
-      mesh.scale.set(0.82, 0.82, 0.82);
-      mesh.rotation.set(0, -Math.PI / 2, -0.25, 'YXZ');
-      mesh.position.set(0, -2.25, 5.8);
-    } else {
-      // A thing carried in the hand: its middle just in front of the fist.
-      mesh.scale.set(0.62, 0.62, 0.62);
-      mesh.rotation.set(0, -Math.PI / 2, 0, 'YXZ');
-      mesh.position.set(0, -4.6, 3.2);
-    }
-    limb.parent.add(mesh);
+    // The points are already where the game puts them, measured from the
+    // shoulder joint, which is the arm's own group: it swings with the arm.
+    real[arm].add(mesh);
     made.push({ object: mesh, geometry, material, texture });
   },
 
