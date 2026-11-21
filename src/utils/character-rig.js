@@ -143,36 +143,68 @@ const CharacterRig = {
     return c;
   },
 
-  // Which body parts a slot covers, and how far the armor stands off the
-  // body there (as scale of the part's box: head 8x8x8, body 8x12x4, limbs 4x12x4).
+  // The game's armor model (HumanoidArmorModel), number for number.
+  // Every piece is the body part's own box grown by a fixed amount on
+  // every side, with the same texture layout:
+  //   helmet, chestplate, boots: the outer model, grown by 1.0 pixel
+  //   leggings:                  the inner model, grown by 0.5
+  //   legs in both models:       0.1 less (0.9 for boots, 0.4 for leggings)
+  //   the helmet's "hat" layer:  0.5 on top of the helmet (1.5)
+  // Boxes: head 8x8x8, body 8x12x4, arms and legs 4x12x4. `grow` is that
+  // amount; `hat` adds the head's second layer.
   _ARMOR_PARTS: {
-    helmet: { head: [1.26, 1.26, 1.26] },
-    chest:  { body: [1.27, 1.18, 1.54], rightArm: [1.54, 1.18, 1.54], leftArm: [1.54, 1.18, 1.54] },
-    legs:   { body: [1.16, 1.10, 1.32], rightLeg: [1.32, 1.10, 1.32], leftLeg: [1.32, 1.10, 1.32] },
-    boots:  { rightLeg: [1.56, 1.19, 1.56], leftLeg: [1.56, 1.19, 1.56] },
+    helmet: { head: { grow: 1.0, hat: 1.5 } },
+    chest:  { body: { grow: 1.0 }, rightArm: { grow: 1.0 }, leftArm: { grow: 1.0 } },
+    legs:   { body: { grow: 0.5 }, rightLeg: { grow: 0.4 }, leftLeg: { grow: 0.4 } },
+    boots:  { rightLeg: { grow: 0.9 }, leftLeg: { grow: 0.9 } },
   },
+  _BOX: { head: [8, 8, 8], body: [8, 12, 4], rightArm: [4, 12, 4], leftArm: [4, 12, 4], rightLeg: [4, 12, 4], leftLeg: [4, 12, 4] },
 
   _addArmor(viewer, slot, img, made) {
     const real = viewer.playerObject.skin;
     const texture = this._texture(viewer, this._armorCanvas(img));
-    const armor = new skinview3d.SkinObject();
+    const armor = new skinview3d.SkinObject();        // always the wide-armed model, as in the game
     armor.map = texture;
     const parts = this._ARMOR_PARTS[slot];
-    for (const name of Object.keys(parts)) {
-      const mesh = armor[name].innerLayer;
-      // The sheet is mostly empty: let the empty parts show the body through.
+    const dress = (mesh) => {
+      // The sheet is mostly empty: empty parts show the body through. Both
+      // sides are drawn, as the game does for armor.
       const material = mesh.material.clone();
       material.map = texture;
       material.transparent = true;
       material.alphaTest = 0.05;
-      material.side = 2;                       // both sides, so open edges are not see-through
+      material.side = 2;
       mesh.material = material;
-      // On top of the size the part already has (the viewer sizes limbs by scale).
-      const [sx, sy, sz] = parts[name];
-      mesh.scale.set(mesh.scale.x * sx, mesh.scale.y * sy, mesh.scale.z * sz);
-      // Into the same group as the real limb's own box, so it turns with it.
-      real[name].innerLayer.parent.add(mesh);
       made.push({ object: mesh, material });
+    };
+    for (const name of Object.keys(parts)) {
+      const box = this._BOX[name];
+      const spec = parts[name];
+      const mesh = armor[name].innerLayer;
+      dress(mesh);
+      // The viewer's part boxes are the game's boxes; growing one by g on
+      // every side is a scale of (size + 2g) / size about its centre. (On
+      // top of the scale the part already has: the viewer sizes limbs that way.)
+      const g = spec.grow;
+      mesh.scale.set(mesh.scale.x * (box[0] + 2 * g) / box[0], mesh.scale.y * (box[1] + 2 * g) / box[1], mesh.scale.z * (box[2] + 2 * g) / box[2]);
+      if (name === 'rightArm' || name === 'leftArm') {
+        // The armor's arm is 4 wide and hangs where the game hangs it from
+        // the shoulder joint, whatever the player's own arms are (a slim
+        // skin's 3-wide arm sits half a pixel off).
+        mesh.position.set(name === 'rightArm' ? -1 : 1, -4, 0);
+        real[name].add(mesh);
+      } else {
+        // Same group as the player's own box for that part, so it turns with it.
+        real[name].innerLayer.parent.add(mesh);
+      }
+      if (spec.hat) {
+        // The head's second layer: the viewer builds it 0.5 out already.
+        const hat = armor[name].outerLayer;
+        dress(hat);
+        const k = (box[0] + 2 * spec.hat) / (box[0] + 1);
+        hat.scale.set(hat.scale.x * k, hat.scale.y * k, hat.scale.z * k);
+        real[name].outerLayer.parent.add(hat);
+      }
     }
     made.push({ object: armor, texture });
   },
