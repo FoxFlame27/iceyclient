@@ -60,6 +60,8 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-iceymod-${{ matrix.mc }}-${{ hashFiles('mod/build.gradle', 'mod/gradle.properties', 'mod/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-iceymod-${{ matrix.mc }}-
+      - name: Use Google's mirror of Maven Central
+        run: mkdir -p ~/.gradle/init.d && cp .github/gradle/central-mirror.gradle ~/.gradle/init.d/
       - name: Build iceymod jar (MC ${{ matrix.mc }})
         run: |
           cd mod
@@ -116,6 +118,8 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-iceyscroll-${{ matrix.mc }}-${{ hashFiles('mod-scroll/build.gradle', 'mod-scroll/gradle.properties', 'mod-scroll/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-iceyscroll-${{ matrix.mc }}-
+      - name: Use Google's mirror of Maven Central
+        run: mkdir -p ~/.gradle/init.d && cp .github/gradle/central-mirror.gradle ~/.gradle/init.d/
       - name: Build iceyscroll jar (MC ${{ matrix.mc }})
         run: |
           cd mod-scroll
@@ -412,6 +416,8 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-iceysmp-${{ matrix.mc }}-${{ hashFiles('mod-smp/build.gradle', 'mod-smp/gradle.properties', 'mod-smp/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-iceysmp-${{ matrix.mc }}-
+      - name: Use Google's mirror of Maven Central
+        run: mkdir -p ~/.gradle/init.d && cp .github/gradle/central-mirror.gradle ~/.gradle/init.d/
       - name: Build iceysmp jar (MC ${{ matrix.mc }})
         run: |
           cd mod-smp

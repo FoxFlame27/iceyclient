@@ -1,0 +1,36 @@
+// Used by the release builds only (copied to ~/.gradle/init.d there).
+//
+// Maven Central at times answers GitHub's build machines with
+// "429 Too Many Requests", which failed release after release on
+// 2026-11-21 even with retries. Google keeps a full mirror of Maven
+// Central; this points every use of Maven Central at that mirror, for
+// plugins and for the mods' own libraries, without touching the build
+// files. Local builds do not load this file and use Maven Central as before.
+def MIRROR = 'https://maven-central.storage-download.googleapis.com/maven2/'
+
+def useMirror = { repos ->
+    repos.withType(org.gradle.api.artifacts.repositories.MavenArtifactRepository).configureEach { repo ->
+        def url = repo.url.toString()
+        if (url.contains('repo.maven.apache.org') || url.contains('repo1.maven.org')) {
+            repo.url = uri(MIRROR)
+        }
+    }
+}
+
+beforeSettings { settings ->
+    useMirror(settings.pluginManagement.repositories)
+}
+settingsEvaluated { settings ->
+    useMirror(settings.pluginManagement.repositories)
+    useMirror(settings.dependencyResolutionManagement.repositories)
+}
+allprojects {
+    useMirror(buildscript.repositories)
+    useMirror(repositories)
+    // Printed once per build, so the log shows the mirror is in use.
+    afterEvaluate { p ->
+        if (p == p.rootProject) {
+            println '[central-mirror] ' + p.repositories.collect { it instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository ? it.url.toString() : it.name }.join(', ')
+        }
+    }
+}
