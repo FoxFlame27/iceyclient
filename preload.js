@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('icey', {
   // Minecraft
   launchMinecraft: (installationId, opts) => ipcRenderer.invoke('launch-mc', installationId, opts),
   getKnownServers: () => ipcRenderer.invoke('get-known-servers'),
+  getGearTextures: (names) => ipcRenderer.invoke('get-gear-textures', names),
   pingServer: (address) => ipcRenderer.invoke('ping-server', address),
   getSkinTexture: (username) => ipcRenderer.invoke('get-skin-texture', username),
   stopMinecraft: (launchId) => ipcRenderer.send('stop-mc', launchId),

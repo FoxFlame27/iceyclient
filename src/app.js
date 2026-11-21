@@ -20,6 +20,7 @@ function switchPage(pageName) {
   if (pageName === 'mods' && typeof ModsPageInit === 'function') ModsPageInit();
   if (pageName === 'skins' && typeof SkinsPageInit === 'function') SkinsPageInit();
   if (pageName === 'console' && typeof ConsolePageInit === 'function') ConsolePageInit();
+  if (pageName === 'character' && typeof CharacterPageInit === 'function') CharacterPageInit();
   if (pageName === 'options' && typeof OptionsPageInit === 'function') OptionsPageInit();
   if (pageName === 'setup' && typeof SetupPageInit === 'function') SetupPageInit();
 }

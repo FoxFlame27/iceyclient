@@ -1643,6 +1643,12 @@ function launchMinecraft(installationId, opts = {}) {
       // a crash-log modal if MC exits with a non-zero code.
       const tail = [];
       const pushTail = (line) => { tail.push(line); if (tail.length > 120) tail.shift(); };
+      let startedSent = false;
+      const markStarted = () => {
+        if (startedSent || !mcProcesses.has(launchId)) return;
+        startedSent = true;
+        if (mainWindow) broadcast('mc-event', { type: 'mc-started', launchId });
+      };
       mcProcesses.set(launchId, { proc, installationId, username: launchUsername, uuid: launchUuid, tail });
       // Start Icey-network presence heartbeat for this player. Only
       // for online MSA accounts (offline accounts have synthesized
@@ -1671,9 +1677,10 @@ function launchMinecraft(installationId, opts = {}) {
           if (mainWindow) {
             broadcast('mc-event', { type: 'console-log', message: `[${launchUsername}] ${text}`, level: 'info', launchId });
           }
-          if (text.includes('Setting user:') || text.includes('LWJGL') || text.includes('OpenAL')) {
-            if (mainWindow) broadcast('mc-event', { type: 'mc-started', launchId });
-          }
+          // The game counts as started once it is really there: the sound
+          // engine and the block textures come up last, right before the
+          // title screen. Until then the launcher shows "Launching".
+          if (!startedSent && /Sound engine started|minecraft:textures\/atlas\/blocks/.test(text)) markStarted();
           // Plain-language explanation for "Connection refused: getsockopt" & co.
           try {
             _noteConnectTarget(launchId, text);
@@ -1732,10 +1739,9 @@ function launchMinecraft(installationId, opts = {}) {
         }
       });
 
-      // Signal started quickly
-      setTimeout(() => {
-        if (mcProcesses.has(launchId) && mainWindow) broadcast('mc-event', { type: 'mc-started', launchId });
-      }, 1500);
+      // A game that never prints those lines (a modded loading screen, a
+      // version that words them differently) still becomes "running".
+      setTimeout(markStarted, 90000);
 
       if (settings.closeLauncherOnStart) {
         setTimeout(() => { if (mainWindow) mainWindow.hide(); }, 2000);
@@ -1861,8 +1867,10 @@ function _readRecentServers() {
 function _recordRecentServer(host, port) {
   if (!host || _isLocalHost(host)) return;
   const address = _serverKey(host, port);
-  const list = _readRecentServers().filter(e => e.address !== address);
-  list.unshift({ address, lastPlayed: Date.now() });
+  const all = _readRecentServers();
+  const old = all.find(e => e.address === address);
+  const list = all.filter(e => e.address !== address);
+  list.unshift({ address, lastPlayed: Date.now(), ...(old && old.saved ? { saved: true } : {}) });
   _writeJsonSafe(RECENT_SERVERS_FILE, list.slice(0, 40));
 }
 
@@ -1924,16 +1932,40 @@ function _readServersDat(file) {
 
 // Played servers first (newest on top), then the rest of the saved lists.
 function _listKnownServers() {
+  let installations = [];
+  try { installations = readInstallations(); } catch (_) {}
+  const lists = installations.map(inst => _readServersDat(path.join(getInstallGameDir(inst.id), 'servers.dat')));
+  const savedKeys = new Set();
+  for (const list of lists) for (const e of list) {
+    const t = _parseServerAddress(e.address);
+    if (t) savedKeys.add(_serverKey(t.host, t.port));
+  }
+
+  // A played server that was in a multiplayer list and no longer is in any
+  // was deleted in the game: it leaves the cards too, together with the
+  // regional hosts of the same network that were only passed through.
+  let recents = _readRecentServers();
+  const gone = new Set();
+  let changed = false;
+  recents = recents.filter((r) => {
+    if (savedKeys.has(r.address)) { if (!r.saved) { r.saved = true; changed = true; } return true; }
+    if (r.saved) { gone.add(_serverGroup(r.address)); changed = true; return false; }
+    return true;
+  });
+  if (gone.size) {
+    const savedGroups = new Set(Array.from(savedKeys, _serverGroup));
+    recents = recents.filter(r => !(gone.has(_serverGroup(r.address)) && !savedGroups.has(_serverGroup(r.address))));
+  }
+  if (changed) _writeJsonSafe(RECENT_SERVERS_FILE, recents);
+
   const byKey = new Map();
-  for (const r of _readRecentServers()) {
+  for (const r of recents) {
     const t = _parseServerAddress(r.address);
     if (!t) continue;
     byKey.set(_serverKey(t.host, t.port), { address: r.address, name: '', icon: null, lastPlayed: r.lastPlayed || 0 });
   }
-  let installations = [];
-  try { installations = readInstallations(); } catch (_) {}
-  for (const inst of installations) {
-    for (const e of _readServersDat(path.join(getInstallGameDir(inst.id), 'servers.dat'))) {
+  for (const list of lists) {
+    for (const e of list) {
       const t = _parseServerAddress(e.address);
       if (!t || _isLocalHost(t.host)) continue;
       const key = _serverKey(t.host, t.port);
@@ -3006,6 +3038,80 @@ function _zipReadEntry(buf, entry) {
   if (entry.method === 0) return raw;
   if (entry.method === 8) { try { return require('zlib').inflateRawSync(raw); } catch (_) { return null; } }
   return null;
+}
+
+// ── Armor and item pictures for the character on the home page ──
+// The player's own game jar has them; nothing of Minecraft's is shipped
+// with the launcher. Names are logical ("armor/diamond", "leggings/iron",
+// "item/trident"); each is looked up where the game keeps it (the place
+// moved in 1.21.2) and kept in the cache folder once found.
+const GEAR_CACHE_DIR = path.join(DATA_DIR, 'cache', 'gear');
+const _gearMemory = new Map();   // name → data URL
+
+function _gearJarPaths(name) {
+  const m = /^(armor|leggings|item)\/([a-z0-9_]{1,40})$/.exec(name);
+  if (!m) return [];
+  const T = 'assets/minecraft/textures/';
+  if (m[1] === 'item') return [T + 'item/' + m[2] + '.png'];
+  if (m[1] === 'armor') return [T + 'entity/equipment/humanoid/' + m[2] + '.png', T + 'models/armor/' + m[2] + '_layer_1.png'];
+  return [T + 'entity/equipment/humanoid_leggings/' + m[2] + '.png', T + 'models/armor/' + m[2] + '_layer_2.png'];
+}
+
+// Game jars on this computer, the selected installation's version first, then newest.
+function _gearJars() {
+  const dir = path.join(getDefaultMcDir(), 'versions');
+  let jars = [];
+  try {
+    jars = fs.readdirSync(dir).map(v => {
+      const p = path.join(dir, v, v + '.jar');
+      try { const st = fs.statSync(p); return st.size > 1024 * 1024 ? { v, p, at: st.mtimeMs } : null; } catch (_) { return null; }
+    }).filter(Boolean).sort((a, b) => b.at - a.at);
+  } catch (_) {}
+  try {
+    const sel = readInstallations().find(i => i.selected);
+    if (sel) jars.sort((a, b) => (b.v === sel.version) - (a.v === sel.version));
+  } catch (_) {}
+  return jars.slice(0, 4);
+}
+
+function _getGearTextures(names) {
+  const out = {};
+  const missing = [];
+  for (const name of Array.isArray(names) ? names.slice(0, 120) : []) {
+    if (typeof name !== 'string' || !_gearJarPaths(name).length) continue;
+    if (_gearMemory.has(name)) { out[name] = _gearMemory.get(name); continue; }
+    const file = path.join(GEAR_CACHE_DIR, name.replace('/', '__') + '.png');
+    try {
+      out[name] = 'data:image/png;base64,' + fs.readFileSync(file).toString('base64');
+      _gearMemory.set(name, out[name]);
+    } catch (_) { missing.push(name); }
+  }
+  if (!missing.length) return out;
+  for (const jar of _gearJars()) {
+    let buf, byName;
+    try {
+      buf = fs.readFileSync(jar.p);
+      byName = new Map(_zipEntries(buf).map(e => [e.name, e]));
+    } catch (_) { continue; }
+    for (let i = missing.length - 1; i >= 0; i--) {
+      const name = missing[i];
+      for (const p of _gearJarPaths(name)) {
+        const entry = byName.get(p);
+        const data = entry && _zipReadEntry(buf, entry);
+        if (!data || data.length > 512 * 1024) continue;
+        out[name] = 'data:image/png;base64,' + data.toString('base64');
+        _gearMemory.set(name, out[name]);
+        try {
+          fs.mkdirSync(GEAR_CACHE_DIR, { recursive: true });
+          fs.writeFileSync(path.join(GEAR_CACHE_DIR, name.replace('/', '__') + '.png'), data);
+        } catch (_) {}
+        missing.splice(i, 1);
+        break;
+      }
+    }
+    if (!missing.length) break;
+  }
+  return out;
 }
 
 // ── options.txt resourcePacks manipulation (arbitrary entries) ────────
@@ -4437,6 +4543,9 @@ app.whenReady().then(() => {
   // Minecraft
   ipcMain.handle('get-known-servers', () => {
     try { return _listKnownServers(); } catch (e) { log('warn', 'get-known-servers: ' + e.message); return []; }
+  });
+  ipcMain.handle('get-gear-textures', (_, names) => {
+    try { return _getGearTextures(names); } catch (e) { log('warn', 'get-gear-textures: ' + e.message); return {}; }
   });
   ipcMain.handle('ping-server', async (_, address) => {
     try { return await _pingServer(address); } catch (e) { return null; }

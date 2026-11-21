@@ -221,7 +221,7 @@ async function HomePageInit() {
         <span class="home-timer-value" id="home-timer-value">00:00:00</span>
       </div>
 
-      <div class="hq-skin" id="hq-skin">
+      <div class="hq-skin" id="hq-skin" title="Right-click to customise" oncontextmenu="event.preventDefault(); event.stopPropagation(); switchPage('character');">
         <div class="hq-skin-glow"></div>
         <canvas class="hq-skin-canvas" id="hq-skin-canvas"></canvas>
         <img class="hq-skin-img" id="hq-skin-img" alt="" draggable="false"
@@ -548,7 +548,7 @@ async function _homeUpdateLaunchButton(state, showTimer) {
     if (timer) timer.classList.remove('visible');
   } else if (state === 'starting') {
     btn.classList.add('launch-btn-starting'); btn.disabled = true;
-    btn.innerHTML = `<span class="launch-btn-title starting-dots">Starting</span><span class="launch-btn-subtitle">PLEASE WAIT</span>`;
+    btn.innerHTML = `<span class="launch-btn-title starting-dots">Launching</span><span class="launch-btn-subtitle">PLEASE WAIT</span>`;
     if (timer) timer.classList.remove('visible');
   } else if (state === 'running') {
     btn.classList.add('launch-btn-running'); btn.disabled = false;
@@ -715,6 +715,7 @@ async function HomePlayClick() {
     _deckSetPref(joinServer.key, { installationId: selected.id });
   }
   _hqLaunchBurst();
+  if (document.getElementById('hq-skin')) CharacterRig.playSound(CharacterRig.get().startSound);
   await MinecraftLauncher.launch(selected.id, joinServer ? { server: joinServer.address } : undefined);
 }
 
@@ -1362,7 +1363,7 @@ let _hqWaveTimer = null;
 function _hqDisposeSkin() {
   clearTimeout(_hqWaveTimer);
   if (_hqSkinObserver) { _hqSkinObserver.disconnect(); _hqSkinObserver = null; }
-  if (_hqViewer) { try { _hqViewer.dispose(); } catch (_) {} _hqViewer = null; }
+  if (_hqViewer) { try { CharacterRig.clear(_hqViewer); _hqViewer.dispose(); } catch (_) {} _hqViewer = null; }
   _hqSkinAnim = '';
 }
 
@@ -1390,13 +1391,16 @@ async function _hqInitSkin(username) {
     await viewer.loadSkin(tex.dataUrl, { model: tex.slim ? 'slim' : 'default' });
     if (!canvas.isConnected) { viewer.dispose(); return; }
     viewer.fov = 38;
-    viewer.zoom = 0.95;
+    viewer.zoom = 0.98;
     viewer.controls.enableZoom = false;
     viewer.controls.enablePan = false;
     viewer.playerWrapper.rotation.y = -0.42;
     viewer.globalLight.intensity = 2.6;
     viewer.cameraLight.intensity = 1.1;
     _hqViewer = viewer;
+    // Armor and whatever he holds, as chosen on the Character page.
+    await CharacterRig.apply(viewer, CharacterRig.get());
+    if (!canvas.isConnected) { _hqDisposeSkin(); return; }
     canvas.classList.add('shown');
     // Wave hello, then settle into the state the launcher is in.
     viewer.animation = new skinview3d.WaveAnimation();
@@ -1445,7 +1449,7 @@ function _hqSkinState(state) {
   if (!_hqViewer || _hqSkinAnim === 'wave' || _hqSkinAnim === state) return;
   _hqSkinAnim = state;
   if (state === 'starting') {
-    const a = new skinview3d.RunningAnimation(); a.speed = 0.75; _hqViewer.animation = a;
+    _hqViewer.animation = CharacterRig.animation(CharacterRig.get().startAnim);     // the player's pick; running by default
   } else if (state === 'running') {
     const a = new skinview3d.WalkingAnimation(); a.speed = 0.55; _hqViewer.animation = a;
   } else {
@@ -1498,3 +1502,19 @@ function _hqInitSnow() {
   };
   requestAnimationFrame(frame);
 }
+
+// The cards follow what changes outside the page: a server added or
+// deleted in the game's multiplayer list, an installation made or removed.
+// Looked at again whenever the launcher window gets the focus back and
+// when the game closes.
+let _deckSyncAt = 0;
+function _deckSyncOutside() {
+  const home = document.getElementById('page-home');
+  if (!document.getElementById('hq-deck') || !home || !home.classList.contains('active')) return;
+  if (Date.now() - _deckSyncAt < 1500) return;
+  _deckSyncAt = Date.now();
+  _deckReloadServers();
+  _deckSyncInstallations();
+}
+window.addEventListener('focus', _deckSyncOutside);
+if (typeof MinecraftLauncher !== 'undefined') MinecraftLauncher.onChange((state) => { if (state === 'idle') setTimeout(_deckSyncOutside, 800); });

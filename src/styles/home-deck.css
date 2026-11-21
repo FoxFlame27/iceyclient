@@ -11,7 +11,7 @@
    ─────────────────────────────────────────────────────────────── */
 
 .home-glass.hq {
-  --hq-ch: clamp(150px, 25vh, 214px);          /* card height */
+  --hq-ch: clamp(170px, 28vh, 244px);          /* card height */
   --hq-cw: calc(var(--hq-ch) * 0.74);          /* card width */
   --tint: var(--accent-rgb);
   position: relative;
@@ -60,7 +60,7 @@
 @media (prefers-reduced-motion: reduce) { .hq-scene-img { animation: none; } }
 
 /* ── Name ── */
-.hq .hg-identity { margin-top: clamp(10px, 2.4vh, 24px); flex-shrink: 0; z-index: 2; }
+.hq .hg-identity { margin-top: clamp(6px, 1.4vh, 16px); flex-shrink: 0; z-index: 2; }
 .hq .hg-identity:hover { background: rgba(255,255,255,0.08); }
 .hq .hg-name { color: #fff; text-shadow: 0 3px 22px rgba(0,0,0,0.75), 0 1px 2px rgba(0,0,0,0.5); }
 .hq .hg-tag {
@@ -161,7 +161,7 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  margin-top: clamp(10px, 1.8vh, 16px);
+  margin-top: clamp(8px, 1.2vh, 12px);
 }
 .hq-switch {
   position: relative;
@@ -309,10 +309,11 @@
   left: 50%;
   top: 37%;
   z-index: 2;
-  width: 64px;
-  height: 64px;
+  /* 96 = one and a half times, which is whole pixels on a Retina screen. */
+  width: 96px;
+  height: 96px;
   transform: translate(-50%, -50%);
-  border-radius: 10px;
+  border-radius: 14px;
   image-rendering: pixelated;
   background: rgba(5,9,19,0.35);
   box-shadow: 0 10px 22px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.18);
@@ -385,11 +386,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0 10px 10px;
+  padding: 0 12px 12px;
 }
 .hq-card-name {
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -399,7 +400,7 @@
   text-shadow: 0 1px 6px rgba(0,0,0,0.7);
 }
 .hq-card-sub {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 500;
   color: rgba(255,255,255,0.72);
   white-space: nowrap;
@@ -664,10 +665,19 @@
 /* Pages scroll inside the frame, not across its rounded corners. */
 :root[data-layout="frost"] .page:not(#page-home) {
   inset: 1px 9px 9px 1px;
-  border-radius: 21px;
   padding: 22px 28px 26px;
   color: #fff;
 }
+/* No blur-behind on anything inside these pages. In Classic the backdrop
+   is already blurred, so a card's own blur changes nothing there; here the
+   scene behind is sharp, and a blurred card inside a scrolling page drew
+   wrong in the app: parts of the Mods page went missing and rows flickered
+   under the mouse. The cards are dark enough to read without it. */
+:root[data-layout="frost"] .page:not(#page-home) * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+:root[data-layout="frost"] .mod-list-item:hover { transform: none !important; }
 
 :root[data-layout="frost"] .options-card,
 :root[data-layout="frost"] .options-small-card,
@@ -730,4 +740,9 @@
   background: none !important;
   -webkit-text-fill-color: #fff !important;
   text-shadow: 0 3px 22px rgba(0,0,0,0.7);
+}
+
+/* A short window has smaller cards: the icon goes back to its own 64 pixels. */
+@media (max-height: 760px) {
+  .hq-card-icon { width: 64px; height: 64px; border-radius: 10px; }
 }
