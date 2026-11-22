@@ -33,6 +33,7 @@ function FriendsPageInit() {
             <div id="fr-requests"></div>
             <div id="fr-list"></div>
           </div>
+          <button class="fr-mini fr-invite" type="button" onclick="_frInvite()">Invite a friend</button>
         </div>
         <div class="fr-main" id="fr-main"></div>
       </div>`;
@@ -243,6 +244,13 @@ async function _frSend() {
   input.value = '';
   const ok = await Social.send(Social.openChat, text);
   if (!ok) { input.value = text; Toast.error('Message not sent'); }
+}
+
+// A friend without Icey Client needs it first: hand out the download link.
+function _frInvite() {
+  navigator.clipboard.writeText('https://iceymc.com/?from=invite')
+    .then(() => Toast.success('Invite link copied'))
+    .catch(() => Toast.info('https://iceymc.com'));
 }
 
 async function _frAdd() {
