@@ -224,6 +224,11 @@
         <div class="slab"><div class="slab-number" id="p-linux">0</div><div class="slab-label">Linux</div></div>
       </section>
 
+      <section class="versions" id="sources" hidden>
+        <h2>Where they came from</h2>
+        <div id="source-rows"></div>
+      </section>
+
       <p class="note" id="people-note"></p>
 
       <h2 class="sub">Every download ever</h2>
@@ -343,6 +348,22 @@
         document.getElementById('p-mac-arm').textContent = fmt(d.systems['mac-arm']);
         document.getElementById('p-mac-intel').textContent = fmt(d.systems['mac-intel']);
         document.getElementById('p-linux').textContent = fmt(d.systems['linux']);
+        // Links shared as iceymc.com/?from=<name> show up here by name.
+        var names = Object.keys(d.sources || {}).sort(function (x, y) { return d.sources[y] - d.sources[x]; });
+        if (names.some(function (n) { return n !== 'direct'; })) {
+          var box = document.getElementById('source-rows'); box.textContent = '';
+          var most = d.sources[names[0]] || 1;
+          names.forEach(function (n) {
+            var row = document.createElement('div'); row.className = 'row';
+            var name = document.createElement('span'); name.className = 'row-name'; name.textContent = n === 'direct' ? 'No link name' : n;
+            var bar = document.createElement('span'); bar.className = 'row-bar';
+            var fill = document.createElement('i'); fill.style.width = (d.sources[n] / most * 100).toFixed(1) + '%'; bar.appendChild(fill);
+            var count = document.createElement('span'); count.className = 'row-count'; count.textContent = fmt(d.sources[n]);
+            row.appendChild(name); row.appendChild(bar); row.appendChild(count);
+            box.appendChild(row);
+          });
+          document.getElementById('sources').hidden = false;
+        }
         document.getElementById('people-note').textContent = 'Counted on this site since ' + since + '. Each device is counted once, however often it downloads.';
       }).catch(function () {
         document.getElementById('people').textContent = '?';

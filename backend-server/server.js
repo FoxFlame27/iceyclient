@@ -195,6 +195,10 @@ app.get('/dl/:system', (req, res) => {
     d.last = now;
     d.n += 1;
     if (!d.systems.includes(req.params.system)) d.systems.push(req.params.system);
+    // iceymc.com/?from=tiktok hands "tiktok" on with the download link:
+    // the first source a device arrives with is the one that is kept.
+    const from = String(req.query.from || '').toLowerCase();
+    if (!d.from && /^[a-z0-9-]{1,24}$/.test(from)) d.from = from;
     dlDirty = true;
   }
   res.setHeader('cache-control', 'no-store');
@@ -203,11 +207,13 @@ app.get('/dl/:system', (req, res) => {
 
 // Numbers only: how many different devices, in total and per system.
 app.get('/dl-stats', (_req, res) => {
-  const out = { since: dl.since, devices: 0, downloads: 0, systems: { 'win': 0, 'mac-arm': 0, 'mac-intel': 0, 'linux': 0 } };
+  const out = { since: dl.since, devices: 0, downloads: 0, systems: { 'win': 0, 'mac-arm': 0, 'mac-intel': 0, 'linux': 0 }, sources: {} };
   for (const d of Object.values(dl.devices)) {
     out.devices += 1;
     out.downloads += d.n;
     for (const s of d.systems) if (s in out.systems) out.systems[s] += 1;
+    const src = d.from || 'direct';
+    out.sources[src] = (out.sources[src] || 0) + 1;
   }
   res.setHeader('cache-control', 'no-store');
   res.json(out);

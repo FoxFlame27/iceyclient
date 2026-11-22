@@ -1,5 +1,41 @@
-loll  pllb ty for downloading 
-get `Icey Client Setup.exe` for windows (run once to install)
+# Icey Client
+
+A free Minecraft launcher with its own Fabric client mod, for Windows, macOS and Linux.
+
+**[Download at iceymc.com](https://iceymc.com/?from=github)**
+
+![The Icey Client home screen: your character above a row of server cards](website/icey-client/shots/servers.jpg)
+
+## What it does
+
+- **Join your servers in one click.** Every server you have played on becomes a card with its icon and player count. Pick one, press Join, and the game opens straight into it.
+- **Dress your character.** Diamond or netherite armor, a sword or trident, a totem in the off hand, enchanted or not, on your own skin.
+- **Friends and messages.** Add friends by Minecraft name, see who is online, chat from the launcher, and get a notice in game when a friend comes on.
+- **Its own client mod.** A Fabric mod with HUD mods, installed for you.
+- **Your mods too.** Separate installations, each with its own mods and Minecraft version.
+- **Three looks.** Classic, Liquid and Frost.
+
+| | |
+|---|---|
+| ![Character page](website/icey-client/shots/character.jpg) | ![Friends page](website/icey-client/shots/friends.jpg) |
+
+## Install
+
+| System | File |
+|---|---|
+| Windows 10 and 11 | [Icey.Client.Setup.exe](https://github.com/FoxFlame27/iceyclient/releases/latest/download/Icey.Client.Setup.exe) (run once to install) |
+| Mac, Apple chip | [Icey.Client-arm64.dmg](https://github.com/FoxFlame27/iceyclient/releases/latest/download/Icey.Client-arm64.dmg) |
+| Mac, Intel | [Icey.Client-x64.dmg](https://github.com/FoxFlame27/iceyclient/releases/latest/download/Icey.Client-x64.dmg) |
+| Linux, ARM64 | [Icey.Client-aarch64.rpm](https://github.com/FoxFlame27/iceyclient/releases/latest/download/Icey.Client-aarch64.rpm) |
+
+On a Mac, if the app says "Icey Client is damaged and can't be opened", run this once in Terminal:
+
+```
+xattr -cr /Applications/Icey\ Client.app
+```
+
+Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
+
 
 ## Download Scroll Keybinds (standalone mod)
 
@@ -34,8 +70,6 @@ Drop into `<world>/datapacks/` and run `/reload`.
 `latest/download/` always resolves to the most recent release tag.
 
 
-get arm 64x .dmg for mac but make sure to run this command if the app says iceyclient is damaged and cant be opened: 
-xacttr -cr /Applications/Icey\ Client.app 
 
 ---
 
