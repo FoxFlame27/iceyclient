@@ -3154,7 +3154,9 @@ async function _socialCall(method, route, body) {
 // A notice for the running game: the mod reads this file and shows it in
 // the top right corner (SocialNoticeHud). Written into every installation
 // that has a game open.
-function _socialNotifyGame(title, text) {
+function _socialNotifyGame(title, text, reply) {
+  const from = reply && /^[0-9a-f-]{32,36}$/i.test(String(reply.uuid)) && /^[A-Za-z0-9_]{1,16}$/.test(String(reply.name))
+    ? { uuid: String(reply.uuid), name: String(reply.name) } : null;
   const seen = new Set();
   for (const entry of mcProcesses.values()) {
     if (!entry || !entry.installationId || seen.has(entry.installationId)) continue;
@@ -3163,10 +3165,45 @@ function _socialNotifyGame(title, text) {
       id: Date.now(),
       title: String(title || '').slice(0, 60),
       text: String(text || '').slice(0, 120),
+      ...(from ? { reply: from } : {}),
     });
   }
   return seen.size;
 }
+
+// Quick replies typed in the game: the mod cannot reach the friends
+// service itself, so it leaves each reply as a small file in its config
+// folder (iceymod-reply-<time>.json) and the launcher sends it.
+let _socialReplyBusy = false;
+async function _socialCollectReplies() {
+  if (_socialReplyBusy || !mcProcesses.size) return;
+  _socialReplyBusy = true;
+  try {
+    const seen = new Set();
+    for (const entry of mcProcesses.values()) {
+      if (!entry || !entry.installationId || seen.has(entry.installationId)) continue;
+      seen.add(entry.installationId);
+      const dir = path.join(getInstallGameDir(entry.installationId), 'config');
+      let files = [];
+      try { files = fs.readdirSync(dir).filter(f => /^iceymod-reply-\d{1,16}\.json$/.test(f)).sort(); } catch (_) {}
+      for (const f of files) {
+        const full = path.join(dir, f);
+        const o = _readJsonSafe(full);
+        try { fs.unlinkSync(full); } catch (_) {}
+        const text = o && typeof o.text === 'string' ? o.text.trim().slice(0, 200) : '';
+        if (!o || !text || !/^[0-9a-f-]{32,36}$/i.test(String(o.to)) || Date.now() - Number(o.id || 0) > 60000) continue;
+        const name = /^[A-Za-z0-9_]{1,16}$/.test(String(o.name)) ? String(o.name) : '';
+        const r = await _socialCall('POST', '/social/messages', { to: String(o.to), text });
+        if (r && r.ok) _socialNotifyGame(name ? 'Sent to ' + name : 'Message sent', text);
+        else if (r && r.data && r.data.error === 'rude') _socialNotifyGame('Not sent', 'No bad words, please');
+        else _socialNotifyGame('Message not sent', '');
+        try { broadcast('social-refresh'); } catch (_) {}
+      }
+    }
+  } catch (e) { log('warn', 'social replies: ' + e.message); }
+  finally { _socialReplyBusy = false; }
+}
+setInterval(_socialCollectReplies, 1000).unref();
 
 // ── Armor and item pictures for the character on the home page ──
 // The player's own game jar has them; nothing of Minecraft's is shipped
@@ -4674,8 +4711,8 @@ app.whenReady().then(() => {
     try { return _listKnownServers(); } catch (e) { log('warn', 'get-known-servers: ' + e.message); return []; }
   });
   ipcMain.handle('social-call', async (_, method, route, body) => _socialCall(method, route, body));
-  ipcMain.handle('social-notify-game', (_, title, text) => {
-    try { return _socialNotifyGame(title, text); } catch (_e) { return 0; }
+  ipcMain.handle('social-notify-game', (_, title, text, reply) => {
+    try { return _socialNotifyGame(title, text, reply); } catch (_e) { return 0; }
   });
   ipcMain.handle('get-gear-textures', (_, names) => {
     try { return _getGearTextures(names); } catch (e) { log('warn', 'get-gear-textures: ' + e.message); return {}; }

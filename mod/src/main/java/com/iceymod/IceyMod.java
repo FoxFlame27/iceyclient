@@ -40,6 +40,7 @@ public class IceyMod implements ClientModInitializer {
     public static final String KEY_CATEGORY = "key.categories.iceymod";
 
     private static KeyMapping menuKey;
+    private static KeyMapping replyKey;
     private static KeyMapping zoomKey;
     private static KeyMapping perspectiveKey;
     private static KeyMapping waypointKey;
@@ -60,7 +61,7 @@ public class IceyMod implements ClientModInitializer {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.87.13)");
+        System.out.println("[IceyMod] booted (build tag: v1.87.14)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -97,7 +98,21 @@ public class IceyMod implements ClientModInitializer {
         leaderboardKey  = registerKey("key.iceymod.openboard",    InputConstants.KEY_N);
         javaStuffKey    = registerKey("key.iceymod.javastuff",    InputConstants.KEY_U);
 
+        replyKey = registerKey("key.iceymod.reply", InputConstants.KEY_O);
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // Quick reply to the friend who wrote last (see SocialNoticeHud).
+            try {
+                if (replyKey != null && com.iceymod.hud.SocialNoticeHud.replyKeyName.isEmpty()) {
+                    com.iceymod.hud.SocialNoticeHud.replyKeyName = replyKey.getTranslatedKeyMessage().getString().toUpperCase();
+                }
+            } catch (Throwable ignored) {}
+            while (wasPressed(replyKey)) {
+                String[] to = com.iceymod.hud.SocialNoticeHud.replyTarget();
+                if (to != null && com.iceymod.compat.MC.screen(client) == null) {
+                    com.iceymod.compat.MC.setScreen(client, new com.iceymod.screen.ReplyScreen(to[0], to[1]));
+                }
+            }
             while (wasPressed(menuKey)) {
                 if (com.iceymod.compat.MC.screen(client) == null) {
                     com.iceymod.compat.MC.setScreen(client,

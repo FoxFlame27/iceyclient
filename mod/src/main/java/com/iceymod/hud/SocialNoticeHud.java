@@ -31,6 +31,19 @@ public final class SocialNoticeHud {
     private static String title = "";
     private static String text = "";
     private static long shownAt;
+    // Who wrote last: the reply key answers them.
+    private static String replyUuid = "";
+    private static String replyName = "";
+    private static long replyAt;
+    private static boolean shownIsMessage;
+    /** Set by the mod: the name of the reply key ("O"), for the hint under a message. */
+    public static volatile String replyKeyName = "";
+
+    /** { uuid, name } of the friend who wrote in the last ten minutes, or null. */
+    public static String[] replyTarget() {
+        if (replyUuid.isEmpty() || System.currentTimeMillis() - replyAt > 600000) return null;
+        return new String[] { replyUuid, replyName };
+    }
 
     private SocialNoticeHud() {}
 
@@ -59,6 +72,15 @@ public final class SocialNoticeHud {
             title = o.has("title") ? o.get("title").getAsString() : "";
             text = o.has("text") ? o.get("text").getAsString() : "";
             shownAt = now;
+            shownIsMessage = false;
+            if (o.has("reply") && o.get("reply").isJsonObject()) {
+                JsonObject r = o.getAsJsonObject("reply");
+                String u = r.has("uuid") ? r.get("uuid").getAsString() : "";
+                String n = r.has("name") ? r.get("name").getAsString() : "";
+                if (u.matches("[0-9a-fA-F-]{32,36}") && n.matches("[A-Za-z0-9_]{1,16}")) {
+                    replyUuid = u; replyName = n; replyAt = now; shownIsMessage = true;
+                }
+            }
         } catch (Throwable ignored) {}
     }
 
@@ -77,8 +99,9 @@ public final class SocialNoticeHud {
         if (mc.font.width(line1) > maxText) line1 = mc.font.plainSubstrByWidth(line1, maxText - mc.font.width("...")) + "...";
 
         boolean two = !line2.isEmpty();
-        int w = Math.max(mc.font.width(line1), mc.font.width(line2)) + 16;
-        int h = two ? 30 : 19;
+        String hint = shownIsMessage && !replyKeyName.isEmpty() ? "Press " + replyKeyName + " to reply" : "";
+        int w = Math.max(Math.max(mc.font.width(line1), mc.font.width(line2)), mc.font.width(hint)) + 16;
+        int h = (two ? 30 : 19) + (hint.isEmpty() ? 0 : 11);
         // Slides in from the right edge, and out again at the end.
         float in = Math.min(1f, age / (float) SLIDE_MS);
         float out = Math.min(1f, (SHOW_MS - age) / (float) SLIDE_MS);
@@ -90,5 +113,6 @@ public final class SocialNoticeHud {
         g.fill(x, y, x + 2, y + h, 0xFF5BC8F5);
         g.drawString(mc.font, line1, x + 8, y + 5, 0xFFFFFFFF);
         if (two) g.drawString(mc.font, line2, x + 8, y + 17, 0xFFB8C4D6);
+        if (!hint.isEmpty()) g.drawString(mc.font, hint, x + 8, y + h - 12, 0xFF5BC8F5);
     }
 }

@@ -153,7 +153,11 @@ let dlSalt;
 try { dlSalt = fs.readFileSync(DL_SALT_FILE, 'utf8'); }
 catch (_) { dlSalt = crypto.randomBytes(32).toString('hex'); fs.writeFileSync(DL_SALT_FILE, dlSalt, { mode: 0o600 }); }
 
-// { since, devices: { <hash>: { first, last, n, systems: [..] } } }
+// { since, devices: { <key>: { first, last, n, systems: [..] } }, alias: { <hash>: <key> } }
+// A computer is recognised by a cookie the first download sets (kept as a
+// hash), and as a fallback by its address and browser. Both point at the
+// same entry through "alias", so a new address on the same computer, or a
+// browser update, is not a new device.
 let dl = { since: new Date().toISOString(), devices: {} };
 let dlDirty = false;
 try {
@@ -189,7 +193,16 @@ app.get('/dl/:system', (req, res) => {
   const fromSite = /^https:\/\/(www\.)?iceymc\.com\//.test(String(req.headers['referer'] || ''));
   const phone = /iphone|ipad|ipod|android|mobile/i.test(ua);
   if (ua && ip && fromSite && !phone && !DL_BOTS.test(ua)) {
-    const id = crypto.createHash('sha256').update(dlSalt + '|' + ip + '|' + ua).digest('hex').slice(0, 32);
+    const byAddress = crypto.createHash('sha256').update(dlSalt + '|' + ip + '|' + ua).digest('hex').slice(0, 32);
+    const m = /(?:^|;\s*)icey_dl=([a-f0-9]{32})(?:;|$)/.exec(String(req.headers.cookie || ''));
+    const cookie = m ? m[1] : crypto.randomBytes(16).toString('hex');
+    if (!m) res.setHeader('set-cookie', 'icey_dl=' + cookie + '; Max-Age=315360000; Path=/dl; Secure; HttpOnly; SameSite=Lax');
+    const byCookie = 'c' + crypto.createHash('sha256').update(dlSalt + '|cookie|' + cookie).digest('hex').slice(0, 31);
+    if (!dl.alias) dl.alias = {};
+    const known = (k) => (dl.alias[k] && dl.devices[dl.alias[k]]) ? dl.alias[k] : (dl.devices[k] ? k : null);
+    const id = known(byCookie) || known(byAddress) || byCookie;
+    dl.alias[byCookie] = id;
+    dl.alias[byAddress] = id;
     const now = new Date().toISOString();
     const d = dl.devices[id] || (dl.devices[id] = { first: now, last: now, n: 0, systems: [] });
     d.last = now;
@@ -272,6 +285,40 @@ function socialIssueToken(uuid, name) {
 }
 
 const socialJson = express.json({ limit: '8kb' });
+
+// No swearing or slurs in messages. Words are compared after undoing the
+// usual disguises (f*ck, sh1t, fuuuck, f u c k); a word counts when it is
+// one of these or starts with one, so "class" or "Scunthorpe" pass.
+const SOCIAL_RUDE = ['fuck', 'fuk', 'fck', 'phuck', 'motherfuck', 'shit', 'sht', 'bullshit', 'bitch', 'biatch', 'cunt', 'dick', 'cock',
+  'pussy', 'asshole', 'arsehole', 'bastard', 'slut', 'whore', 'wanker', 'twat', 'prick', 'jerkoff', 'dumbass', 'jackass', 'dipshit',
+  'nigg', 'nigga', 'faggot', 'fag', 'retard', 'tranny', 'kike', 'spic', 'chink', 'kys', 'stfu', 'porn', 'penis', 'vagina', 'boob',
+  'scheiss', 'scheis', 'arschloch', 'fotze', 'hurensohn', 'hure', 'wichser', 'schlampe', 'missgeburt', 'spast', 'fick', 'schwuchtel',
+  'puta', 'puto', 'mierda', 'pendejo', 'cabron', 'merde', 'putain', 'salope', 'connard', 'kurwa', 'blyat', 'suka', 'cyka', 'pizda'];
+const SOCIAL_RUDE_EXACT = new Set(['ass', 'arse', 'cum', 'hoe', 'tit', 'tits', 'wtf', 'af', 'pissoff', 'sex', 'nazi', 'hitler', 'rape', 'anal']);
+const SOCIAL_FINE = new Set(['dickens', 'cockpit', 'cocktail', 'cockatoo', 'cockroach', 'shitake', 'shiitake', 'spice', 'spicy', 'fickle', 'putative', 'boobytrap']);
+function socialIsRude(text) {
+  const plain = String(text).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/ß/g, 'ss').replace(/[@4]/g, 'a').replace(/[3€]/g, 'e').replace(/[1!|]/g, 'i').replace(/0/g, 'o').replace(/[5$]/g, 's').replace(/7/g, 't')
+    .replace(/[*#_~^.\-]+(?=[a-z])/g, (m, i, all) => (i > 0 && /[a-z]/.test(all[i - 1]) ? '' : ' '));
+  const words = plain.split(/[^a-z]+/).filter(Boolean);
+  // "f u c k": single letters in a row are one word
+  const joined = [];
+  let run = '';
+  for (const w of words) {
+    if (w.length === 1) { run += w; continue; }
+    if (run) { joined.push(run); run = ''; }
+    joined.push(w);
+  }
+  if (run) joined.push(run);
+  for (const raw of joined) {
+    for (const w of new Set([raw, raw.replace(/(.)\1+/g, '$1'), raw.replace(/(.)\1{2,}/g, '$1$1')])) {
+      if (SOCIAL_FINE.has(w)) continue;
+      if (SOCIAL_RUDE_EXACT.has(w)) return true;
+      if (SOCIAL_RUDE.some(b => w.startsWith(b) || (b.length >= 5 && w.includes(b)))) return true;
+    }
+  }
+  return false;
+}
 
 app.post('/social/auth/challenge', (_req, res) => {
   const now = Date.now();
@@ -435,6 +482,7 @@ app.post('/social/messages', socialJson, socialAuth, (req, res) => {
   const text = String((req.body && req.body.text) || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, SOCIAL_MAX_TEXT);
   if (!other || !areFriends(me, other)) return res.status(403).json({ error: 'not friends' });
   if (!text) return res.status(400).json({ error: 'empty' });
+  if (socialIsRude(text)) return res.status(422).json({ error: 'rude' });
   const now = Date.now();
   const times = (socialSendTimes.get(me) || []).filter(t => now - t < 60_000);
   if (times.length >= 40) return res.status(429).json({ error: 'slow down' });

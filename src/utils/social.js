@@ -100,6 +100,7 @@ const Social = {
 
   async send(uuid, text) {
     const r = await this.call('POST', '/social/messages', { to: uuid, text });
+    this.sendError = (r.data && r.data.error) || r.error || null;     // 'rude': the word filter said no
     if (r.ok && r.data && r.data.message) {
       this._remember(uuid, r.data.message);
       this._lastId = Math.max(this._lastId, r.data.message.id);
@@ -133,7 +134,8 @@ const Social = {
     const body = kind === 'message' ? String(text || '') : '';
     try {
       if (typeof MinecraftLauncher !== 'undefined' && MinecraftLauncher.getState() === 'running') {
-        window.icey.socialNotifyGame(title, body);
+        // With who wrote, so the game can offer a quick reply.
+        window.icey.socialNotifyGame(title, body, kind === 'message' ? { uuid: person.uuid, name: person.name } : null);
       }
     } catch (_) {}
     const container = document.getElementById('toast-container');
@@ -170,3 +172,6 @@ const Social = {
     setTimeout(dismiss, 6000);
   },
 };
+
+// A reply typed in the game was sent by the main process: show it here too.
+try { if (window.icey && window.icey.onSocialRefresh) window.icey.onSocialRefresh(() => Social.sync()); } catch (_) {}

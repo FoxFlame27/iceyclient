@@ -197,6 +197,12 @@ function _frRenderMain() {
   box.scrollTop = box.scrollHeight;
 }
 
+// How big the skin stands: the whole body with both arms has to fit the
+// panel, which is tall and narrow, so the width decides.
+function _frSkinZoom(w, h) {
+  return Math.max(0.3, Math.min(0.66, 1.08 * (w / Math.max(1, h))));
+}
+
 // The friend's own skin, standing next to the conversation.
 async function _frShowSkin(friend) {
   _frDisposeViewer();
@@ -212,7 +218,7 @@ async function _frShowSkin(friend) {
     await viewer.loadSkin(tex.dataUrl, { model: tex.slim ? 'slim' : 'default' });
     if (!canvas.isConnected || _frViewerFor !== friend.uuid) { viewer.dispose(); return; }
     viewer.fov = 36;
-    viewer.zoom = 0.62;
+    viewer.zoom = _frSkinZoom(stage.clientWidth, stage.clientHeight);
     viewer.controls.enableZoom = false;
     viewer.controls.enablePan = false;
     viewer.playerWrapper.rotation.y = -0.45;
@@ -224,7 +230,7 @@ async function _frShowSkin(friend) {
     canvas.classList.add('shown');
     _frObserver = new ResizeObserver(() => {
       const w = stage.clientWidth, h = stage.clientHeight;
-      if (w > 0 && h > 0) { if (_frViewer) _frViewer.setSize(w, h); }
+      if (w > 0 && h > 0) { if (_frViewer) { _frViewer.setSize(w, h); _frViewer.zoom = _frSkinZoom(w, h); } }
       else { _frDisposeViewer(); const m = document.getElementById('fr-main'); if (m) delete m.dataset.friend; }   // another page shows: free the 3D view
     });
     _frObserver.observe(stage);
@@ -243,7 +249,7 @@ async function _frSend() {
   if (!text || !Social.openChat) return;
   input.value = '';
   const ok = await Social.send(Social.openChat, text);
-  if (!ok) { input.value = text; Toast.error('Message not sent'); }
+  if (!ok) { input.value = text; Toast.error(Social.sendError === 'rude' ? 'Not sent: no bad words, please' : 'Message not sent'); }
 }
 
 // A friend without Icey Client needs it first: hand out the download link.
