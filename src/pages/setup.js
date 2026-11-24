@@ -1,5 +1,6 @@
 // Setup: a page of its own (tab "Setup"), built from the same cards as
-// Settings, one step at a time: Theme, Account, In-Game Menu, Game. It
+// Settings, one step at a time: Language, Import, Theme, Account, In-Game
+// Menu, Game. It
 // opens on the first launch after every install, and from Settings →
 // General.
 // Every choice is saved and applied the moment it's made; the page is
@@ -67,14 +68,16 @@ async function SetupPageInit() {
   let auth = null;
   try { auth = await window.icey.getAuth(); } catch (_) {}
   // Signing in is only asked of someone who isn't signed in yet.
-  _setupSteps = ['language', 'theme'].concat(auth && auth.username ? [] : ['account'], ['menu', 'game']);
+  _setupSteps = ['language', 'import', 'theme'].concat(auth && auth.username ? [] : ['account'], ['menu', 'game']);
   _setupStep = 0;
   _setupSignedInAs = null;
+  _setupImport = { scan: null, off: new Set(), accounts: true, busy: false, result: null };
   _setupRender();
 }
 
 const _SETUP_TITLES = {
   language: ['Language', 'The language of the launcher.'],
+  import: ['Import', 'Bring your mods, servers and accounts over from another Minecraft client. Your worlds stay where they are.'],
   theme: ['Theme', 'How the launcher looks.'],
   account: ['Account', 'Sign in to play online with your own skin. You can also do this later from the top bar.'],
   menu: ['In-Game Menu', 'The menu that opens with Y in game, on Fabric installations.'],
@@ -117,6 +120,8 @@ function _setupStepHtml(id) {
         ${_setupToggleCard('panoramaShuffle', s.selectedPanorama === 'shuffle', 'Shuffle Panoramas', 'A different title screen panorama every launch')}
       </div>`;
   }
+
+  if (id === 'import') return `<div id="setup-import">${_setupImportHtml()}</div>`;
 
   if (id === 'account') return `<div id="setup-account">${_setupAccountHtml(_setupSignedInAs)}</div>`;
 
@@ -193,6 +198,7 @@ function _setupRender() {
 }
 
 function _setupGo(by) {
+  if (_setupImport.busy) return;
   const next = _setupStep + by;
   if (next < 0 || next >= _setupSteps.length) return;
   _setupStep = next;
@@ -351,9 +357,164 @@ async function _setupLogin(kind) {
   _setupRenderAccount(username);
 }
 
+// ── Import from another client ─────────────────────────────────────────
+// Mods, servers, settings and accounts of the other Minecraft clients on
+// this computer. Each game folder with Fabric mods becomes an installation
+// of its own; servers of the others go to the selected installation.
+
+let _setupImport = { scan: null, off: new Set(), accounts: true, busy: false, result: null };
+
+function _setupImportRow(s) {
+  const on = !_setupImport.off.has(s.id);
+  const bits = [`<span data-no-i18n>${_setupEsc(s.client)}${s.mcVersion ? ' · ' + _setupEsc(s.mcVersion) : ''}</span>`];
+  if (s.mods) bits.push(`<span>Mods: ${s.mods}</span>`);
+  if (s.servers) bits.push(`<span>Servers: ${s.servers}</span>`);
+  const note = s.modsNote === 'loader' ? 'These mods are not for Fabric, so only the servers come over'
+    : s.modsNote === 'version' ? 'The Minecraft version of these mods is unknown, so only the servers come over' : '';
+  return `
+    <label class="options-toggle-card ${on ? 'on' : 'off'}">
+      <div class="options-toggle-body">
+        <div class="options-toggle-name" data-no-i18n>${_setupEsc(s.name)}</div>
+        <div class="options-toggle-desc setup-import-bits">${bits.join('')}</div>
+        ${note ? `<div class="options-toggle-desc setup-import-warn">${note}</div>` : ''}
+      </div>
+      <span class="toggle">
+        <input type="checkbox" ${on ? 'checked' : ''} onchange="_setupImportToggle('${s.id}', this)">
+        <span class="toggle-slider"></span>
+      </span>
+    </label>`;
+}
+
+function _setupImportHtml() {
+  const st = _setupImport;
+  if (st.result) return _setupImportResultHtml(st.result);
+  if (!st.scan) {
+    _setupImportScan();
+    return '<div class="setup-account-note">Looking for other Minecraft clients…</div>';
+  }
+  const { sources, accounts } = st.scan;
+  const rows = sources.map(_setupImportRow);
+  if (accounts.length) {
+    rows.push(`
+    <label class="options-toggle-card ${st.accounts ? 'on' : 'off'}">
+      <div class="options-toggle-body">
+        <div class="options-toggle-name">Accounts</div>
+        <div class="options-toggle-desc setup-import-bits"><span>From the Minecraft Launcher</span><span data-no-i18n>${accounts.map(_setupEsc).join(', ')}</span></div>
+      </div>
+      <span class="toggle">
+        <input type="checkbox" ${st.accounts ? 'checked' : ''} onchange="_setupImportToggle('', this)">
+        <span class="toggle-slider"></span>
+      </span>
+    </label>`);
+  }
+  const off = st.busy ? 'disabled' : '';
+  return `
+    ${rows.length ? `<div class="options-toggle-row setup-import-rows">${rows.join('')}</div>`
+      : '<div class="setup-account-note">No other Minecraft client was found on this computer.</div>'}
+    <div class="setup-import-actions">
+      ${rows.length ? `<button class="options-btn options-btn-primary" onclick="_setupImportRun()" ${off}>Import</button>` : ''}
+      <button class="options-btn" onclick="_setupImportPick()" ${off}>Choose a folder…</button>
+      <span class="setup-import-progress" id="setup-import-progress"></span>
+    </div>`;
+}
+
+function _setupImportResultHtml(r) {
+  const lines = [];
+  for (const x of r.results || []) {
+    const name = `<b data-no-i18n>${_setupEsc(x.name)}</b>`;
+    if (x.error) { lines.push(`<li class="bad">${name} <span data-no-i18n>${_setupEsc(x.error)}</span></li>`); continue; }
+    const bits = [];
+    if (x.installation) bits.push('<span>New installation</span>');
+    if (x.mods) bits.push(`<span>Mods: ${x.mods.copied}</span>`);
+    bits.push(`<span>New servers: ${x.servers}</span>`);
+    lines.push(`<li>${name} <span class="setup-import-bits">${bits.join('')}</span></li>`);
+    const failed = (x.mods && x.mods.failed) || [];
+    if (failed.length) {
+      lines.push(`<li class="bad"><span>Left out, no version for this Minecraft:</span> <span data-no-i18n>${failed.map(f => _setupEsc(f.name)).join(', ')}</span></li>`);
+    }
+  }
+  if (r.accounts && !r.accounts.error) {
+    lines.push(`<li><b>Accounts</b> <span class="setup-import-bits"><span>${r.accounts.imported ? 'Added: ' + r.accounts.imported : 'Already here'}</span></span></li>`);
+  }
+  return `
+    <ul class="setup-import-result">${lines.join('')}</ul>
+    <div class="setup-account-note">Done. Imported installations are on the Installations page.</div>`;
+}
+
+function _setupImportDraw() {
+  const box = document.getElementById('setup-import');
+  if (box) box.innerHTML = _setupImportHtml();
+}
+
+async function _setupImportScan() {
+  let scan = { sources: [], accounts: [] };
+  try { scan = (await window.icey.importClientsScan()) || scan; } catch (_) {}
+  _setupImport.scan = scan;
+  _setupImportDraw();
+}
+
+function _setupImportToggle(id, input) {
+  const card = input.closest('.options-toggle-card');
+  if (card) { card.classList.toggle('on', input.checked); card.classList.toggle('off', !input.checked); }
+  if (!id) { _setupImport.accounts = !!input.checked; return; }
+  if (input.checked) _setupImport.off.delete(id); else _setupImport.off.add(id);
+}
+
+async function _setupImportPick() {
+  if (_setupImport.busy) return;
+  const r = await window.icey.importClientsPickFolder();
+  if (!r || r.canceled) return;
+  if (r.error) { Toast.info(r.error); return; }
+  const list = _setupImport.scan.sources;
+  if (!list.some(s => s.id === r.source.id)) list.push(r.source);
+  _setupImportDraw();
+}
+
+async function _setupImportRun() {
+  const st = _setupImport;
+  if (st.busy || !st.scan) return;
+  const ids = st.scan.sources.filter(s => !st.off.has(s.id)).map(s => s.id);
+  const accounts = st.accounts && st.scan.accounts.length > 0;
+  if (!ids.length && !accounts) { Toast.info('Nothing is switched on to import'); return; }
+  st.busy = true;
+  _setupImportDraw();
+  const say = (html) => { const el = document.getElementById('setup-import-progress'); if (el) el.innerHTML = html; };
+  say('<span>Importing…</span>');
+  const stop = window.icey.onImportClientsProgress((p) => {
+    if (!p || !p.name) return;
+    const what = p.step === 'game' ? '<span>Setting up the game…</span>'
+      : p.step === 'mods' ? `<span>Mods: ${p.done || 0} / ${p.of || 0}</span>`
+      : p.step === 'settings' ? '<span>Settings and packs…</span>' : '';
+    say(`<b data-no-i18n>${_setupEsc(p.name)}</b> ${what}`);
+  });
+  let r = null;
+  try { r = await window.icey.importClientsRun(ids, { accounts }); } catch (e) { r = { error: (e && e.message) || 'Import failed' }; }
+  try { stop(); } catch (_) {}
+  st.busy = false;
+  if (!r || r.error) {
+    Toast.error((r && r.error) || 'Import failed');
+    _setupImportDraw();
+    return;
+  }
+  st.result = r;
+  // Someone who just got an account is not asked to sign in again.
+  try {
+    const auth = await window.icey.getAuth();
+    if (auth && auth.username) {
+      await SettingsManager.set('username', auth.username);
+      _setupSteps = _setupSteps.filter(x => x !== 'account');
+    }
+  } catch (_) {}
+  Toast.success('Import finished');
+  if (typeof loadNavProfile === 'function') loadNavProfile();
+  if (typeof HomePageInit === 'function') HomePageInit().catch(() => {});
+  _setupRender();
+}
+
 // ── Leaving ────────────────────────────────────────────────────────────
 
 async function _setupDone(finished) {
+  if (_setupImport.busy) return;
   await SettingsManager.markSetupDone();
   if (finished) Toast.success('All set. Have fun!');
   switchPage('home');

@@ -1876,6 +1876,15 @@ function _recordRecentServer(host, port) {
 
 // servers.dat is uncompressed NBT: { servers: [ { name, ip, icon? } ] }.
 function _readServersDat(file) {
+  return _readServersDatRaw(file).map(e => ({
+    name: typeof e.name === 'string' ? e.name : '',
+    address: e.ip.trim(),
+    icon: typeof e.icon === 'string' && e.icon.length < 60000 ? 'data:image/png;base64,' + e.icon.replace(/\s+/g, '') : null
+  }));
+}
+
+// The entries as the game wrote them: { name, ip, icon?, acceptTextures?, hidden? }.
+function _readServersDatRaw(file) {
   let buf;
   try { buf = fs.readFileSync(file); } catch (_) { return []; }
   try {
@@ -1918,16 +1927,51 @@ function _readServersDat(file) {
     o += 1; str();
     const root = payload(10);
     return (Array.isArray(root.servers) ? root.servers : [])
-      .filter(e => e && typeof e.ip === 'string' && e.ip.trim())
-      .map(e => ({
-        name: typeof e.name === 'string' ? e.name : '',
-        address: e.ip.trim(),
-        icon: typeof e.icon === 'string' && e.icon.length < 60000 ? 'data:image/png;base64,' + e.icon.replace(/\s+/g, '') : null
-      }));
+      .filter(e => e && typeof e.ip === 'string' && e.ip.trim());
   } catch (e) {
     log('warn', 'servers.dat unreadable (' + file + '): ' + e.message);
     return [];
   }
+}
+
+function _writeServersDat(file, entries) {
+  const parts = [];
+  const u8 = (n) => Buffer.from([n & 0xff]);
+  const str = (v) => { const b = Buffer.from(String(v), 'utf8'); const h = Buffer.alloc(2); h.writeUInt16BE(b.length); return Buffer.concat([h, b]); };
+  const count = Buffer.alloc(4); count.writeInt32BE(entries.length);
+  parts.push(u8(10), str(''), u8(9), str('servers'), u8(10), count);
+  for (const e of entries) {
+    for (const k of ['name', 'ip', 'icon']) {
+      if (typeof e[k] !== 'string' || Buffer.byteLength(e[k], 'utf8') > 65535) continue;
+      parts.push(u8(8), str(k), str(e[k]));
+    }
+    for (const k of ['acceptTextures', 'hidden']) {
+      if (typeof e[k] === 'number') parts.push(u8(1), str(k), u8(e[k]));
+    }
+    parts.push(u8(0));
+  }
+  parts.push(u8(0));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + '.icey-tmp';
+  fs.writeFileSync(tmp, Buffer.concat(parts));
+  fs.renameSync(tmp, file);
+}
+
+// Adds the servers of one multiplayer list to another, keeping what is
+// already there. Returns how many were new.
+function _mergeServersDat(fromFile, toFile) {
+  const add = _readServersDatRaw(fromFile);
+  if (!add.length) return 0;
+  const have = _readServersDatRaw(toFile);
+  const keys = new Set(have.map(e => e.ip.trim().toLowerCase()));
+  let added = 0;
+  for (const e of add) {
+    const k = e.ip.trim().toLowerCase();
+    if (keys.has(k)) continue;
+    keys.add(k); have.push(e); added++;
+  }
+  if (added) _writeServersDat(toFile, have);
+  return added;
 }
 
 // Played servers first (newest on top), then the rest of the saved lists.
@@ -4680,7 +4724,8 @@ app.whenReady().then(() => {
   // Installations
   ipcMain.handle('get-installations', () => readInstallations());
 
-  ipcMain.handle('save-installation', (_, data) => {
+  ipcMain.handle('save-installation', (_, data) => _saveInstallation(data));
+  function _saveInstallation(data) {
     // Remove from deleted list if re-creating
     const deleted = readDeletedIds();
     if (deleted.has(data.id)) {
@@ -4696,7 +4741,7 @@ app.whenReady().then(() => {
     }
     writeInstallations(installations);
     return installations;
-  });
+  }
 
   ipcMain.handle('delete-installation', (_, id) => {
     addDeletedId(id);
@@ -4885,7 +4930,12 @@ app.whenReady().then(() => {
     const dst = installations.find(i => i.id === targetId);
     if (!src || !dst) return { error: 'Installation not found' };
     if (src.id === dst.id) return { error: 'Pick a different installation to copy from' };
-    const srcGame = getInstallGameDir(src.id), dstGame = getInstallGameDir(dst.id);
+    return _copyModsBetween(src, dst, getInstallGameDir(src.id), getInstallGameDir(dst.id), send);
+  });
+
+  // src: { name }, dst: { name, version }. The source folder can be any
+  // game folder, also one of another client.
+  async function _copyModsBetween(src, dst, srcGame, dstGame, send) {
     const srcMods = path.join(srcGame, 'mods'), dstMods = path.join(dstGame, 'mods');
     fs.mkdirSync(dstMods, { recursive: true });
     const targetMc = dst.version;
@@ -4990,7 +5040,7 @@ app.whenReady().then(() => {
     send({ phase: 'done', done, total, current: '' });
     log('info', `[COPY-MODS] ${src.name} → ${dst.name} (${targetMc}): ${copied.length} copied, ${skipped.length} skipped, ${failed.length} failed`);
     return { total, copied, skipped, failed, sourceName: src.name, targetName: dst.name, targetMc };
-  });
+  }
 
   ipcMain.handle('delete-mod', (_, installationId, filename) => {
     const gameDir = getInstallGameDir(installationId);
@@ -5562,6 +5612,105 @@ app.whenReady().then(() => {
   };
   _installFabricLoader = installFabricLoader;
   ipcMain.handle('install-fabric', (_, installationId, mcVersion) => installFabricLoader(installationId, mcVersion));
+
+  // ── Import from other clients (mods, servers, settings, accounts) ──
+  // A new Fabric installation for one game folder of another client; an
+  // earlier import of the same folder is used again instead.
+  async function _ensureImportedInstallation(source, select) {
+    const version = source.mcVersion;
+    let installations = readInstallations();
+    let inst = installations.find(i => i.importedFrom === source.path && i.version === version);
+    if (!inst) {
+      const mcDir = getDefaultMcDir();
+      const vDir = path.join(mcDir, 'versions', version);
+      const jsonPath = path.join(vDir, version + '.json'), jarPath = path.join(vDir, version + '.jar');
+      if (!fs.existsSync(jsonPath) || !fs.existsSync(jarPath)) {
+        const manifest = await httpGet('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
+        const entry = ((manifest && manifest.versions) || []).find(v => v.id === version);
+        if (!entry) throw new Error('Minecraft ' + version + ' is not a version that can be downloaded');
+        fs.mkdirSync(vDir, { recursive: true });
+        const detail = await httpGet(entry.url);
+        const client = detail && detail.downloads && detail.downloads.client;
+        if (!client || !client.url) throw new Error('No game download for Minecraft ' + version);
+        if (!fs.existsSync(jarPath)) await downloadFile(client.url, jarPath);
+        if (!fs.existsSync(jsonPath)) await downloadFile(entry.url, jsonPath);
+      }
+      const taken = new Set(installations.map(i => String(i.name).toLowerCase()));
+      let name = source.name === source.client ? source.client + ' ' + version : source.name;
+      if (taken.has(name.toLowerCase())) name = source.client + ': ' + source.name;
+      for (let n = 2; taken.has(name.toLowerCase()); n++) name = source.name + ' ' + n;
+      inst = {
+        id: name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now(),
+        name, version, platform: 'fabric', fabricActive: false, selected: false,
+        image: null, createdAt: Date.now(), importedFrom: source.path,
+      };
+      _saveInstallation(inst);
+    }
+    if (!inst.fabricActive) {
+      const r = await installFabricLoader(inst.id, version);
+      if (r && r.error) throw new Error(r.error);
+      inst.fabricActive = true; inst.platform = 'fabric';
+      _saveInstallation(inst);
+    }
+    if (select) {
+      // One write for all of them: reading the list picks a selected one
+      // by itself when none is, which must not end up saved next to ours.
+      const all = readInstallations();
+      for (const other of all) other.selected = other.id === inst.id;
+      writeInstallations(all);
+      inst.selected = true;
+    }
+    return inst;
+  }
+
+  const _clientImporter = require('./import-clients')({
+    log, getDefaultMcDir, getInstallGameDir,
+    readServers: _readServersDatRaw,
+    mergeServers: _mergeServersDat,
+    listAccounts: () => _readOfficialLauncherAccounts().map(a => a.username),
+    importAccounts: () => importOfficialLauncherAccounts(),
+    ensureInstallation: _ensureImportedInstallation,
+    copyMods: _copyModsBetween,
+    defaultGameDir: () => {
+      const list = readInstallations();
+      const inst = list.find(i => i.selected) || list[0];
+      return inst ? getInstallGameDir(inst.id) : null;
+    },
+  });
+  const _importPicked = new Map();   // id → a folder the player chose by hand
+  let _importRunning = false;
+  ipcMain.handle('import-clients-scan', () => {
+    try {
+      const r = _clientImporter.scan();
+      for (const s of _importPicked.values()) if (!r.sources.some(x => x.id === s.id)) r.sources.push(s);
+      return r;
+    } catch (e) { log('warn', 'import-clients-scan: ' + e.message); return { sources: [], accounts: [] }; }
+  });
+  ipcMain.handle('import-clients-pick-folder', async () => {
+    const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || mainWindow, {
+      title: 'Choose a Minecraft folder', properties: ['openDirectory'],
+    });
+    if (result.canceled || !result.filePaths[0]) return { canceled: true };
+    const s = _clientImporter.scanFolder(result.filePaths[0]);
+    if (!s) return { error: 'No mods or servers in that folder' };
+    _importPicked.set(s.id, s);
+    return { source: s };
+  });
+  ipcMain.handle('import-clients-run', async (_, ids, opts) => {
+    if (_importRunning) return { error: 'An import is already running' };
+    _importRunning = true;
+    try {
+      const all = _clientImporter.scan().sources.concat(Array.from(_importPicked.values()));
+      const want = new Set(Array.isArray(ids) ? ids : []);
+      const seen = new Set();
+      const sources = all.filter(s => want.has(s.id) && !seen.has(s.id) && seen.add(s.id));
+      const send = (payload) => { try { broadcast('import-clients-progress', payload); } catch (_) {} };
+      return await _clientImporter.run(sources, { accounts: !!(opts && opts.accounts) }, send);
+    } catch (e) {
+      log('warn', 'import-clients-run: ' + e.message);
+      return { error: e.message };
+    } finally { _importRunning = false; }
+  });
 
   // Download vanilla libraries from version JSON
   ipcMain.handle('download-libraries', async (_, installationId, versionJsonUrl) => {

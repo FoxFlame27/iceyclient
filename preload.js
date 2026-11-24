@@ -96,6 +96,14 @@ contextBridge.exposeInMainWorld('icey', {
   uploadSkinFromUrl: (url, variant) => ipcRenderer.invoke('upload-skin-from-url', url, variant),
   getMcProfile: () => ipcRenderer.invoke('get-mc-profile'),
   importLauncherAccounts: () => ipcRenderer.invoke('import-launcher-accounts'),
+  importClientsScan: () => ipcRenderer.invoke('import-clients-scan'),
+  importClientsPickFolder: () => ipcRenderer.invoke('import-clients-pick-folder'),
+  importClientsRun: (ids, opts) => ipcRenderer.invoke('import-clients-run', ids, opts),
+  onImportClientsProgress: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('import-clients-progress', handler);
+    return () => ipcRenderer.removeListener('import-clients-progress', handler);
+  },
   openOfficialLauncher: () => ipcRenderer.invoke('open-official-launcher'),
 
   // Info page — skin download + cape upload

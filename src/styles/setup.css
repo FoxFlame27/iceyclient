@@ -155,6 +155,31 @@
   color: var(--text-muted);
 }
 
+/* ── Import from another client ── */
+.setup-import-bits { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.setup-import-warn { margin-top: 3px; color: var(--text-muted); }
+.setup-import-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.setup-import-actions .options-btn { padding: 10px 20px !important; font-size: 13.5px; }
+.setup-import-progress { font-size: 13px; color: var(--text-secondary); margin-left: 6px; }
+.setup-import-result {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+.setup-import-result li { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.setup-import-result b { color: var(--text-primary); font-weight: 600; }
+.setup-import-result .bad { color: var(--text-muted); font-size: 12.5px; }
+
 /* ── Finish ── */
 .setup-actions {
   display: flex;
