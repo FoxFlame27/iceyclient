@@ -50,9 +50,9 @@ async function _renderMainOptions(page, settings) {
   const accentColor = settings.accentColor || '#5bc8f5';
   // In-game Y menu: 'cards' (the default since 1.87.15), 'panels' (glass
   // columns) or 'grid' (the older buttons). A style saved before cards
-  // existed doesn't count: hudMenuCardsDefault marks a choice made since.
+  // existed doesn't count: hudMenuGridDefault marks a choice made since.
   // An empty colour means "same as the accent".
-  const hudMenuStyle = ((x) => ['grid', 'panels'].includes(x) ? x : 'cards')(settings.hudMenuCardsDefault ? settings.hudMenuStyle : 'cards');
+  const hudMenuStyle = ((x) => ['cards', 'panels'].includes(x) ? x : 'grid')(settings.hudMenuGridDefault ? settings.hudMenuStyle : 'grid');
   const hudMenuColor = settings.hudMenuColor || '';
   const accentChoices = [
     { name: 'Ice Blue', value: '#5bc8f5' },
@@ -180,7 +180,7 @@ async function _renderMainOptions(page, settings) {
             <div class="options-toggle-desc">How the Y menu looks in the game</div>
           </div>
           <select class="options-select" onclick="event.stopPropagation();" onchange="_optSetHudMenuStyle(this.value)">
-            ${[['cards', 'Cards'], ['panels', 'Panels'], ['grid', 'Grid']].map(([v, n]) => `<option value="${v}" ${v === hudMenuStyle ? 'selected' : ''}>${n}</option>`).join('')}
+            ${[['grid', 'Grid'], ['panels', 'Panels'], ['cards', 'Cards']].map(([v, n]) => `<option value="${v}" ${v === hudMenuStyle ? 'selected' : ''}>${n}</option>`).join('')}
           </select>
         </div>
         <div class="options-toggle-card options-accent-card on">
@@ -344,9 +344,9 @@ async function _optSetLayoutTheme(value) {
 }
 
 async function _optSetHudMenuStyle(value) {
-  const next = ['grid', 'panels'].includes(value) ? value : 'cards';
+  const next = ['cards', 'panels'].includes(value) ? value : 'grid';
   await SettingsManager.set('hudMenuStyle', next);
-  await SettingsManager.set('hudMenuCardsDefault', true);
+  await SettingsManager.set('hudMenuGridDefault', true);
   Toast.info('Menu look saved. Applies the next time you launch the game.');
   _optionsRender();
 }

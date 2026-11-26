@@ -1,14 +1,72 @@
 package com.iceymod.screen;
 
+import com.iceymod.IceyMod;
 import com.iceymod.compat.Gfx;
+import net.minecraft.resources.Identifier;
 
 /**
- * Drawing helpers for the glass-style menu: rounded panels, hairline
- * outlines and colour maths. Everything is built from plain fills, so it
- * works on every Minecraft version the compat layer covers.
+ * Drawing helpers for the glass-style menus: rounded panels, hairline
+ * outlines and colour maths.
+ *
+ * Rounded shapes come from white sprites in the GUI atlas
+ * (textures/gui/sprites/glass, drawn at four texels per GUI pixel by
+ * mod/tools/gen_glass_sprites.py) and are tinted here, so corners and
+ * hairlines are as smooth as the glass buttons. Shapes too small for a
+ * sprite, and square ones, fall back to plain fills.
  */
 final class Glass {
     private Glass() {}
+
+    private static final Identifier[][] SPRITES = new Identifier[4][7];
+    private static final String[] KINDS = { "fill", "top", "bottom", "outline" };
+
+    /** The sprite for a shape and radius, or null when there is none (radius under 2 or over 6). */
+    private static Identifier sprite(int kind, int r) {
+        if (r < 2 || r > 6) return null;
+        if (SPRITES[kind][r] == null) {
+            SPRITES[kind][r] = Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "glass/" + KINDS[kind] + "_r" + r);
+        }
+        return SPRITES[kind][r];
+    }
+
+    /** Draws with a sprite when the shape is big enough for its corners; false means the caller draws it blocky. */
+    private static boolean smooth(Gfx g, int kind, int x, int y, int w, int h, int r, int minW, int minH, int color) {
+        if (w < minW || h < minH || (color >>> 24) == 0) return false;
+        Identifier id = sprite(kind, r);
+        if (id == null) return false;
+        try {
+            g.sprite(id, x, y, w, h, color);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    static void fill(Gfx g, int x, int y, int w, int h, int r, int color) {
+        if (w <= 0 || h <= 0) return;
+        r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+        if (!smooth(g, 0, x, y, w, h, r, 2 * r + 2, 2 * r + 2, color)) fillBlocky(g, x, y, w, h, r, color);
+    }
+
+    /** Rounded fill with square bottom corners, for a header sitting on a body. */
+    static void fillTop(Gfx g, int x, int y, int w, int h, int r, int color) {
+        if (w <= 0 || h <= 0) return;
+        r = Math.max(0, Math.min(r, Math.min(w / 2, h)));
+        if (!smooth(g, 1, x, y, w, h, r, 2 * r + 2, r + 2, color)) fillTopBlocky(g, x, y, w, h, r, color);
+    }
+
+    /** Rounded fill with square top corners, for a bar closing off a card. */
+    static void fillBottom(Gfx g, int x, int y, int w, int h, int r, int color) {
+        if (w <= 0 || h <= 0) return;
+        r = Math.max(0, Math.min(r, Math.min(w / 2, h)));
+        if (!smooth(g, 2, x, y, w, h, r, 2 * r + 2, r + 2, color)) fillBottomBlocky(g, x, y, w, h, r, color);
+    }
+
+    static void outline(Gfx g, int x, int y, int w, int h, int r, int color) {
+        if (w <= 1 || h <= 1) return;
+        r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+        if (!smooth(g, 3, x, y, w, h, r, 2 * r + 2, 2 * r + 2, color)) outlineBlocky(g, x, y, w, h, r, color);
+    }
 
     /** How far each of the first {@code r} rows is pulled in to round a corner. */
     private static int inset(int r, int row) {
@@ -16,7 +74,7 @@ final class Glass {
         return (int) Math.round(r - Math.sqrt(Math.max(0, r * r - dy * dy)));
     }
 
-    static void fill(Gfx g, int x, int y, int w, int h, int r, int color) {
+    private static void fillBlocky(Gfx g, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
         r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
         for (int i = 0; i < r; i++) {
@@ -28,7 +86,7 @@ final class Glass {
     }
 
     /** Rounded fill with square bottom corners, for a header sitting on a body. */
-    static void fillTop(Gfx g, int x, int y, int w, int h, int r, int color) {
+    private static void fillTopBlocky(Gfx g, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
         r = Math.max(0, Math.min(r, Math.min(w / 2, h)));
         for (int i = 0; i < r; i++) {
@@ -39,7 +97,7 @@ final class Glass {
     }
 
     /** Rounded fill with square top corners, for a bar closing off a card. */
-    static void fillBottom(Gfx g, int x, int y, int w, int h, int r, int color) {
+    private static void fillBottomBlocky(Gfx g, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
         r = Math.max(0, Math.min(r, Math.min(w / 2, h)));
         g.fill(x, y, x + w, y + h - r, color);
@@ -79,7 +137,7 @@ final class Glass {
         outline(g, x, y, w, h, r, edge);
     }
 
-    static void outline(Gfx g, int x, int y, int w, int h, int r, int color) {
+    private static void outlineBlocky(Gfx g, int x, int y, int w, int h, int r, int color) {
         if (w <= 1 || h <= 1) return;
         r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
         if (r == 0) {

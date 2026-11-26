@@ -23,6 +23,10 @@ public final class Gfx {
     public void blit(Identifier tex, int x, int y, float u, float v, int w, int h, int texW, int texH) {
         g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, u, v, w, h, texW, texH);
     }
+    /** A sprite from the GUI atlas (textures/gui/sprites), stretched by its nine-slice rule and tinted with an ARGB colour. */
+    public void sprite(Identifier id, int x, int y, int w, int h, int argb) {
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, id, x, y, w, h, argb);
+    }
     public void renderItem(ItemStack stack, int x, int y) { g.renderItem(stack, x, y); }
     public Matrix3x2fStack pose() { return g.pose(); }
     public int guiWidth() { return g.guiWidth(); }

@@ -9,8 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Look of the Y menu: which layout (the cards, which are the default,
- * the glass panels, or the older button grid) and which accent colour.
+ * Look of the Y menu: which layout (the button grid, which is the default
+ * again since 1.87.21, the glass panels, or the tiles) and which accent colour.
  *
  * The launcher owns these (setup wizard and Settings) and hands them over
  * in config/iceymod-launcher.json. Changes made in-game are written to
@@ -36,7 +36,7 @@ public final class MenuPrefs {
     private static final String REQUEST_FILE = "iceymod-request.json";
 
     private static boolean loaded;
-    private static String style = STYLE_CARDS;
+    private static String style = STYLE_GRID;
     private static int accent = DEFAULT_ACCENT;
 
     private MenuPrefs() {}
@@ -45,7 +45,7 @@ public final class MenuPrefs {
     public static boolean isCards() { load(); return STYLE_CARDS.equals(style); }
 
     private static String clean(String s) {
-        return STYLE_GRID.equals(s) ? STYLE_GRID : STYLE_PANELS.equals(s) ? STYLE_PANELS : STYLE_CARDS;
+        return STYLE_CARDS.equals(s) ? STYLE_CARDS : STYLE_PANELS.equals(s) ? STYLE_PANELS : STYLE_GRID;
     }
     public static int accent() { load(); return accent; }
 

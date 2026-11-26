@@ -103,3 +103,20 @@ save('checkbox', 20, 20, checkbox(False, False))
 save('checkbox_highlighted', 20, 20, checkbox(True, False))
 save('checkbox_selected', 20, 20, checkbox(False, True))
 save('checkbox_selected_highlighted', 20, 20, checkbox(True, True))
+
+# ── Smooth panes for the mod's own menus (Glass.java) ─────────────────
+# White shapes that the code tints: filled rounded rects, ones rounded only
+# on top or only at the bottom, and hairline outlines, per corner radius.
+# Drawn with the same 4x supersampling as the buttons above, so the Y menu
+# gets the same smooth corners instead of stair-stepped ones.
+PANE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'main', 'resources',
+                    'assets', 'iceymod', 'textures', 'gui', 'sprites', 'glass')
+os.makedirs(PANE, exist_ok=True)
+OUT = PANE
+WHITE = (255, 255, 255, 255)
+for r in (2, 3, 4, 5, 6):
+    n = 2 * r + 4
+    save('fill_r%d' % r, n, n, rrect(n, n, r, WHITE), r + 1)
+    save('outline_r%d' % r, n, n, rrect(n, n, r, (255, 255, 255, 0), WHITE, 0.6), r + 1)
+    save('top_r%d' % r, n, n, rrect(n, n, r, WHITE, None, 0.0, (True, True, False, False)), {'left': r + 1, 'top': r + 1, 'right': r + 1, 'bottom': 1})
+    save('bottom_r%d' % r, n, n, rrect(n, n, r, WHITE, None, 0.0, (False, False, True, True)), {'left': r + 1, 'top': 1, 'right': r + 1, 'bottom': r + 1})

@@ -95,7 +95,8 @@ public class IceyModScreen extends IceyScreen {
         for (int i = 0; i < cats.length; i++) {
             HudModule.Category cat = cats[i];
             int x = filterStartX + (i + 1) * (filterBtnW + filterGap);
-            String name = cat.name();
+            // OPTIMIZATION doesn't fit the button; these modules are the FPS boosters
+            String name = cat == HudModule.Category.OPTIMIZATION ? "FPS BOOST" : cat.name();
             String label = currentFilter == cat ? "\u00A7b\u00A7l" + name : name;
             addRenderableWidget(Button.builder(
                     Component.literal(label),
@@ -211,7 +212,7 @@ public class IceyModScreen extends IceyScreen {
         // Bottom buttons
         int bottomBtnY = sh - 54;
         addRenderableWidget(Button.builder(
-                Component.literal("\u2699 Edit HUD Layout"),
+                Component.literal("Edit HUD Layout"),
                 btn -> com.iceymod.compat.MC.setScreen(minecraft, new HudEditScreen(this))
         ).bounds(centerX - 110, bottomBtnY, 108, 22).build());
 

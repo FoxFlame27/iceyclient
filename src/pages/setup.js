@@ -126,13 +126,13 @@ function _setupStepHtml(id) {
   if (id === 'account') return `<div id="setup-account">${_setupAccountHtml(_setupSignedInAs)}</div>`;
 
   if (id === 'menu') {
-    const menuStyle = ((x) => ['grid', 'panels'].includes(x) ? x : 'cards')(s.hudMenuCardsDefault ? s.hudMenuStyle : 'cards');
+    const menuStyle = ((x) => ['cards', 'panels'].includes(x) ? x : 'grid')(s.hudMenuGridDefault ? s.hudMenuStyle : 'grid');
     const menuColor = (s.hudMenuColor || accent).toLowerCase();
     return `
       <div class="setup-picks setup-picks-3">
-        ${_setupPick('menu', 'cards', menuStyle === 'cards', 'menu-cards.jpg', 'Cards', 'One card per mod, with filters on top')}
-        ${_setupPick('menu', 'panels', menuStyle === 'panels', 'menu-panels.jpg', 'Panels', 'Click to switch on, right-click for settings')}
         ${_setupPick('menu', 'grid', menuStyle === 'grid', 'menu-grid.jpg', 'Grid', 'The original buttons, with pages')}
+        ${_setupPick('menu', 'panels', menuStyle === 'panels', 'menu-panels.jpg', 'Panels', 'Click to switch on, right-click for settings')}
+        ${_setupPick('menu', 'cards', menuStyle === 'cards', 'menu-cards.jpg', 'Cards', 'Glass tiles, with filters on top')}
       </div>
       <div class="options-toggle-row">
         <div class="options-toggle-card options-accent-card on setup-static">
@@ -159,6 +159,7 @@ function _setupStepHtml(id) {
           </div>
         </div>
         ${_setupToggleCard('performanceModsEnabled', s.performanceModsEnabled !== false, 'Performance Boost', 'Sodium, Lithium and other speed-up mods')}
+        ${_setupToggleCard('iceyShadersEnabled', !!s.iceyShadersEnabled, 'Icey Shaders', 'Blocky clouds, soft shadows, wind in the leaves and reflecting water. Needs a Fabric installation; adds Iris.')}
         ${_setupToggleCard('closeLauncherOnStart', !!s.closeLauncherOnStart, 'Close on Launch', 'Close the launcher when the game starts')}
       </div>`;
 }
@@ -231,8 +232,8 @@ async function _setupChoose(group, value, el) {
     // A menu colour that was following the accent keeps following it.
     if (followed) _setupMarkSwatch('setup-menu-color', value);
   } else if (group === 'menu') {
-    await SettingsManager.set('hudMenuStyle', ['grid', 'panels'].includes(value) ? value : 'cards');
-    await SettingsManager.set('hudMenuCardsDefault', true);
+    await SettingsManager.set('hudMenuStyle', ['cards', 'panels'].includes(value) ? value : 'grid');
+    await SettingsManager.set('hudMenuGridDefault', true);
   } else if (group === 'menuColor') {
     const accent = (SettingsManager.get('accentColor') || '#5bc8f5').toLowerCase();
     await SettingsManager.set('hudMenuColor', value.toLowerCase() === accent ? '' : value);

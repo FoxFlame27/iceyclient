@@ -16,9 +16,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The Y menu in its "Cards" style (the default): a sidebar on the left,
- * filter chips on top and one card per module, with the name bar filled
- * in the accent colour when the module is on.
+ * The Y menu in its "Cards" style: a sidebar on the left,
+ * filter chips on top and one glass tile per module, filled in the accent
+ * colour when the module is on.
  *
  * Left click toggles a module, right click opens its settings.
  *
@@ -31,9 +31,9 @@ public class CardMenuScreen extends IceyScreen {
     private static final int SIDE_W = 118;
     private static final int PAD = 12;
     private static final int CARD_W = 112;
-    private static final int CARD_H = 60;
+    private static final int CARD_H = 24;
     private static final int BAR_H = 17;
-    private static final int GAP = 8;
+    private static final int GAP = 6;
     private static final int RADIUS = 5;
     private static final int SEARCH_W = 150;
     private static final int SEARCH_H = 18;
@@ -327,41 +327,23 @@ public class CardMenuScreen extends IceyScreen {
     private void drawCard(Gfx g, HudModule m, int x, int y, int w, boolean inView, int accent) {
         boolean on = m.isEnabled();
         boolean hover = inView && over(x, y, w, CARD_H);
-        int bodyH = CARD_H - BAR_H;
         PanelMenuScreen.Group group = PanelMenuScreen.groupOf(m);
 
-        Glass.fillTop(g, x, y, w, bodyH, RADIUS, hover ? 0xB01A2134 : CARD_BG);
-        Glass.fillTop(g, x, y, w, 9, RADIUS, 0x0EFFFFFF);
-        g.fill(x + RADIUS, y + 1, x + w - RADIUS, y + 2, 0x26FFFFFF);
-        Glass.fillBottom(g, x, y + bodyH, w, BAR_H, RADIUS,
-                on ? Glass.alpha(hover ? Glass.lighten(accent, 0.15f) : accent, 0xE6) : (hover ? 0xB42C3549 : BAR_OFF));
-        if (on) g.fill(x + 1, y + bodyH, x + w - 1, y + bodyH + 1, 0x50FFFFFF);
-        Glass.outline(g, x, y, w, CARD_H, RADIUS, hover ? 0x90FFFFFF : on ? Glass.alpha(Glass.lighten(accent, 0.3f), 0x90) : HAIRLINE);
-
-        // The module's own pixel icon at twice its size, in the middle of the
-        // body: bright when the module is on or under the mouse. A module
-        // without a drawing falls back to its group's item.
-        try {
-            g.pose().pushMatrix();
-            g.pose().translate(x + w / 2f - ModIcons.SIZE, y + bodyH / 2f - ModIcons.SIZE);
-            if (ModIcons.has(m.getId())) {
-                g.pose().scale(2f, 2f);
-                ModIcons.draw(g, m.getId(), 0, 0, on || hover);
-            } else {
-                g.pose().scale(1.5f, 1.5f);
-                g.renderItem(PanelMenuScreen.iconOf(group), 0, 0);
-            }
-        } catch (Throwable ignored) {
-        } finally {
-            g.pose().popMatrix();
+        // One glass tile per module: filled in the accent colour when it is on.
+        // (The pixel icons that stood here were dropped: they read as blocky
+        // next to the smooth glass.)
+        if (on) {
+            Glass.pane(g, x, y, w, CARD_H, RADIUS, Glass.alpha(hover ? Glass.lighten(accent, 0.15f) : accent, 0xE6),
+                    Glass.alpha(Glass.lighten(accent, 0.45f), 0xC0));
+        } else {
+            Glass.pane(g, x, y, w, CARD_H, RADIUS, hover ? 0xB01A2134 : CARD_BG, hover ? 0x90FFFFFF : HAIRLINE);
         }
 
-        Glass.fill(g, x + w - 10, y + 6, 4, 4, 2, on ? accent : 0x50FFFFFF);
-        if (!m.getSettings().isEmpty()) g.drawString(font, "+", x + 6, y + 4, hover ? TEXT : MUTED, false);
-
-        String label = fit(PanelMenuScreen.labelOf(m, group), w - 8);
-        g.drawString(font, label, x + (w - font.width(label)) / 2, y + bodyH + 5,
+        boolean hasSettings = !m.getSettings().isEmpty();
+        String label = fit(PanelMenuScreen.labelOf(m, group), w - (hasSettings ? 26 : 12));
+        g.drawString(font, label, x + (w - font.width(label)) / 2, y + (CARD_H - 8) / 2,
                 on ? 0xFF06121D : (hover ? TEXT_BRIGHT : TEXT), false);
+        if (hasSettings) g.drawString(font, "+", x + w - 11, y + (CARD_H - 8) / 2, on ? 0xB006121D : (hover ? TEXT : MUTED), false);
 
         if (!hover) return;
         if (!label.equals(m.getName())) tooltip = m.getName();
@@ -371,7 +353,7 @@ public class CardMenuScreen extends IceyScreen {
             HudManager.save();
         } else if (rightPressed) {
             rightPressed = false;
-            if (!m.getSettings().isEmpty()) MC.setScreen(minecraft, new ModuleSettingsScreen(m, this));
+            if (hasSettings) MC.setScreen(minecraft, new ModuleSettingsScreen(m, this));
         }
     }
 
