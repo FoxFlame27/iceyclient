@@ -5118,6 +5118,32 @@ app.whenReady().then(() => {
   ipcMain.handle('social-notify-game', (_, title, text, reply) => {
     try { return _socialNotifyGame(title, text, reply); } catch (_e) { return 0; }
   });
+  // One of the game's own sounds as a data URL, read out of the assets the
+  // game has downloaded (indexes/<n>.json names the file by its hash).
+  // Null when the game was never downloaded here or the sound isn't in it.
+  const _gameSoundCache = new Map();
+  ipcMain.handle('get-game-sound', (_, name) => {
+    try {
+      if (typeof name !== 'string' || !/^[a-z0-9_/]{1,80}$/.test(name)) return null;
+      if (_gameSoundCache.has(name)) return _gameSoundCache.get(name);
+      const assets = path.join(getDefaultMcDir(), 'assets');
+      const indexes = fs.readdirSync(path.join(assets, 'indexes')).filter(f => f.endsWith('.json'))
+        .sort((a, b) => (parseInt(b, 10) || 0) - (parseInt(a, 10) || 0));
+      for (const f of indexes) {
+        let objects;
+        try { objects = JSON.parse(fs.readFileSync(path.join(assets, 'indexes', f), 'utf-8')).objects; } catch (_) { continue; }
+        const o = objects && objects['minecraft/sounds/' + name + '.ogg'];
+        if (!o || !/^[0-9a-f]{40}$/.test(o.hash) || o.size > 600000) continue;
+        const file = path.join(assets, 'objects', o.hash.slice(0, 2), o.hash);
+        if (!fs.existsSync(file)) continue;
+        const url = 'data:audio/ogg;base64,' + fs.readFileSync(file).toString('base64');
+        _gameSoundCache.set(name, url);
+        return url;
+      }
+    } catch (_) {}
+    return null;
+  });
+
   ipcMain.handle('get-gear-textures', (_, names) => {
     try { return _getGearTextures(names); } catch (e) { log('warn', 'get-gear-textures: ' + e.message); return {}; }
   });

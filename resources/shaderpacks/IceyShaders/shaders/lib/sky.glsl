@@ -23,7 +23,7 @@ vec3 skyGradient(vec3 d, vec3 sunW, float sunH) {
     // A soft halo round the sun by day
     col += vec3(1.0, 0.85, 0.60) * pow(toSun, 24.0) * 0.25 * day;
     col = mix(col, horizon * 0.85, smoothstep(0.0, -0.35, d.y));
-    return mix(col, vec3(luma(col)) * 0.55, rainStrength * 0.85);
+    return mix(col, vec3(luma(col)) * 0.40, rainStrength * 0.88);
 }
 
 float stars(vec3 d, float sunH) {

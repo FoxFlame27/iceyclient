@@ -69,13 +69,26 @@ void main() {
             float hx = waterHeight(worldPosV.xz + vec2(e, 0.0), t);
             float hz = waterHeight(worldPosV.xz + vec2(0.0, e), t);
             vec3 nW = normalize(vec3((h0 - hx) * 0.05 / e, 1.0, (h0 - hz) * 0.05 / e));
+            // Rain pocks the surface with fast little ripples
+            if (wetness > 0.01 && biome_precipitation != 2) {
+                vec2 rp = worldPosV.xz * 5.0 + vec2(0.0, t * 6.0);
+                nW = normalize(nW + vec3(vnoise(rp) - 0.5, 0.0, vnoise(rp + 31.7) - 0.5) * 0.30 * wetness * lm.y);
+            }
             N = normalize(mat3(gbufferModelView) * nW);
         }
     }
 #endif
 #ifdef WEATHER
-    vec3 lit = albedo * (ambientColorNow(sunHeightNow()) * 1.4 + 0.05);
-    alpha *= 0.7;
+    // The drop or flake keeps its shape (alpha) but gets its colour from the
+    // light around it: thin silver streaks of rain, soft bright flakes of
+    // snow, both warm near a torch and neither glowing in the dark.
+    bool snowing = biome_precipitation == 2;
+    vec3 around = ambientColorNow(sunHeightNow()) * (snowing ? 2.1 : 1.5) + vec3(1.00, 0.56, 0.24) * pow(lm.x, 3.0) * 1.6 + 0.035;
+    vec3 lit = (snowing ? vec3(0.96, 0.98, 1.00) : vec3(0.62, 0.74, 0.90)) * around;
+    // Rain keeps only the bright core of each streak, so it reads as thin lines
+    // and not as panes of glass; right in front of the eye both fade out.
+    float core = snowing ? col.a : col.a * col.a;
+    alpha = core * (snowing ? 0.90 : 0.55) * (0.75 + 0.25 * rainStrength) * smoothstep(1.2, 5.0, length(viewPosV));
 #else
     float dither = ign(gl_FragCoord.xy);
     vec3 lit = shade(albedo, viewPosV, N, lm, mat, dither);

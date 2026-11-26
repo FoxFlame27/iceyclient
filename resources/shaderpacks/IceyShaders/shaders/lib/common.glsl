@@ -12,6 +12,7 @@
 #define SSR_STEPS 12             // [8 12 16 24]
 #define BLOOM
 #define BLOOM_STRENGTH 1.0       // [0.5 1.0 1.5 2.0]
+#define WEATHER_FX
 #define SATURATION 1.12          // [0.9 1.0 1.12 1.25 1.4]
 #define EXPOSURE 1.0             // [0.8 0.9 1.0 1.1 1.2]
 
@@ -76,6 +77,8 @@ uniform float blindness;
 uniform float darknessFactor;
 uniform float nightVision;
 uniform sampler2D noisetex;
+uniform float wetness;               // rain, eased in and out
+uniform int biome_precipitation;     // Iris: 0 none, 1 rain, 2 snow where the player stands
 
 float hash12(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);

@@ -122,6 +122,44 @@ function _frRenderSide() {
   }
 }
 
+// With no conversation open the page shows everyone: a wall of cards, one
+// per friend, with the friend's skin, who is online and what is unread.
+// (It used to be an empty picture with one line of text in the middle.)
+let _frWallKey = '';
+function _frRenderWall(main, st) {
+  const friends = st ? st.friends.slice().sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name)) : [];
+  const key = friends.map(f => f.uuid + (f.online ? 1 : 0) + (f.inGame ? 1 : 0) + ':' + (f.unread || 0)).join('|');
+  if (main.querySelector('.fr-wall') && key === _frWallKey) return;
+  _frWallKey = key;
+  main.textContent = '';
+  const wall = document.createElement('div'); wall.className = 'fr-wall';
+  if (!friends.length) {
+    const none = document.createElement('div'); none.className = 'fr-empty';
+    if (st) none.textContent = 'No friends yet. Add someone by their Minecraft name.';
+    wall.appendChild(none);
+    main.appendChild(wall);
+    return;
+  }
+  const head = document.createElement('div'); head.className = 'fr-wall-head';
+  head.textContent = friends.filter(f => f.online).length + ' online · ' + friends.length + ' friends';
+  const grid = document.createElement('div'); grid.className = 'fr-wall-grid';
+  for (const f of friends) {
+    const card = document.createElement('button');
+    card.className = 'fr-card' + (f.online ? ' online' : '');
+    card.onclick = () => _frOpen(f.uuid);
+    const bust = document.createElement('img'); bust.className = 'fr-card-bust'; bust.alt = ''; bust.draggable = false;
+    bust.src = 'https://nmsr.nickac.dev/bust/' + encodeURIComponent(f.name) + '?overlay=true';
+    const name = document.createElement('span'); name.className = 'fr-card-name'; name.setAttribute('data-no-i18n', ''); name.textContent = f.name;
+    const status = document.createElement('span'); status.className = 'fr-status' + (f.online ? ' on' : '');
+    status.textContent = f.inGame ? 'In game' : f.online ? 'Online' : 'Offline';
+    card.append(bust, name, status);
+    if (f.unread) { const b = document.createElement('span'); b.className = 'fr-unread fr-card-unread'; b.setAttribute('data-no-i18n', ''); b.textContent = f.unread > 99 ? '99+' : String(f.unread); card.appendChild(b); }
+    grid.appendChild(card);
+  }
+  wall.append(head, grid);
+  main.appendChild(wall);
+}
+
 function _frRenderMain() {
   const main = document.getElementById('fr-main');
   if (!main) return;
@@ -130,7 +168,8 @@ function _frRenderMain() {
   if (!friend) {
     _frDisposeViewer();
     _frDrawnChat = '';
-    main.innerHTML = st && st.friends.length ? '<div class="fr-empty">Pick a friend to start chatting</div>' : '<div class="fr-empty"></div>';
+    delete main.dataset.friend;
+    _frRenderWall(main, st);
     return;
   }
   // The frame of the conversation is built once per friend; after that only
@@ -141,6 +180,9 @@ function _frRenderMain() {
     main.innerHTML = `
       <div class="fr-chat">
         <div class="fr-chat-head">
+          <button class="fr-mini fr-back" title="Back" onclick="_frOpen('')">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
           <img class="fr-face fr-face-lg" id="fr-head-face" alt="">
           <div class="fr-chat-who">
             <div class="fr-chat-name" id="fr-head-name" data-no-i18n></div>
@@ -238,9 +280,9 @@ async function _frShowSkin(friend) {
 }
 
 function _frOpen(uuid) {
-  Social.openChat = uuid;
+  Social.openChat = uuid || null;       // no uuid: back to the wall
   _frRender();
-  Social.loadChat(uuid);
+  if (uuid) Social.loadChat(uuid);
 }
 
 async function _frSend() {

@@ -27,8 +27,13 @@ const CharacterRig = {
     firework_rocket: 'Firework Rocket', golden_carrot: 'Golden Carrot', cooked_beef: 'Steak',
   },
   ANIMATIONS: ['run', 'walk', 'fly', 'wave', 'crouch', 'hit'],
-  SOUNDS: ['off', 'frost', 'power', 'impact'],
-  DEFAULTS: { helmet: 'none', chest: 'none', legs: 'none', boots: 'none', main: 'none', off: 'none', enchanted: false, startAnim: 'run', startSound: 'frost' },
+  // Start sounds are the game's own (read from its sound files on this
+  // computer). The synthesised ones they replace were called "very bad";
+  // their names live on only as what an older saved choice turns into.
+  SOUNDS: ['off', 'levelup', 'challenge', 'totem', 'beacon'],
+  SOUND_FILES: { levelup: 'random/levelup', challenge: 'ui/toast/challenge_complete', totem: 'item/totem/use_totem', beacon: 'block/beacon/activate' },
+  SOUND_WAS: { frost: 'levelup', power: 'challenge', impact: 'totem' },
+  DEFAULTS: { helmet: 'none', chest: 'none', legs: 'none', boots: 'none', main: 'none', off: 'none', enchanted: false, startAnim: 'run', startSound: 'levelup' },
 
   get() {
     const saved = (typeof SettingsManager !== 'undefined' && SettingsManager.get('character')) || {};
@@ -36,7 +41,8 @@ const CharacterRig = {
     for (const s of this.SLOTS) if (!this.ARMOR.includes(cfg[s])) cfg[s] = 'none';
     for (const h of ['main', 'off']) if (cfg[h] !== 'none' && !this.ITEMS[cfg[h]]) cfg[h] = 'none';
     if (!this.ANIMATIONS.includes(cfg.startAnim)) cfg.startAnim = 'run';
-    if (!this.SOUNDS.includes(cfg.startSound)) cfg.startSound = 'frost';
+    if (this.SOUND_WAS[cfg.startSound]) cfg.startSound = this.SOUND_WAS[cfg.startSound];
+    if (!this.SOUNDS.includes(cfg.startSound)) cfg.startSound = 'levelup';
     cfg.enchanted = !!cfg.enchanted;
     return cfg;
   },
@@ -410,9 +416,23 @@ const CharacterRig = {
   },
 
   // ── Start sound ──
-  // Made on the spot with the Web Audio API: no sound files to ship.
+  // The game's own sound when its files are on this computer; before the
+  // game has ever been downloaded, a tone made with the Web Audio API.
+  _soundUrls: {},
+  async playSound(name) {
+    if (!name || name === 'off') return;
+    try {
+      const file = this.SOUND_FILES[name];
+      if (file) {
+        let url = this._soundUrls[file];
+        if (url === undefined) url = this._soundUrls[file] = (await window.icey.getGameSound(file)) || null;
+        if (url) { const a = new Audio(url); a.volume = 0.5; await a.play(); return; }
+      }
+    } catch (_) {}
+    this._synthSound({ levelup: 'frost', challenge: 'power', totem: 'impact', beacon: 'power' }[name] || name);
+  },
   _audio: null,
-  playSound(name) {
+  _synthSound(name) {
     if (!name || name === 'off') return;
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;

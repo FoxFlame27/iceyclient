@@ -214,3 +214,39 @@
 /* Under the friend list: copies the download link for someone who does not have the launcher yet */
 .fr-invite { flex-shrink: 0; width: 100%; height: 34px; margin-top: 10px; cursor: pointer; }
 .fr-invite:hover { background: rgba(255,255,255,0.11); }
+
+
+/* ── Friend wall: what the page shows while no conversation is open ── */
+.fr-wall { grid-column: 1 / -1; display: flex; flex-direction: column; min-height: 0; padding: 6px 4px 0; }
+.fr-wall .fr-empty { flex: 1; }
+.fr-wall-head { margin: 4px 4px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
+.fr-wall-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 14px;
+  align-content: start;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 4px 10px;
+}
+.fr-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(8,14,28,0.62);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.fr-card:hover { background: rgba(16,26,48,0.78); border-color: rgba(255,255,255,0.30); transform: translateY(-2px); }
+.fr-card-bust { width: 108px; height: 108px; object-fit: contain; image-rendering: pixelated; filter: grayscale(0.85) brightness(0.75); }
+.fr-card.online .fr-card-bust { filter: none; }
+.fr-card-name { max-width: 100%; margin-top: 6px; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-card .fr-status::before { background: #7b8496; }
+.fr-card .fr-status.on::before { background: #4ade80; box-shadow: none; }
+.fr-card-unread { position: absolute; top: 10px; right: 10px; }

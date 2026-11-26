@@ -12,7 +12,7 @@ let _chrHand = 'main';       // which hand the item grid is showing
 
 const _CHR_SLOT_LABEL = { helmet: 'Helmet', chest: 'Chestplate', legs: 'Leggings', boots: 'Boots' };
 const _CHR_ANIM_LABEL = { run: 'Run', walk: 'Walk', fly: 'Fly', wave: 'Wave', crouch: 'Crouch', hit: 'Attack' };
-const _CHR_SOUND_LABEL = { off: 'Off', frost: 'Frost', power: 'Power Up', impact: 'Impact' };
+const _CHR_SOUND_LABEL = { off: 'Off', levelup: 'Level Up', challenge: 'Challenge', totem: 'Totem', beacon: 'Beacon' };
 const _CHR_ARMOR_NAME = { chainmail: 'Chainmail', iron: 'Iron', gold: 'Gold', diamond: 'Diamond', netherite: 'Netherite' };
 
 function _chrDispose() {

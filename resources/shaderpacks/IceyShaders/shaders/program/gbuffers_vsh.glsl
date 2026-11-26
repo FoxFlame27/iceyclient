@@ -49,6 +49,16 @@ void main() {
     worldPosV = (gbufferModelViewInverse * viewPos).xyz + cameraPosition;
 #endif
 
+#ifdef WEATHER
+    // Rain and snow lean with the wind: the higher above the eye, the further over
+    {
+        vec3 wpw = (gbufferModelViewInverse * viewPos).xyz;
+        float lean = biome_precipitation == 2 ? 0.22 : 0.12;
+        wpw.xz += vec2(0.8, 0.3) * wpw.y * lean;
+        if (biome_precipitation == 2) wpw.xz += vec2(sin(frameTimeCounter * 1.3 + wpw.y * 0.9), cos(frameTimeCounter * 1.1 + wpw.y * 0.7)) * 0.10;   // flakes drift
+        viewPos = gbufferModelView * vec4(wpw, 1.0);
+    }
+#endif
 #ifdef HAND
     matV = MAT_HAND;
 #endif

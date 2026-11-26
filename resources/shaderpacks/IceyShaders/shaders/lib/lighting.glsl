@@ -80,7 +80,7 @@ vec3 applyFog(vec3 col, vec3 viewPos, vec3 skyCol) {
 #ifdef NETHER
     return mix(col, skyCol, 1.0 - exp(-dist * 0.022));
 #endif
-    float density = mix(0.9, 2.6, rainStrength);
+    float density = mix(0.9, 1.7, rainStrength);
     float f = 1.0 - exp(-pow(dist / far, 4.0) * density * 2.0);
     f = max(f, (1.0 - exp(-dist * 0.00028 * density)) * 0.5);
     f = max(f, darknessFactor * (1.0 - exp(-dist * 0.12)));

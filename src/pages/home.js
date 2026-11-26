@@ -243,11 +243,9 @@ async function HomePageInit() {
         <div class="hq-switch" id="hq-switch" data-mode="${_deck.mode}">
           <span class="hq-switch-thumb"></span>
           <button class="hq-switch-btn" data-mode="servers" onclick="_deckSetMode('servers')">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><line x1="7" y1="7.5" x2="7.01" y2="7.5"/><line x1="7" y1="16.5" x2="7.01" y2="16.5"/></svg>
             Servers
           </button>
           <button class="hq-switch-btn" data-mode="installations" onclick="_deckSetMode('installations')">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
             Installations
           </button>
         </div>
@@ -1408,7 +1406,7 @@ async function _hqInitSkin(username) {
     await viewer.loadSkin(tex.dataUrl, { model: tex.slim ? 'slim' : 'default' });
     if (!canvas.isConnected) { viewer.dispose(); return; }
     viewer.fov = 38;
-    viewer.zoom = 0.9;                 // head to feet inside the space between the name and the button
+    viewer.zoom = 0.76;                // a little air above and below him: the cards under him got bigger
     viewer.controls.enableZoom = false;
     viewer.controls.enablePan = false;
     viewer.controls.enabled = false;   // the canvas takes no mouse; _hqSkinDrag turns the player

@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('icey', {
     return () => ipcRenderer.removeListener('social-refresh', handler);
   },
   getGearTextures: (names) => ipcRenderer.invoke('get-gear-textures', names),
+  getGameSound: (name) => ipcRenderer.invoke('get-game-sound', name),
   pingServer: (address) => ipcRenderer.invoke('ping-server', address),
   getSkinTexture: (username) => ipcRenderer.invoke('get-skin-texture', username),
   stopMinecraft: (launchId) => ipcRenderer.send('stop-mc', launchId),
