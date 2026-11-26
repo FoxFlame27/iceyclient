@@ -1610,6 +1610,9 @@ function launchMinecraft(installationId, opts = {}) {
     // above the wordmark. Only for a signed-in account with the mod on.
     try { await _installHeadPack(installGameDir, iceyModsEnabled && launchUserType === 'msa' ? auth : null); }
     catch (e) { log('warn', 'Head pack: ' + e.message); }
+    // Glass buttons above whatever resource packs the player has on.
+    try { _installGlassPack(installGameDir, iceyModsEnabled && settings.glassButtons !== false); }
+    catch (e) { log('warn', 'Glass pack: ' + e.message); }
 
     // Game args
     args.push('--username', launchUsername);
@@ -4015,37 +4018,106 @@ async function _installHeadPack(installGameDir, auth) {
       const png = _skinFacePng(Buffer.from(await res.arrayBuffer()));
       if (!png) return;
       fs.mkdirSync(path.dirname(pngPath), { recursive: true });
-      fs.writeFileSync(path.join(dir, 'pack.mcmeta'), JSON.stringify({ pack: { pack_format: 12, description: 'Your face on the Icey Client title screen' } }, null, 2));
+      fs.writeFileSync(path.join(dir, 'pack.mcmeta'), _packMeta('Your face on the Icey Client title screen'));
       fs.writeFileSync(pngPath, png);
       fs.writeFileSync(stampPath, skinUrl);
       log('info', 'Title screen head: ' + auth.username);
     }
   }
-  _registerResourcepackLine(installGameDir, name);
+  _registerResourcepackLine(installGameDir, name, true);
 }
 
-function _registerResourcepackLine(installGameDir, filename) {
+// `last` moves the pack to the end of the list, which is the top of the
+// stack in the game: it then wins over the player's own packs.
+// The entry also goes into incompatibleResourcePacks. The game drops a
+// pack whose format it calls incompatible from options.txt at start-up
+// unless it is listed there (that is the "I know, load it anyway" list),
+// and it takes a compatible pack back out of that list by itself.
+function _registerResourcepackLine(installGameDir, filename, last) {
   const optionsPath = path.join(installGameDir, 'options.txt');
   let lines = [];
   if (fs.existsSync(optionsPath)) lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
   const entry = 'file/' + filename;
-  let found = false;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith('resourcePacks:')) {
-      found = true;
+  const put = (key, fallback, toEnd) => {
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].startsWith(key + ':')) continue;
       try {
-        const packs = JSON.parse(lines[i].slice('resourcePacks:'.length));
+        let packs = JSON.parse(lines[i].slice(key.length + 1));
+        if (toEnd) packs = packs.filter(p => p !== entry);
         if (!packs.includes(entry)) packs.push(entry);
-        lines[i] = 'resourcePacks:' + JSON.stringify(packs);
+        lines[i] = key + ':' + JSON.stringify(packs);
       } catch (_) {
-        lines[i] = 'resourcePacks:' + JSON.stringify(['vanilla', entry]);
+        lines[i] = key + ':' + JSON.stringify(fallback);
       }
-      break;
+      return;
     }
-  }
-  if (!found) lines.push('resourcePacks:' + JSON.stringify(['vanilla', entry]));
+    while (lines.length && lines[lines.length - 1] === '') lines.pop();
+    lines.push(key + ':' + JSON.stringify(fallback));
+  };
+  put('resourcePacks', ['vanilla', entry], !!last);
+  put('incompatibleResourcePacks', [entry], false);
   fs.mkdirSync(installGameDir, { recursive: true });
   try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
+}
+
+// pack.mcmeta that every supported game version accepts: the old single
+// number, the 1.20.2+ range and the 1.21.9+ min/max pair. The range starts
+// at 15 because the game refuses a ranged pack that claims less ("Multi-
+// version packs cannot support minimum version of less than 15"; seen on
+// 1.21.11, which then ignores the pack completely).
+function _packMeta(description) {
+  return JSON.stringify({ pack: { pack_format: 15, supported_formats: [15, 9999], min_format: 15, max_format: 9999, description } }, null, 2);
+}
+
+// ── IceyGlass: the mod's glass buttons, above the player's own packs ──
+// The mod carries the glass widget sprites as overrides of the vanilla
+// ones, but any resource pack that brings its own buttons (Bare Bones,
+// most PvP packs) sits above a mod and put the grey buttons back. The
+// same sprites, copied out of the mod jar into a pack at the top of the
+// stack, win.
+const _GLASS_SPRITES = ['button', 'button_highlighted', 'button_disabled', 'slider', 'slider_highlighted', 'slider_handle',
+  'slider_handle_highlighted', 'text_field', 'text_field_highlighted', 'tab', 'tab_highlighted', 'tab_selected',
+  'tab_selected_highlighted', 'scroller', 'scroller_background', 'checkbox', 'checkbox_highlighted', 'checkbox_selected',
+  'checkbox_selected_highlighted'];
+function _installGlassPack(installGameDir, enabled) {
+  const name = 'IceyGlass';
+  const dir = path.join(installGameDir, 'resourcepacks', name);
+  const remove = () => {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+    _unregisterResourcepackLine(installGameDir, name);
+  };
+  if (!enabled) return remove();
+  const modsDir = path.join(installGameDir, 'mods');
+  let jar = null;
+  try { jar = fs.readdirSync(modsDir).find(f => /^iceymod-mc.*\.jar$/i.test(f) && !/sources/i.test(f)); } catch (_) {}
+  if (!jar) return remove();
+  const jarPath = path.join(modsDir, jar);
+  const st = fs.statSync(jarPath);
+  const stamp = jar + ':' + st.size + ':' + Math.round(st.mtimeMs);
+  const stampPath = path.join(dir, '.from');
+  let current = null;
+  try { current = fs.readFileSync(stampPath, 'utf-8'); } catch (_) {}
+  if (current !== stamp) {
+    const zip = fs.readFileSync(jarPath);
+    const base = 'assets/minecraft/textures/gui/sprites/widget/';
+    const out = path.join(dir, 'assets', 'minecraft', 'textures', 'gui', 'sprites', 'widget');
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+    let n = 0;
+    for (const sprite of _GLASS_SPRITES) {
+      for (const ext of ['.png', '.png.mcmeta']) {
+        const data = _extractFileFromZip(zip, base + sprite + ext);
+        if (!data) continue;
+        fs.mkdirSync(out, { recursive: true });
+        fs.writeFileSync(path.join(out, sprite + ext), data);
+        n++;
+      }
+    }
+    if (!n) return remove();                       // a mod jar from before the glass look
+    fs.writeFileSync(path.join(dir, 'pack.mcmeta'), _packMeta('Icey Client glass buttons'));
+    fs.writeFileSync(stampPath, stamp);
+    log('info', 'Glass buttons pack written (' + n + ' files)');
+  }
+  _registerResourcepackLine(installGameDir, name, true);
 }
 
 // Add `key:value` to options.txt only if that key isn't set yet — used to
