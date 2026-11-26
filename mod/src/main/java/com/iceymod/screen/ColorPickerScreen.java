@@ -169,7 +169,7 @@ public class ColorPickerScreen extends IceyScreen {
 
     @Override
     protected void renderScreenBackground(Gfx context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0xD0070B14);
+        Glass.backdrop(context, this.width, this.height);
     }
 
     @Override

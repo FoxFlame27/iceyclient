@@ -66,6 +66,18 @@ async function loadNavProfile() {
   const titlebarProfile = document.getElementById('titlebar-profile');
   const auth = await window.icey.getAuth();
 
+  // The picture beside "ICEY CLIENT" is the signed-in player (head and
+  // shoulders, outer skin layer included); the mascot when nobody is
+  // signed in or the picture can't be fetched. Skiflame keeps its own logo.
+  const brand = document.querySelector('.titlebar-logo');
+  if (brand && document.documentElement.getAttribute('data-skin') !== 'skiflame') {
+    brand.style.display = '';
+    brand.onerror = () => { brand.onerror = null; brand.src = 'assets/icon.png'; };
+    brand.src = auth && auth.username
+      ? 'https://nmsr.nickac.dev/bust/' + encodeURIComponent(auth.username) + '?overlay=true'
+      : 'assets/icon.png';
+  }
+
   // Pull saved accounts so we can show the dropdown even when no account
   // is currently active — otherwise a user with 5 expired accounts can't
   // reach the remove buttons because getAuth returns null and the UI
@@ -150,58 +162,53 @@ async function _updateProfileDropdown(auth) {
     : null;
   const atMax = allAccounts.length >= (accountsData.maxAccounts || 5);
 
-  const typeBadge = (type) => type === 'offline'
-    ? '<span class="titlebar-account-type offline">Cracked</span>'
-    : type === 'launcher'
-      ? '<span class="titlebar-account-type ms" title="Signed in through the official Minecraft Launcher">Launcher</span>'
-      : '<span class="titlebar-account-type ms">MS</span>';
-
+  // One plain list: who is signed in, the other saved accounts, then the
+  // few things you can do. No boxes around every line, no type badges
+  // (every account is a Microsoft one since cracked accounts were removed).
   const otherAccountsHtml = others.map(a => `
-    <div class="titlebar-account-row">
-      <button class="titlebar-dropdown-btn titlebar-account-switch" onclick="_switchAccount('${_escapeAttr(a.uuid)}')">
-        <img class="titlebar-account-avatar" src="https://nmsr.nickac.dev/face/${_escapeAttr(a.username)}?overlay=true" alt="">
-        <span class="titlebar-account-name">${_escapeHtml(a.username)}</span>
-        ${typeBadge(a.type)}
-        ${a.expired ? '<span class="titlebar-account-badge">expired</span>' : ''}
+    <div class="acctm-row">
+      <button class="acctm-pick" onclick="_switchAccount('${_escapeAttr(a.uuid)}')">
+        <img class="acctm-face" src="https://nmsr.nickac.dev/face/${_escapeAttr(a.username)}?overlay=true" alt="">
+        <span class="acctm-name">${_escapeHtml(a.username)}</span>
+        ${a.expired ? '<span class="acctm-expired">expired</span>' : ''}
       </button>
-      <button class="titlebar-account-remove" title="Remove" onclick="event.stopPropagation(); _removeAccount('${_escapeAttr(a.uuid)}')">&times;</button>
+      <button class="acctm-x" title="Remove" onclick="event.stopPropagation(); _removeAccount('${_escapeAttr(a.uuid)}')">&times;</button>
     </div>
   `).join('');
 
   const addButtons = atMax
-    ? `<div class="titlebar-maxed">Max ${accountsData.maxAccounts} accounts. Remove one to add another.</div>`
+    ? `<div class="acctm-note">Max ${accountsData.maxAccounts} accounts. Remove one to add another.</div>`
     : `
-        <button class="titlebar-dropdown-btn" onclick="_importLauncherAccounts()">+ Use Minecraft Launcher Login</button>
-        <button class="titlebar-dropdown-btn" onclick="_addAccount()">+ Add Microsoft Account</button>
-        <button class="titlebar-dropdown-btn" onclick="_promptAddOffline()">+ Add Cracked Account</button>
+        <button class="acctm-link" onclick="_addAccount()">Add Microsoft account</button>
+        <button class="acctm-link" onclick="_importLauncherAccounts()">Use Minecraft Launcher account</button>
       `;
 
   const headerHtml = auth ? `
-    <div class="titlebar-dropdown-user">
-      <img class="titlebar-dropdown-avatar" src="https://nmsr.nickac.dev/face/${_escapeAttr(auth.username)}?overlay=true" alt="">
-      <div class="titlebar-dropdown-info">
-        <div class="titlebar-dropdown-name">${_escapeHtml(auth.username)} ${typeBadge(activeFull.type)}</div>
-        <div class="titlebar-dropdown-label">Active Account</div>
+    <div class="acctm-head">
+      <img class="acctm-face acctm-face-big" src="https://nmsr.nickac.dev/face/${_escapeAttr(auth.username)}?overlay=true" alt="">
+      <div class="acctm-head-text">
+        <div class="acctm-head-name">${_escapeHtml(auth.username)}</div>
+        <div class="acctm-head-label">Active Account</div>
       </div>
     </div>
   ` : `
-    <div class="titlebar-dropdown-user">
-      <div class="titlebar-dropdown-info">
-        <div class="titlebar-dropdown-name">${others.length ? 'No active account' : 'Not signed in'}</div>
-        <div class="titlebar-dropdown-label">${others.length ? others.length + ' saved · pick one or remove to free a slot' : 'Add an account to play online'}</div>
+    <div class="acctm-head">
+      <div class="acctm-head-text">
+        <div class="acctm-head-name">${others.length ? 'No active account' : 'Not signed in'}</div>
+        <div class="acctm-head-label">${others.length ? others.length + ' saved · pick one or remove to free a slot' : 'Add an account to play online'}</div>
       </div>
     </div>
   `;
 
   const footerHtml = auth ? `
-    <button class="titlebar-dropdown-btn" onclick="switchPage('skins'); _toggleProfileDropdown();">Open Info</button>
-    <button class="titlebar-dropdown-btn logout" onclick="_navLogout()">Log Out of ${_escapeHtml(auth.username)}</button>
+    <div class="acctm-sep"></div>
+    <button class="acctm-link acctm-out" onclick="_navLogout()">Log Out of ${_escapeHtml(auth.username)}</button>
   ` : '';
 
   dropdown.innerHTML = `
     ${headerHtml}
-    ${others.length > 0 ? `<div class="titlebar-dropdown-divider"></div><div class="titlebar-accounts-list">${otherAccountsHtml}</div>` : ''}
-    <div class="titlebar-dropdown-divider"></div>
+    ${others.length > 0 ? `<div class="acctm-sep"></div><div class="acctm-list">${otherAccountsHtml}</div>` : ''}
+    <div class="acctm-sep"></div>
     ${addButtons}
     ${footerHtml}
   `;
@@ -232,42 +239,6 @@ async function _importLauncherAccounts() {
   if (!r.found) { Toast.info('No account found in the Minecraft Launcher. Sign in there once, then try again.'); return; }
   if (r.imported || r.activated) Toast.success('Using your Minecraft Launcher account');
   else Toast.info('Minecraft Launcher account is already in the list');
-  loadNavProfile();
-}
-
-function _promptAddOffline() {
-  _toggleProfileDropdown();
-  showModal(`
-    <div class="create-install-modal">
-      <div class="create-modal-header">
-        <button class="modal-close" onclick="closeModal()">&times;</button>
-        <div class="create-modal-title">Add Cracked Account</div>
-        <div class="create-modal-subtitle">Offline-mode username. Only works on cracked servers.</div>
-      </div>
-      <div class="create-modal-form">
-        <div class="form-group">
-          <label class="form-label">Username</label>
-          <input class="form-input" id="offline-username-input" placeholder="Steve" maxlength="16" autofocus>
-        </div>
-        <button class="btn-create-submit" onclick="_submitOfflineAccount()">Add Account</button>
-      </div>
-    </div>
-  `);
-  setTimeout(() => {
-    const input = document.getElementById('offline-username-input');
-    if (input) input.focus();
-  }, 50);
-}
-
-async function _submitOfflineAccount() {
-  const input = document.getElementById('offline-username-input');
-  const name = input ? input.value.trim() : '';
-  if (!name) { Toast.error('Enter a username'); return; }
-  const result = await window.icey.addOfflineAccount(name);
-  if (result.error) { Toast.error(result.error); return; }
-  closeModal();
-  Toast.success('Added ' + name + ' (cracked)');
-  await SettingsManager.set('username', name);
   loadNavProfile();
 }
 

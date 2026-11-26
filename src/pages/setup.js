@@ -301,15 +301,6 @@ function _setupAccountHtml(username, note) {
           <div class="options-toggle-desc">Use the account from the official launcher</div>
         </div>
       </button>
-      <div class="options-toggle-card off setup-static setup-offline">
-        <div class="options-toggle-body">
-          <div class="options-toggle-name">Offline</div>
-          <div class="options-toggle-desc">Single player and cracked servers</div>
-        </div>
-        <input id="setup-offline-name" type="text" maxlength="16" placeholder="Username" spellcheck="false" ${off}
-               onkeydown="if(event.key==='Enter'){event.preventDefault();_setupLogin('offline');}">
-        <button class="options-btn" onclick="_setupLogin('offline')" ${off}>Add</button>
-      </div>
     </div>
     <div class="setup-account-note">${note || (_setupBusy ? 'Waiting for the sign-in to finish…' : 'Or leave this for later: the account menu is in the top bar.')}</div>`;
 }
@@ -321,12 +312,6 @@ function _setupRenderAccount(username, note) {
 
 async function _setupLogin(kind) {
   if (_setupBusy) return;
-  let offlineName = '';
-  if (kind === 'offline') {
-    const input = document.getElementById('setup-offline-name');
-    offlineName = input ? input.value.trim() : '';
-    if (!offlineName) { Toast.error('Enter a username'); return; }
-  }
   _setupBusy = true;
   _setupRenderAccount();
   let username = null;
@@ -340,10 +325,6 @@ async function _setupLogin(kind) {
       if (r && r.error) Toast.error(r.error);
       else if (!r || !r.found) Toast.info('No account found in the Minecraft Launcher. Sign in there once, then try again.');
       else { const a = await window.icey.getAuth(); username = a && a.username; }
-    } else {
-      const r = await window.icey.addOfflineAccount(offlineName);
-      if (r && r.error) Toast.error(r.error);
-      else username = offlineName;
     }
   } catch (e) {
     Toast.error((e && e.message) || 'Sign-in failed');

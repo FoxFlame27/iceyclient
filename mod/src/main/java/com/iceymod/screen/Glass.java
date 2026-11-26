@@ -49,6 +49,36 @@ final class Glass {
         }
     }
 
+    /**
+     * Background shared by the mod's menus: a navy veil over the game and
+     * one sheet of glass, with a hairline edge, that the content sits on.
+     */
+    static void backdrop(Gfx g, int w, int h) {
+        veil(g, w, h);
+        int x = 10, y = 6, sw = w - 20, sh = h - 12;
+        if (sw < 40 || sh < 40) return;
+        pane(g, x, y, sw, sh, 6, 0x730C1120, 0x30FFFFFF);
+    }
+
+    /** The tint every glass menu lays over the game: light enough that the world still shows. */
+    static void veil(Gfx g, int w, int h) {
+        g.fill(0, 0, w, h, 0x94070A14);
+    }
+
+    /**
+     * One pane of glass: a see-through tint, a band of light across the
+     * top, a bright line where the light catches the upper edge, and a
+     * hairline all round.
+     */
+    static void pane(Gfx g, int x, int y, int w, int h, int r, int tint, int edge) {
+        if (w <= 0 || h <= 0) return;
+        fill(g, x, y, w, h, r, tint);
+        fillTop(g, x, y, w, Math.min(h / 2, 9), r, 0x0EFFFFFF);
+        int in = Math.min(r, w / 2);
+        g.fill(x + in, y + 1, x + w - in, y + 2, 0x26FFFFFF);
+        outline(g, x, y, w, h, r, edge);
+    }
+
     static void outline(Gfx g, int x, int y, int w, int h, int r, int color) {
         if (w <= 1 || h <= 1) return;
         r = Math.max(0, Math.min(r, Math.min(w, h) / 2));

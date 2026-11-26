@@ -1606,6 +1606,11 @@ function launchMinecraft(installationId, opts = {}) {
     }
     log('info', `[LAUNCH] Auth: ${launchUsername} (${launchUserType})`);
 
+    // Title screen: the player's own face, with the skin's outer layer,
+    // above the wordmark. Only for a signed-in account with the mod on.
+    try { await _installHeadPack(installGameDir, iceyModsEnabled && launchUserType === 'msa' ? auth : null); }
+    catch (e) { log('warn', 'Head pack: ' + e.message); }
+
     // Game args
     args.push('--username', launchUsername);
     args.push('--version', versionId);
@@ -3892,6 +3897,133 @@ function _satisfiesVersionRange(version, range) {
 
 // ── ZIP file extractor using central directory (handles all JARs) ──────
 // ── Helpers: options.txt resource-pack list manipulation ────────────────
+// ── IceyHead: a one-texture resource pack with the player's face ──────
+// The mod draws textures/gui/title/iceyclient_head.png above its wordmark
+// on the title screen and ships the mascot for it. This pack lays the
+// player's own face over that file: the 8x8 face of the skin with the
+// outer layer (hat) on top, as a 64x64 picture. A folder pack, so nothing
+// has to be zipped; pack_format 12 like the panorama packs, which load on
+// every version the same way.
+function _pngEncodeRgba(w, h, rgba) {
+  const zlib = require('zlib');
+  const table = _pngEncodeRgba._t || (_pngEncodeRgba._t = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })());
+  const crc = (buf) => { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = table[(c ^ buf[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const chunk = (type, data) => {
+    const td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const sum = Buffer.alloc(4); sum.writeUInt32BE(crc(td));
+    return Buffer.concat([len, td, sum]);
+  };
+  const head = Buffer.alloc(13); head.writeUInt32BE(w, 0); head.writeUInt32BE(h, 4); head[8] = 8; head[9] = 6;
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  for (let y = 0; y < h; y++) rgba.copy(raw, y * (w * 4 + 1) + 1, y * w * 4, (y + 1) * w * 4);
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), chunk('IHDR', head), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+/** Reads an 8-bit, non-interlaced PNG (grey, RGB, palette, with or without alpha) into RGBA. Null for anything else. */
+function _pngDecodeRgba(buf) {
+  const zlib = require('zlib');
+  if (!buf || buf.length < 33 || buf.readUInt32BE(0) !== 0x89504E47) return null;
+  let w = 0, h = 0, type = 0, pal = null, trns = null; const idat = [];
+  for (let p = 8; p + 8 <= buf.length;) {
+    const len = buf.readUInt32BE(p), name = buf.toString('ascii', p + 4, p + 8), data = buf.subarray(p + 8, p + 8 + len);
+    if (name === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); type = data[9]; if (data[8] !== 8 || data[12] !== 0) return null; }
+    else if (name === 'PLTE') pal = data;
+    else if (name === 'tRNS') trns = data;
+    else if (name === 'IDAT') idat.push(data);
+    else if (name === 'IEND') break;
+    p += 12 + len;
+  }
+  const ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[type];
+  if (!w || !h || !ch || w > 1024 || h > 1024) return null;
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  const stride = w * ch;
+  if (raw.length < (stride + 1) * h) return null;
+  const img = Buffer.alloc(stride * h);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)], src = y * (stride + 1) + 1, dst = y * stride;
+    for (let x = 0; x < stride; x++) {
+      const a = x >= ch ? img[dst + x - ch] : 0, b = y ? img[dst + x - stride] : 0, c = (x >= ch && y) ? img[dst + x - stride - ch] : 0;
+      let v = raw[src + x];
+      if (f === 1) v += a; else if (f === 2) v += b; else if (f === 3) v += (a + b) >> 1;
+      else if (f === 4) { const pp = a + b - c, pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - c); v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c); }
+      img[dst + x] = v & 0xFF;
+    }
+  }
+  const rgba = Buffer.alloc(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    let r, g, b, al = 255;
+    if (type === 6) { r = img[i * 4]; g = img[i * 4 + 1]; b = img[i * 4 + 2]; al = img[i * 4 + 3]; }
+    else if (type === 2) { r = img[i * 3]; g = img[i * 3 + 1]; b = img[i * 3 + 2]; }
+    else if (type === 3) { const n = img[i]; if (!pal) return null; r = pal[n * 3]; g = pal[n * 3 + 1]; b = pal[n * 3 + 2]; al = trns && n < trns.length ? trns[n] : 255; }
+    else if (type === 4) { r = g = b = img[i * 2]; al = img[i * 2 + 1]; }
+    else { r = g = b = img[i]; }
+    rgba[i * 4] = r; rgba[i * 4 + 1] = g; rgba[i * 4 + 2] = b; rgba[i * 4 + 3] = al;
+  }
+  return { w, h, rgba };
+}
+
+/** Face (and hat layer) of a skin PNG as a 64x64 RGBA PNG, or null when the picture can't be read. */
+function _skinFacePng(skinBuf) {
+  const dec = _pngDecodeRgba(skinBuf);
+  if (!dec) return null;
+  const { w, h, rgba: px } = dec;
+  if (w < 64 || h < 32) return null;
+  const k = w / 64;                                 // HD skins: 128 wide and up
+  const CELL = 8, out = Buffer.alloc(64 * 64 * 4);
+  let clear = 0;
+  for (let y = 8; y < 16; y++) for (let x = 40; x < 48; x++) if (px[(Math.floor(y * k) * w + Math.floor(x * k)) * 4 + 3] < 255) clear++;
+  const hatUsed = clear > 0;
+  for (let cy = 0; cy < 8; cy++) for (let cx = 0; cx < 8; cx++) {
+    const at = (sx, sy) => (Math.floor(sy * k) * w + Math.floor(sx * k)) * 4;
+    const f = at(8 + cx, 8 + cy), o = at(40 + cx, 8 + cy);
+    // Old 64x32 skins have no alpha in the hat area: a hat that is fully
+    // opaque everywhere is the "no hat" filler, so it is left out.
+    const a = hatUsed ? px[o + 3] / 255 : 0;
+    const r = Math.round(px[o] * a + px[f] * (1 - a));
+    const g = Math.round(px[o + 1] * a + px[f + 1] * (1 - a));
+    const b = Math.round(px[o + 2] * a + px[f + 2] * (1 - a));
+    for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) {
+      const i = ((cy * CELL + y) * 64 + cx * CELL + x) * 4;
+      out[i] = r; out[i + 1] = g; out[i + 2] = b; out[i + 3] = 255;
+    }
+  }
+  return _pngEncodeRgba(64, 64, out);
+}
+
+async function _installHeadPack(installGameDir, auth) {
+  const name = 'IceyHead';
+  const dir = path.join(installGameDir, 'resourcepacks', name);
+  const pngPath = path.join(dir, 'assets', 'iceymod', 'textures', 'gui', 'title', 'iceyclient_head.png');
+  const stampPath = path.join(dir, '.skin');
+  const skinUrl = auth && auth.skinUrl ? String(auth.skinUrl).replace(/^http:/, 'https:') : null;
+  if (!skinUrl) {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+    _unregisterResourcepackLine(installGameDir, name);
+    return;
+  }
+  let current = null;
+  try { current = fs.readFileSync(stampPath, 'utf-8'); } catch (_) {}
+  if (current !== skinUrl || !fs.existsSync(pngPath)) {
+    const res = await Promise.race([fetch(skinUrl), new Promise(resolve => setTimeout(() => resolve(null), 5000))]);
+    if (!res || !res.ok) { if (!fs.existsSync(pngPath)) return; }
+    else {
+      const png = _skinFacePng(Buffer.from(await res.arrayBuffer()));
+      if (!png) return;
+      fs.mkdirSync(path.dirname(pngPath), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'pack.mcmeta'), JSON.stringify({ pack: { pack_format: 12, description: 'Your face on the Icey Client title screen' } }, null, 2));
+      fs.writeFileSync(pngPath, png);
+      fs.writeFileSync(stampPath, skinUrl);
+      log('info', 'Title screen head: ' + auth.username);
+    }
+  }
+  _registerResourcepackLine(installGameDir, name);
+}
+
 function _registerResourcepackLine(installGameDir, filename) {
   const optionsPath = path.join(installGameDir, 'options.txt');
   let lines = [];
@@ -4251,9 +4383,12 @@ function readAuthStore() {
       return { activeUuid: raw.uuid, accounts: [{ ...raw, type: raw.type || 'microsoft' }] };
     }
     if (!raw || !Array.isArray(raw.accounts)) return { activeUuid: null, accounts: [] };
-    // Fill in missing type field on legacy entries
-    const accounts = raw.accounts.map(a => ({ ...a, type: a.type || 'microsoft' }));
-    return { activeUuid: raw.activeUuid || (accounts[0]?.uuid ?? null), accounts };
+    // Fill in missing type field on legacy entries. Cracked (offline)
+    // accounts were removed in 1.87.16: ones saved earlier are dropped here
+    // and disappear from the file with the next write.
+    const accounts = raw.accounts.map(a => ({ ...a, type: a.type || 'microsoft' })).filter(a => a.type !== 'offline');
+    const active = accounts.some(a => a.uuid === raw.activeUuid) ? raw.activeUuid : (accounts[0]?.uuid ?? null);
+    return { activeUuid: active, accounts };
   } catch (_) {
     return { activeUuid: null, accounts: [] };
   }
@@ -4555,6 +4690,38 @@ const _refreshInflight = new Map();
  *
  * Offline accounts pass through unchanged.
  */
+/**
+ * A player can rename their Minecraft account at any time. The saved name
+ * was only refreshed together with the token (once a day), so for up to a
+ * day the game was started under the old name: servers then fail to verify
+ * the session ("not logged in", treated as cracked) and the skin, looked up
+ * by name, comes back as Steve. Ask the profile service for the current
+ * name, at most every five minutes per account, and save it when it changed.
+ */
+const _nameCheckedAt = new Map();
+async function syncProfileName(account) {
+  if (!account || account.type !== 'microsoft' || !account.accessToken) return account;
+  if (Date.now() - (_nameCheckedAt.get(account.uuid) || 0) < 5 * 60 * 1000) return account;
+  try {
+    const profile = await Promise.race([
+      httpGet('https://api.minecraftservices.com/minecraft/profile', { Authorization: 'Bearer ' + account.accessToken }),
+      new Promise(resolve => setTimeout(() => resolve(null), 5000)),
+    ]);
+    const same = (a, b) => String(a || '').replace(/-/g, '').toLowerCase() === String(b || '').replace(/-/g, '').toLowerCase();
+    if (!profile || !profile.name || !same(profile.id, account.uuid)) return account;
+    _nameCheckedAt.set(account.uuid, Date.now());
+    const skinUrl = profile.skins?.[0]?.url || account.skinUrl || null;
+    if (profile.name === account.username && skinUrl === (account.skinUrl || null)) return account;
+    if (profile.name !== account.username) log('info', `Account renamed: ${account.username} -> ${profile.name}`);
+    const updated = { ...account, username: profile.name, skinUrl };
+    updateAccountInPlace(updated);
+    try { if (mainWindow && !mainWindow.isDestroyed()) broadcast('account-refreshed', { uuid: updated.uuid }); } catch (_) {}
+    return updated;
+  } catch (_) {
+    return account;
+  }
+}
+
 async function ensureFreshAuth(account) {
   if (!account) return null;
   if (account.type === 'offline') return account;
@@ -4572,7 +4739,7 @@ async function ensureFreshAuth(account) {
   }
   // Token still valid (with a few-minute buffer to avoid races).
   if (account.expiresAt && account.expiresAt - Date.now() > REFRESH_BUFFER_MS) {
-    return account;
+    return syncProfileName(account);
   }
   if (!account.refreshToken) return null;
   // Hard 8-month cap since the last interactive login — MS rejects past
@@ -5975,18 +6142,9 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('add-offline-account', (_, username) => {
-    try {
-      const name = String(username || '').trim();
-      if (!name) return { error: 'Username required' };
-      if (name.length > 16) return { error: 'Username max 16 chars' };
-      if (!/^[A-Za-z0-9_]{1,16}$/.test(name)) return { error: 'Only letters, digits, underscore' };
-      const uuid = offlineUuid(name);
-      const account = { username: name, uuid, accessToken: '0', type: 'offline' };
-      upsertAccount(account);
-      return { success: true, account };
-    } catch (e) {
-      return { error: e.message };
-    }
+    // Cracked accounts were removed in 1.87.16; the channel stays so an
+    // old page asking for one gets an answer instead of hanging.
+    return { error: 'Cracked accounts are no longer supported' };
   });
 
   ipcMain.handle('switch-account', (_, uuid) => {

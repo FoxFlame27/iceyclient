@@ -41,10 +41,10 @@ public class CardMenuScreen extends IceyScreen {
     private static final int CHIPS_Y = 40;
     private static final int GRID_Y = 66;
 
-    private static final int SIDE_BG = 0xEB090C16;
-    private static final int CARD_BG = 0xD6121828;
-    private static final int BAR_OFF = 0xE0222A3C;
-    private static final int HAIRLINE = 0x2EFFFFFF;
+    private static final int SIDE_BG = 0x99090C16;
+    private static final int CARD_BG = 0xA00E1424;
+    private static final int BAR_OFF = 0xB0222A3C;
+    private static final int HAIRLINE = 0x3CFFFFFF;
     private static final int TEXT = 0xFFC9D1DE;
     private static final int TEXT_BRIGHT = 0xFFFFFFFF;
     private static final int MUTED = 0xFF7F8AA0;
@@ -94,7 +94,7 @@ public class CardMenuScreen extends IceyScreen {
 
     @Override
     protected void renderScreenBackground(Gfx g, int mouseX, int mouseY, float delta) {
-        g.fill(0, 0, this.width, this.height, 0xB8070A14);
+        Glass.veil(g, this.width, this.height);
     }
 
     @Override
@@ -145,7 +145,8 @@ public class CardMenuScreen extends IceyScreen {
 
     private void drawSidebar(Gfx g, int accent) {
         g.fill(0, 0, SIDE_W, vh, SIDE_BG);
-        g.fill(SIDE_W - 1, 0, SIDE_W, vh, 0x1AFFFFFF);
+        g.fill(SIDE_W - 1, 0, SIDE_W, vh, 0x3CFFFFFF);
+        g.fill(SIDE_W - 2, 0, SIDE_W - 1, vh, 0x0CFFFFFF);
 
         List<HudModule> all = HudManager.getModules();
         int on = 0;
@@ -236,9 +237,8 @@ public class CardMenuScreen extends IceyScreen {
             if (hover) leftPressed = false;
         }
         boolean focused = searchField != null && searchField.isFocused();
-        Glass.fill(g, x, TOP_Y, SEARCH_W, SEARCH_H, RADIUS, 0xC80A0E1A);
-        Glass.outline(g, x, TOP_Y, SEARCH_W, SEARCH_H, RADIUS,
-                focused ? Glass.alpha(accent, 0xC0) : hover ? 0x50FFFFFF : HAIRLINE);
+        Glass.pane(g, x, TOP_Y, SEARCH_W, SEARCH_H, RADIUS, 0x8C0A0E1A,
+                focused ? Glass.alpha(accent, 0xD0) : hover ? 0x60FFFFFF : HAIRLINE);
         superRender(g, mx, my, delta);
     }
 
@@ -262,8 +262,7 @@ public class CardMenuScreen extends IceyScreen {
                 Glass.fill(g, x, CHIPS_Y, w, h, RADIUS, accent);
                 g.drawString(font, label, x + 8, CHIPS_Y + 4, 0xFF06121D, false);
             } else {
-                Glass.fill(g, x, CHIPS_Y, w, h, RADIUS, hover ? 0xE61A2134 : CARD_BG);
-                Glass.outline(g, x, CHIPS_Y, w, h, RADIUS, hover ? 0x60FFFFFF : HAIRLINE);
+                Glass.pane(g, x, CHIPS_Y, w, h, RADIUS, hover ? 0xB01A2134 : CARD_BG, hover ? 0x70FFFFFF : HAIRLINE);
                 g.drawString(font, label, x + 8, CHIPS_Y + 4, hover ? TEXT_BRIGHT : TEXT, false);
             }
             if (hover && leftPressed && !selected) {
@@ -331,19 +330,31 @@ public class CardMenuScreen extends IceyScreen {
         int bodyH = CARD_H - BAR_H;
         PanelMenuScreen.Group group = PanelMenuScreen.groupOf(m);
 
-        Glass.fillTop(g, x, y, w, bodyH, RADIUS, hover ? 0xE61A2134 : CARD_BG);
+        Glass.fillTop(g, x, y, w, bodyH, RADIUS, hover ? 0xB01A2134 : CARD_BG);
+        Glass.fillTop(g, x, y, w, 9, RADIUS, 0x0EFFFFFF);
+        g.fill(x + RADIUS, y + 1, x + w - RADIUS, y + 2, 0x26FFFFFF);
         Glass.fillBottom(g, x, y + bodyH, w, BAR_H, RADIUS,
-                on ? (hover ? Glass.lighten(accent, 0.15f) : accent) : (hover ? 0xE62C3549 : BAR_OFF));
-        Glass.outline(g, x, y, w, CARD_H, RADIUS, hover ? 0x70FFFFFF : HAIRLINE);
+                on ? Glass.alpha(hover ? Glass.lighten(accent, 0.15f) : accent, 0xE6) : (hover ? 0xB42C3549 : BAR_OFF));
+        if (on) g.fill(x + 1, y + bodyH, x + w - 1, y + bodyH + 1, 0x50FFFFFF);
+        Glass.outline(g, x, y, w, CARD_H, RADIUS, hover ? 0x90FFFFFF : on ? Glass.alpha(Glass.lighten(accent, 0.3f), 0x90) : HAIRLINE);
 
-        // Group icon, one and a half times its size, in the middle of the body
+        // The module's own pixel icon at twice its size, in the middle of the
+        // body: bright when the module is on or under the mouse. A module
+        // without a drawing falls back to its group's item.
         try {
             g.pose().pushMatrix();
-            g.pose().translate(x + w / 2f - 12, y + bodyH / 2f - 12);
-            g.pose().scale(1.5f, 1.5f);
-            g.renderItem(PanelMenuScreen.iconOf(group), 0, 0);
+            g.pose().translate(x + w / 2f - ModIcons.SIZE, y + bodyH / 2f - ModIcons.SIZE);
+            if (ModIcons.has(m.getId())) {
+                g.pose().scale(2f, 2f);
+                ModIcons.draw(g, m.getId(), 0, 0, on || hover);
+            } else {
+                g.pose().scale(1.5f, 1.5f);
+                g.renderItem(PanelMenuScreen.iconOf(group), 0, 0);
+            }
+        } catch (Throwable ignored) {
+        } finally {
             g.pose().popMatrix();
-        } catch (Throwable ignored) {}
+        }
 
         Glass.fill(g, x + w - 10, y + 6, 4, 4, 2, on ? accent : 0x50FFFFFF);
         if (!m.getSettings().isEmpty()) g.drawString(font, "+", x + 6, y + 4, hover ? TEXT : MUTED, false);

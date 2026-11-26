@@ -204,9 +204,16 @@
   background: var(--accent) !important;
   box-shadow: none !important;
 }
-.setup-actions .options-btn-primary:hover {
+/* The general .options-btn:hover (faint fill, accent text) used to win on
+   hover and made Next / Finish vanish: keep the solid look, stated here
+   with more weight than those rules. */
+.setup-page .setup-actions .options-btn.options-btn-primary:hover {
+  background: var(--accent) !important;
+  border-color: transparent !important;
+  color: #0a0e1a !important;
   filter: brightness(1.08);
   box-shadow: none !important;
+  transform: none;
 }
 
 /* The Setup tab is only in the bar until setup has been done once. */

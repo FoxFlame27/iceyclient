@@ -45,10 +45,21 @@ public final class Branding {
     public static Identifier logo() {
         return isSkiflame()
                 ? Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/skiflame_logo.png")
-                : Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/title/iceyclient_mark.png");
+                : Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/title/iceyclient_word.png");
+    }
+
+    /**
+     * The square head drawn above the wordmark (not in Skiflame mode). The
+     * mod ships the mascot; the launcher puts the player's own face, with
+     * the skin's outer layer, over it through the IceyHead resource pack.
+     */
+    public static Identifier head() {
+        return Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/title/iceyclient_head.png");
+    }
+    public static int headSize(int logoWidth) { return Math.max(16, logoWidth * 36 / 150);
     }
     public static int logoWidth()  { return isSkiflame() ? 720 : 1024; }
-    public static int logoHeight() { return isSkiflame() ? 240 : 512; }
+    public static int logoHeight() { return isSkiflame() ? 240 : 176; }
     /** Where the Skiflame logo starts on the title screen (GUI pixels from the top). */
     public static final int SKIFLAME_LOGO_TOP = 10;
 

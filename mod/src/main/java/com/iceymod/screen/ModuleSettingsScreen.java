@@ -37,7 +37,7 @@ public class ModuleSettingsScreen extends IceyScreen {
         int gap = 3;
         int centerX = this.width / 2;
         int topY = 50;
-        int bottomY = this.height - 40;
+        int bottomY = this.height - 56;     // room for the two footer buttons inside the glass sheet
         int gridH = bottomY - topY;
         int rowsPerCol = Math.max(1, gridH / (btnH + gap));
 
@@ -159,7 +159,7 @@ public class ModuleSettingsScreen extends IceyScreen {
     @Override
     protected void renderScreenBackground(Gfx context, int mouseX, int mouseY, float delta) {
         // Skip vanilla blur (avoids double-blur issues on recent versions)
-        context.fill(0, 0, this.width, this.height, 0xC0101010);
+        Glass.backdrop(context, this.width, this.height);
     }
 
     @Override

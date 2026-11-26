@@ -77,7 +77,7 @@ public class ReplyScreen extends IceyScreen {
 
     @Override
     protected void renderScreenBackground(Gfx g, int mouseX, int mouseY, float delta) {
-        g.fill(0, 0, this.width, this.height, 0xA0101010);
+        Glass.backdrop(g, this.width, this.height);
     }
 
     @Override

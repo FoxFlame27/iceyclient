@@ -423,3 +423,43 @@
    heading's three buttons share one height so it fits. */
 .chr-enchant-book { width: 32px; height: 32px; margin: 0 -2px 0 -8px; image-rendering: pixelated; -webkit-user-drag: none; }
 .chr-back, .chr-preview, .chr-enchant, .chr-enchant.on { height: 44px; }
+
+/* ── Heading controls, flat (2026-11-26): the boxed switch and the glossy
+   Preview button read as stock UI. Now: a bare label with a switch, and
+   one solid button. No gradients, glows or inset highlights. ── */
+.chr-head-actions { gap: 20px; }
+.chr-back, .chr-preview, .chr-enchant, .chr-enchant.on { height: 36px; }
+.chr-back {
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.07);
+  box-shadow: none;
+}
+.chr-back:hover { background: rgba(255,255,255,0.14); border: 0; }
+.chr-enchant,
+.chr-enchant.on {
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-weight: 600;
+  color: rgba(255,255,255,0.82);
+}
+.chr-enchant:hover,
+.chr-enchant.on:hover { background: none; border: 0; color: #fff; }
+.chr-enchant-book { width: 24px; height: 24px; margin: 0 -2px 0 0; }
+.chr-switch { width: 34px; height: 18px; background: rgba(255,255,255,0.2); }
+.chr-switch-knob { width: 14px; height: 14px; box-shadow: none; }
+.chr-preview {
+  gap: 7px;
+  padding: 0 16px 0 12px;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+  background: rgb(var(--accent-rgb));
+  box-shadow: none;
+}
+.chr-preview:hover { transform: none; box-shadow: none; filter: brightness(1.1); }

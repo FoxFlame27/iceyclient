@@ -740,3 +740,16 @@
   -webkit-text-fill-color: #fff !important;
   text-shadow: 0 3px 22px rgba(0,0,0,0.7);
 }
+
+/* ── The player is drawn on a canvas 1.7x as wide as his column
+   (_HQ_SKIN_WIDE in home.js), centred on it, so a turned arm or a held
+   item is no longer cut off at the column's edge. It sits above what is
+   beside it and takes no mouse; the column itself is the drag handle. ── */
+.hq-skin { z-index: 3; cursor: grab; touch-action: none; }
+.hq-skin:active { cursor: grabbing; }
+.hq-skin-canvas {
+  inset: 0 auto 0 50%;
+  width: 170%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}

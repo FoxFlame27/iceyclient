@@ -70,8 +70,8 @@ public class PanelMenuScreen extends IceyScreen {
     private static final int SEARCH_Y = 10;
     private static final int SEARCH_H = 20;
 
-    private static final int PANEL_BG = 0xD60A0E1A;
-    private static final int HAIRLINE = 0x2EFFFFFF;
+    private static final int PANEL_BG = 0x990A0E1A;
+    private static final int HAIRLINE = 0x3CFFFFFF;
     private static final int TEXT = 0xFFC9D1DE;
     private static final int TEXT_BRIGHT = 0xFFFFFFFF;
     private static final int MUTED = 0xFF7F8AA0;
@@ -136,7 +136,7 @@ public class PanelMenuScreen extends IceyScreen {
     @Override
     protected void renderScreenBackground(Gfx g, int mouseX, int mouseY, float delta) {
         // Own veil instead of the vanilla blur (double-blur issues on recent versions).
-        g.fill(0, 0, this.width, this.height, 0xB0070A14);
+        Glass.veil(g, this.width, this.height);
     }
 
     @Override
@@ -201,9 +201,8 @@ public class PanelMenuScreen extends IceyScreen {
             if (hover) leftPressed = false;
         }
         boolean focused = searchField != null && searchField.isFocused();
-        Glass.fill(g, x, SEARCH_Y, SEARCH_W, SEARCH_H, RADIUS, 0xC80A0E1A);
-        Glass.outline(g, x, SEARCH_Y, SEARCH_W, SEARCH_H, RADIUS,
-                focused ? Glass.alpha(accent, 0xC0) : hover ? 0x50FFFFFF : HAIRLINE);
+        Glass.pane(g, x, SEARCH_Y, SEARCH_W, SEARCH_H, RADIUS, 0x8C0A0E1A,
+                focused ? Glass.alpha(accent, 0xD0) : hover ? 0x60FFFFFF : HAIRLINE);
         superRender(g, mx, my, delta);
     }
 
@@ -322,6 +321,7 @@ public class PanelMenuScreen extends IceyScreen {
 
         Glass.fill(g, x, top, panelW, h, RADIUS, PANEL_BG);
         Glass.fillTop(g, x, top, panelW, HEADER_H, RADIUS, 0x12FFFFFF);
+        g.fill(x + RADIUS, top + 1, x + panelW - RADIUS, top + 2, 0x26FFFFFF);
         g.fill(x + 1, top + HEADER_H - 1, x + panelW - 1, top + HEADER_H, Glass.alpha(accent, 0x66));
         Glass.outline(g, x, top, panelW, h, RADIUS, HAIRLINE);
 

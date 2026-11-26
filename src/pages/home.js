@@ -615,12 +615,10 @@ async function _liquidOpenAccount() {
     : `<div class="acct-add-row">
          <button class="acct-add-btn ms" onclick="_liquidImportLauncher()">Use Minecraft Launcher account</button>
          <button class="acct-add-btn ms" onclick="_liquidAddMicrosoft()">Add Microsoft account</button>
-         <button class="acct-add-btn cracked" onclick="_liquidAddCracked()">Add cracked account</button>
        </div>`;
 
   const footerHtml = active
     ? `<div class="acct-footer">
-         <button class="acct-secondary" onclick="closeModal(); switchPage('skins');">Open Info</button>
          <button class="acct-secondary danger" onclick="_liquidLogout()">Log out of ${esc(active.username)}</button>
        </div>`
     : '';
@@ -685,12 +683,6 @@ async function _liquidAddMicrosoft() {
   await SettingsManager.set('username', result.username);
   if (typeof loadNavProfile === 'function') loadNavProfile();
   HomePageInit().catch(() => {});
-}
-
-function _liquidAddCracked() {
-  closeModal();
-  // Re-use the existing offline-account prompt from app.js
-  if (typeof _promptAddOffline === 'function') _promptAddOffline();
 }
 
 async function _liquidLogout() {
@@ -1372,6 +1364,31 @@ function _hqSkinShowImage() {
   if (img && !img.getAttribute('src')) { img.src = img.dataset.src; img.classList.add('shown'); }
 }
 
+// The picture the player is drawn into is wider than the column he stands
+// in (see .hq-skin-canvas): with the canvas only as wide as the column, a
+// turned shoulder or the item in his hand ran into its edge and was cut
+// off in a straight line. The wide canvas lets no mouse through to itself,
+// so it can't block the cards beside it; dragging on the column turns him.
+const _HQ_SKIN_WIDE = 1.7;
+function _hqSkinDrag(wrap) {
+  if (wrap._hqDrag) return;
+  wrap._hqDrag = true;
+  let lastX = null;
+  wrap.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    lastX = e.clientX;
+    try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (lastX === null || !_hqViewer) return;
+    _hqViewer.playerWrapper.rotation.y += (e.clientX - lastX) * 0.012;
+    lastX = e.clientX;
+  });
+  const end = () => { lastX = null; };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+}
+
 async function _hqInitSkin(username) {
   _hqDisposeSkin();
   const canvas = document.getElementById('hq-skin-canvas');
@@ -1385,7 +1402,7 @@ async function _hqInitSkin(username) {
   try {
     const viewer = new skinview3d.SkinViewer({
       canvas,
-      width: Math.max(1, wrap.clientWidth),
+      width: Math.max(1, Math.round(wrap.clientWidth * _HQ_SKIN_WIDE)),
       height: Math.max(1, wrap.clientHeight),
     });
     await viewer.loadSkin(tex.dataUrl, { model: tex.slim ? 'slim' : 'default' });
@@ -1394,6 +1411,8 @@ async function _hqInitSkin(username) {
     viewer.zoom = 0.9;                 // head to feet inside the space between the name and the button
     viewer.controls.enableZoom = false;
     viewer.controls.enablePan = false;
+    viewer.controls.enabled = false;   // the canvas takes no mouse; _hqSkinDrag turns the player
+    _hqSkinDrag(wrap);
     viewer.playerWrapper.rotation.y = -0.42;
     viewer.globalLight.intensity = 2.6;
     viewer.cameraLight.intensity = 1.1;
@@ -1410,7 +1429,7 @@ async function _hqInitSkin(username) {
       if (!_hqViewer) return;
       const w = wrap.clientWidth, h = wrap.clientHeight;
       _hqViewer.renderPaused = !(w > 0 && h > 0);       // another page is showing
-      if (w > 0 && h > 0) _hqViewer.setSize(w, h);
+      if (w > 0 && h > 0) _hqViewer.setSize(Math.round(w * _HQ_SKIN_WIDE), h);
     });
     _hqSkinObserver.observe(wrap);
   } catch (e) {

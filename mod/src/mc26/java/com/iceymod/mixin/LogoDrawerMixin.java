@@ -21,6 +21,12 @@ public abstract class LogoDrawerMixin {
             int y = com.iceymod.Branding.isSkiflame()
                     ? Math.max(4, LogoRenderer.DEFAULT_HEIGHT_OFFSET + yOffset - 20)
                     : Math.max(4, LogoRenderer.DEFAULT_HEIGHT_OFFSET + yOffset - 55);
+            if (!com.iceymod.Branding.isSkiflame()) {
+                // The head sits above the wordmark; its texture is 64x64 whatever skin it shows.
+                int hs = com.iceymod.Branding.headSize(targetW);
+                context.blit(RenderPipelines.GUI_TEXTURED, com.iceymod.Branding.head(), screenWidth / 2 - hs / 2, y, 0f, 0f, hs, hs, hs, hs);
+                y += hs + 3;
+            }
             context.blit(RenderPipelines.GUI_TEXTURED, com.iceymod.Branding.logo(), x, y, 0f, 0f, targetW, targetH, targetW, targetH);
             ci.cancel();
         } catch (Throwable ignored) {

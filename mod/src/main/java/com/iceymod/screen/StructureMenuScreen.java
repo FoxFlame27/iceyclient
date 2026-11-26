@@ -247,7 +247,7 @@ public class StructureMenuScreen extends IceyScreen {
 
     @Override
     protected void renderScreenBackground(Gfx context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0xC0101010);
+        Glass.backdrop(context, this.width, this.height);
     }
 
     @Override
