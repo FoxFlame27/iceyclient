@@ -98,7 +98,7 @@
 
     .logo {
       display: block;
-      width: min(680px, 94vw);
+      width: min(440px, 80vw);
       height: auto;
     }
 
@@ -254,7 +254,7 @@
       padding-top: 28px;
       border-top: 2px solid var(--line);
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       gap: 24px;
       list-style: none;
     }
@@ -338,7 +338,7 @@
     }
     @media (max-height: 720px) and (min-width: 821px) {
       main { padding-top: 16px; padding-bottom: 12px; }
-      .logo { width: min(520px, 80vw); }
+      .logo { width: min(340px, 74vw); }
       .platforms { margin-top: 22px; }
       .extra { margin-top: 18px; }
     }
@@ -351,7 +351,7 @@
   <div class="bg" aria-hidden="true"><canvas id="pano"></canvas></div>
 
   <main>
-    <img class="logo" src="icey-client/logo.png" width="612" height="210" alt="Icey Client">
+    <img class="logo" src="icey-client/mark.png?v=1" width="1024" height="512" alt="Icey Client">
     <h1>Download Icey Client</h1>
 
     <!-- The buttons go through /dl/<system> on this site, which notes the
@@ -395,7 +395,7 @@
       <h2>What's inside</h2>
 
       <div class="point">
-        <img class="shot" src="icey-client/shots/servers.jpg" width="1600" height="1000" loading="lazy" alt="The Icey Client home screen: your character above a row of server cards, with a Join button">
+        <img class="shot" src="icey-client/shots/servers.jpg?v=2" width="1600" height="1000" loading="lazy" alt="The Icey Client home screen: your character above a row of server cards, with a Join button">
         <div>
           <h3>Join your servers in one click</h3>
           <p>Every server you have played on becomes a card, with its icon and how many players are on. Pick one, press Join, and the game opens straight into it.</p>
@@ -403,7 +403,23 @@
       </div>
 
       <div class="point">
-        <img class="shot" src="icey-client/shots/character.jpg" width="1600" height="1000" loading="lazy" alt="The character page: armor, main hand and off hand choices next to a 3D player in enchanted netherite">
+        <img class="shot" src="icey-client/shots/ingame.jpg?v=2" width="1600" height="1000" loading="lazy" alt="The Minecraft title screen in Icey Client: a head and the words Icey Client above glass buttons">
+        <div>
+          <h3>The game, in glass</h3>
+          <p>Buttons, sliders and menus in the game turn into dark glass, also the ones other mods add. Your own face sits above the title screen, and your panorama stays behind it.</p>
+        </div>
+      </div>
+
+      <div class="point">
+        <img class="shot" src="icey-client/shots/shaders.jpg?v=2" width="1600" height="1000" loading="lazy" alt="A sunset in Minecraft with Icey Shaders: blocky clouds lit from below, long shadows and a cherry tree">
+        <div>
+          <h3>Icey Shaders, built in</h3>
+          <p>Blocky clouds, soft shadows, wind in the leaves, rain that wets the ground. One switch in Settings turns them on, and N turns them off again in the game.</p>
+        </div>
+      </div>
+
+      <div class="point">
+        <img class="shot" src="icey-client/shots/character.jpg?v=2" width="1600" height="1000" loading="lazy" alt="The character page: armor, main hand and off hand choices next to a 3D player in enchanted netherite">
         <div>
           <h3>Dress your character</h3>
           <p>Diamond or netherite, a sword or a trident, a totem in the off hand, enchanted or not. Your own skin wears it every time you open the launcher.</p>
@@ -411,10 +427,10 @@
       </div>
 
       <div class="point">
-        <img class="shot" src="icey-client/shots/friends.jpg" width="1600" height="1000" loading="lazy" alt="The friends page: a friend list, a chat and the friend's skin">
+        <img class="shot" src="icey-client/shots/friends.jpg?v=2" width="1600" height="1000" loading="lazy" alt="The friends page: a friend list, a chat and the friend's skin">
         <div>
           <h3>Friends and messages</h3>
-          <p>Add friends by their Minecraft name, see who is online and chat without leaving the launcher. When a friend comes on, you get a notice, in game too.</p>
+          <p>Add friends by their Minecraft name and see all of them on one wall: who is online, who is in a game, who wrote. Answer a message without leaving the game.</p>
         </div>
       </div>
 
@@ -423,6 +439,7 @@
         <li><b>Its own client mod</b><span>A Fabric mod with HUD mods, installed for you.</span></li>
         <li><b>Your mods too</b><span>Separate installations, each with its own mods and version.</span></li>
         <li><b>Three looks</b><span>Classic, Liquid and Frost. Switch any time.</span></li>
+        <li><b>Bring your old client</b><span>Mods, servers and settings come over from the Minecraft Launcher, Prism, Modrinth or CurseForge.</span></li>
       </ul>
 
       <a class="again" href="#top">Download Icey Client</a>

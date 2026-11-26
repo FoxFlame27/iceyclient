@@ -159,7 +159,7 @@ function _setupStepHtml(id) {
           </div>
         </div>
         ${_setupToggleCard('performanceModsEnabled', s.performanceModsEnabled !== false, 'Performance Boost', 'Sodium, Lithium and other speed-up mods')}
-        ${_setupToggleCard('iceyShadersEnabled', !!s.iceyShadersEnabled, 'Icey Shaders', 'Blocky clouds, soft shadows, wind in the leaves and reflecting water. Needs a Fabric installation; adds Iris.')}
+        ${_setupToggleCard('iceyShadersEnabled', s.iceyShadersEnabled !== false, 'Icey Shaders', 'Blocky clouds, soft shadows, wind in the leaves and reflecting water. Needs a Fabric installation; adds Iris.')}
         ${_setupToggleCard('closeLauncherOnStart', !!s.closeLauncherOnStart, 'Close on Launch', 'Close the launcher when the game starts')}
       </div>`;
 }

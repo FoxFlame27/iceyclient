@@ -1092,11 +1092,6 @@ function launchMinecraft(installationId, opts = {}) {
     try {
       const reqPath = path.join(installGameDir, 'config', 'iceymod-request.json');
       const req = _readJsonSafe(reqPath);
-      if (req && typeof req.javaStuffEnabled === 'boolean' && req.javaStuffEnabled !== !!settings.javaStuffEnabled) {
-        settings.javaStuffEnabled = req.javaStuffEnabled;
-        writeSettings(settings);
-        _mcToast('Java & Stuff turned ' + (req.javaStuffEnabled ? 'on' : 'off') + ' (requested in-game with U)', 'info');
-      }
       // The Y menu's look can be changed in-game too; keep Settings in step.
       if (req) {
         let menuChanged = false;
@@ -1119,7 +1114,10 @@ function launchMinecraft(installationId, opts = {}) {
     const skinChangerEnabled = !!settings.skinChangerEnabled;
     const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
     const architecturyEnabled = settings.architecturyEnabled !== false;
-    const javaStuffEnabled = !!settings.javaStuffEnabled;
+    // Java & Stuff was removed in 1.87.23. It stays switched off here for
+    // good, which makes the block below take the pack back out of any
+    // installation that still has it.
+    const javaStuffEnabled = false;
 
     // Panorama pack installs on ANY installation (vanilla or Fabric) because
     // it's just a resource pack — MC loads it regardless of mod loader.
@@ -1423,6 +1421,13 @@ function launchMinecraft(installationId, opts = {}) {
         if (_setOptionIf(installGameDir, 'key_iris.keybind.reload', 'key.keyboard.l', v => !v || v === 'key.keyboard.r')) {
           _mcConsole('Iris "Reload Shaders" moved to L (R is Icey Cycle Perspective)', 'info');
         }
+        // Shaders on and off is N. Iris has it on K (Icey's Biome Finder); the
+        // mod's leaderboard key used to be N and moves to U, the key that
+        // Java & Stuff gave up.
+        _setOptionIf(installGameDir, 'key_key.iceymod.openboard', 'key.keyboard.u', v => v === 'key.keyboard.n');
+        if (_setOptionIf(installGameDir, 'key_iris.keybind.toggleShaders', 'key.keyboard.n', v => !v || v === 'key.keyboard.k')) {
+          _mcConsole('Shaders on/off is on N', 'info');
+        }
       } catch (_) {}
 
       // 5e) FPS-friendly video defaults for new installations — only keys
@@ -1616,7 +1621,7 @@ function launchMinecraft(installationId, opts = {}) {
     try { _installGlassPack(installGameDir, iceyModsEnabled && settings.glassButtons !== false); }
     catch (e) { log('warn', 'Glass pack: ' + e.message); }
     // Icey Shaders: the pack, Iris to run it, and the switch in Iris's config.
-    try { await _applyIceyShaders(installGameDir, installation, !!settings.iceyShadersEnabled); }
+    try { await _applyIceyShaders(installGameDir, installation, settings.iceyShadersEnabled !== false); }   // on unless switched off
     catch (e) { log('warn', 'Icey Shaders: ' + e.message); }
 
     // Game args

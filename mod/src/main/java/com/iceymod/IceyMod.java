@@ -54,14 +54,13 @@ public class IceyMod implements ClientModInitializer {
     private static KeyMapping freecamKey;
     private static KeyMapping biomeKey;
     private static KeyMapping leaderboardKey;
-    private static KeyMapping javaStuffKey;
 
     @Override
     public void onInitializeClient() {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.87.22)");
+        System.out.println("[IceyMod] booted (build tag: v1.87.23)");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -95,8 +94,8 @@ public class IceyMod implements ClientModInitializer {
         biomeKey        = registerKey("key.iceymod.biome",        InputConstants.KEY_K);
         // Fresh keybind id ("openboard" instead of "leaderboard") so MC
         // doesn't fall back to a stale `;` binding saved in older options.txt.
-        leaderboardKey  = registerKey("key.iceymod.openboard",    InputConstants.KEY_N);
-        javaStuffKey    = registerKey("key.iceymod.javastuff",    InputConstants.KEY_U);
+        // U since 1.87.23: N now switches the shaders on and off (set up by the launcher).
+        leaderboardKey  = registerKey("key.iceymod.openboard",    InputConstants.KEY_U);
 
         replyKey = registerKey("key.iceymod.reply", InputConstants.KEY_O);
 
@@ -139,9 +138,6 @@ public class IceyMod implements ClientModInitializer {
                 if (com.iceymod.compat.MC.screen(client) == null) {
                     com.iceymod.compat.MC.setScreen(client, new BiomeMenuScreen());
                 }
-            }
-            while (wasPressed(javaStuffKey)) {
-                try { JavaStuffToggle.toggle(client); } catch (Throwable t) { System.out.println("[IceyMod] Java & Stuff toggle failed: " + t); }
             }
             while (wasPressed(leaderboardKey)) {
                 // Send /leaderboard to the server so it opens the

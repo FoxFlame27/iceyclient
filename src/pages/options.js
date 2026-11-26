@@ -30,8 +30,7 @@ async function _renderMainOptions(page, settings) {
   const iceyModsEnabled = settings.iceyModsEnabled !== false;
   const skinChangerEnabled = !!settings.skinChangerEnabled;
   const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
-  const iceyShadersEnabled = !!settings.iceyShadersEnabled;
-  const javaStuffEnabled = !!settings.javaStuffEnabled;
+  const iceyShadersEnabled = settings.iceyShadersEnabled !== false;
   const perfEnabled = settings.performanceModsEnabled !== false;
   const scrollBindsEnabled = !!settings.scrollBindsEnabled;
   const closeOnStart = !!settings.closeLauncherOnStart;
@@ -156,20 +155,17 @@ async function _renderMainOptions(page, settings) {
         </div>
       </div>`,
 
+    // One list, one row per mod, all the same shape. (It was three small
+    // cards, one tall orphan and two wide ones.)
     mods: `
-      <div class="options-toggle-row">
+      <div class="options-modlist">
         ${toggleCard('iceyModsEnabled', iceyModsEnabled, 'Icey Mods', 'Icey mod and panorama pack', img('assets/icon.png'))}
+        ${toggleCard('iceyShadersEnabled', iceyShadersEnabled, 'Icey Shaders', 'Blocky clouds, soft shadows, wind and reflecting water. N switches them on and off in game. Fabric only.', img('assets/shaders-icon.png'))}
+        ${toggleCard('performanceModsEnabled', perfEnabled, 'Performance Boost', 'Sodium, Lithium and five more speed-up mods, matched to your version. Fabric only.',
+          '<div class="options-toggle-icon-svg"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>')}
         ${toggleCard('skinChangerEnabled', skinChangerEnabled, 'Skin Changer', 'Swap skins in game (SkinShuffle)', img('assets/mods/skinshuffle.png'))}
         ${toggleCard('healthIndicatorsEnabled', healthIndicatorsEnabled, 'Health Indicators', 'HP bars above players and mobs', img('assets/mods/healthindicators.png'))}
-        ${toggleCard('iceyShadersEnabled', iceyShadersEnabled, 'Icey Shaders', 'Blocky clouds, soft shadows, wind in the leaves and reflecting water. Needs a Fabric installation; adds Iris.', img('assets/shaders-icon.png'))}
-      </div>
-      <div class="options-toggle-row">
-        ${toggleCard('performanceModsEnabled', perfEnabled, 'Performance Boost', 'Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Krypton (ping) &amp; Dynamic FPS, matched to your version. Fabric only.',
-          '<div class="options-toggle-icon-svg"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>')}
-        ${toggleCard('javaStuffEnabled', javaStuffEnabled, 'Java &amp; Stuff', 'Actions &amp; Stuff-style animations, 3D items, shaders &amp; sounds. Fabric only. Armor packs stay off — enable in-game.', img('assets/mods/javastuff.png'))}
-      </div>
-      <div class="options-toggle-row">
-        ${toggleCard('scrollBindsEnabled', scrollBindsEnabled, 'Scroll Keybinds', 'Adds Scroll Up and Scroll Down as keys. Bind them in the game under Options → Controls → Key Binds: click an action, then scroll. Works without Icey Mods.', '<img class="options-toggle-icon options-toggle-icon-smooth" src="assets/mods/scrollbinds.svg" alt="">')}
+        ${toggleCard('scrollBindsEnabled', scrollBindsEnabled, 'Scroll Keybinds', 'Scroll Up and Scroll Down as keys you can bind in the game.', '<img class="options-toggle-icon options-toggle-icon-smooth" src="assets/mods/scrollbinds.svg" alt="">')}
       </div>`,
 
     game: `
@@ -325,8 +321,6 @@ async function _optToggleFeature(key, value) {
     Toast.info(value ? 'Scroll Keybinds on. Applies the next time you launch the game.' : 'Scroll Keybinds off. Applies the next time you launch the game.');
   } else if (key === 'iceyShadersEnabled') {
     Toast.info(value ? 'Icey Shaders on. Applies the next time you launch the game.' : 'Icey Shaders off. Applies the next time you launch the game.');
-  } else if (key === 'javaStuffEnabled') {
-    Toast.info(value ? 'Java & Stuff will install on next launch (first time takes a few minutes)' : 'Java & Stuff will be removed on next launch');
   }
   _optionsRender();
 }

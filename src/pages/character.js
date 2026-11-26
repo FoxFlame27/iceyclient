@@ -127,10 +127,6 @@ async function CharacterPageInit() {
               <span class="chr-row-label chr-row-title">Start Animation</span>
               ${words('startAnim', CharacterRig.ANIMATIONS, _CHR_ANIM_LABEL)}
             </div>
-            <div class="chr-row">
-              <span class="chr-row-label chr-row-title">Start Sound</span>
-              ${words('startSound', CharacterRig.SOUNDS, _CHR_SOUND_LABEL)}
-            </div>
           </section>
         </div>
       </div>
@@ -214,10 +210,10 @@ function _chrSetHand(hand) {
   _chrSyncSlots();
 }
 
-// What pressing Launch will look and sound like.
+// What pressing Launch will look like. (There is no start sound any more:
+// the user asked for it to be removed on 2026-11-26.)
 function _chrPreviewStart() {
   if (!_chrCfg) return;
-  CharacterRig.playSound(_chrCfg.startSound);
   _chrPlayStart();
 }
 
@@ -227,7 +223,6 @@ async function _chrPick(group, value) {
   _chrMark(group);
   _chrSyncSlots();
   await CharacterRig.save(_chrCfg);
-  if (group === 'startSound') { CharacterRig.playSound(value); return; }
   if (group === 'startAnim') { _chrPlayStart(); return; }
   if (_chrViewer) CharacterRig.apply(_chrViewer, _chrCfg);
 }

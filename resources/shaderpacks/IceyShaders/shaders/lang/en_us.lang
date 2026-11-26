@@ -15,3 +15,4 @@ option.BLOOM_STRENGTH=Bloom strength
 option.SATURATION=Saturation
 option.EXPOSURE=Brightness
 option.WEATHER_FX=Wet ground, puddles and snow sparkle
+option.HAND_LIGHT=Light from what you hold

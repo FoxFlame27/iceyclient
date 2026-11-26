@@ -42,6 +42,16 @@ vec3 shade(vec3 albedo, vec3 viewPos, vec3 N, vec2 lm, float mat, float dither) 
 
     float sky = lm.y * lm.y;
     float block = lm.x;
+#ifdef HAND_LIGHT
+    // A torch, lantern or anything else that glows in either hand lights the
+    // place around you: full strength at your feet, gone after about as many
+    // blocks as the item's light level.
+    float held = float(max(heldBlockLightValue, heldBlockLightValue2));
+    if (held > 0.0) {
+        float reach = clamp(1.0 - length(viewPos) / (held * 0.95 + 1.0), 0.0, 1.0);
+        block = max(block, (held / 15.0) * reach * reach * (3.0 - 2.0 * reach));
+    }
+#endif
 
 #ifdef NETHER
     vec3 direct = vec3(0.0);

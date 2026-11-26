@@ -705,7 +705,6 @@ async function HomePlayClick() {
     _deckSetPref(joinServer.key, { installationId: selected.id });
   }
   _hqLaunchBurst();
-  if (document.getElementById('hq-skin')) CharacterRig.playSound(CharacterRig.get().startSound);
   await MinecraftLauncher.launch(selected.id, joinServer ? { server: joinServer.address } : undefined);
 }
 

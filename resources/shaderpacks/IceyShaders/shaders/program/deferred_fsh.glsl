@@ -59,7 +59,7 @@ void main() {
                 vec3 R = reflect(dirV, Nr);
                 float fres = 0.04 + 0.96 * pow(1.0 - max(dot(-dirV, Nr), 0.0), 5.0);
                 vec3 refl = skyGradient(mat3(gbufferModelViewInverse) * R, sunW, sunH);
-                col = mix(col, refl, clamp(fres * 1.6, 0.0, 1.0) * wet * (0.35 * flat_ + 0.65 * puddle));
+                col = mix(col, refl, clamp(fres * 1.15, 0.0, 1.0) * wet * (0.22 * flat_ + 0.70 * puddle));
             }
             // Snow (any near-white ground in the open): grains catch the light as you move
             if (luma(albedo) > 0.62 && flat_ > 0.5 && luma(col) > 0.45) {
