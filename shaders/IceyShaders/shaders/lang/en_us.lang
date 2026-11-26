@@ -1,0 +1,16 @@
+profile.FAST=Fast
+profile.BALANCED=Balanced
+profile.FANCY=Fancy
+option.SHADOWS=Shadows
+option.SHADOW_SOFTNESS=Shadow softness
+option.CLOUDS=Blocky clouds
+option.CLOUD_STEPS=Cloud quality
+option.CLOUD_HEIGHT=Cloud height
+option.WAVING=Wind in leaves and plants
+option.WAVING_STRENGTH=Wind strength
+option.WATER_REFLECTIONS=Water reflections
+option.SSR_STEPS=Reflection quality
+option.BLOOM=Bloom
+option.BLOOM_STRENGTH=Bloom strength
+option.SATURATION=Saturation
+option.EXPOSURE=Brightness
