@@ -56,6 +56,19 @@ public final class Branding {
     public static Identifier head() {
         return Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/title/iceyclient_head.png");
     }
+    /**
+     * Where the logo starts so that it ends {@code gap} GUI pixels above the
+     * first title-screen button (Singleplayer, at height/4 + 48), instead of
+     * hanging at the top edge with empty space under it.
+     */
+    public static int logoTop(int logoHeight, int gap) {
+        try {
+            int sh = net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScaledHeight();
+            return Math.max(4, sh / 4 + 48 - gap - logoHeight);
+        } catch (Throwable t) {
+            return 4;
+        }
+    }
     public static int headSize(int logoWidth) { return Math.max(16, logoWidth * 36 / 150);
     }
     public static int logoWidth()  { return isSkiflame() ? 720 : 1024; }

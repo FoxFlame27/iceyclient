@@ -52,10 +52,11 @@ public abstract class SplashTextMixin {
     @Inject(method = "getSplash", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$iceySplash(CallbackInfoReturnable<SplashRenderer> cir) {
         try {
-            // The mark-and-wordmark logo stands alone: no splash next to it.
-            // Skiflame keeps its one-liners.
-            String text = com.iceymod.Branding.isSkiflame()
-                    ? ICEY_SPLASHES[ThreadLocalRandom.current().nextInt(ICEY_SPLASHES.length)] : "";
+            // The logo stands alone, in Icey and in Skiflame mode: no splash
+            // line. (With the logo moved down to the buttons, the splash was
+            // left floating above it.) The one-liners stay in ICEY_SPLASHES
+            // in case they come back somewhere else.
+            String text = "";
             // SplashTextRenderer's constructor accepts String on 1.21.8
             // but only Text on 1.21.11. Reflection picks whichever ctor
             // exists at runtime.

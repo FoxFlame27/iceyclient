@@ -1410,7 +1410,9 @@ function launchMinecraft(installationId, opts = {}) {
           // Cards are the default; an older saved style only counts once the
           // user has picked a look since cards exist (hudMenuCardsDefault).
           hudMenuStyle: ((x) => ['grid', 'panels'].includes(x) ? x : 'cards')(settings.hudMenuCardsDefault ? settings.hudMenuStyle : 'cards'),
-          hudMenuColor: /^#[0-9a-f]{6}$/i.test(settings.hudMenuColor || '') ? settings.hudMenuColor : (settings.accentColor || '#5bc8f5'),
+          // No colour picked for the menu: the launcher's accent, or in
+          // Skiflame mode the violet of its logo.
+          hudMenuColor: /^#[0-9a-f]{6}$/i.test(settings.hudMenuColor || '') ? settings.hudMenuColor : (settings.skiflameMode ? '#8b7bff' : (settings.accentColor || '#5bc8f5')),
         });
       } catch (_) {}
 

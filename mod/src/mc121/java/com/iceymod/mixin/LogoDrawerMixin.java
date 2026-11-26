@@ -31,8 +31,12 @@ public abstract class LogoDrawerMixin {
             if (!com.iceymod.Branding.isSkiflame()) {
                 // The head sits above the wordmark; its texture is 64x64 whatever skin it shows.
                 int hs = com.iceymod.Branding.headSize(targetW);
+                y = com.iceymod.Branding.logoTop(hs + 3 + targetH, 12);
                 context.blit(RenderPipelines.GUI_TEXTURED, com.iceymod.Branding.head(), screenWidth / 2 - hs / 2, y, 0f, 0f, hs, hs, hs, hs);
                 y += hs + 3;
+            } else {
+                // The Skiflame artwork has glow round the letters, so it may sit closer
+                y = com.iceymod.Branding.logoTop(targetH, 4);
             }
             context.blit(
                     RenderPipelines.GUI_TEXTURED,
