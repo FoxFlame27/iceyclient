@@ -1613,6 +1613,9 @@ function launchMinecraft(installationId, opts = {}) {
     // Glass buttons above whatever resource packs the player has on.
     try { _installGlassPack(installGameDir, iceyModsEnabled && settings.glassButtons !== false); }
     catch (e) { log('warn', 'Glass pack: ' + e.message); }
+    // Icey Shaders: the pack, Iris to run it, and the switch in Iris's config.
+    try { await _applyIceyShaders(installGameDir, installation, !!settings.iceyShadersEnabled); }
+    catch (e) { log('warn', 'Icey Shaders: ' + e.message); }
 
     // Game args
     args.push('--username', launchUsername);
@@ -4136,6 +4139,94 @@ function _registerResourcepackLine(installGameDir, filename, last, compatible) {
 // 1.21.11, which then ignores the pack completely).
 function _packMeta(description) {
   return JSON.stringify({ pack: { pack_format: 15, supported_formats: [15, 9999], min_format: 15, max_format: 9999, description } }, null, 2);
+}
+
+// ── Icey Shaders ──────────────────────────────────────────────────────
+// The launcher carries its own shader pack (resources/shaderpacks/IceyShaders).
+// With the setting on, a Fabric installation gets the pack in shaderpacks/,
+// Iris (and the Sodium build that Iris asks for, when none is there) in
+// mods/, and Iris's config pointed at the pack. With it off, Iris is told
+// to render without shaders, but only if it was our pack that was selected:
+// a pack the player picked themselves is left alone.
+function _copyDirPlain(from, to) {
+  fs.mkdirSync(to, { recursive: true });
+  for (const name of fs.readdirSync(from)) {
+    const a = path.join(from, name), b = path.join(to, name);
+    if (fs.statSync(a).isDirectory()) _copyDirPlain(a, b);
+    else fs.writeFileSync(b, fs.readFileSync(a));     // read + write: works out of the asar too
+  }
+}
+function _irisConfig(gameDir, edit) {
+  const file = path.join(gameDir, 'config', 'iris.properties');
+  const map = new Map();
+  try {
+    for (const line of fs.readFileSync(file, 'utf-8').split(/\r?\n/)) {
+      const i = line.indexOf('=');
+      if (i > 0 && !line.startsWith('#')) map.set(line.slice(0, i).trim(), line.slice(i + 1).trim());
+    }
+  } catch (_) {}
+  if (!edit(map)) return;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, [...map].map(([k, v]) => k + '=' + v).join('\n') + '\n', 'utf-8');
+}
+async function _applyIceyShaders(gameDir, installation, enabled) {
+  const PACK = 'IceyShaders';
+  const isFabric = installation && (installation.platform === 'fabric' || installation.fabricActive);
+  if (!enabled || !isFabric) {
+    _irisConfig(gameDir, (m) => {
+      if (m.get('shaderPack') !== PACK || m.get('enableShaders') === 'false') return false;
+      m.set('enableShaders', 'false');
+      return true;
+    });
+    return;
+  }
+  const src = [path.join(__dirname, 'resources', 'shaderpacks', PACK), path.join(process.resourcesPath || '', 'shaderpacks', PACK)]
+    .find(p => { try { return fs.existsSync(path.join(p, 'shaders', 'shaders.properties')); } catch (_) { return false; } });
+  if (!src) { log('warn', 'Icey Shaders: the pack is missing from this build'); return; }
+
+  // Iris, in the build for this game version
+  const modsDir = path.join(gameDir, 'mods');
+  fs.mkdirSync(modsDir, { recursive: true });
+  const have = fs.readdirSync(modsDir);
+  if (!have.some(f => /^iris.*\.jar$/i.test(f))) {
+    const q = (id) => `https://api.modrinth.com/v2/project/${id}/version?game_versions=${encodeURIComponent(JSON.stringify([installation.version]))}&loaders=${encodeURIComponent('["fabric"]')}`;
+    const list = await httpGet(q('YL57xq9U'));
+    const iris = Array.isArray(list) ? list[0] : null;
+    const file = iris && (iris.files.find(f => f.primary) || iris.files[0]);
+    if (!file) {
+      _mcToast('Icey Shaders: Iris is not out for Minecraft ' + installation.version + ' yet', 'info');
+      log('warn', 'Icey Shaders: no Iris for ' + installation.version);
+      return;
+    }
+    await downloadFile(file.url, path.join(modsDir, file.filename));
+    log('info', 'Icey Shaders: installed ' + file.filename);
+    if (!have.some(f => /^sodium.*\.jar$/i.test(f) && !/\.disabled$/i.test(f))) {
+      // The exact Sodium this Iris was built against, not simply the newest
+      const dep = (iris.dependencies || []).find(d => d.project_id === 'AANobbMI' && d.version_id);
+      const sv = dep ? await httpGet('https://api.modrinth.com/v2/version/' + dep.version_id) : (await httpGet(q('AANobbMI')) || [])[0];
+      const sf = sv && sv.files && (sv.files.find(f => f.primary) || sv.files[0]);
+      if (sf) { await downloadFile(sf.url, path.join(modsDir, sf.filename)); log('info', 'Icey Shaders: installed ' + sf.filename); }
+    }
+  }
+
+  // The pack itself, refreshed when the launcher that carries it changes
+  const dest = path.join(gameDir, 'shaderpacks', PACK);
+  const stampPath = path.join(dest, '.version');
+  const stamp = app.getVersion();
+  let current = null;
+  try { current = fs.readFileSync(stampPath, 'utf-8'); } catch (_) {}
+  if (current !== stamp) {
+    try { fs.rmSync(dest, { recursive: true, force: true }); } catch (_) {}
+    _copyDirPlain(src, dest);
+    fs.writeFileSync(stampPath, stamp);
+    log('info', 'Icey Shaders: pack written');
+  }
+  _irisConfig(gameDir, (m) => {
+    if (m.get('shaderPack') === PACK && m.get('enableShaders') === 'true') return false;
+    m.set('shaderPack', PACK);
+    m.set('enableShaders', 'true');
+    return true;
+  });
 }
 
 // ── IceyGlass: the mod's glass buttons, above the player's own packs ──

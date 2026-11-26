@@ -30,6 +30,7 @@ async function _renderMainOptions(page, settings) {
   const iceyModsEnabled = settings.iceyModsEnabled !== false;
   const skinChangerEnabled = !!settings.skinChangerEnabled;
   const healthIndicatorsEnabled = settings.healthIndicatorsEnabled !== false;
+  const iceyShadersEnabled = !!settings.iceyShadersEnabled;
   const javaStuffEnabled = !!settings.javaStuffEnabled;
   const perfEnabled = settings.performanceModsEnabled !== false;
   const scrollBindsEnabled = !!settings.scrollBindsEnabled;
@@ -160,6 +161,7 @@ async function _renderMainOptions(page, settings) {
         ${toggleCard('iceyModsEnabled', iceyModsEnabled, 'Icey Mods', 'Icey mod and panorama pack', img('assets/icon.png'))}
         ${toggleCard('skinChangerEnabled', skinChangerEnabled, 'Skin Changer', 'Swap skins in game (SkinShuffle)', img('assets/mods/skinshuffle.png'))}
         ${toggleCard('healthIndicatorsEnabled', healthIndicatorsEnabled, 'Health Indicators', 'HP bars above players and mobs', img('assets/mods/healthindicators.png'))}
+        ${toggleCard('iceyShadersEnabled', iceyShadersEnabled, 'Icey Shaders', 'Blocky clouds, soft shadows, wind in the leaves and reflecting water. Needs a Fabric installation; adds Iris.', img('assets/shaders-icon.png'))}
       </div>
       <div class="options-toggle-row">
         ${toggleCard('performanceModsEnabled', perfEnabled, 'Performance Boost', 'Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Krypton (ping) &amp; Dynamic FPS, matched to your version. Fabric only.',
@@ -321,6 +323,8 @@ async function _optToggleFeature(key, value) {
     Toast.info(value ? 'Health Indicators + Architectury on' : 'Health Indicators + Architectury off');
   } else if (key === 'scrollBindsEnabled') {
     Toast.info(value ? 'Scroll Keybinds on. Applies the next time you launch the game.' : 'Scroll Keybinds off. Applies the next time you launch the game.');
+  } else if (key === 'iceyShadersEnabled') {
+    Toast.info(value ? 'Icey Shaders on. Applies the next time you launch the game.' : 'Icey Shaders off. Applies the next time you launch the game.');
   } else if (key === 'javaStuffEnabled') {
     Toast.info(value ? 'Java & Stuff will install on next launch (first time takes a few minutes)' : 'Java & Stuff will be removed on next launch');
   }

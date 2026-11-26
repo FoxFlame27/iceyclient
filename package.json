@@ -1,7 +1,7 @@
 {
   "name": "icey-client",
   "productName": "Icey Client",
-  "version": "1.87.18",
+  "version": "1.87.19",
   "description": "A premium Minecraft launcher with an icy theme",
   "author": {
     "name": "Icey Client",
@@ -33,6 +33,7 @@
       "mod/build/libs/iceymod-mc*.jar",
       "mod-scroll/build/libs/iceyscroll-mc*.jar",
       "resources/panoramas/**/*",
+      "resources/shaderpacks/**/*",
       "resources/mods/**/*",
       "resources/modpacks/**/*"
     ],
