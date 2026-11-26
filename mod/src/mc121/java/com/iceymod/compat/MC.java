@@ -17,8 +17,28 @@ public final class MC {
     public static void setScreen(Minecraft mc, Screen s) { mc.setScreen(s); }
     public static Camera camera(Minecraft mc) { return mc.gameRenderer.getMainCamera(); }
     public static long dayTime(Level level) { return level.getDayTime(); }
+    /**
+     * "FPS: Fast Graphics". Up to 1.21.10 Fast is one setting and is simply
+     * held. From 1.21.11 it is a preset: a bundle that also puts render
+     * distance at 8 and simulation distance at 6, and that flips to Custom
+     * the moment the player changes any part of it. Holding the preset every
+     * tick therefore threw the player's render distance back to 8 each time
+     * they raised it. On those versions the preset is applied once per game
+     * start, and both distances are put back to what the player had.
+     */
+    private static boolean fastPresetApplied;
     public static void forceFastGraphics(Minecraft mc) {
-        if (mc.options.graphicsPreset().get() != GraphicsPreset.FAST) mc.options.graphicsPreset().set(GraphicsPreset.FAST);
+        boolean preset = GraphicsPreset.values().length > 3;          // has CUSTOM: the preset kind
+        if (mc.options.graphicsPreset().get() == GraphicsPreset.FAST) { fastPresetApplied = true; return; }
+        if (preset && fastPresetApplied) return;
+        fastPresetApplied = true;
+        int render = mc.options.renderDistance().get();
+        int simulation = mc.options.simulationDistance().get();
+        mc.options.graphicsPreset().set(GraphicsPreset.FAST);
+        if (preset) {
+            if (mc.options.renderDistance().get() != render) mc.options.renderDistance().set(render);
+            if (mc.options.simulationDistance().get() != simulation) mc.options.simulationDistance().set(simulation);
+        }
     }
     public static long chunkKey(ChunkPos pos) { return pos.toLong(); }
     public static void onEndLevelTick(Consumer<ClientLevel> c) { ClientTickEvents.END_WORLD_TICK.register(c::accept); }
