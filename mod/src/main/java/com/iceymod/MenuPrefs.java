@@ -9,8 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Look of the Y menu: which layout (the glass panels, which is the
- * default, or the older button grid) and which accent colour.
+ * Look of the Y menu: which layout (the cards, which are the default,
+ * the glass panels, or the older button grid) and which accent colour.
  *
  * The launcher owns these (setup wizard and Settings) and hands them over
  * in config/iceymod-launcher.json. Changes made in-game are written to
@@ -21,6 +21,7 @@ import java.nio.file.Path;
 public final class MenuPrefs {
     public static final String STYLE_GRID = "grid";
     public static final String STYLE_PANELS = "panels";
+    public static final String STYLE_CARDS = "cards";
     public static final int DEFAULT_ACCENT = 0xFF5BC8F5;
 
     /** Presets offered in-game; the launcher can hand over any colour. */
@@ -35,17 +36,22 @@ public final class MenuPrefs {
     private static final String REQUEST_FILE = "iceymod-request.json";
 
     private static boolean loaded;
-    private static String style = STYLE_PANELS;
+    private static String style = STYLE_CARDS;
     private static int accent = DEFAULT_ACCENT;
 
     private MenuPrefs() {}
 
     public static boolean isPanels() { load(); return STYLE_PANELS.equals(style); }
+    public static boolean isCards() { load(); return STYLE_CARDS.equals(style); }
+
+    private static String clean(String s) {
+        return STYLE_GRID.equals(s) ? STYLE_GRID : STYLE_PANELS.equals(s) ? STYLE_PANELS : STYLE_CARDS;
+    }
     public static int accent() { load(); return accent; }
 
     public static void setStyle(String s) {
         load();
-        style = STYLE_GRID.equals(s) ? STYLE_GRID : STYLE_PANELS;
+        style = clean(s);
         updateRequest("hudMenuStyle", style);
     }
 
@@ -66,7 +72,7 @@ public final class MenuPrefs {
         if (o == null) return;
         try {
             if (o.has("hudMenuStyle")) {
-                style = STYLE_GRID.equals(o.get("hudMenuStyle").getAsString()) ? STYLE_GRID : STYLE_PANELS;
+                style = clean(o.get("hudMenuStyle").getAsString());
             }
             if (o.has("hudMenuColor")) {
                 String hex = o.get("hudMenuColor").getAsString().trim();

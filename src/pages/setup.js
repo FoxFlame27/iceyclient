@@ -126,10 +126,11 @@ function _setupStepHtml(id) {
   if (id === 'account') return `<div id="setup-account">${_setupAccountHtml(_setupSignedInAs)}</div>`;
 
   if (id === 'menu') {
-    const menuStyle = s.hudMenuStyle === 'grid' ? 'grid' : 'panels';
+    const menuStyle = ((x) => ['grid', 'panels'].includes(x) ? x : 'cards')(s.hudMenuCardsDefault ? s.hudMenuStyle : 'cards');
     const menuColor = (s.hudMenuColor || accent).toLowerCase();
     return `
-      <div class="setup-picks">
+      <div class="setup-picks setup-picks-3">
+        ${_setupPick('menu', 'cards', menuStyle === 'cards', 'menu-cards.jpg', 'Cards', 'One card per mod, with filters on top')}
         ${_setupPick('menu', 'panels', menuStyle === 'panels', 'menu-panels.jpg', 'Panels', 'Click to switch on, right-click for settings')}
         ${_setupPick('menu', 'grid', menuStyle === 'grid', 'menu-grid.jpg', 'Grid', 'The original buttons, with pages')}
       </div>
@@ -230,7 +231,8 @@ async function _setupChoose(group, value, el) {
     // A menu colour that was following the accent keeps following it.
     if (followed) _setupMarkSwatch('setup-menu-color', value);
   } else if (group === 'menu') {
-    await SettingsManager.set('hudMenuStyle', value === 'grid' ? 'grid' : 'panels');
+    await SettingsManager.set('hudMenuStyle', ['grid', 'panels'].includes(value) ? value : 'cards');
+    await SettingsManager.set('hudMenuCardsDefault', true);
   } else if (group === 'menuColor') {
     const accent = (SettingsManager.get('accentColor') || '#5bc8f5').toLowerCase();
     await SettingsManager.set('hudMenuColor', value.toLowerCase() === accent ? '' : value);

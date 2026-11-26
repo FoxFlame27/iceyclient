@@ -38,6 +38,17 @@ final class Glass {
         g.fill(x, y + r, x + w, y + h, color);
     }
 
+    /** Rounded fill with square top corners, for a bar closing off a card. */
+    static void fillBottom(Gfx g, int x, int y, int w, int h, int r, int color) {
+        if (w <= 0 || h <= 0) return;
+        r = Math.max(0, Math.min(r, Math.min(w / 2, h)));
+        g.fill(x, y, x + w, y + h - r, color);
+        for (int i = 0; i < r; i++) {
+            int in = inset(r, i);
+            g.fill(x + in, y + h - 1 - i, x + w - in, y + h - i, color);
+        }
+    }
+
     static void outline(Gfx g, int x, int y, int w, int h, int r, int color) {
         if (w <= 1 || h <= 1) return;
         r = Math.max(0, Math.min(r, Math.min(w, h) / 2));

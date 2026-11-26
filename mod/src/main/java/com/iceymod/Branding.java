@@ -45,16 +45,16 @@ public final class Branding {
     public static Identifier logo() {
         return isSkiflame()
                 ? Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/skiflame_logo.png")
-                : Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/title/iceyclient.png");
+                : Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "textures/gui/title/iceyclient_mark.png");
     }
-    public static int logoWidth()  { return isSkiflame() ? 720 : 1536; }
-    public static int logoHeight() { return isSkiflame() ? 240 : 1024; }
+    public static int logoWidth()  { return isSkiflame() ? 720 : 1024; }
+    public static int logoHeight() { return isSkiflame() ? 240 : 512; }
     /** Where the Skiflame logo starts on the title screen (GUI pixels from the top). */
     public static final int SKIFLAME_LOGO_TOP = 10;
 
     /** How wide the logo should be drawn on the title screen (GUI pixels). */
     public static int logoTargetWidth(int screenWidth) {
-        if (!isSkiflame()) return Math.min(200, Math.max(64, screenWidth - 40));
+        if (!isSkiflame()) return Math.min(150, Math.max(64, screenWidth - 40));
         int w = Math.min(250, Math.max(96, screenWidth - 40));
         // The Skiflame logo is wide and low (3:1), and the first button of
         // the title screen (Singleplayer) sits at height/4 + 48. On a small

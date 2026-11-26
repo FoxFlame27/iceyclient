@@ -39,7 +39,7 @@ import java.util.Set;
  */
 public class PanelMenuScreen extends IceyScreen {
 
-    private enum Group {
+    enum Group {
         HUD("HUD"), COMBAT("Combat"), WORLD("World"), PLAYER("Player"), PERFORMANCE("Performance");
 
         final String title;
@@ -244,7 +244,7 @@ public class PanelMenuScreen extends IceyScreen {
 
     // ── Panels ───────────────────────────────────────────────────────────
 
-    private static Group groupOf(HudModule m) {
+    static Group groupOf(HudModule m) {
         if (m.getCategory() == HudModule.Category.OPTIMIZATION) return Group.PERFORMANCE;
         if (WORLD_IDS.contains(m.getId())) return Group.WORLD;
         if (PLAYER_IDS.contains(m.getId())) return Group.PLAYER;
@@ -252,13 +252,13 @@ public class PanelMenuScreen extends IceyScreen {
     }
 
     /** Row label. The Performance column drops the "FPS:" / "Net:" prefixes its header makes redundant. */
-    private static String labelOf(HudModule m, Group group) {
+    static String labelOf(HudModule m, Group group) {
         String n = m.getName();
         if (group == Group.PERFORMANCE && (n.startsWith("FPS: ") || n.startsWith("Net: "))) return n.substring(5);
         return n;
     }
 
-    private static ItemStack iconOf(Group group) {
+    static ItemStack iconOf(Group group) {
         int i = group.ordinal();
         if (icons[i] == null) {
             try {
@@ -527,7 +527,7 @@ public class PanelMenuScreen extends IceyScreen {
     // ── Footer ───────────────────────────────────────────────────────────
 
     private void drawFooter(Gfx g, int accent) {
-        String[] labels = { "Edit HUD Layout", "Classic Menu", "Done" };
+        String[] labels = { "Edit HUD Layout", "Card Menu", "Classic Menu", "Done" };
         int[] widths = new int[labels.length];
         int gap = 8, totalW = 0;
         for (int i = 0; i < labels.length; i++) {
@@ -540,7 +540,7 @@ public class PanelMenuScreen extends IceyScreen {
         int y = vh - 32;
         int x = (vw - totalW) / 2;
 
-        if (x > 130) {
+        if (x > 150) {
             g.drawString(font, "Left click", 14, y + 1, TEXT, false);
             g.drawString(font, "toggle", 14 + font.width("Left click "), y + 1, MUTED, false);
             g.drawString(font, "Right click", 14, y + 11, TEXT, false);
@@ -563,6 +563,10 @@ public class PanelMenuScreen extends IceyScreen {
                 if (i == 0) {
                     MC.setScreen(minecraft, new HudEditScreen(this));
                 } else if (i == 1) {
+                    HudManager.save();
+                    MenuPrefs.setStyle(MenuPrefs.STYLE_CARDS);
+                    MC.setScreen(minecraft, new CardMenuScreen());
+                } else if (i == 2) {
                     HudManager.save();
                     MenuPrefs.setStyle(MenuPrefs.STYLE_GRID);
                     MC.setScreen(minecraft, new IceyModScreen());
