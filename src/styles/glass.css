@@ -1073,3 +1073,14 @@ select option { background: #0d1220; color: var(--text-primary); }
 
 /* Drawn logos (SVG) must not get the pixel-art scaling the mod icons use. */
 .options-toggle-icon-smooth { image-rendering: auto; }
+
+
+/* ── Classic / Liquid home: the 3D player. The <img> is the fallback and
+   stays out of the way until 3D turns out not to work. ── */
+.hg-skin-wrap { pointer-events: auto; }
+.hg-skin-canvas { position: relative; height: 100%; opacity: 0; cursor: grab; outline: none; filter: drop-shadow(0 24px 40px rgba(0,0,0,0.55)); transition: opacity 0.45s ease; }
+.hg-skin-canvas:active { cursor: grabbing; }
+.hg-skin-canvas.shown { opacity: 1; }
+.hg-skin-wrap .hg-skin { display: none; }
+.hg-skin-wrap .hg-skin.shown { display: block; }
+.hg-skin-wrap .hg-skin-canvas:not(.shown) { position: absolute; }

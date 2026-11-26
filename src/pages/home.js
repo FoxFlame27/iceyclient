@@ -23,6 +23,7 @@ async function HomePageInit() {
   const isLiquid = (settings.layoutTheme || 'classic') === 'liquid';
   const isFrost = settings.layoutTheme === 'frost';
   _hqDisposeSkin();
+  _hgDisposeSkin();
   // Pull the active account for the Liquid Account button — same
   // mineskin avatar source the titlebar profile uses.
   let _liquidAuthUser = null;
@@ -140,8 +141,9 @@ async function HomePageInit() {
 
         <div class="hg-skin-wrap">
           <div class="hg-skin-glow"></div>
-          <img class="hg-skin" alt="" draggable="false"
-               src="https://nmsr.nickac.dev/fullbody/${_skinName}?overlay=true"
+          <canvas class="hg-skin-canvas" id="hg-skin-canvas"></canvas>
+          <img class="hg-skin" id="hg-skin-img" alt="" draggable="false"
+               data-src="https://nmsr.nickac.dev/fullbody/${_skinName}?overlay=true"
                onerror="_homeSkinFallback(this)">
         </div>
 
@@ -289,6 +291,7 @@ async function HomePageInit() {
     _deckInit();
     _serverRefreshInterval = setInterval(() => _deckRefreshStatus(true), 120000);
   } else {
+    _hgInitSkin(_liquidAuthUser);
     _loadHomeInstMenu();
     _loadAllServers();
     _serverRefreshInterval = setInterval(_loadAllServers, 120000);
@@ -387,6 +390,63 @@ document.addEventListener('click', (e) => {
   if (caret) caret.classList.remove('open');
 });
 
+// Classic and Liquid home: the player in 3D from his real skin file, with
+// the armor and items from the Character page, like on Frost. The picture
+// from the outside skin service that stood here kept showing an old skin
+// after a rename; it is only the fallback now, for when 3D can't start.
+let _hgViewer = null;
+let _hgObserver = null;
+function _hgDisposeSkin() {
+  if (_hgObserver) { _hgObserver.disconnect(); _hgObserver = null; }
+  if (_hgViewer) { try { CharacterRig.clear(_hgViewer); _hgViewer.dispose(); } catch (_) {} _hgViewer = null; }
+}
+function _hgSkinShowImage() {
+  const img = document.getElementById('hg-skin-img');
+  if (img && img.dataset.src && !img.getAttribute('src')) img.src = img.dataset.src;
+  if (img) img.classList.add('shown');
+}
+async function _hgInitSkin(username) {
+  _hgDisposeSkin();
+  const canvas = document.getElementById('hg-skin-canvas');
+  const wrap = canvas && canvas.parentElement;
+  if (!canvas || !wrap) return;
+  if (!window.skinview3d) { _hgSkinShowImage(); return; }
+  let tex = null;
+  try { tex = await window.icey.getSkinTexture(username || 'MHF_Steve'); } catch (_) {}
+  if (!canvas.isConnected) return;
+  if (!tex || tex.error || !tex.dataUrl) { _hgSkinShowImage(); return; }
+  try {
+    const size = () => [Math.max(1, Math.round(wrap.clientHeight * 0.95)), Math.max(1, wrap.clientHeight)];
+    const [w, h] = size();
+    const viewer = new skinview3d.SkinViewer({ canvas, width: w, height: h });
+    await viewer.loadSkin(tex.dataUrl, { model: tex.slim ? 'slim' : 'default' });
+    if (!canvas.isConnected) { viewer.dispose(); return; }
+    viewer.fov = 38;
+    viewer.zoom = 0.78;                // feet stay clear of the Launch button
+    viewer.controls.enableZoom = false;
+    viewer.controls.enablePan = false;
+    viewer.playerWrapper.rotation.y = -0.42;
+    viewer.globalLight.intensity = 2.6;
+    viewer.cameraLight.intensity = 1.1;
+    viewer.animation = new skinview3d.IdleAnimation();
+    _hgViewer = viewer;
+    await CharacterRig.apply(viewer, CharacterRig.get());
+    if (!canvas.isConnected) { _hgDisposeSkin(); return; }
+    canvas.classList.add('shown');
+    _hgObserver = new ResizeObserver(() => {
+      if (!_hgViewer) return;
+      const [nw, nh] = size();
+      _hgViewer.renderPaused = !(wrap.clientHeight > 0);
+      if (wrap.clientHeight > 0) _hgViewer.setSize(nw, nh);
+    });
+    _hgObserver.observe(wrap);
+  } catch (e) {
+    console.warn('[home] 3D skin failed:', e);
+    _hgDisposeSkin();
+    _hgSkinShowImage();
+  }
+}
+
 // Cracked names (and offline play) have no skin to render: show Steve.
 function _homeSkinFallback(img) {
   const steve = 'https://nmsr.nickac.dev/fullbody/MHF_Steve?overlay=true';
@@ -412,9 +472,22 @@ async function _fetchServerStatus(address) {
   catch (_) { return { online: false }; }
 }
 
-function _copyServerIp(address) {
-  navigator.clipboard.writeText(address);
-  Toast.success('Copied ' + address);
+// A click on a server in the Classic and Liquid lists joins it with the
+// selected installation. (It used to copy the address and leave the rest to
+// the player.) While the game is already open it can't be sent anywhere, so
+// then the address is copied as before.
+async function _copyServerIp(address) {
+  const state = MinecraftLauncher.getState();
+  if (state === 'running' || state === 'starting') {
+    navigator.clipboard.writeText(address);
+    Toast.info('The game is already running. Copied ' + address);
+    return;
+  }
+  const installations = await window.icey.getInstallations();
+  const selected = installations.find(i => i.selected);
+  if (!selected) { Toast.info('Select an installation first'); return; }
+  Toast.success('Joining ' + address);
+  await MinecraftLauncher.launch(selected.id, { server: address });
 }
 
 function _renderFeaturedServer(data, server) {
