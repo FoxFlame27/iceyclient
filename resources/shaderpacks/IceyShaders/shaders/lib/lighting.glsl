@@ -66,11 +66,15 @@ vec3 shade(vec3 albedo, vec3 viewPos, vec3 N, vec2 lm, float mat, float dither) 
     vec3 direct = lightColorNow(sunH) * diffuse * shadow * smoothstep(0.0, 0.25, lm.y);
     vec3 up = normalize(upPosition);
     vec3 ambient = ambientColorNow(sunH) * sky * (0.72 + 0.28 * dot(N, up));
-    ambient += vec3(0.014, 0.017, 0.026);                                   // never pitch black
+    ambient += vec3(0.030, 0.034, 0.046);                                   // never pitch black
 #endif
 
     // Torch light: warm, tight falloff, a little hotter right at the source
     vec3 torch = vec3(1.00, 0.56, 0.24) * (pow(block, 3.2) * 2.6 + block * 0.10);
+    // Players, mobs and your own hand keep a base glow in the dark, as in the
+    // unshaded game: a skin that turns into a black cut-out in a cave is
+    // worse than one that is a little too readable.
+    if (abs(mat - MAT_ENTITY) < 0.5 || abs(mat - MAT_HAND) < 0.5) ambient = max(ambient, vec3(0.105, 0.110, 0.125));
     vec3 light = direct + ambient + torch + vec3(0.35, 0.45, 0.55) * nightVision;
     // Near-white blocks (snow, quartz) keep their shading instead of clipping to one flat white
     albedo *= 1.0 - 0.34 * smoothstep(0.45, 0.95, luma(albedo));

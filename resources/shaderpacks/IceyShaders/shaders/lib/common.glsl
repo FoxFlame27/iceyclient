@@ -47,6 +47,7 @@
 #define MAT_FOLIAGE 1.0
 #define MAT_EMISSIVE 2.0
 #define MAT_WATER 3.0
+#define MAT_ENTITY 4.0
 #define MAT_HAND 5.0
 #define MAT_UNLIT 7.0
 

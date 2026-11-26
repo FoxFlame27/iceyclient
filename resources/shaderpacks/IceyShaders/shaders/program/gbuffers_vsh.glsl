@@ -59,6 +59,9 @@ void main() {
         viewPos = gbufferModelView * vec4(wpw, 1.0);
     }
 #endif
+#ifdef ENTITY
+    matV = MAT_ENTITY;
+#endif
 #ifdef HAND
     matV = MAT_HAND;
 #endif
