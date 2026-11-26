@@ -309,10 +309,11 @@
   left: 50%;
   top: 37%;
   z-index: 2;
-  width: 64px;
-  height: 64px;
+  /* Half the card's width, so the icon grows with the card (was a fixed 64px) */
+  width: calc(var(--hq-cw) * 0.52);
+  height: calc(var(--hq-cw) * 0.52);
   transform: translate(-50%, -50%);
-  border-radius: 10px;
+  border-radius: 12px;
   image-rendering: pixelated;
   background: rgba(5,9,19,0.35);
   box-shadow: 0 10px 22px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.18);
