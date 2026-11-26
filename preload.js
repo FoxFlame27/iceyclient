@@ -94,6 +94,7 @@ contextBridge.exposeInMainWorld('icey', {
   msLogout: () => ipcRenderer.invoke('ms-logout'),
   getAuth: () => ipcRenderer.invoke('get-auth'),
   getAccounts: () => ipcRenderer.invoke('get-accounts'),
+  getAccountFaces: () => ipcRenderer.invoke('get-account-faces'),
   switchAccount: (uuid) => ipcRenderer.invoke('switch-account', uuid),
   removeAccount: (uuid) => ipcRenderer.invoke('remove-account', uuid),
   addOfflineAccount: (username) => ipcRenderer.invoke('add-offline-account', username),

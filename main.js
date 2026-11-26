@@ -3970,32 +3970,91 @@ function _pngDecodeRgba(buf) {
   return { w, h, rgba };
 }
 
-/** Face (and hat layer) of a skin PNG as a 64x64 RGBA PNG, or null when the picture can't be read. */
-function _skinFacePng(skinBuf) {
+/**
+ * Face (and hat layer) of a skin PNG as a square RGBA PNG, or null when the
+ * picture can't be read. `pad` leaves a clear margin and `radius` rounds the
+ * corners, for use as an app icon.
+ */
+function _skinFacePng(skinBuf, size = 64, pad = 0, radius = 0) {
   const dec = _pngDecodeRgba(skinBuf);
   if (!dec) return null;
   const { w, h, rgba: px } = dec;
   if (w < 64 || h < 32) return null;
   const k = w / 64;                                 // HD skins: 128 wide and up
-  const CELL = 8, out = Buffer.alloc(64 * 64 * 4);
+  const at = (sx, sy) => (Math.floor(sy * k) * w + Math.floor(sx * k)) * 4;
+  // Old 64x32 skins have no alpha in the hat area: a hat that is fully
+  // opaque everywhere is the "no hat" filler, so it is left out.
   let clear = 0;
-  for (let y = 8; y < 16; y++) for (let x = 40; x < 48; x++) if (px[(Math.floor(y * k) * w + Math.floor(x * k)) * 4 + 3] < 255) clear++;
+  for (let y = 8; y < 16; y++) for (let x = 40; x < 48; x++) if (px[at(x, y) + 3] < 255) clear++;
   const hatUsed = clear > 0;
+  const cells = [];
   for (let cy = 0; cy < 8; cy++) for (let cx = 0; cx < 8; cx++) {
-    const at = (sx, sy) => (Math.floor(sy * k) * w + Math.floor(sx * k)) * 4;
     const f = at(8 + cx, 8 + cy), o = at(40 + cx, 8 + cy);
-    // Old 64x32 skins have no alpha in the hat area: a hat that is fully
-    // opaque everywhere is the "no hat" filler, so it is left out.
     const a = hatUsed ? px[o + 3] / 255 : 0;
-    const r = Math.round(px[o] * a + px[f] * (1 - a));
-    const g = Math.round(px[o + 1] * a + px[f + 1] * (1 - a));
-    const b = Math.round(px[o + 2] * a + px[f + 2] * (1 - a));
-    for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) {
-      const i = ((cy * CELL + y) * 64 + cx * CELL + x) * 4;
-      out[i] = r; out[i + 1] = g; out[i + 2] = b; out[i + 3] = 255;
-    }
+    cells.push([Math.round(px[o] * a + px[f] * (1 - a)), Math.round(px[o + 1] * a + px[f + 1] * (1 - a)), Math.round(px[o + 2] * a + px[f + 2] * (1 - a))]);
   }
-  return _pngEncodeRgba(64, 64, out);
+  const out = Buffer.alloc(size * size * 4);
+  const inner = size - 2 * pad;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const u = x - pad, v = y - pad;
+    if (u < 0 || v < 0 || u >= inner || v >= inner) continue;
+    if (radius > 0) {
+      const dx = u < radius ? radius - u - 0.5 : (u >= inner - radius ? u - (inner - radius) + 0.5 : 0);
+      const dy = v < radius ? radius - v - 0.5 : (v >= inner - radius ? v - (inner - radius) + 0.5 : 0);
+      if (dx > 0 && dy > 0 && dx * dx + dy * dy > radius * radius) continue;
+    }
+    const c = cells[Math.min(7, Math.floor(v * 8 / inner)) * 8 + Math.min(7, Math.floor(u * 8 / inner))];
+    const i = (y * size + x) * 4;
+    out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; out[i + 3] = 255;
+  }
+  return _pngEncodeRgba(size, size, out);
+}
+
+// ── Account pictures from the real skin ───────────────────────────────
+// The launcher used to ask an outside service for a face by player name.
+// After a rename that service keeps answering with old data for the new
+// name. The skin file itself (its address comes with the sign-in) is the
+// truth, so faces are cut from it here. The active account's face is also
+// the app's icon in the Dock / taskbar while the launcher runs.
+const _skinBytesCache = new Map();    // skin address -> Buffer
+async function _skinBytes(skinUrl) {
+  const url = String(skinUrl || '').replace(/^http:/, 'https:');
+  if (!/^https:\/\/textures\.minecraft\.net\//.test(url)) return null;
+  if (_skinBytesCache.has(url)) return _skinBytesCache.get(url);
+  const res = await Promise.race([fetch(url), new Promise(resolve => setTimeout(() => resolve(null), 6000))]);
+  if (!res || !res.ok) return null;
+  const buf = Buffer.from(await res.arrayBuffer());
+  _skinBytesCache.set(url, buf);
+  return buf;
+}
+let _appIconSkin = null;
+async function _accountFaces() {
+  const store = readAuthStore();
+  const out = {};
+  await Promise.all(store.accounts.map(async (a) => {
+    try {
+      if (!a.username || !a.skinUrl) return;
+      const buf = await _skinBytes(a.skinUrl);
+      const png = buf && _skinFacePng(buf, 64);
+      if (png) out[a.username.toLowerCase()] = 'data:image/png;base64,' + png.toString('base64');
+    } catch (_) {}
+  }));
+  try {
+    const active = store.accounts.find(a => a.uuid === store.activeUuid);
+    const key = active && active.skinUrl ? active.skinUrl : '';
+    if (key !== _appIconSkin) {
+      const { nativeImage } = require('electron');
+      const buf = key ? await _skinBytes(key) : null;
+      const png = buf && _skinFacePng(buf, 512, 52, 84);
+      if (png) {
+        const img = nativeImage.createFromBuffer(png);
+        if (process.platform === 'darwin' && app.dock) app.dock.setIcon(img);
+        else if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setIcon(img);
+        _appIconSkin = key;
+      }
+    }
+  } catch (e) { log('warn', 'App icon from skin: ' + e.message); }
+  return out;
 }
 
 async function _installHeadPack(installGameDir, auth) {
@@ -4012,10 +4071,10 @@ async function _installHeadPack(installGameDir, auth) {
   let current = null;
   try { current = fs.readFileSync(stampPath, 'utf-8'); } catch (_) {}
   if (current !== skinUrl || !fs.existsSync(pngPath)) {
-    const res = await Promise.race([fetch(skinUrl), new Promise(resolve => setTimeout(() => resolve(null), 5000))]);
-    if (!res || !res.ok) { if (!fs.existsSync(pngPath)) return; }
+    const skinBuf = await _skinBytes(skinUrl);
+    if (!skinBuf) { if (!fs.existsSync(pngPath)) return; }
     else {
-      const png = _skinFacePng(Buffer.from(await res.arrayBuffer()));
+      const png = _skinFacePng(skinBuf);
       if (!png) return;
       fs.mkdirSync(path.dirname(pngPath), { recursive: true });
       fs.writeFileSync(path.join(dir, 'pack.mcmeta'), _packMeta('Your face on the Icey Client title screen'));
@@ -4024,16 +4083,19 @@ async function _installHeadPack(installGameDir, auth) {
       log('info', 'Title screen head: ' + auth.username);
     }
   }
-  _registerResourcepackLine(installGameDir, name, true);
+  _registerResourcepackLine(installGameDir, name, true, true);
 }
 
 // `last` moves the pack to the end of the list, which is the top of the
 // stack in the game: it then wins over the player's own packs.
-// The entry also goes into incompatibleResourcePacks. The game drops a
-// pack whose format it calls incompatible from options.txt at start-up
-// unless it is listed there (that is the "I know, load it anyway" list),
-// and it takes a compatible pack back out of that list by itself.
-function _registerResourcepackLine(installGameDir, filename, last) {
+// incompatibleResourcePacks is the game's "I know, load it anyway" list: a
+// pack whose format the game calls incompatible is dropped from options.txt
+// at start-up unless it is listed there. So old-format packs (the panorama
+// zips) are put on it. A pack the game finds compatible must NOT be on it:
+// the game then only takes it off the list and, in that same start, leaves
+// the pack unloaded. 1.87.17 listed IceyGlass and IceyHead there on every
+// launch, so they never loaded. `compatible` packs are taken off instead.
+function _registerResourcepackLine(installGameDir, filename, last, compatible) {
   const optionsPath = path.join(installGameDir, 'options.txt');
   let lines = [];
   if (fs.existsSync(optionsPath)) lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
@@ -4055,7 +4117,14 @@ function _registerResourcepackLine(installGameDir, filename, last) {
     lines.push(key + ':' + JSON.stringify(fallback));
   };
   put('resourcePacks', ['vanilla', entry], !!last);
-  put('incompatibleResourcePacks', [entry], false);
+  if (compatible) {
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].startsWith('incompatibleResourcePacks:')) continue;
+      try { lines[i] = 'incompatibleResourcePacks:' + JSON.stringify(JSON.parse(lines[i].slice('incompatibleResourcePacks:'.length)).filter(p => p !== entry)); } catch (_) {}
+    }
+  } else {
+    put('incompatibleResourcePacks', [entry], false);
+  }
   fs.mkdirSync(installGameDir, { recursive: true });
   try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
 }
@@ -4117,7 +4186,7 @@ function _installGlassPack(installGameDir, enabled) {
     fs.writeFileSync(stampPath, stamp);
     log('info', 'Glass buttons pack written (' + n + ' files)');
   }
-  _registerResourcepackLine(installGameDir, name, true);
+  _registerResourcepackLine(installGameDir, name, true, true);
 }
 
 // Add `key:value` to options.txt only if that key isn't set yet — used to
@@ -6197,6 +6266,10 @@ app.whenReady().then(() => {
   // the account has a viable refresh path, NOT whether the current
   // accessToken is still inside its 24h window. That way an account
   // shows as launchable as long as we can silently refresh it.
+  ipcMain.handle('get-account-faces', async () => {
+    try { return await _accountFaces(); } catch (_) { return {}; }
+  });
+
   ipcMain.handle('get-accounts', () => {
     try { importOfficialLauncherAccounts(); } catch (_) {}
     const store = readAuthStore();

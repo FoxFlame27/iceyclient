@@ -60,7 +60,33 @@ document.addEventListener('keydown', (e) => {
 // The account may just have changed: the friends list belongs to the account.
 function _socialAccountChanged() { if (typeof Social !== 'undefined' && Social._timer) Social.sync(); }
 
+// ── Own accounts show the face cut from their real skin ──
+// Pictures all over the launcher ask an outside service for a face by name;
+// for a saved account the main process has the actual skin, so any such
+// picture of one of our own accounts is swapped for it. A watcher catches
+// pictures that pages add later.
+let _ownFaces = {};
+function _swapOwnFaces(root) {
+  (root || document).querySelectorAll('img[src*="nmsr.nickac.dev/face/"], img[src*="nmsr.nickac.dev/bust/"]').forEach((img) => {
+    const m = /nmsr\.nickac\.dev\/(?:face|bust)\/([^?/]+)/.exec(img.getAttribute('src') || '');
+    const face = m && _ownFaces[decodeURIComponent(m[1]).toLowerCase()];
+    if (face) { img.style.imageRendering = 'pixelated'; img.src = face; }
+  });
+}
+async function _loadOwnFaces() {
+  try { _ownFaces = (await window.icey.getAccountFaces()) || {}; } catch (_) { _ownFaces = {}; }
+  _swapOwnFaces();
+}
+(function _watchOwnFaces() {
+  let pending = false;
+  const run = () => { pending = false; if (Object.keys(_ownFaces).length) _swapOwnFaces(); };
+  const start = () => new MutationObserver(() => { if (!pending) { pending = true; setTimeout(run, 60); } })
+    .observe(document.body, { childList: true, subtree: true });
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+
 async function loadNavProfile() {
+  _loadOwnFaces();
   _socialAccountChanged();
   const container = document.getElementById('nav-profile');
   const titlebarProfile = document.getElementById('titlebar-profile');
