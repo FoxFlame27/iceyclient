@@ -77,6 +77,9 @@ contextBridge.exposeInMainWorld('icey', {
   // Panoramas
   getPanoramas: () => ipcRenderer.invoke('get-panoramas'),
   getPanoramaPreview: (filename) => ipcRenderer.invoke('get-panorama-preview', filename),
+  // The launcher's own background: the game's panoramas and Icey's packs
+  getBgPanoramas: () => ipcRenderer.invoke('get-bg-panoramas'),
+  getBgPanorama: (id) => ipcRenderer.invoke('get-bg-panorama', id),
 
   // Updates
   checkUpdate: () => ipcRenderer.invoke('check-update'),

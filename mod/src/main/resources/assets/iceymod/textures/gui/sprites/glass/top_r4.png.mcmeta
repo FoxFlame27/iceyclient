@@ -1,1 +1,1 @@
-{"gui": {"scaling": {"type": "nine_slice", "width": 12, "height": 12, "border": {"left": 5, "top": 5, "right": 5, "bottom": 1}}}}
+{"gui": {"scaling": {"type": "nine_slice", "width": 12, "height": 12, "border": {"left": 5, "top": 5, "right": 5, "bottom": 1}, "stretch_inner": true}}}

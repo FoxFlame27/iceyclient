@@ -1,6 +1,6 @@
 // Setup: a page of its own (tab "Setup"), built from the same cards as
-// Settings, one step at a time: Language, Import, Theme, Account, In-Game
-// Menu, Game. It
+// Settings, one step at a time: Language, Import, Theme, Background,
+// Account, In-Game Menu, Game. It
 // opens on the first launch after every install, and from Settings →
 // General.
 // Every choice is saved and applied the moment it's made; the page is
@@ -68,7 +68,7 @@ async function SetupPageInit() {
   let auth = null;
   try { auth = await window.icey.getAuth(); } catch (_) {}
   // Signing in is only asked of someone who isn't signed in yet.
-  _setupSteps = ['language', 'import', 'theme'].concat(auth && auth.username ? [] : ['account'], ['menu', 'game']);
+  _setupSteps = ['language', 'import', 'theme', 'background'].concat(auth && auth.username ? [] : ['account'], ['menu', 'game']);
   _setupStep = 0;
   _setupSignedInAs = null;
   _setupImport = { scan: null, off: new Set(), accounts: true, busy: false, result: null };
@@ -79,6 +79,7 @@ const _SETUP_TITLES = {
   language: ['Language', 'The language of the launcher.'],
   import: ['Import', 'Bring your mods, servers and accounts over from another Minecraft client. Your worlds stay where they are.'],
   theme: ['Theme', 'How the launcher looks.'],
+  background: ['Background', 'What is behind the launcher. You can change it later in Settings.'],
   account: ['Account', 'Sign in to play online with your own skin. You can also do this later from the top bar.'],
   menu: ['In-Game Menu', 'The menu that opens with Y in game, on Fabric installations.'],
   game: ['Game', 'A few things about how the game runs.']
@@ -118,6 +119,15 @@ function _setupStepHtml(id) {
           <div class="options-accent-swatches" id="setup-accent">${_setupSwatches('accent', accent)}</div>
         </div>
         ${_setupToggleCard('panoramaShuffle', s.selectedPanorama === 'shuffle', 'Shuffle Panoramas', 'A different title screen panorama every launch')}
+      </div>`;
+  }
+
+  if (id === 'background') {
+    const bg = s.launcherBackground === 'panorama' ? 'panorama' : 'icey';
+    return `
+      <div class="setup-picks">
+        ${_setupPick('background', 'icey', bg === 'icey', 'bg-snow.jpg', 'Snow', 'The Icey snow scene')}
+        ${_setupPick('background', 'panorama', bg === 'panorama', 'bg-panorama.jpg', 'Panoramas', 'Minecraft panoramas that turn slowly, a different one every few minutes')}
       </div>`;
   }
 
@@ -226,6 +236,8 @@ async function _setupChoose(group, value, el) {
   if (group === 'layout') {
     await SettingsManager.set('layoutTheme', ['liquid', 'frost'].includes(value) ? value : 'classic');
     if (typeof HomePageInit === 'function') HomePageInit().catch(() => {});
+  } else if (group === 'background') {
+    await SettingsManager.set('launcherBackground', value === 'panorama' ? 'panorama' : 'icey');
   } else if (group === 'accent') {
     const followed = !SettingsManager.get('hudMenuColor');
     await SettingsManager.set('accentColor', value);

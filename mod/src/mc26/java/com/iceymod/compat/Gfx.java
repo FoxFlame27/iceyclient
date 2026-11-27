@@ -18,11 +18,22 @@ public final class Gfx {
     public void drawString(Font f, String s, int x, int y, int color) { g.text(f, s, x, y, color); }
     public void drawString(Font f, String s, int x, int y, int color, boolean shadow) { g.text(f, s, x, y, color, shadow); }
     public void drawString(Font f, Component c, int x, int y, int color) { g.text(f, c, x, y, color); }
+    public void drawString(Font f, Component c, int x, int y, int color, boolean shadow) { g.text(f, c, x, y, color, shadow); }
     public void drawCenteredString(Font f, String s, int x, int y, int color) { g.centeredText(f, s, x, y, color); }
     public void drawCenteredString(Font f, Component c, int x, int y, int color) { g.centeredText(f, c, x, y, color); }
     public void blit(Identifier tex, int x, int y, float u, float v, int w, int h, int texW, int texH) {
         g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, u, v, w, h, texW, texH);
     }
+    /** The same, multiplied by an ARGB colour (shade a face, fade a picture). */
+    public void blit(Identifier tex, int x, int y, float u, float v, int w, int h, int texW, int texH, int argb) {
+        g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, u, v, w, h, texW, texH, argb);
+    }
+    /** Draws a vanilla widget (a text field) through whatever transform is on the pose stack. */
+    public void drawWidget(net.minecraft.client.gui.components.Renderable w, int mouseX, int mouseY, float delta) { w.extractRenderState(g, mouseX, mouseY, delta); }
+    /** What is drawn from here on lies above everything drawn so far. */
+    public void nextStratum() { g.nextStratum(); }
+    /** Blurs everything drawn so far (the game's own menu blur; once per frame). */
+    public void blurBehind() { g.nextStratum(); g.blurBeforeThisStratum(); }
     /** A sprite from the GUI atlas (textures/gui/sprites), stretched by its nine-slice rule and tinted with an ARGB colour. */
     public void sprite(Identifier id, int x, int y, int w, int h, int argb) {
         g.blitSprite(RenderPipelines.GUI_TEXTURED, id, x, y, w, h, argb);

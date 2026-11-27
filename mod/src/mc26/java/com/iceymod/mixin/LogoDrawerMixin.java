@@ -14,6 +14,7 @@ public abstract class LogoDrawerMixin {
 
     @Inject(method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IFI)V", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$replaceLogo(GuiGraphicsExtractor context, int screenWidth, float horizontalAlphaMultiplier, int yOffset, CallbackInfo ci) {
+        if (com.iceymod.MenuPrefs.isVanillaTitle()) return;      // the player chose Minecraft's own menu
         try {
             int targetW = com.iceymod.Branding.logoTargetWidth(screenWidth);
             int targetH = (int) ((long) targetW * com.iceymod.Branding.logoHeight() / com.iceymod.Branding.logoWidth());

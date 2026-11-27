@@ -64,6 +64,9 @@ def prepareSources = tasks.register('prepareSources', Sync) {
                 .replace('getWindow().handle()', 'getWindow().getWindow()')
                 .replaceAll(/\bGraphicsPreset\b/, 'GraphicsStatus')
                 .replace('graphicsPreset()', 'graphicsMode()')
+                // 1.21.8: a font is named by its id alone, and a text field takes one formatter
+                .replace('new net.minecraft.network.chat.FontDescription.Resource(', '(')
+                .replace('.addFormatter(', '.setFormatter(')
         }
     }
 }

@@ -1,0 +1,81 @@
+/* ───────────────────────────────────────────────────────────────
+   Panorama background (utils/pano-bg.js).
+
+   The choice in Settings → Appearance → Background: the snow picture
+   (nothing here applies then) or Minecraft's panoramas, turning slowly.
+   <html data-bg="panorama"> is set once a panorama is really on screen,
+   so until then, and when none can be read, the snow picture shows.
+
+   Classic and Liquid: it takes the place of the blurred backdrop behind
+   the whole window, under the same veil, with less blur so the scene can
+   still be made out. Frost: sharp inside the page frame, as the snow
+   picture is there.
+   ─────────────────────────────────────────────────────────────── */
+
+#pano-bg {
+  position: fixed;
+  inset: -20px;                /* the blur would fade the edges otherwise */
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  background: #0a1220 center / cover no-repeat;
+  filter: blur(4px) saturate(112%);
+  transition: opacity 0.9s ease, visibility 0s linear 0.9s;
+}
+#pano-bg canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#pano-bg.pano-bg-flat canvas { display: none; }
+:root[data-bg="panorama"] #pano-bg {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.9s ease;
+}
+.pano-bg-shade { display: none; }
+
+/* The backdrop under it, and behind the bars in Frost: a soft still of
+   the same panorama instead of the snow. */
+:root[data-bg="panorama"] body::before {
+  background-image: var(--pano-still, url('../assets/background.png'));
+}
+/* The veil a little thinner than over the snow picture, which is nearly
+   white: a panorama is darker to begin with, and should be seen. */
+:root[data-bg="panorama"]:not([data-theme="light"]):not([data-layout="frost"]) {
+  --veil-center: rgba(7,10,20,0.48);
+  --veil-edge: rgba(4,6,13,0.86);
+}
+
+/* ── Frost: inside the frame ── */
+:root[data-layout="frost"] #pano-bg {
+  position: absolute;
+  inset: 0 8px 8px 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.14);
+  filter: none;
+}
+/* Every page but the home page reads its text on the darkened scene. */
+:root[data-layout="frost"] .pano-bg-shade {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(6,12,26,0.66) 0%, rgba(5,9,19,0.80) 55%, rgba(4,7,15,0.90) 100%);
+  transition: opacity 0.25s ease;
+}
+:root[data-layout="frost"] #page-container:has(#page-home.active) .pano-bg-shade { opacity: 0; }
+
+/* The home page's own snow picture steps aside (its shade stays, the
+   name and the cards need it), and so does the falling snow: it would
+   fall in the Nether too. */
+:root[data-bg="panorama"][data-layout="frost"] .hq-scene { background: transparent; }
+:root[data-bg="panorama"][data-layout="frost"] .hq-scene-img {
+  opacity: 0;
+  visibility: hidden;
+  animation-play-state: paused;
+  transition: opacity 0.9s ease, visibility 0s linear 0.9s;
+}
+:root[data-bg="panorama"][data-layout="frost"] .hq-snow { display: none; }

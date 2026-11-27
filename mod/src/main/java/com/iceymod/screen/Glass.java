@@ -17,12 +17,13 @@ import net.minecraft.resources.Identifier;
 final class Glass {
     private Glass() {}
 
-    private static final Identifier[][] SPRITES = new Identifier[4][7];
+    private static final Identifier[][] SPRITES = new Identifier[4][13];
     private static final String[] KINDS = { "fill", "top", "bottom", "outline" };
 
     /** The sprite for a shape and radius, or null when there is none (radius under 2 or over 6). */
     private static Identifier sprite(int kind, int r) {
-        if (r < 2 || r > 6) return null;
+        if (r > 6) r = r >= 12 ? 12 : r >= 10 ? 10 : r >= 8 ? 8 : 6;      // the larger corners come in steps
+        if (r < 2) return null;
         if (SPRITES[kind][r] == null) {
             SPRITES[kind][r] = Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "glass/" + KINDS[kind] + "_r" + r);
         }
@@ -40,6 +41,14 @@ final class Glass {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    private static Identifier shadowSprite;
+    /** A soft shadow round a rounded rectangle (it lies outside it, never under it). */
+    static void shadow(Gfx g, int x, int y, int w, int h, int color) {
+        if ((color >>> 24) == 0 || w < 24 || h < 24) return;
+        if (shadowSprite == null) shadowSprite = Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "glass/shadow");
+        try { g.sprite(shadowSprite, x - 12, y - 12, w + 24, h + 24, color); } catch (Throwable ignored) {}
     }
 
     static void fill(Gfx g, int x, int y, int w, int h, int r, int color) {

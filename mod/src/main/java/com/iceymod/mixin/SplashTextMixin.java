@@ -51,6 +51,7 @@ public abstract class SplashTextMixin {
 
     @Inject(method = "getSplash", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$iceySplash(CallbackInfoReturnable<SplashRenderer> cir) {
+        if (com.iceymod.MenuPrefs.isVanillaTitle()) return;      // Minecraft's own menu keeps its splash line
         try {
             // The logo stands alone, in Icey and in Skiflame mode: no splash
             // line. (With the logo moved down to the buttons, the splash was

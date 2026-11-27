@@ -1,0 +1,336 @@
+[
+ {
+  "id": "snowy_village",
+  "name": "Snowy Village",
+  "snow": true,
+  "spots": [
+   [
+    0,
+    0,
+    -4
+   ],
+   [
+    -3,
+    0,
+    -2
+   ],
+   [
+    2,
+    0,
+    0
+   ],
+   [
+    -5,
+    0,
+    -2
+   ]
+  ],
+  "day": 0.8,
+  "sun": "fff1d6",
+  "shade": "a8c4f2",
+  "ambient": 0.66,
+  "glow": 0.9,
+  "fog": "bcd6f4",
+  "fogStart": 13,
+  "fogEnd": 42,
+  "fogMax": 0.7,
+  "skyTop": "4f8fe6",
+  "skyBottom": "d4e6fa",
+  "light": "fff8ee"
+ },
+ {
+  "id": "plains_village",
+  "name": "Plains Village",
+  "snow": false,
+  "spots": [
+   [
+    0,
+    0,
+    -5
+   ],
+   [
+    -1,
+    1,
+    -7
+   ],
+   [
+    5,
+    1,
+    -7
+   ],
+   [
+    10,
+    1,
+    -4
+   ],
+   [
+    7,
+    1,
+    -6
+   ]
+  ],
+  "day": 0.8,
+  "sun": "fff1d6",
+  "shade": "a8c4f2",
+  "ambient": 0.66,
+  "glow": 0.9,
+  "fog": "bcd6f4",
+  "fogStart": 13,
+  "fogEnd": 42,
+  "fogMax": 0.7,
+  "skyTop": "4f8fe6",
+  "skyBottom": "d4e6fa",
+  "light": "fff8ee"
+ },
+ {
+  "id": "village_dusk",
+  "name": "Village at Dusk",
+  "snow": false,
+  "spots": [
+   [
+    0,
+    -1,
+    5
+   ],
+   [
+    1,
+    -1,
+    7
+   ]
+  ],
+  "day": 0.78,
+  "sun": "ff9c5c",
+  "shade": "7f78c0",
+  "ambient": 0.52,
+  "glow": 1.25,
+  "fog": "e09a80",
+  "fogStart": 11,
+  "fogEnd": 40,
+  "fogMax": 0.74,
+  "skyTop": "33367a",
+  "skyBottom": "f7a070",
+  "light": "f6cdb8"
+ },
+ {
+  "id": "savanna_village",
+  "name": "Savanna Village",
+  "snow": false,
+  "spots": [
+   [
+    1,
+    0,
+    -5
+   ],
+   [
+    -1,
+    0,
+    -6
+   ],
+   [
+    6,
+    0,
+    -13
+   ]
+  ],
+  "day": 0.8,
+  "sun": "fff1d6",
+  "shade": "a8c4f2",
+  "ambient": 0.66,
+  "glow": 0.9,
+  "fog": "bcd6f4",
+  "fogStart": 13,
+  "fogEnd": 42,
+  "fogMax": 0.7,
+  "skyTop": "4f8fe6",
+  "skyBottom": "d4e6fa",
+  "light": "fff8ee"
+ },
+ {
+  "id": "desert_village",
+  "name": "Desert Village",
+  "snow": false,
+  "spots": [],
+  "day": 0.56,
+  "sun": "ffe6b8",
+  "shade": "b9c4e6",
+  "ambient": 0.5,
+  "glow": 0.9,
+  "fog": "ecd9b4",
+  "fogStart": 13,
+  "fogEnd": 42,
+  "fogMax": 0.7,
+  "skyTop": "4f8fe6",
+  "skyBottom": "f2e2c0",
+  "light": "fff0d6"
+ },
+ {
+  "id": "taiga_village",
+  "name": "Taiga Village at Night",
+  "snow": false,
+  "spots": [
+   [
+    -3,
+    2,
+    -4
+   ]
+  ],
+  "day": 0.42,
+  "sun": "9fb6ff",
+  "shade": "6478c0",
+  "ambient": 0.46,
+  "glow": 1.7,
+  "fog": "0e1634",
+  "fogStart": 10,
+  "fogEnd": 38,
+  "fogMax": 0.8,
+  "skyTop": "050918",
+  "skyBottom": "1a2650",
+  "light": "a9b6de"
+ },
+ {
+  "id": "outpost",
+  "name": "Pillager Outpost",
+  "snow": false,
+  "spots": [
+   [
+    2,
+    0,
+    -5
+   ],
+   [
+    2,
+    0,
+    -3
+   ],
+   [
+    2,
+    0,
+    -7
+   ],
+   [
+    2,
+    0,
+    1
+   ],
+   [
+    14,
+    0,
+    1
+   ]
+  ],
+  "day": 0.78,
+  "sun": "ff9c5c",
+  "shade": "7f78c0",
+  "ambient": 0.52,
+  "glow": 1.25,
+  "fog": "e09a80",
+  "fogStart": 11,
+  "fogEnd": 40,
+  "fogMax": 0.74,
+  "skyTop": "33367a",
+  "skyBottom": "f7a070",
+  "light": "f6cdb8"
+ },
+ {
+  "id": "trial_chambers",
+  "name": "Trial Chambers",
+  "snow": false,
+  "spots": [
+   [
+    2,
+    1,
+    -1
+   ],
+   [
+    0,
+    2,
+    8
+   ],
+   [
+    5,
+    2,
+    0
+   ],
+   [
+    6,
+    2,
+    -2
+   ]
+  ],
+  "day": 0.0,
+  "sun": "ffffff",
+  "shade": "ffe2c4",
+  "ambient": 0.34,
+  "glow": 1.35,
+  "fog": "120d0c",
+  "fogStart": 10,
+  "fogEnd": 32,
+  "fogMax": 0.85,
+  "skyTop": "0b0909",
+  "skyBottom": "0b0909",
+  "light": "ecccaa"
+ },
+ {
+  "id": "end_city",
+  "name": "End City",
+  "snow": false,
+  "spots": [
+   [
+    9,
+    0,
+    -4
+   ],
+   [
+    12,
+    0,
+    1
+   ],
+   [
+    13,
+    -2,
+    -2
+   ]
+  ],
+  "day": 0.55,
+  "sun": "e8d4ff",
+  "shade": "b9a2e6",
+  "ambient": 0.95,
+  "glow": 1.0,
+  "fog": "0d0a18",
+  "fogStart": 13,
+  "fogEnd": 42,
+  "fogMax": 0.85,
+  "skyTop": "07050e",
+  "skyBottom": "1a1030",
+  "light": "d4c6ec"
+ },
+ {
+  "id": "bastion",
+  "name": "Bastion Remnant",
+  "snow": false,
+  "spots": [
+   [
+    4,
+    1,
+    -1
+   ],
+   [
+    2,
+    1,
+    -1
+   ]
+  ],
+  "day": 0.0,
+  "sun": "ffffff",
+  "shade": "ffb49a",
+  "ambient": 0.5,
+  "glow": 1.4,
+  "fog": "2a0c0b",
+  "fogStart": 9,
+  "fogEnd": 32,
+  "fogMax": 0.85,
+  "skyTop": "190706",
+  "skyBottom": "340e0b",
+  "light": "dcb4a2"
+ }
+]

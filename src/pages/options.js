@@ -53,6 +53,16 @@ async function _renderMainOptions(page, settings) {
   // An empty colour means "same as the accent".
   const hudMenuStyle = ((x) => ['cards', 'panels'].includes(x) ? x : 'grid')(settings.hudMenuGridDefault ? settings.hudMenuStyle : 'grid');
   const hudMenuColor = settings.hudMenuColor || '';
+  // What is behind the launcher: the snow picture, or Minecraft's
+  // panoramas on shuffle (utils/pano-bg.js). When panoramas are chosen and
+  // none can be read, the snow picture stays and the card says why.
+  const launcherBackground = settings.launcherBackground === 'panorama' ? 'panorama' : 'icey';
+  const backgroundDesc = launcherBackground === 'panorama' && typeof PanoBg !== 'undefined' && PanoBg.unavailable
+    ? 'No panorama could be read on this computer, so the snow scene shows. Start the game once and they appear.'
+    : 'The snow scene, or Minecraft panoramas that turn slowly, a different one every few minutes';
+  // The game's main menu: '' until one is chosen (the game then asks on
+  // its first start), Minecraft's own, Icey's, or the scene with friends.
+  const titleMenu = ['vanilla', 'icey', 'scene'].includes(settings.titleMenu) ? settings.titleMenu : '';
   const accentChoices = [
     { name: 'Ice Blue', value: '#5bc8f5' },
     { name: 'Purple',   value: '#a78bfa' },
@@ -140,6 +150,26 @@ async function _renderMainOptions(page, settings) {
             <div class="options-toggle-desc">Buttons and highlights</div>
           </div>
           <div class="options-accent-swatches" onclick="event.stopPropagation();">${swatches(accentColor, '_optSetAccent')}</div>
+        </div>
+      </div>
+      <div class="options-toggle-row">
+        <div class="options-toggle-card on">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">Background</div>
+            <div class="options-toggle-desc">${backgroundDesc}</div>
+          </div>
+          <select class="options-select" onclick="event.stopPropagation();" onchange="_optSetBackground(this.value)">
+            ${[['icey', 'Snow'], ['panorama', 'Panoramas']].map(([v, n]) => `<option value="${v}" ${v === launcherBackground ? 'selected' : ''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div class="options-toggle-card on">
+          <div class="options-toggle-body">
+            <div class="options-toggle-name">In-game Main Menu</div>
+            <div class="options-toggle-desc">Vanilla shows Minecraft's own menu with nothing from Icey. Icey Scene puts you and your friends in a scene with servers one click away.</div>
+          </div>
+          <select class="options-select" onclick="event.stopPropagation();" onchange="_optSetTitleMenu(this.value)">
+            ${[['', 'Ask in game'], ['vanilla', 'Vanilla'], ['icey', 'Icey'], ['scene', 'Icey Scene']].map(([v, n]) => `<option value="${v}" ${v === titleMenu ? 'selected' : ''}>${n}</option>`).join('')}
+          </select>
         </div>
       </div>
       <div class="options-section-heading">Title Screen Panorama</div>
@@ -337,6 +367,22 @@ async function _optSetLayoutTheme(value) {
   _optionsRender();
 }
 
+// The launcher's background. It changes at once; a panorama takes a
+// moment to read the first time, and if none can be read the card says so.
+async function _optSetBackground(value) {
+  const next = value === 'panorama' ? 'panorama' : 'icey';
+  await SettingsManager.set('launcherBackground', next);
+  if (next === 'panorama' && SettingsManager.isSkiflame()) Toast.info('Panoramas show once the secret mode is off.');
+  _optionsRender();
+  // Drawn again once it is known whether a panorama came up.
+  if (next === 'panorama') setTimeout(() => { if (_optionsTab === 'appearance' && _optionsView === 'main' && typeof PanoBg !== 'undefined' && PanoBg.unavailable) _optionsRender(); }, 2500);
+}
+async function _optSetTitleMenu(value) {
+  const next = ['vanilla', 'icey', 'scene'].includes(value) ? value : '';
+  await SettingsManager.set('titleMenu', next);
+  Toast.info(next ? 'Main menu saved. Applies the next time you launch the game.' : 'The game asks which main menu you want the next time it starts.');
+  _optionsRender();
+}
 async function _optSetHudMenuStyle(value) {
   const next = ['cards', 'panels'].includes(value) ? value : 'grid';
   await SettingsManager.set('hudMenuStyle', next);

@@ -35,7 +35,13 @@ public final class MenuPrefs {
     private static final String STATUS_FILE = "iceymod-launcher.json";
     private static final String REQUEST_FILE = "iceymod-request.json";
 
+    /** Which main menu the game shows: Minecraft's own, the Icey one, or the scene with the player and friends. */
+    public static final String TITLE_VANILLA = "vanilla";
+    public static final String TITLE_ICEY = "icey";
+    public static final String TITLE_SCENE = "scene";
+
     private static boolean loaded;
+    private static String titleMenu = "";
     private static String style = STYLE_GRID;
     private static int accent = DEFAULT_ACCENT;
 
@@ -48,6 +54,21 @@ public final class MenuPrefs {
         return STYLE_CARDS.equals(s) ? STYLE_CARDS : STYLE_PANELS.equals(s) ? STYLE_PANELS : STYLE_GRID;
     }
     public static int accent() { load(); return accent; }
+
+    /** "" until the player has chosen (the game then asks once), else one of the TITLE_ values. */
+    public static String titleMenu() { load(); return titleMenu; }
+    public static boolean isVanillaTitle() { load(); return TITLE_VANILLA.equals(titleMenu); }
+    public static boolean isSceneTitle() { load(); return TITLE_SCENE.equals(titleMenu); }
+
+    private static String cleanTitle(String s) {
+        return TITLE_VANILLA.equals(s) ? TITLE_VANILLA : TITLE_ICEY.equals(s) ? TITLE_ICEY : TITLE_SCENE.equals(s) ? TITLE_SCENE : "";
+    }
+
+    public static void setTitleMenu(String s) {
+        load();
+        titleMenu = cleanTitle(s);
+        updateRequest("titleMenu", titleMenu);
+    }
 
     public static void setStyle(String s) {
         load();
@@ -74,6 +95,7 @@ public final class MenuPrefs {
             if (o.has("hudMenuStyle")) {
                 style = clean(o.get("hudMenuStyle").getAsString());
             }
+            if (o.has("titleMenu")) titleMenu = cleanTitle(o.get("titleMenu").getAsString());
             if (o.has("hudMenuColor")) {
                 String hex = o.get("hudMenuColor").getAsString().trim();
                 if (hex.startsWith("#")) hex = hex.substring(1);

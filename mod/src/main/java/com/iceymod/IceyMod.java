@@ -38,6 +38,8 @@ public class IceyMod implements ClientModInitializer {
     public static final String MOD_ID = "iceymod";
     public static final Identifier LOGO_TEXTURE = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
     public static final String KEY_CATEGORY = "key.categories.iceymod";
+    /** Bumped with every release; shown in the log at start and at the bottom of the scene menu. */
+    public static final String BUILD = "v1.87.31";
 
     private static KeyMapping menuKey;
     private static KeyMapping replyKey;
@@ -60,7 +62,7 @@ public class IceyMod implements ClientModInitializer {
         // Startup banner so the test log unambiguously shows which build
         // is loaded — the iceymod jar is a single 1.0.0 across versions
         // so we hardcode a build tag here that bumps every release.
-        System.out.println("[IceyMod] booted (build tag: v1.87.30)");
+        System.out.println("[IceyMod] booted (build tag: " + BUILD + ")");
         // Each setup call is independently caught so a single failure (e.g.
         // a new MC version having renamed a class one of our modules
         // references) doesn't take the whole mod down — partial Icey >
@@ -211,6 +213,8 @@ public class IceyMod implements ClientModInitializer {
             }
 
             HudManager.tick();
+            // The main menu the player chose (asked once at the first start).
+            try { com.iceymod.screen.SceneMenu.onTick(client); } catch (Throwable ignored) {}
         });
 
         HudHook.register("hud", (g, tickDelta) -> {

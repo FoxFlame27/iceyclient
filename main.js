@@ -1109,6 +1109,11 @@ function launchMinecraft(installationId, opts = {}) {
           settings.hudMenuColor = req.hudMenuColor.toLowerCase();
           menuChanged = true;
         }
+        // The main menu picked in game (first start, or its own switch).
+        if (['vanilla', 'icey', 'scene'].includes(req.titleMenu) && req.titleMenu !== settings.titleMenu) {
+          settings.titleMenu = req.titleMenu;
+          menuChanged = true;
+        }
         if (menuChanged) writeSettings(settings);
       }
       if (req) { try { fs.unlinkSync(reqPath); } catch (_) {} }
@@ -1123,6 +1128,12 @@ function launchMinecraft(installationId, opts = {}) {
     // good, which makes the block below take the pack back out of any
     // installation that still has it.
     const javaStuffEnabled = false;
+    // In-game main menu (Settings → Appearance): '' = the game asks on its
+    // first start, 'vanilla', 'icey' or 'scene'. Vanilla means Minecraft's
+    // own menus with nothing of Icey's on them, so none of the launcher's
+    // packs (title panorama, glass buttons, the face over the logo) go in.
+    const titleMenu = ['vanilla', 'icey', 'scene'].includes(settings.titleMenu) ? settings.titleMenu : '';
+    const vanillaMenus = titleMenu === 'vanilla';
 
     // Panorama pack installs on ANY installation (vanilla or Fabric) because
     // it's just a resource pack — MC loads it regardless of mod loader.
@@ -1139,7 +1150,7 @@ function launchMinecraft(installationId, opts = {}) {
         }
       } catch (_) {}
 
-      if (iceyModsEnabled) {
+      if (iceyModsEnabled && !vanillaMenus) {
         try {
           let selectedPanorama = settings.selectedPanorama || 'Nether Panorama.zip';
           if (selectedPanorama === 'shuffle') {
@@ -1416,6 +1427,9 @@ function launchMinecraft(installationId, opts = {}) {
           // No colour picked for the menu: the launcher's accent, or in
           // Skiflame mode the violet of its logo.
           hudMenuColor: /^#[0-9a-f]{6}$/i.test(settings.hudMenuColor || '') ? settings.hudMenuColor : (settings.skiflameMode ? '#8b7bff' : (settings.accentColor || '#5bc8f5')),
+          // Which main menu the game shows (TitleMenu in the mod); left out
+          // until one is chosen, and then the game asks on its first start.
+          ...(titleMenu ? { titleMenu } : {}),
         });
       } catch (_) {}
 
@@ -1620,11 +1634,17 @@ function launchMinecraft(installationId, opts = {}) {
 
     // Title screen: the player's own face, with the skin's outer layer,
     // above the wordmark. Only for a signed-in account with the mod on.
-    try { await _installHeadPack(installGameDir, iceyModsEnabled && launchUserType === 'msa' ? auth : null); }
+    try { await _installHeadPack(installGameDir, iceyModsEnabled && !vanillaMenus && launchUserType === 'msa' ? auth : null); }
     catch (e) { log('warn', 'Head pack: ' + e.message); }
     // Glass buttons above whatever resource packs the player has on.
-    try { _installGlassPack(installGameDir, iceyModsEnabled && settings.glassButtons !== false); }
+    try { _installGlassPack(installGameDir, iceyModsEnabled && !vanillaMenus && settings.glassButtons !== false); }
     catch (e) { log('warn', 'Glass pack: ' + e.message); }
+    // The Vanilla main menu: Minecraft's own buttons back over the mod's glass ones.
+    try { _installVanillaPack(installGameDir, iceyModsEnabled && vanillaMenus, clientJar); }
+    catch (e) { log('warn', 'Vanilla pack: ' + e.message); }
+    // The scene main menu draws the player from this skin file, also when the launcher closes after the start.
+    try { if (iceyModsEnabled && launchUserType === 'msa' && auth && auth.uuid) _menuSkin(path.join(installGameDir, 'config'), auth.uuid, launchUsername).catch(() => {}); }
+    catch (_) {}
     // Icey Shaders: the pack, Iris to run it, and the switch in Iris's config.
     try { await _applyIceyShaders(installGameDir, installation, settings.iceyShadersEnabled !== false); }   // on unless switched off
     catch (e) { log('warn', 'Icey Shaders: ' + e.message); }
@@ -3255,6 +3275,162 @@ async function _socialCollectReplies() {
 }
 setInterval(_socialCollectReplies, 1000).unref();
 
+// ── The game's scene main menu: friends, conversations, accounts ──
+// The mod's scene menu shows friends standing around the player, opens a
+// conversation on a click and can switch account. The game knows none of
+// that (it is not signed in to the friends service and holds one account's
+// sign-in only), so while that menu is on screen the mod leaves a
+// heartbeat (config/iceymod-menu-open.json) and the launcher keeps
+// config/iceymod-social.json up to date next to it. What the player asks
+// for there arrives as iceymod-menu-req-<n>.json.
+const _menu = { syncAt: 0, sync: null, chatAt: 0, chatWith: '', chat: [], skinAt: new Map(), slim: {}, busy: false };
+
+function _menuKey(uuid) { return String(uuid || '').replace(/-/g, '').toLowerCase(); }
+
+// One skin picture per player in config/iceymod-skins, looked up again every ten minutes.
+async function _menuSkin(configDir, uuid, name) {
+  const key = _menuKey(uuid);
+  if (!/^[0-9a-f]{32}$/.test(key) || !/^[A-Za-z0-9_]{1,16}$/.test(String(name))) return;
+  const file = path.join(configDir, 'iceymod-skins', key + '.png');
+  if (Date.now() - (_menu.skinAt.get(file) || 0) < 10 * 60 * 1000 && (fs.existsSync(file) || _menu.slim[key] === null)) return;
+  _menu.skinAt.set(file, Date.now());
+  try {
+    const tex = await _fetchSkinTexture(name);
+    if (!tex || !tex.dataUrl || tex.isDefault) { _menu.slim[key] = null; return; }      // no skin of their own: the game shows Steve
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file + '.tmp', Buffer.from(tex.dataUrl.slice(tex.dataUrl.indexOf(',') + 1), 'base64'));
+    fs.renameSync(file + '.tmp', file);
+    _menu.slim[key] = !!tex.slim;
+  } catch (_) {}
+}
+
+// "Play as this account" from the game. The answer carries that account's
+// Minecraft sign-in, the same one a launch passes on the command line: it
+// goes into a file only this user can read, the mod deletes it the moment
+// it has read it, and it is removed here after 15 seconds if nobody did.
+async function _menuSwitchAccount(configDir, req) {
+  const file = path.join(configDir, 'iceymod-account.json');
+  const answer = (obj) => {
+    try {
+      fs.writeFileSync(file + '.tmp', JSON.stringify(obj), { mode: 0o600 });
+      fs.renameSync(file + '.tmp', file);
+      setTimeout(() => { try { fs.unlinkSync(file); } catch (_) {} }, 15000).unref();
+    } catch (e) { log('warn', 'menu: account answer not written: ' + e.message); }
+  };
+  const id = Number(req.id) || 0;
+  const store = readAuthStore();
+  const account = store.accounts.find(a => _menuKey(a.uuid) === _menuKey(req.uuid));
+  if (!account || account.type === 'offline') return answer({ id, error: 'unknown' });
+  let fresh = null;
+  try { fresh = await ensureFreshAuth(account); } catch (_) {}
+  if (!fresh || !fresh.accessToken || !fresh.uuid) return answer({ id, error: 'expired' });
+  const now = readAuthStore();
+  if (now.accounts.find(a => a.uuid === fresh.uuid)) { now.activeUuid = fresh.uuid; writeAuthStore(now); }
+  _menu.syncAt = 0; _menu.sync = null; _menu.chatWith = ''; _menu.chat = [];
+  answer({ id, name: fresh.username, uuid: fresh.uuid, token: fresh.accessToken });
+  log('info', 'Account switched from the game menu: ' + fresh.username);
+  try { broadcast('account-refreshed', { uuid: fresh.uuid, switched: true }); broadcast('social-refresh'); } catch (_) {}
+}
+
+async function _menuRequest(configDir, req) {
+  const type = String(req.type || '');
+  if (type === 'switch') return _menuSwitchAccount(configDir, req);
+  if (type === 'accept' || type === 'decline') {
+    if (!/^[0-9a-f-]{32,36}$/i.test(String(req.uuid))) return;
+    await _socialCall('POST', '/social/friends/respond', { uuid: String(req.uuid), accept: type === 'accept' });
+    _menu.syncAt = 0;
+    try { broadcast('social-refresh'); } catch (_) {}
+    return;
+  }
+  if (type === 'add') {
+    const name = String(req.name || '');
+    if (!/^[A-Za-z0-9_]{1,16}$/.test(name)) return;
+    const r = await _socialCall('POST', '/social/friends/add', { name });
+    const status = r && r.data && r.data.status;
+    const shown = (r && r.data && r.data.name) || name;
+    if (status === 'requested') _socialNotifyGame('Request sent', shown + ' will see it in Icey Client');
+    else if (status === 'friends') _socialNotifyGame('Friends now', 'You and ' + shown + ' are friends');
+    else if (status === 'unknown') _socialNotifyGame('Nobody by that name', name);
+    else if (status === 'self') _socialNotifyGame('That is you', '');
+    else if (status === 'full') _socialNotifyGame('Friends list is full', '');
+    else _socialNotifyGame('Could not add ' + name, 'Try again in a moment');
+    _menu.syncAt = 0;
+    try { broadcast('social-refresh'); } catch (_) {}
+  }
+}
+
+async function _menuWriteState(configDir, openChat) {
+  const now = Date.now();
+  const store = readAuthStore();
+  const active = store.accounts.find(a => a.uuid === store.activeUuid) || null;
+  if (now - _menu.syncAt > 4000) {
+    _menu.syncAt = now;
+    _menu.sync = await _socialCall('POST', '/social/sync', { since: -1, inGame: true });
+  }
+  const r = _menu.sync;
+  const data = r && r.ok && r.data && r.data.me ? r.data : null;
+  const friends = data ? data.friends : [];
+  const chatWith = /^[0-9a-f-]{32,36}$/i.test(String(openChat || '')) && friends.some(f => f.uuid === openChat) ? String(openChat) : '';
+  if (chatWith !== _menu.chatWith) { _menu.chatWith = chatWith; _menu.chat = []; _menu.chatAt = 0; }
+  if (chatWith && now - _menu.chatAt > 2500) {
+    _menu.chatAt = now;
+    const c = await _socialCall('GET', '/social/messages?with=' + chatWith);          // opening it also marks it read
+    if (c && c.ok && c.data && Array.isArray(c.data.messages) && _menu.chatWith === chatWith) _menu.chat = c.data.messages.slice(-60);
+  }
+  // Skins: the player's own accounts, then friends (those online first).
+  for (const a of store.accounts.slice(0, 8)) _menuSkin(configDir, a.uuid, a.username);
+  const ordered = friends.slice().sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) || (b.lastSeen || 0) - (a.lastSeen || 0));
+  for (const f of ordered.slice(0, 12)) _menuSkin(configDir, f.uuid, f.name);
+  for (const p of (data ? data.incoming : []).slice(0, 4)) _menuSkin(configDir, p.uuid, p.name);
+  const slim = {};
+  for (const [k, v] of Object.entries(_menu.slim)) if (v) slim[k] = true;
+  const me = data ? data.me.uuid : '';
+  const state = {
+    at: now,
+    error: data ? '' : ((r && r.error) || 'NETWORK'),
+    me: data ? data.me : (active ? { uuid: active.uuid, name: active.username } : null),
+    friends: friends.map(f => ({ uuid: f.uuid, name: f.name, online: !!f.online, inGame: !!f.inGame, unread: f.unread || 0, lastSeen: f.lastSeen || 0, slim: !!slim[_menuKey(f.uuid)] })),
+    incoming: data ? data.incoming : [],
+    accounts: store.accounts.filter(a => a.type !== 'offline').map(a => ({
+      uuid: a.uuid, name: a.username, active: a.uuid === store.activeUuid, expired: !canRefreshAccount(a), slim: !!slim[_menuKey(a.uuid)],
+    })),
+    chat: { with: chatWith, messages: _menu.chat.map(m => ({ id: m.id, at: m.at, mine: m.from === me, text: String(m.text || '') })) },
+    slim,
+  };
+  try {
+    const file = path.join(configDir, 'iceymod-social.json');
+    fs.writeFileSync(file + '.tmp', JSON.stringify(state));
+    fs.renameSync(file + '.tmp', file);
+  } catch (_) {}
+}
+
+async function _menuBridgeTick() {
+  if (_menu.busy || !mcProcesses.size) return;
+  _menu.busy = true;
+  try {
+    const seen = new Set();
+    for (const entry of mcProcesses.values()) {
+      if (!entry || !entry.installationId || seen.has(entry.installationId)) continue;
+      seen.add(entry.installationId);
+      const dir = path.join(getInstallGameDir(entry.installationId), 'config');
+      let files = [];
+      try { files = fs.readdirSync(dir).filter(f => /^iceymod-menu-req-\d{1,16}\.json$/.test(f)).sort(); } catch (_) {}
+      for (const f of files) {
+        const full = path.join(dir, f);
+        const req = _readJsonSafe(full);
+        try { fs.unlinkSync(full); } catch (_) {}
+        if (!req || Date.now() - Number(req.id || 0) > 60000) continue;
+        try { await _menuRequest(dir, req); } catch (e) { log('warn', 'menu request: ' + e.message); }
+      }
+      const beat = _readJsonSafe(path.join(dir, 'iceymod-menu-open.json'));
+      if (!beat || Date.now() - Number(beat.at || 0) > 8000) continue;          // nobody is looking at the menu
+      await _menuWriteState(dir, beat.chat);
+    }
+  } catch (e) { log('warn', 'menu bridge: ' + e.message); }
+  finally { _menu.busy = false; }
+}
+setInterval(_menuBridgeTick, 1000).unref();
+
 // ── Armor and item pictures for the character on the home page ──
 // The player's own game jar has them; nothing of Minecraft's is shipped
 // with the launcher. Names are logical ("armor/diamond", "leggings/iron",
@@ -4496,6 +4672,48 @@ function _installGlassPack(installGameDir, enabled) {
   _registerResourcepackLine(installGameDir, name, true, true);
 }
 
+// ── IceyVanilla: Minecraft's own buttons, for the "Vanilla" main menu ──
+// The mod jar carries the glass buttons as overrides of the vanilla
+// sprites, so leaving IceyGlass out is not enough to get the grey buttons
+// back. With the Vanilla menu chosen, the same sprites are copied out of
+// the player's own game jar into a pack at the top of the stack. Nothing
+// of Mojang's is shipped with the launcher.
+function _installVanillaPack(installGameDir, enabled, clientJar) {
+  const name = 'IceyVanilla';
+  const dir = path.join(installGameDir, 'resourcepacks', name);
+  const remove = () => {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+    _unregisterResourcepackLine(installGameDir, name);
+  };
+  if (!enabled || !clientJar || !fs.existsSync(clientJar)) return remove();
+  const st = fs.statSync(clientJar);
+  const stamp = path.basename(clientJar) + ':' + st.size + ':' + Math.round(st.mtimeMs);
+  const stampPath = path.join(dir, '.from');
+  let current = null;
+  try { current = fs.readFileSync(stampPath, 'utf-8'); } catch (_) {}
+  if (current !== stamp) {
+    const zip = fs.readFileSync(clientJar);
+    const base = 'assets/minecraft/textures/gui/sprites/widget/';
+    const out = path.join(dir, 'assets', 'minecraft', 'textures', 'gui', 'sprites', 'widget');
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+    let n = 0;
+    for (const sprite of _GLASS_SPRITES) {
+      for (const ext of ['.png', '.png.mcmeta']) {
+        const data = _extractFileFromZip(zip, base + sprite + ext);
+        if (!data) continue;
+        fs.mkdirSync(out, { recursive: true });
+        fs.writeFileSync(path.join(out, sprite + ext), data);
+        n++;
+      }
+    }
+    if (!n) return remove();
+    fs.writeFileSync(path.join(dir, 'pack.mcmeta'), _packMeta('Minecraft\'s own buttons (Vanilla main menu)'));
+    fs.writeFileSync(stampPath, stamp);
+    log('info', 'Vanilla buttons pack written (' + n + ' files)');
+  }
+  _registerResourcepackLine(installGameDir, name, true, true);
+}
+
 // Add `key:value` to options.txt only if that key isn't set yet — used to
 // give a mod keybind a different default without overriding a choice the
 // user made in Controls (MC only writes a key line once it's been changed).
@@ -4594,6 +4812,152 @@ function listPanoramaFiles() {
   const dir = getPanoramasDir();
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.zip')).sort();
+}
+
+// ── Launcher background: panoramas ──────────────────────────────────────
+// The launcher can show a turning panorama behind its pages in place of the
+// snow picture (Settings → Appearance → Background). The pictures are the
+// game's own title-screen panoramas, read from what the game has downloaded
+// on this computer (nothing of Minecraft's ships with the launcher), and
+// the panorama packs Icey brings along. One entry per distinct panorama:
+// several game versions share one, and it is only listed once.
+const BG_PANO_CACHE_DIR = path.join(DATA_DIR, 'cache', 'panoramas');
+const _bgPanoFace = (i) => 'minecraft/textures/gui/title/background/panorama_' + i + '.png';
+let _bgPanoSources = null;       // id → { id, name, source, heavy, read() → six Buffers }
+let _bgPanoSourcesAt = 0;
+const _bgPanoLoading = new Map(); // id → promise of the faces
+
+async function _bgPanoramaSources() {
+  if (_bgPanoSources && Date.now() - _bgPanoSourcesAt < 60000) return _bgPanoSources;
+  const out = new Map();
+
+  // 1) What the game has downloaded: assets/indexes/<n>.json names each
+  //    face by its hash (the files in the jar are only stand-ins there).
+  try {
+    const assets = path.join(getDefaultMcDir(), 'assets');
+    const indexes = fs.readdirSync(path.join(assets, 'indexes')).filter(f => f.endsWith('.json'))
+      .sort((a, b) => (parseInt(b, 10) || 0) - (parseInt(a, 10) || 0));
+    for (const f of indexes) {
+      let objects;
+      try { objects = JSON.parse(await fs.promises.readFile(path.join(assets, 'indexes', f), 'utf-8')).objects; } catch (_) { continue; }
+      const files = [];
+      for (let i = 0; i < 6; i++) {
+        const o = objects && objects[_bgPanoFace(i)];
+        if (!o || !/^[0-9a-f]{40}$/.test(o.hash) || o.size < 4096 || o.size > 12 * 1024 * 1024) break;
+        const file = path.join(assets, 'objects', o.hash.slice(0, 2), o.hash);
+        if (!fs.existsSync(file)) break;
+        files.push(file);
+      }
+      if (files.length !== 6) continue;
+      const id = 'mc-' + path.basename(files[0]).slice(0, 16);
+      if (!out.has(id)) {
+        out.set(id, { id, name: 'Minecraft', source: 'game', heavy: false,
+          read: () => Promise.all(files.map(p => fs.promises.readFile(p))) });
+      }
+    }
+  } catch (_) {}
+
+  // 2) Older versions keep the six pictures in the game jar itself. A jar
+  //    is looked into once; what it holds is remembered in jars.json.
+  try {
+    const dir = path.join(getDefaultMcDir(), 'versions');
+    const indexPath = path.join(BG_PANO_CACHE_DIR, 'jars.json');
+    const known = _readJsonSafe(indexPath) || {};
+    const next = {};
+    let budget = 8, changed = false;
+    for (const v of fs.readdirSync(dir)) {
+      const p = path.join(dir, v, v + '.jar');
+      let st;
+      try { st = fs.statSync(p); } catch (_) { continue; }
+      if (st.size < 1024 * 1024) continue;
+      const key = p + '|' + st.size + '|' + Math.round(st.mtimeMs);
+      let sizes = known[key];
+      if (sizes === undefined) {
+        if (budget-- <= 0) continue;                 // the rest another time
+        changed = true;
+        sizes = null;
+        try {
+          const buf = await fs.promises.readFile(p);
+          const byName = new Map(_zipEntries(buf).map(e => [e.name, e]));
+          const faces = [0, 1, 2, 3, 4, 5].map(i => byName.get('assets/' + _bgPanoFace(i)));
+          if (faces.every(e => e && e.size >= 4096)) sizes = faces.map(e => e.size);
+        } catch (_) {}
+      }
+      next[key] = sizes;
+      if (!Array.isArray(sizes) || sizes.length !== 6) continue;
+      const id = 'jar-' + crypto.createHash('sha1').update(sizes.join('-')).digest('hex').slice(0, 16);
+      if (!out.has(id)) {
+        out.set(id, { id, name: 'Minecraft', source: 'game', heavy: true,
+          read: async () => {
+            const buf = await fs.promises.readFile(p);
+            const byName = new Map(_zipEntries(buf).map(e => [e.name, e]));
+            return [0, 1, 2, 3, 4, 5].map(i => { const e = byName.get('assets/' + _bgPanoFace(i)); return e ? _zipReadEntry(buf, e) : null; });
+          } });
+      }
+    }
+    if (changed || Object.keys(known).length !== Object.keys(next).length) _writeJsonSafe(indexPath, next);
+  } catch (_) {}
+
+  // 3) Icey's own panorama packs (the ones offered for the title screen).
+  try {
+    const dir = getPanoramasDir();
+    for (const filename of listPanoramaFiles()) {
+      const id = 'icey-' + filename.replace(/\.zip$/i, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      out.set(id, { id, name: filename.replace(/\.zip$/i, ''), source: 'icey', heavy: true,
+        read: async () => {
+          const buf = await fs.promises.readFile(path.join(dir, filename));
+          const byName = new Map(_zipEntries(buf).map(e => [e.name, e]));
+          return [0, 1, 2, 3, 4, 5].map(i => { const e = byName.get('assets/' + _bgPanoFace(i)); return e ? _zipReadEntry(buf, e) : null; });
+        } });
+    }
+  } catch (_) {}
+
+  _bgPanoSources = out;
+  _bgPanoSourcesAt = Date.now();
+  return out;
+}
+
+// The six faces of one panorama as data URLs, in the game's order (front,
+// right, back, left, up, down). Pictures that come out of a big archive,
+// or that are larger than the launcher needs, are kept as 1024px JPEGs in
+// the cache folder, so the archive is opened once.
+async function _bgPanoramaFaces(id) {
+  const src = (await _bgPanoramaSources()).get(String(id));
+  if (!src) return null;
+  const dataUrl = (buf, type) => 'data:image/' + type + ';base64,' + buf.toString('base64');
+  const done = (bufs, type) => ({ id: src.id, name: src.name, source: src.source, faces: bufs.map(b => dataUrl(b, type)) });
+  const dir = path.join(BG_PANO_CACHE_DIR, src.id.replace(/[^a-z0-9-]/gi, ''));
+  try {
+    const bufs = [0, 1, 2, 3, 4, 5].map(i => fs.readFileSync(path.join(dir, i + '.jpg')));
+    try { const now = new Date(); fs.utimesSync(dir, now, now); } catch (_) {}
+    return done(bufs, 'jpeg');
+  } catch (_) {}
+  const raw = await src.read();
+  if (!Array.isArray(raw) || raw.length !== 6 || raw.some(b => !b || b.length < 1024)) return null;
+  if (!src.heavy && raw.every(b => b.length < 2.5 * 1024 * 1024)) return done(raw, 'png');
+  const { nativeImage } = require('electron');
+  const jpgs = [];
+  for (const png of raw) {
+    let img = nativeImage.createFromBuffer(png);
+    const size = img.getSize();
+    if (!size.width || !size.height) return null;
+    if (size.width > 1024 || size.height > 1024) img = img.resize({ width: 1024, height: 1024, quality: 'best' });
+    jpgs.push(img.toJPEG(88));
+    await new Promise(r => setImmediate(r));       // six big pictures: let the window breathe in between
+  }
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    jpgs.forEach((b, i) => fs.writeFileSync(path.join(dir, i + '.jpg'), b));
+    // Keep the newest eight; the folder must not grow with every panorama ever shown.
+    const kept = fs.readdirSync(BG_PANO_CACHE_DIR, { withFileTypes: true })
+      .filter(d => d.isDirectory() && /^[a-z0-9-]+$/i.test(d.name))
+      .map(d => { try { return { name: d.name, at: fs.statSync(path.join(BG_PANO_CACHE_DIR, d.name)).mtimeMs }; } catch (_) { return null; } })
+      .filter(Boolean).sort((a, b) => b.at - a.at);
+    for (const old of kept.slice(8)) {
+      try { fs.rmSync(path.join(BG_PANO_CACHE_DIR, old.name), { recursive: true, force: true }); } catch (_) {}
+    }
+  } catch (_) {}
+  return done(jpgs, 'jpeg');
 }
 
 /**
@@ -6037,6 +6401,21 @@ app.whenReady().then(() => {
       filename,
       name: filename.replace(/\.zip$/i, '').replace(/\s+V\d+\b/i, m => ' ' + m.trim())
     }));
+  });
+
+  // Panoramas for the launcher's own background (see _bgPanoramaSources).
+  ipcMain.handle('get-bg-panoramas', async () => {
+    try { return [...(await _bgPanoramaSources()).values()].map(s => ({ id: s.id, name: s.name, source: s.source })); }
+    catch (e) { log('warn', 'get-bg-panoramas: ' + e.message); return []; }
+  });
+  ipcMain.handle('get-bg-panorama', (_, id) => {
+    const key = String(id || '');
+    if (_bgPanoLoading.has(key)) return _bgPanoLoading.get(key);
+    const job = _bgPanoramaFaces(key)
+      .catch((e) => { log('warn', 'get-bg-panorama: ' + e.message); return null; })
+      .finally(() => _bgPanoLoading.delete(key));
+    _bgPanoLoading.set(key, job);
+    return job;
   });
 
   ipcMain.handle('get-panorama-preview', (_, filename) => {

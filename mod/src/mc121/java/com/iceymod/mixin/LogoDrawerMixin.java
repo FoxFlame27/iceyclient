@@ -20,6 +20,7 @@ public abstract class LogoDrawerMixin {
 
     @Inject(method = "renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IFI)V", at = @At("HEAD"), cancellable = true, require = 0, expect = 0)
     private void iceymod$replaceLogo(GuiGraphics context, int screenWidth, float horizontalAlphaMultiplier, int yOffset, CallbackInfo ci) {
+        if (com.iceymod.MenuPrefs.isVanillaTitle()) return;      // the player chose Minecraft's own menu
         try {
             // Icey Client or Skiflame logo, depending on the launcher's mode.
             int targetW = com.iceymod.Branding.logoTargetWidth(screenWidth);

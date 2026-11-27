@@ -55,12 +55,16 @@ def rrect(w, h, r, fill, stroke=None, sw=0.0, corners=(True, True, True, True), 
             px.append(c)
     return W, H, px
 
-def save(name, w, h, px_tuple, border=None):
+def save(name, w, h, px_tuple, border=None, stretch=False):
     W, H, px = px_tuple
     png(os.path.join(OUT, name + '.png'), W, H, px)
     if border is not None:
-        json.dump({'gui': {'scaling': {'type': 'nine_slice', 'width': w, 'height': h, 'border': border}}},
-                  open(os.path.join(OUT, name + '.png.mcmeta'), 'w'))
+        scaling = {'type': 'nine_slice', 'width': w, 'height': h, 'border': border}
+        # The middle of a pane is one flat colour: stretch it. Left to the default the game repeats
+        # the two-pixel middle as tiles, on 1.21.8 one draw each: tens of thousands for a big pane.
+        if stretch:
+            scaling['stretch_inner'] = True
+        json.dump({'gui': {'scaling': scaling}}, open(os.path.join(OUT, name + '.png.mcmeta'), 'w'))
     print(name, W, H)
 
 NAVY = (14, 19, 32); ICE = (91, 200, 245)
@@ -114,9 +118,34 @@ PANE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src', 'ma
 os.makedirs(PANE, exist_ok=True)
 OUT = PANE
 WHITE = (255, 255, 255, 255)
-for r in (2, 3, 4, 5, 6):
+for r in (2, 3, 4, 5, 6, 8, 10, 12):
     n = 2 * r + 4
-    save('fill_r%d' % r, n, n, rrect(n, n, r, WHITE), r + 1)
-    save('outline_r%d' % r, n, n, rrect(n, n, r, (255, 255, 255, 0), WHITE, 0.6), r + 1)
-    save('top_r%d' % r, n, n, rrect(n, n, r, WHITE, None, 0.0, (True, True, False, False)), {'left': r + 1, 'top': r + 1, 'right': r + 1, 'bottom': 1})
-    save('bottom_r%d' % r, n, n, rrect(n, n, r, WHITE, None, 0.0, (False, False, True, True)), {'left': r + 1, 'top': 1, 'right': r + 1, 'bottom': r + 1})
+    save('fill_r%d' % r, n, n, rrect(n, n, r, WHITE), r + 1, True)
+    save('outline_r%d' % r, n, n, rrect(n, n, r, (255, 255, 255, 0), WHITE, 0.6), r + 1, True)
+    save('top_r%d' % r, n, n, rrect(n, n, r, WHITE, None, 0.0, (True, True, False, False)), {'left': r + 1, 'top': r + 1, 'right': r + 1, 'bottom': 1}, True)
+    save('bottom_r%d' % r, n, n, rrect(n, n, r, WHITE, None, 0.0, (False, False, True, True)), {'left': r + 1, 'top': 1, 'right': r + 1, 'bottom': r + 1}, True)
+
+
+# A soft shadow for the panes of the scene menu: dark just outside a rounded
+# rectangle (corner radius 10, 12 pixels of fall-off), nothing under it.
+def shadow(r=10, m=12):
+    n = 2 * (r + m) + 4
+    S = 4
+    W = H = n * S
+    px = []
+    for Y in range(H):
+        for X in range(W):
+            x, y = (X + 0.5) / S, (Y + 0.5) / S
+            # distance to the rounded rectangle [m, n-m] x [m, n-m]
+            qx = abs(x - n / 2) - (n / 2 - m - r)
+            qy = abs(y - n / 2) - (n / 2 - m - r)
+            d = (max(qx, 0) ** 2 + max(qy, 0) ** 2) ** 0.5 + min(max(qx, qy), 0) - r
+            if d <= -0.5:
+                a = 0.0
+            else:
+                t = max(0.0, 1.0 - max(d, 0.0) / m)
+                a = t * t * (min(1.0, d + 0.5) if d < 0.5 else 1.0)
+            px.append((255, 255, 255, int(round(255 * a))))
+    return W, H, px
+
+save('shadow', 2 * 22 + 4, 2 * 22 + 4, shadow(), 23, True)
