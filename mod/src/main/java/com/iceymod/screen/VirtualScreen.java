@@ -76,11 +76,11 @@ abstract class VirtualScreen extends IceyScreen {
     /** Fast start, soft landing. */
     protected static float outCubic(float t) { t = clamp01(t); float u = 1 - t; return 1 - u * u * u; }
     protected static float span(float t, float from, float to) { return clamp01((t - from) / (to - from)); }
-    protected static int a(int color, float alpha) {
+    static int a(int color, float alpha) {
         int al = Math.round(((color >>> 24) & 0xFF) * clamp01(alpha));
         return (al << 24) | (color & 0xFFFFFF);
     }
-    protected static int mix(int c1, int c2, float t) {
+    static int mix(int c1, int c2, float t) {
         t = clamp01(t);
         int a1 = c1 >>> 24, r1 = (c1 >> 16) & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = c1 & 0xFF;
         int a2 = c2 >>> 24, r2 = (c2 >> 16) & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = c2 & 0xFF;
@@ -129,8 +129,39 @@ abstract class VirtualScreen extends IceyScreen {
 
     // ── The place behind ──
     protected void setScene(Scenes.Scene sc) {
-        scene = sc;
         model = SceneModel.of(sc);
+        scene = model != null ? model.scene : sc;          // the place under today's weather
+    }
+
+    /** Falling snow or rain in front of the place (drawn sharp, after the blur). */
+    protected void weather(Gfx g, float alpha) {
+        if (scene == null || alpha <= 0.02f) return;
+        float tt = (System.currentTimeMillis() % 1000000L) / 1000f;
+        if (scene.snowing) {
+            for (int i = 0; i < 90; i++) {
+                float seed = i * 12.9898f;
+                float fx = (float) ((Math.sin(seed) * 43758.5453) % 1.0); if (fx < 0) fx += 1;
+                float fy = (float) ((Math.sin(seed * 1.7f) * 24634.6345) % 1.0); if (fy < 0) fy += 1;
+                float speed = 12f + (i % 7) * 4.5f;
+                float x = (fx * VW + (float) Math.sin(tt * 0.6f + i) * 10f + tt * (5f + i % 5)) % VW;
+                float y = (fy * VH + tt * speed) % VH;
+                int size = i % 5 == 0 ? 2 : 1;
+                g.fill(Math.round(x), Math.round(y), Math.round(x) + size, Math.round(y) + size, a(0xFFFFFFFF, alpha * (0.35f + (i % 4) * 0.14f)));
+            }
+        } else if (scene.raining) {
+            g.fill(0, 0, VW, VH, a(0x1A1C2A40, alpha));
+            for (int i = 0; i < 110; i++) {
+                float seed = i * 7.233f;
+                float fx = (float) ((Math.sin(seed) * 43758.5453) % 1.0); if (fx < 0) fx += 1;
+                float fy = (float) ((Math.sin(seed * 2.1f) * 13634.6345) % 1.0); if (fy < 0) fy += 1;
+                float speed = 330f + (i % 6) * 38f;
+                float y = (fy * (VH + 40) + tt * speed) % (VH + 40) - 20;
+                float x = (fx * (VW + 60) - y * 0.16f + 30) % (VW + 60) - 30;
+                int col = a(0xFFC4D6F2, alpha * (0.20f + (i % 3) * 0.09f));
+                // a short slanted streak
+                for (int k = 0; k < 3; k++) g.fill(Math.round(x - k), Math.round(y + k * 3), Math.round(x - k) + 1, Math.round(y + k * 3) + 3, col);
+            }
+        }
     }
 
     /**

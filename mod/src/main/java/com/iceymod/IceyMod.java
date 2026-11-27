@@ -39,7 +39,7 @@ public class IceyMod implements ClientModInitializer {
     public static final Identifier LOGO_TEXTURE = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
     public static final String KEY_CATEGORY = "key.categories.iceymod";
     /** Bumped with every release; shown in the log at start and at the bottom of the scene menu. */
-    public static final String BUILD = "v1.87.32";
+    public static final String BUILD = "v1.87.33";
 
     private static KeyMapping menuKey;
     private static KeyMapping replyKey;
@@ -228,6 +228,10 @@ public class IceyMod implements ClientModInitializer {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             // Title screen: no extra corner logo — the Icey Client logo is already drawn
             // in place of the vanilla MINECRAFT logo by LogoDrawerMixin.
+            // What it does get: a small "Menu style" button, so the choice of main menu can be changed from here too.
+            if (screen instanceof net.minecraft.client.gui.screens.TitleScreen) {
+                try { com.iceymod.screen.TitleStylePill.attach(screen); } catch (Throwable ignored) {}
+            }
 
             if (screen instanceof AbstractContainerScreen) {
                 ScreenHook.afterRender(screen, (ctx, mouseX, mouseY, delta) -> {

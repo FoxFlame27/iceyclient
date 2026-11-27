@@ -38,63 +38,79 @@ import net.minecraft.world.level.storage.LevelSummary;
  */
 public class SceneMenuScreen extends VirtualScreen {
 
-    private static boolean introPlayed;
-    private static int lastTab;
-    private static final int M = 14;
+    static boolean introPlayed;
+    static int lastTab;
+    static final int M = 14;
 
-    private static final class Entry {
+    static final class Entry {
         String name = "", sub = "";
+        /** What to call it: a server still carrying the default name goes by its address. */
+        String title() { return server != null && (name.isBlank() || name.equals("Minecraft Server")) ? server.ip : name; }
         MenuTextures.Tex icon;
         ServerData server;
         String worldId;
         boolean disabled;
     }
-    private static final class Pending { String text; long at; }
-    private static final class Standing {
+    static final class Pending { String text; long at; }
+    static final class Standing {
         MenuBridge.Friend f; Scenes.Spot spot; float x, y, h, depth; boolean hover;
     }
 
-    private long openedAt;
-    private boolean intro;
-    private float viewYaw;
-    private long swapAt;
-    private boolean swapped;
+    long openedAt;
+    boolean intro;
+    float viewYaw;
+    long swapAt;
+    boolean swapped;
 
     // Play panel
-    private int tab = lastTab;
-    private final List<Entry> servers = new ArrayList<>();
-    private final List<Entry> worlds = new ArrayList<>();
-    private boolean worldsLoaded;
-    private int selServer, selWorld;
-    private float scrollS, scrollW;
-    private long lastRowClick;
-    private int lastRowIndex = -1;
+    int tab = lastTab;
+    final List<Entry> servers = new ArrayList<>();
+    final List<Entry> worlds = new ArrayList<>();
+    boolean worldsLoaded;
+    int selServer, selWorld;
+    float scrollS, scrollW;
+    long lastRowClick;
+    int lastRowIndex = -1;
 
     // Friends panel: 0 = the small bar, 1 = the list, 2 = a conversation
-    private int left;
-    private String chatUuid = "", chatName = "";
-    private float chatScroll, listScroll;
-    private final List<Pending> pending = new ArrayList<>();
-    private EditBox input;
-    private boolean prevEnter = true;
+    int left;
+    String chatUuid = "", chatName = "";
+    float chatScroll, listScroll;
+    final List<Pending> pending = new ArrayList<>();
+    // Text fields: 0 = friends panel (message, add a friend), 1 and 2 = the forms of the pages.
+    final EditBox[] fields = new EditBox[3];
+    final boolean[] fieldShown = new boolean[3];
+    int focus = -1;
+    boolean enterHit;
+    EditBox input;
+    boolean prevEnter = true;
+
+    // Pages: 0 = home, 1 = servers, 2 = worlds, 3 = options
+    int page;
+    ServersPage serversPage;
+    WorldsPage worldsPage;
+    OptionsPage optionsPage;
+    float pgX, pgY, pgW, pgH;
+
+    net.minecraft.client.Minecraft mc() { return minecraft; }
 
     // Account
-    private boolean accountOpen;
-    private long switchReq, switchAt;
-    private String switchName = "";
+    boolean accountOpen;
+    long switchReq, switchAt;
+    String switchName = "";
 
     // A line that slides in under the top bar for a few seconds
-    private String toastTitle = "", toastText = "";
-    private long toastAt, seenNoticeAt;
+    String toastTitle = "", toastText = "";
+    long toastAt, seenNoticeAt;
 
     // Leaving for another screen: fade out first
-    private Runnable leaveRun;
-    private long leaveAt;
-    private float leaveSeconds;
+    Runnable leaveRun;
+    long leaveAt;
+    float leaveSeconds;
 
 
     // Rectangles of this frame, so clicks on a panel do not also hit a friend behind it
-    private float pX, pY, pW, pH, lX, lY, lW, lH;
+    float pX, pY, pW, pH, lX, lY, lW, lH;
 
     public SceneMenuScreen() { super(Component.literal(Branding.name())); }
 
@@ -109,19 +125,50 @@ public class SceneMenuScreen extends VirtualScreen {
         leaveRun = null;
         try { loadServers(); } catch (Throwable t) { System.out.println("[IceyMod] menu: server list " + t); }
         try { loadWorlds(); } catch (Throwable t) { System.out.println("[IceyMod] menu: worlds " + t); }
-        String keep = input != null ? input.getValue() : "";
-        input = new EditBox(this.font, 0, 0, 100, 10, Component.literal(""));
-        input.setBordered(false);
-        input.setMaxLength(200);
-        input.setTextColor(0xFFFFFFFF);
-        input.setValue(keep);
-        try {
-            if (UiFont.usable(this.font)) input.addFormatter((text, start) -> net.minecraft.util.FormattedCharSequence.forward(text, UiFont.style(false)));
-        } catch (Throwable ignored) {}
-        addWidget(input);
+        for (int i = 0; i < fields.length; i++) {
+            String keep = fields[i] != null ? fields[i].getValue() : "";
+            EditBox b = new EditBox(this.font, 0, 0, 100, 10, Component.literal(""));
+            b.setBordered(false);
+            b.setMaxLength(i == 0 ? 200 : 120);
+            b.setTextColor(0xFFFFFFFF);
+            b.setValue(keep);
+            try {
+                if (UiFont.usable(this.font)) b.addFormatter((text, start) -> net.minecraft.util.FormattedCharSequence.forward(text, UiFont.style(false)));
+            } catch (Throwable ignored) {}
+            addWidget(b);
+            fields[i] = b;
+        }
+        input = fields[0];
+        if (serversPage == null) { serversPage = new ServersPage(this); worldsPage = new WorldsPage(this); optionsPage = new OptionsPage(this); }
     }
 
-    private void loadServers() {
+    /** A text field at this place of the canvas (a vanilla one, drawn through our transform). A click in it gives it the keyboard. */
+    void field(Gfx g, int slot, float x, float y, float w, String hint, float delta) {
+        EditBox b = fields[slot];
+        fieldShown[slot] = true;
+        b.setX(Math.round(x)); b.setY(Math.round(y)); b.setWidth(Math.round(w));
+        b.setHint(UiFont.usable(this.font) ? Component.literal(hint).withStyle(UiFont.style(false).withColor(0x8E9AB0)) : Component.literal("§7" + hint));
+        if (clicked && over(x - 8, y - 8, w + 16, 24)) focus = slot;
+        boolean on = focus == slot;
+        if (on && getFocused() != b) setFocused(b);
+        b.setFocused(on);
+        g.enableScissor(Math.round(x - 2), Math.round(y - 4), Math.round(x + w + 2), Math.round(y + 14));
+        try { g.drawWidget(b, Math.round(mx), Math.round(my), delta); } finally { g.disableScissor(); }
+    }
+
+    /** Fields that were not drawn this frame give the keyboard back. */
+    void endFields() {
+        for (int i = 0; i < fields.length; i++) {
+            if (!fieldShown[i]) {
+                fields[i].setFocused(false);
+                if (getFocused() == fields[i]) setFocused(null);
+                if (focus == i) focus = -1;
+            }
+            fieldShown[i] = false;
+        }
+    }
+
+    void loadServers() {
         servers.clear();
         ServerList list = new ServerList(minecraft);
         list.load();
@@ -137,7 +184,7 @@ public class SceneMenuScreen extends VirtualScreen {
         if (selServer >= servers.size()) selServer = 0;
     }
 
-    private void loadWorlds() throws Exception {
+    void loadWorlds() throws Exception {
         var source = minecraft.getLevelSource();
         source.loadLevelSummaries(source.findLevelCandidates()).thenAcceptAsync(list -> {
             try {
@@ -160,7 +207,7 @@ public class SceneMenuScreen extends VirtualScreen {
         }, minecraft);
     }
 
-    private static String ago(long time) {
+    static String ago(long time) {
         if (time <= 0) return "never played";
         long sec = Math.max(0, (System.currentTimeMillis() - time) / 1000);
         if (sec < 90) return "just now";
@@ -200,7 +247,7 @@ public class SceneMenuScreen extends VirtualScreen {
 
     // ───────────────────────── frame ─────────────────────────
 
-    private void draw(Gfx g, float delta) {
+    void draw(Gfx g, float delta) {
         long now = System.currentTimeMillis();
         float t = (now - openedAt) / 1000f;
         int accent = MenuPrefs.accent();
@@ -221,6 +268,9 @@ public class SceneMenuScreen extends VirtualScreen {
         }
         boolean busy = leaveRun != null;
         if (busy) clicked = false;
+        boolean enterNow = Input.keyDown(InputConstants.KEY_RETURN);
+        enterHit = enterNow && !prevEnter && !busy;
+        prevEnter = enterNow;
 
         // The place: at the very first start it swings into view; it turns a little with the mouse.
         float zoom = 1f - (intro ? 0.12f * (1f - outCubic(t / 1.7f)) : 0f) + 0.07f * leave * leave;
@@ -241,44 +291,57 @@ public class SceneMenuScreen extends VirtualScreen {
 
         // Where the panels are this frame.
         float show = intro ? outCubic(span(t, 0.45f, 1.0f)) : outCubic(span(t, 0f, 0.28f));
-        pW = 232; pH = 204; pX = VW - M - pW + (1f - show) * 36f; pY = VH - M - pH;
+        float pageK = ease("page", page != 0, 13f);
+        pW = 232; pH = 204; pX = VW - M - pW + (1f - show) * 36f + pageK * (pW + 40); pY = VH - M - pH;
+        pgW = Math.min(620, VW - 2 * M - 8); pgH = VH - 50 - M;
+        pgX = (VW - pgW) / 2f; pgY = 50 + (1f - pageK) * 14f;
         float openK = ease("left", left != 0, 14f);
         lW = 216; lH = 34 + (Math.min(256, VH - 40 - M * 2 - 8) - 34) * openK;
         lX = M - (1f - show) * 36f; lY = VH - M - lH;
 
         List<Standing> people = people(st, live);
-        boolean overUi = my < 46 || over(pX, pY, pW, pH) || over(lX, lY, lW, lH) || accountOpen;
+        boolean overUi = my < 46 || over(pX, pY, pW, pH) || over(lX, lY, lW, lH) || accountOpen || (page != 0 && over(pgX, pgY, pgW, pgH));
         float tt = (now % 1000000L) / 1000f;
 
         // You, then the friends, the far ones first.
         Standing hovered = null;
-        if (!overUi && !busy) for (Standing p : people) if (over(p.x - p.h * 0.24f, p.y - p.h * 1.03f, p.h * 0.48f, p.h * 1.06f)) hovered = p;
+        if (!overUi && !busy && page == 0) for (Standing p : people) if (over(p.x - p.h * 0.24f, p.y - p.h * 1.03f, p.h * 0.48f, p.h * 1.06f)) hovered = p;
         people.sort((a2, b2) -> Float.compare(b2.depth, a2.depth));
         float meX = placeX(0, 0, 0), meY = placeY(0, 0, 0), meH = playerHeight();
         int n = 0;
         for (Standing p : people) {
-            float in = intro ? outCubic(span(t, 0.75f + n * 0.09f, 1.15f + n * 0.09f)) : show;
+            float in = (intro ? outCubic(span(t, 0.75f + n * 0.09f, 1.15f + n * 0.09f)) : show) * (1f - pageK);
             n++;
             p.hover = p == hovered;
             float hv = ease("doll:" + p.f.uuid, p.hover, 12f);
             drawFriend(g, p, in, hv, tt, meX);
         }
-        float meIn = intro ? outCubic(span(t, 0.5f, 0.95f)) : show;
+        float meIn = (intro ? outCubic(span(t, 0.5f, 0.95f)) : show) * (1f - pageK);
         drawMe(g, meX, meY, meH, meIn, tt);
-        if (scene.snow) snow(g, tt, show);
+        weather(g, show);
 
         // Name tags over the figures.
         for (Standing p : people) {
             float hv = ease("doll:" + p.f.uuid, p.hover, 12f);
-            tag(g, p.x, p.y - p.h - 15 - hv * 2, p.f.name, null, p.f.online ? 0xFF4ADE80 : 0xFF7C8798, p.f.unread, hv, show, accent);
-            if (hv > 0.05f) textC(g, "Click to chat", p.x, p.y - p.h - 15 - 12 - hv * 2, 1f, a(0xFFFFFFFF, hv * show));
+            tag(g, p.x, p.y - p.h - 15 - hv * 2, p.f.name, null, p.f.online ? 0xFF4ADE80 : 0xFF7C8798, p.f.unread, hv, show * (1f - pageK), accent);
+            if (hv > 0.05f) textC(g, "Click to chat", p.x, p.y - p.h - 15 - 12 - hv * 2, 1f, a(0xFFFFFFFF, hv * show * (1f - pageK)));
         }
         tag(g, meX, meY - meH - 16, minecraft.getUser().getName(), "YOU", 0, 0, 0f, meIn, accent);
         if (hovered != null && clicked) { click(); openChat(hovered.f.uuid, hovered.f.name); swallowClick(); }
 
         topBar(g, st, live, show, accent, t, busy);
-        playPanel(g, show, accent, busy);
-        friendsPanel(g, st, live, show, accent, openK, delta);
+        if (pageK < 0.98f) playPanel(g, show * (1f - pageK), accent, busy || page != 0);
+        if (pageK > 0.02f) {
+            // A page: the world steps back, one large pane takes the middle.
+            g.fill(0, 0, VW, VH, a(0x66060912, pageK * show));
+            glass(g, pgX, pgY, pgW, pgH, 10, pageK * show);
+            rect(g, pgX + 1, pgY + 1, pgW - 2, pgH - 2, 10, a(0x52080D18, pageK * show));
+            if (page == 1) serversPage.draw(g, pgX, pgY, pgW, pgH, pageK * show, accent, delta);
+            else if (page == 2) worldsPage.draw(g, pgX, pgY, pgW, pgH, pageK * show, accent, delta);
+            else if (page == 3) optionsPage.draw(g, pgX, pgY, pgW, pgH, pageK * show, accent, delta);
+            if (clicked && over(pgX, pgY, pgW, pgH)) swallowClick();
+        }
+        if (page == 0 || pgX > lX + lW + 6 || left != 0) friendsPanel(g, st, live, show, accent, openK, delta);
         footer(g, show, accent);
         if (accountOpen) accountMenu(g, st, live, accent, now);
         drawToast(g, now);
@@ -289,11 +352,12 @@ public class SceneMenuScreen extends VirtualScreen {
 
         // A click that landed on nothing closes what is open.
         if (clicked && accountOpen) { accountOpen = false; }
+        endFields();
     }
 
     // ───────────────────────── people ─────────────────────────
 
-    private List<Standing> people(MenuBridge.State st, boolean live) {
+    List<Standing> people(MenuBridge.State st, boolean live) {
         List<Standing> out = new ArrayList<>();
         if (scene == null || model == null || !live) return out;
         List<MenuBridge.Friend> list = new ArrayList<>(st.friends);
@@ -310,7 +374,7 @@ public class SceneMenuScreen extends VirtualScreen {
     }
 
     /** The dark patch on the ground under a player: a circle seen from the view's angle. */
-    private void shadow(Gfx g, float x, float y, float h, float alpha) {
+    void shadow(Gfx g, float x, float y, float h, float alpha) {
         float block = model.blockPx();
         float squash = (float) Math.sin(Math.toRadians(model.pitch + orbitPitch));
         float w = block * 0.82f, hh = Math.max(3f, block * 0.82f * squash);
@@ -319,7 +383,7 @@ public class SceneMenuScreen extends VirtualScreen {
         rect(g, x - w * 0.22f, y - hh * 0.22f, w * 0.44f, hh * 0.44f, 12, a(0x30000000, alpha));
     }
 
-    private void drawMe(Gfx g, float x, float y, float h, float in, float tt) {
+    void drawMe(Gfx g, float x, float y, float h, float in, float tt) {
         if (in <= 0.01f) return;
         String uuid = minecraft.getUser().getProfileId().toString();
         MenuTextures.Tex skin = MenuTextures.skin(uuid);
@@ -337,7 +401,7 @@ public class SceneMenuScreen extends VirtualScreen {
         Doll.draw(g, skin.id, skin.height, MenuBridge.slim(uuid), x, y, h * (0.9f + 0.1f * in), p, a(0xFF000000 | scene.light, in));
     }
 
-    private void drawFriend(Gfx g, Standing s2, float in, float hv, float tt, float meX) {
+    void drawFriend(Gfx g, Standing s2, float in, float hv, float tt, float meX) {
         if (in <= 0.01f) return;
         MenuTextures.Tex skin = MenuTextures.skin(s2.f.uuid);
         float ph = (s2.f.uuid.hashCode() & 0xFF) / 40f;
@@ -345,22 +409,26 @@ public class SceneMenuScreen extends VirtualScreen {
         float toward = Math.max(-0.55f, Math.min(0.55f, (meX - s2.x) / (VW * 0.5f)));
         float lookX = Math.max(-1f, Math.min(1f, (mx - s2.x) / (VW * 0.4f)));
         p.pitch = (float) Math.toRadians(model.pitch + orbitPitch);
-        p.yaw = toward * 0.8f + (float) Math.toRadians(orbitYaw + viewYaw);
+        p.yaw = toward * 0.8f * (1f - hv) + (float) Math.toRadians(orbitYaw + viewYaw);
         p.headYaw = (0.22f * (float) Math.sin(tt * 0.6f + ph)) * (1f - hv) + (0.5f * lookX - p.yaw * 0.5f) * hv;
         p.headPitch = 0.05f * (float) Math.sin(tt * 0.43f + ph * 2);
         float breathe = (float) Math.sin(tt * 1.6f + ph);
         p.rArmZ = -(0.07f + 0.025f * breathe); p.lArmZ = 0.07f + 0.025f * breathe;
         p.rArmX = 0.06f * (float) Math.sin(tt * 1.0f + ph); p.lArmX = -p.rArmX;
-        // Hovered: a wave.
-        p.rArmZ += hv * (-2.35f + 0.32f * (float) Math.sin(tt * 9f));
+        // Under the mouse: turn to the viewer, lift the arm up beside the head and wave from the shoulder, with a little bounce.
+        p.rArmZ += hv * (-2.62f + 0.28f * (float) Math.sin(tt * 7.5f));
+        p.rArmX += hv * -0.10f;
+        p.lArmZ += hv * 0.10f;
+        p.headPitch -= hv * 0.06f;
+        float hop = hv * Math.abs((float) Math.sin(tt * 3.75f)) * s2.h * 0.035f;
         int lit = 0xFF000000 | scene.light;
         int tint = s2.f.online ? lit : mix(lit, 0xFF4A5060, 0.45f);        // offline: dimmer
         tint = mix(tint, lit, hv * 0.6f);
         shadow(g, s2.x, s2.y, s2.h, in);
-        Doll.draw(g, skin.id, skin.height, s2.f.slim || MenuBridge.slim(s2.f.uuid), s2.x, s2.y, s2.h * (0.9f + 0.1f * in) * (1f + 0.04f * hv), p, a(tint, in));
+        Doll.draw(g, skin.id, skin.height, s2.f.slim || MenuBridge.slim(s2.f.uuid), s2.x, s2.y - hop, s2.h * (0.9f + 0.1f * in) * (1f + 0.03f * hv), p, a(tint, in));
     }
 
-    private void tag(Gfx g, float cx, float y, String name, String badge, int dot, int unread, float hv, float alpha, int accent) {
+    void tag(Gfx g, float cx, float y, String name, String badge, int dot, int unread, float hv, float alpha, int accent) {
         if (alpha <= 0.02f) return;
         float nameW = textW(name, 1f);
         float w = 8 + (dot != 0 ? 8 : 0) + nameW + (badge != null ? 5 + textW(badge, 1f) : 0) + (unread > 0 ? 6 + Math.max(10, textW(String.valueOf(unread), 1f) + 6) : 0) + 8;
@@ -380,24 +448,11 @@ public class SceneMenuScreen extends VirtualScreen {
         }
     }
 
-    private void snow(Gfx g, float tt, float alpha) {
-        for (int i = 0; i < 70; i++) {
-            float seed = i * 12.9898f;
-            float fx = (float) ((Math.sin(seed) * 43758.5453) % 1.0); if (fx < 0) fx += 1;
-            float fy = (float) ((Math.sin(seed * 1.7f) * 24634.6345) % 1.0); if (fy < 0) fy += 1;
-            float speed = 9f + (i % 7) * 3.5f;
-            float x = (fx * VW + (float) Math.sin(tt * 0.6f + i) * 9f + tt * (4f + i % 5)) % VW;
-            float y = (fy * VH + tt * speed) % VH;
-            int size = i % 5 == 0 ? 2 : 1;
-            g.fill(Math.round(x), Math.round(y), Math.round(x) + size, Math.round(y) + size, a(0xFFFFFFFF, alpha * (0.30f + (i % 4) * 0.13f)));
-        }
-    }
-
     // ───────────────────────── top bar ─────────────────────────
 
-    private static final String[] NAV = { "Play", "Servers", "Worlds", "Friends", "Mods", "Options" };
+    static final String[] NAV = { "Play", "Servers", "Worlds", "Friends", "Mods", "Options" };
 
-    private void topBar(Gfx g, MenuBridge.State st, boolean live, float show, int accent, float t, boolean busy) {
+    void topBar(Gfx g, MenuBridge.State st, boolean live, float show, int accent, float t, boolean busy) {
         float y0 = -18f * (1f - show);
         float al = show;
         // Brand
@@ -416,24 +471,22 @@ public class SceneMenuScreen extends VirtualScreen {
         float brandEnd = brandX + textW(brand, 1.25f);
 
         // Navigation, centred
-        float gap = 20, total = -gap;
+        float gap = 22, total = -gap;
         for (String s2 : NAV) total += textW(s2, 1f) + gap;
         float x = (VW - total) / 2f;
         String ver = IceyMod.BUILD + "  ·  Minecraft " + net.minecraft.SharedConstants.getCurrentVersion().name();
-        if (brandEnd + 8 + textW(ver, 1f) < x - 14) text(g, ver, brandEnd + 8, y0 + 16, 1f, a(0xFF8E9AB0, al));
-        else if (brandEnd + 8 + textW(IceyMod.BUILD, 1f) < x - 14) text(g, IceyMod.BUILD, brandEnd + 8, y0 + 16, 1f, a(0xFF8E9AB0, al));
+        if (brandEnd + 8 + textW(ver, 1f) < x - 26) text(g, ver, brandEnd + 8, y0 + 16, 1f, a(0xFF8E9AB0, al));
+        else if (brandEnd + 8 + textW(IceyMod.BUILD, 1f) < x - 26) text(g, IceyMod.BUILD, brandEnd + 8, y0 + 16, 1f, a(0xFF8E9AB0, al));
+        glass(g, x - 14, y0 + 7, total + 28, 26, 10, al);
         for (int i = 0; i < NAV.length; i++) {
             String label = NAV[i];
             float w = textW(label, 1f);
-            boolean active = i == 0 || (i == 3 && left != 0);
-            boolean hov = !busy && !accountOpen && over(x - 6, y0 + 6, w + 12, 26);
-            float hv = ease("nav" + i, hov, 14f);
-            text(g, label, x, y0 + 15, 1f, a(mix(active ? 0xFFFFFFFF : 0xFFAEB9CC, 0xFFFFFFFF, hv), al));
-            float line = active ? 1f : hv;
-            if (line > 0.02f) {
-                float lw = w * line;
-                g.fill(Math.round(x + (w - lw) / 2f), Math.round(y0 + 27), Math.round(x + (w + lw) / 2f), Math.round(y0 + 29), a(active ? accent : 0xFFFFFFFF, al * (active ? 1f : 0.7f)));
-            }
+            boolean active = (i == 0 && page == 0) || (i == 1 && page == 1) || (i == 2 && page == 2) || (i == 5 && page == 3) || (i == 3 && left != 0);
+            boolean hov = !busy && !accountOpen && over(x - 9, y0 + 8, w + 18, 24);
+            float hv = ease("nav" + i, hov, 14f), on = ease("navon" + i, active, 14f);
+            if (on > 0.02f) rect(g, x - 9, y0 + 10, w + 18, 20, 8, a(accent, al * on));
+            else if (hv > 0.02f) rect(g, x - 9, y0 + 10, w + 18, 20, 8, a(0x24FFFFFF, al * hv));
+            text(g, (on > 0.5f ? "§l" : "") + label, x + (on > 0.5f ? (w - textW("§l" + label, 1f)) / 2f : 0), y0 + 16, 1f, a(mix(mix(0xFFC3CEDF, 0xFFFFFFFF, hv), 0xFF06101C, on), al));
             if (hov && clicked) { click(); nav(i); swallowClick(); }
             x += w + gap;
         }
@@ -463,19 +516,20 @@ public class SceneMenuScreen extends VirtualScreen {
         if (ah && clicked) { click(); accountOpen = !accountOpen; swallowClick(); }
     }
 
-    private void nav(int i) {
+    void nav(int i) {
         switch (i) {
-            case 1 -> leave(() -> MC.setScreen(minecraft, new JoinMultiplayerScreen(this)), 0.14f);
-            case 2 -> leave(() -> MC.setScreen(minecraft, new SelectWorldScreen(this)), 0.14f);
+            case 0 -> page = 0;
+            case 1 -> { page = 1; left = 0; }
+            case 2 -> { page = 2; left = 0; try { loadWorlds(); } catch (Throwable ignored) {} }
             case 3 -> { left = left == 0 ? 1 : 0; }
             case 4 -> leave(() -> MC.setScreen(minecraft, CardMenuScreen.current()), 0.14f);
-            case 5 -> leave(() -> MC.setScreen(minecraft, options()), 0.14f);
+            case 5 -> { page = 3; left = 0; }
             default -> {}
         }
     }
 
     /** The vanilla options screen (its constructor gained a third argument in one game version). */
-    private Screen options() {
+    Screen options() {
         try {
             for (var c : net.minecraft.client.gui.screens.options.OptionsScreen.class.getConstructors()) {
                 Class<?>[] p = c.getParameterTypes();
@@ -486,7 +540,7 @@ public class SceneMenuScreen extends VirtualScreen {
         return this;
     }
 
-    private void leave(Runnable r, float seconds) {
+    void leave(Runnable r, float seconds) {
         if (leaveRun != null) return;
         leaveRun = r; leaveAt = System.currentTimeMillis(); leaveSeconds = seconds;
         accountOpen = false;
@@ -494,7 +548,7 @@ public class SceneMenuScreen extends VirtualScreen {
 
     // ───────────────────────── account ─────────────────────────
 
-    private void accountMenu(Gfx g, MenuBridge.State st, boolean live, int accent, long now) {
+    void accountMenu(Gfx g, MenuBridge.State st, boolean live, int accent, long now) {
         List<MenuBridge.Account> list = live ? st.accounts : new ArrayList<>();
         String me = minecraft.getUser().getProfileId().toString().replace("-", "");
         int rows = Math.max(1, list.size());
@@ -534,7 +588,7 @@ public class SceneMenuScreen extends VirtualScreen {
     }
 
     /** The launcher answered a "switch account" request (or took too long). */
-    private void accountAnswer(long now) {
+    void accountAnswer(long now) {
         if (switchReq == 0) return;
         JsonObject o = MenuBridge.takeAccountAnswer();
         if (o == null) {
@@ -557,7 +611,7 @@ public class SceneMenuScreen extends VirtualScreen {
 
     // ───────────────────────── play panel ─────────────────────────
 
-    private void playPanel(Gfx g, float show, int accent, boolean busy) {
+    void playPanel(Gfx g, float show, int accent, boolean busy) {
         float x = pX, y = pY, w = pW, h = pH;
         glass(g, x, y, w, h, 6, show);
         float al = show;
@@ -600,8 +654,17 @@ public class SceneMenuScreen extends VirtualScreen {
                     if (sv > 0.02f || hv > 0.02f) rect(g, x + 8, ry + 1, w - 16, rowH - 2, 4, a(0xFFFFFFFF, (0.08f * hv + 0.13f * sv) * al));
                     if (sv > 0.02f) rect(g, x + 8, ry + 6 + (1 - sv) * 6, 2, (rowH - 12) * sv, 1, a(accent, al));
                     icon(g, e, x + 15, ry + 3, 20, al);
-                    text(g, fit(e.name, w - 60, 1f), x + 41, ry + 4, 1f, a(e.disabled ? 0xFF8C96A8 : 0xFFFFFFFF, al));
-                    text(g, fit(e.sub, w - 60, 1f), x + 41, ry + 14, 1f, a(0xFF9FB0C8, al));
+                    String line2 = e.sub;
+                    int line2Col = 0xFF9FB0C8;
+                    if (e.server != null) {
+                        com.iceymod.menu.ServerPing.Result ping = com.iceymod.menu.ServerPing.get(e.server.ip);
+                        if (e.icon == null && ping.icon != null) e.icon = MenuTextures.fromBytes(e.server.ip, ping.icon);
+                        if (ping.state == 1) { line2 = ping.online + " online  ·  " + ping.ms + " ms"; line2Col = 0xFF8FD8A8; }
+                        else if (ping.state == 2) line2 = "No answer";
+                        else line2 = e.title().equals(e.server.ip) ? "Checking…" : e.server.ip;
+                    }
+                    text(g, fit(e.title(), w - 60, 1f), x + 41, ry + 4, 1f, a(e.disabled ? 0xFF8C96A8 : 0xFFFFFFFF, al));
+                    text(g, fit(line2, w - 60, 1f), x + 41, ry + 14, 1f, a(line2Col, al));
                     if (hov && clicked) {
                         long nowMs = System.currentTimeMillis();
                         boolean twice = lastRowIndex == i && nowMs - lastRowClick < 350;
@@ -629,7 +692,7 @@ public class SceneMenuScreen extends VirtualScreen {
         int fill = can ? mix(accent, 0xFFFFFFFF, 0.14f * bv) : 0xFF3A4458;
         rect(g, bx - bv + press, by - bv * 0.5f + press, bw + (bv - press) * 2, bh + (bv - press), 6, a(fill, al));
         rect(g, bx + 1, by + 1, bw - 2, 9, 5, a(0x30FFFFFF, al * (can ? 1f : 0.3f)));
-        String label = cur == null ? (tab == 0 ? "Choose a server" : "Choose a world") : "Play " + cur.name;
+        String label = cur == null ? (tab == 0 ? "Add a server" : "Create a world") : "Play " + cur.title();
         textC(g, fit("§l" + label, bw - 16, 1.25f), bx + bw / 2f, by + 10, 1.25f, a(can ? 0xFF06101C : 0xFF9AA5B8, al));
         if (bh2 && clicked) { click(); play(); swallowClick(); }
         if (cur == null && !busy && clicked && over(bx, by, bw, bh)) { click(); nav(tab == 0 ? 1 : 2); swallowClick(); }
@@ -644,7 +707,7 @@ public class SceneMenuScreen extends VirtualScreen {
         if (lhv && clicked) { click(); nav(tab == 0 ? 1 : 2); swallowClick(); }
     }
 
-    private void icon(Gfx g, Entry e, float x, float y, float size, float al) {
+    void icon(Gfx g, Entry e, float x, float y, float size, float al) {
         if (e.icon != null) {
             g.pose().pushMatrix();
             try {
@@ -654,38 +717,43 @@ public class SceneMenuScreen extends VirtualScreen {
             } finally { g.pose().popMatrix(); }
         } else {
             rect(g, x, y, size, size, 4, a(0x40FFFFFF, al));
-            String c = e.name.isEmpty() ? "?" : e.name.substring(0, 1).toUpperCase();
+            String c = e.title().isEmpty() ? "?" : e.title().substring(0, 1).toUpperCase();
             textC(g, "§l" + c, x + size / 2f, y + size / 2f - 4, 1f, a(0xFFFFFFFF, al));
         }
     }
 
-    private void play() {
+    void play() {
         List<Entry> list = tab == 0 ? servers : worlds;
         if (list.isEmpty()) return;
         Entry e = list.get(Math.min(tab == 0 ? selServer : selWorld, list.size() - 1));
         if (e.disabled) return;
-        if (e.server != null) {
-            leave(() -> {
-                try { ConnectScreen.startConnecting(this, minecraft, ServerAddress.parseString(e.server.ip), e.server, false, null); }
-                catch (Throwable t) { toast("Could not join", String.valueOf(t.getMessage())); }
-            }, 0.26f);
-        } else if (e.worldId != null) {
-            leave(() -> {
-                try { minecraft.createWorldOpenFlows().openWorld(e.worldId, () -> MC.setScreen(minecraft, this)); }
-                catch (Throwable t) { toast("Could not open the world", String.valueOf(t.getMessage())); }
-            }, 0.26f);
-        }
+        if (e.server != null) join(e.server); else playWorld(e);
+    }
+
+    void join(ServerData server) {
+        leave(() -> {
+            try { ConnectScreen.startConnecting(this, minecraft, ServerAddress.parseString(server.ip), server, false, null); }
+            catch (Throwable t) { toast("Could not join", String.valueOf(t.getMessage())); }
+        }, 0.26f);
+    }
+
+    void playWorld(Entry e) {
+        if (e.worldId == null || e.disabled) return;
+        leave(() -> {
+            try { minecraft.createWorldOpenFlows().openWorld(e.worldId, () -> MC.setScreen(minecraft, this)); }
+            catch (Throwable t) { toast("Could not open the world", String.valueOf(t.getMessage())); }
+        }, 0.26f);
     }
 
     // ───────────────────────── friends ─────────────────────────
 
-    private void openChat(String uuid, String name) {
+    void openChat(String uuid, String name) {
         left = 2;
         if (!uuid.equals(chatUuid)) { chatScroll = 0; pending.clear(); input.setValue(""); }
         chatUuid = uuid; chatName = name;
     }
 
-    private void friendsPanel(Gfx g, MenuBridge.State st, boolean live, float show, int accent, float openK, float delta) {
+    void friendsPanel(Gfx g, MenuBridge.State st, boolean live, float show, int accent, float openK, float delta) {
         float x = lX, y = lY, w = lW, h = lH, al = show;
         glass(g, x, y, w, h, 6, al);
         boolean wantInput = false;
@@ -812,27 +880,15 @@ public class SceneMenuScreen extends VirtualScreen {
             } finally { g.disableScissor(); }
         }
 
-        // The text field (a vanilla one, drawn through our transform)
-        boolean show2 = wantInput && openK > 0.8f && leaveRun == null;
-        if (show2) {
-            input.setX(Math.round(inX)); input.setY(Math.round(inY)); input.setWidth(Math.round(inW));
-            input.setHint(UiFont.usable(this.font) ? Component.literal(hint).withStyle(UiFont.style(false).withColor(0x8E9AB0)) : Component.literal("§7" + hint));
-            if (getFocused() != input) setFocused(input);
-            input.setFocused(true);
-            g.enableScissor(Math.round(inX - 2), Math.round(inY - 4), Math.round(inX + inW + 2), Math.round(inY + 14));
-            try { g.drawWidget(input, Math.round(mx), Math.round(my), delta); } finally { g.disableScissor(); }
-            boolean enter = Input.keyDown(InputConstants.KEY_RETURN);
-            if (enter && !prevEnter) { if (left == 2) sendChat(); else addFriend(); }
-            prevEnter = enter;
-        } else {
-            if (getFocused() == input) setFocused(null);
-            input.setFocused(false);
-            prevEnter = true;
+        if (wantInput && openK > 0.8f && leaveRun == null) {
+            if (focus < 0) focus = 0;
+            field(g, 0, inX, inY, inW, hint, delta);
+            if (enterHit && focus == 0) { if (left == 2) sendChat(); else addFriend(); }
         }
         if (clicked && over(x, y, w, h)) swallowClick();
     }
 
-    private boolean closeButton(Gfx g, float x, float y, String glyph, float al) {
+    boolean closeButton(Gfx g, float x, float y, String glyph, float al) {
         boolean hov = over(x, y, 20, 20) && !accountOpen;
         float hv = ease("cb" + glyph, hov, 16f);
         rect(g, x, y, 20, 20, 5, a(0xFFFFFFFF, (0.06f + 0.12f * hv) * al));
@@ -841,7 +897,7 @@ public class SceneMenuScreen extends VirtualScreen {
         return false;
     }
 
-    private boolean pill(Gfx g, float x, float y, float w, float h, String label, int color, boolean dark, float al) {
+    boolean pill(Gfx g, float x, float y, float w, float h, String label, int color, boolean dark, float al) {
         boolean hov = over(x, y, w, h) && !accountOpen;
         float hv = ease("pill" + label + Math.round(x) + ":" + Math.round(y / 40f), hov, 16f);
         rect(g, x, y, w, h, 4, a(mix(color, 0xFFFFFFFF, 0.16f * hv), al));
@@ -850,7 +906,7 @@ public class SceneMenuScreen extends VirtualScreen {
         return false;
     }
 
-    private void chatBody(Gfx g, MenuBridge.State st, float x, float top, float w, float bottom, int accent, float al) {
+    void chatBody(Gfx g, MenuBridge.State st, float x, float top, float w, float bottom, int accent, float al) {
         // Lines of every message, oldest first; drawn from the bottom up.
         record Bubble(List<String> lines, boolean mine, boolean waiting) {}
         List<Bubble> bubbles = new ArrayList<>();
@@ -889,7 +945,7 @@ public class SceneMenuScreen extends VirtualScreen {
         } finally { g.disableScissor(); }
     }
 
-    private List<String> wrap(String text, float maxW) {
+    List<String> wrap(String text, float maxW) {
         List<String> out = new ArrayList<>();
         StringBuilder line = new StringBuilder();
         for (String word : text.split(" ")) {
@@ -910,7 +966,7 @@ public class SceneMenuScreen extends VirtualScreen {
         return out;
     }
 
-    private void sendChat() {
+    void sendChat() {
         String text = input.getValue().trim();
         if (text.isEmpty() || chatUuid.isEmpty()) return;
         if (!MenuBridge.live()) { toast("Not sent", "Open Icey Client first"); return; }
@@ -921,7 +977,7 @@ public class SceneMenuScreen extends VirtualScreen {
         chatScroll = 0;
     }
 
-    private void addFriend() {
+    void addFriend() {
         String name = input.getValue().trim();
         if (!name.matches("[A-Za-z0-9_]{1,16}")) { if (!name.isEmpty()) toast("Not a Minecraft name", name); return; }
         MenuBridge.request("add", "name", name);
@@ -932,7 +988,7 @@ public class SceneMenuScreen extends VirtualScreen {
     // ───────────────────────── bottom, toast, input ─────────────────────────
 
     /** Under the brand: where we are, and the two small links. */
-    private void footer(Gfx g, float show, int accent) {
+    void footer(Gfx g, float show, int accent) {
         float x = M, y = 33 - 18f * (1f - show);
         String[] parts = { scene.name, "Another place", "Menu style" };
         for (int i = 0; i < parts.length; i++) {
@@ -954,11 +1010,11 @@ public class SceneMenuScreen extends VirtualScreen {
         }
     }
 
-    private void toast(String title, String text) {
+    void toast(String title, String text) {
         toastTitle = title == null ? "" : title; toastText = text == null ? "" : text; toastAt = System.currentTimeMillis();
     }
 
-    private void drawToast(Gfx g, long now) {
+    void drawToast(Gfx g, long now) {
         if (toastTitle.isEmpty()) return;
         float age = (now - toastAt) / 1000f;
         if (age > 4.2f) { toastTitle = ""; return; }
@@ -975,13 +1031,17 @@ public class SceneMenuScreen extends VirtualScreen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         float vx = (float) mouseX / s, vy = (float) mouseY / s;
-        float step = (float) vertical * 18f;
-        if (vx >= pX && vx < pX + pW && vy >= pY && vy < pY + pH) {
-            if (tab == 0) scrollS -= step; else scrollW -= step;
+        float step = (float) vertical * 22f;
+        if (vx >= lX && vx < lX + lW && vy >= lY && vy < lY + lH && (left != 0 || page == 0)) {
+            if (left == 2) chatScroll += step; else listScroll -= step;
             return true;
         }
-        if (vx >= lX && vx < lX + lW && vy >= lY && vy < lY + lH) {
-            if (left == 2) chatScroll += step; else listScroll -= step;
+        if (page != 0) {
+            if (page == 1) serversPage.scroll(step); else if (page == 2) worldsPage.scroll(step); else optionsPage.scroll(step);
+            return true;
+        }
+        if (vx >= pX && vx < pX + pW && vy >= pY && vy < pY + pH) {
+            if (tab == 0) scrollS -= step; else scrollW -= step;
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
@@ -993,6 +1053,9 @@ public class SceneMenuScreen extends VirtualScreen {
         if (accountOpen) accountOpen = false;
         else if (left == 2) left = 1;
         else if (left == 1) left = 0;
+        else if (page == 1 && serversPage.back()) { }
+        else if (page == 2 && worldsPage.back()) { }
+        else if (page != 0) page = 0;
     }
 
     @Override

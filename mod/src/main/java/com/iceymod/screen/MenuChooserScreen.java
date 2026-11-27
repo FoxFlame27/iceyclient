@@ -105,54 +105,87 @@ public class MenuChooserScreen extends VirtualScreen {
         if (black > 0.003f) g.fill(0, 0, VW, VH, a(0xFF05070D, black));
     }
 
-    /** A small drawing of each menu, made from the real pieces. */
+    private static final net.minecraft.resources.Identifier PANORAMA = net.minecraft.resources.Identifier.withDefaultNamespace("textures/gui/title/background/panorama_0.png");
+    private static final net.minecraft.resources.Identifier MC_LOGO = net.minecraft.resources.Identifier.withDefaultNamespace("textures/gui/title/minecraft.png");
+    private static final net.minecraft.resources.Identifier GLASS_BUTTON = net.minecraft.resources.Identifier.withDefaultNamespace("widget/button");
+    private static final String[] BUTTONS = { "Singleplayer", "Multiplayer", "Options..." };
+
+    /** A whole texture drawn into a box (whatever its real size is). */
+    private void picture(Gfx g, net.minecraft.resources.Identifier tex, float x, float y, float w, float h, int tw, int th, int tint) {
+        g.pose().pushMatrix();
+        try {
+            g.pose().translate(x, y);
+            g.pose().scale(w / tw, h / th);
+            g.blit(tex, 0, 0, 0f, 0f, tw, th, tw, th, tint);
+        } finally { g.pose().popMatrix(); }
+    }
+
+    /** Text in the game's own pixel font (the vanilla and Icey menus use it). */
+    private void pixelText(Gfx g, String str, float cx, float y, float size, int color) {
+        g.pose().pushMatrix();
+        try {
+            g.pose().translate(cx - this.font.width(str) * size / 2f, y);
+            g.pose().scale(size, size);
+            g.drawString(this.font, str, 0, 0, color, true);
+        } finally { g.pose().popMatrix(); }
+    }
+
+    /** A small picture of each menu, put together from the real pieces. */
     private void preview(Gfx g, int which, float x, float y, float w, float h, float al) {
         int ix = Math.round(x), iy = Math.round(y), iw = Math.round(w), ih = Math.round(h);
+        int white = a(0xFFFFFFFF, al);
         g.enableScissor(ix, iy, ix + iw, iy + ih);
         try {
             if (which == 2) {
-                // The place in small: sky, ground, two players, the bar and the panel.
-                int top = scene != null ? scene.skyTop : 0x5B8DD6, bottom = scene != null ? scene.skyBottom : 0xBFD8F2;
-                for (int i = 0; i < 12; i++) g.fill(ix, iy + ih * i / 12, ix + iw, iy + ih * (i + 1) / 12, a(mix(0xFF000000 | top, 0xFF000000 | bottom, i / 11f), al));
-                g.fill(ix, iy + Math.round(ih * 0.62f), ix + iw, iy + ih, a(mix(0xFF000000 | bottom, 0xFF1B2A1E, 0.55f), al));
-                g.fill(ix, iy + Math.round(ih * 0.62f), ix + iw, iy + Math.round(ih * 0.62f) + 1, a(0x33FFFFFF, al));
-                String uuid = minecraft.getUser().getProfileId().toString();
-                MenuTextures.Tex skin = MenuTextures.skin(uuid);
-                Doll.Pose p = new Doll.Pose();
-                p.yaw = 0.35f; p.headYaw = -0.2f;
-                Doll.draw(g, skin.id, skin.height, false, x + w * 0.5f, y + h * 0.9f, h * 0.5f, p, a(0xFFFFFFFF, al));
-                Doll.Pose q = new Doll.Pose();
-                q.yaw = -0.4f;
-                Doll.draw(g, MenuTextures.STEVE.id, 64, false, x + w * 0.24f, y + h * 0.74f, h * 0.3f, q, a(0xFFB9C0CC, al));
-                g.fill(ix, iy, ix + iw, iy + 9, a(0x99060912, al));
-                for (int i = 0; i < 4; i++) g.fill(ix + iw / 2 - 30 + i * 16, iy + 4, ix + iw / 2 - 30 + i * 16 + 10, iy + 5, a(0xFFFFFFFF, al * 0.8f));
-                rect(g, x + w - 44, y + h - 40, 38, 34, 3, a(0xB30A1020, al));
-                rect(g, x + w - 41, y + h - 16, 32, 7, 2, a(MenuPrefs.accent(), al));
+                // The scene itself, small: the real place with you in it.
+                if (scene != null && model != null) {
+                    for (int i = 0; i < 10; i++) g.fill(ix, iy + ih * i / 10, ix + iw, iy + ih * (i + 1) / 10, a(mix(0xFF000000 | scene.skyTop, 0xFF000000 | scene.skyBottom, i / 9f), al));
+                    float block = h / 7.2f;
+                    model.view(orbitYaw, orbitPitch, block, x + w / 2f, y + h * 0.46f);
+                    model.draw(g, VW, VH, al);
+                    String uuid = minecraft.getUser().getProfileId().toString();
+                    MenuTextures.Tex skin = MenuTextures.skin(uuid);
+                    Doll.Pose p = new Doll.Pose();
+                    p.pitch = (float) Math.toRadians(model.pitch + orbitPitch);
+                    p.yaw = (float) Math.toRadians(orbitYaw) + 0.2f;
+                    Doll.draw(g, skin.id, skin.height, false, model.screenX(0, 0, 0), model.screenY(0, 0, 0), 1.875f * block, p, a(0xFF000000 | scene.light, al));
+                } else g.fill(ix, iy, ix + iw, iy + ih, a(0xFF16233A, al));
+                // its bar and its panel, hinted
+                g.fill(ix, iy, ix + iw, iy + 11, a(0x99060912, al));
+                rect(g, x + w / 2f - 34, y + 3, 68, 6, 3, a(0x40FFFFFF, al));
+                rect(g, x + w / 2f - 33, y + 4, 14, 4, 2, a(MenuPrefs.accent(), al));
+                rect(g, x + w - 50, y + h - 44, 44, 38, 4, a(0xB30C1322, al));
+                ring(g, x + w - 50, y + h - 44, 44, 38, 4, a(0x40FFFFFF, al));
+                rect(g, x + w - 46, y + h - 18, 36, 8, 3, a(MenuPrefs.accent(), al));
             } else {
-                g.fill(ix, iy, ix + iw, iy + ih, a(which == 0 ? 0xFF2A3038 : 0xFF0C1424, al));
-                float bw = w * 0.5f, bx = x + (w - bw) / 2f, by = y + h * 0.46f;
+                // The title picture behind, as both of these menus have it.
+                float side = Math.max(w, h * 16f / 9f);
+                picture(g, PANORAMA, x + (w - side) / 2f, y + (h - side) / 2f, side, side, 256, 256, a(which == 0 ? 0xFFFFFFFF : 0xFFB8C0CC, al));
+                g.fill(ix, iy, ix + iw, iy + ih, a(which == 0 ? 0x1A000000 : 0x40060912, al));
+                float bw = w * 0.56f, bx = x + (w - bw) / 2f, bh = Math.max(9f, h * 0.105f), by = y + h * 0.5f, step = bh + 3f;
                 if (which == 0) {
-                    textC(g, "§lMINECRAFT", x + w / 2f, y + h * 0.16f, 1.5f, a(0xFFD8D8D8, al));
+                    float lw = w * 0.62f;
+                    picture(g, MC_LOGO, x + (w - lw) / 2f, y + h * 0.12f, lw, lw * 44f / 256f * (256f / 256f), 256, 64, white);
                     for (int i = 0; i < 3; i++) {
-                        float yy = by + i * 13;
-                        g.fill(Math.round(bx), Math.round(yy), Math.round(bx + bw), Math.round(yy + 10), a(0xFF101010, al));
-                        g.fill(Math.round(bx + 1), Math.round(yy + 1), Math.round(bx + bw - 1), Math.round(yy + 9), a(0xFF6F6F6F, al));
-                        g.fill(Math.round(bx + 1), Math.round(yy + 1), Math.round(bx + bw - 1), Math.round(yy + 2), a(0xFFA8A8A8, al));
+                        float yy = by + i * step;
+                        g.fill(Math.round(bx), Math.round(yy), Math.round(bx + bw), Math.round(yy + bh), a(0xFF000000, al));
+                        g.fill(Math.round(bx) + 1, Math.round(yy) + 1, Math.round(bx + bw) - 1, Math.round(yy + bh) - 1, a(0xFF6C6C6C, al));
+                        g.fill(Math.round(bx) + 1, Math.round(yy) + 1, Math.round(bx + bw) - 1, Math.round(yy) + 2, a(0xFFAAAAAA, al));
+                        g.fill(Math.round(bx) + 1, Math.round(yy + bh) - 2, Math.round(bx + bw) - 1, Math.round(yy + bh) - 1, a(0xFF545454, al));
+                        pixelText(g, BUTTONS[i], x + w / 2f, yy + (bh - 4f) / 2f, 0.5f, white);
                     }
                 } else {
                     try {
-                        float hs = h * 0.24f;
-                        g.pose().pushMatrix();
-                        g.pose().translate(x + w / 2f - hs / 2f, y + h * 0.07f);
-                        g.pose().scale(hs / 64f, hs / 64f);
-                        g.blit(Branding.head(), 0, 0, 0f, 0f, 64, 64, 64, 64, a(0xFFFFFFFF, al));
-                        g.pose().popMatrix();
+                        float hs = h * 0.2f;
+                        picture(g, Branding.head(), x + (w - hs) / 2f, y + h * 0.07f, hs, hs, 64, 64, white);
+                        float lw = w * 0.5f, lh = lw * Branding.logoHeight() / Branding.logoWidth();
+                        picture(g, Branding.logo(), x + (w - lw) / 2f, y + h * 0.07f + hs + 3, lw, lh, Branding.logoWidth(), Branding.logoHeight(), white);
                     } catch (Throwable ignored) {}
-                    textC(g, "§l" + Branding.name().toUpperCase(), x + w / 2f, y + h * 0.34f, 1f, a(0xFFFFFFFF, al));
                     for (int i = 0; i < 3; i++) {
-                        float yy = by + 3 + i * 13;
-                        rect(g, bx, yy, bw, 10, 3, a(0x40FFFFFF, al));
-                        ring(g, bx, yy, bw, 10, 3, a(0x50FFFFFF, al));
+                        float yy = by + i * step;
+                        try { g.sprite(GLASS_BUTTON, Math.round(bx), Math.round(yy), Math.round(bw), Math.round(bh), white); }
+                        catch (Throwable t) { rect(g, bx, yy, bw, bh, 3, a(0x660E1320, al)); ring(g, bx, yy, bw, bh, 3, a(0x70FFFFFF, al)); }
+                        pixelText(g, BUTTONS[i], x + w / 2f, yy + (bh - 4f) / 2f, 0.5f, white);
                     }
                 }
             }

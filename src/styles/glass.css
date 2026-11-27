@@ -155,6 +155,25 @@ body::after {
 }
 .titlebar-chip-caret { color: var(--text-muted); }
 .titlebar-chip-signin { padding-left: 9px; color: var(--accent); }
+/* Liquid: the top bar is only a thin strip there, which left the account
+   button tiny. It hangs a little below the strip at a size that is easy
+   to hit, like the one in the other layouts. */
+:root[data-layout="liquid"] .titlebar-chip {
+  height: 42px;
+  margin-top: 18px;
+  padding: 0 14px 0 7px;
+  gap: 10px;
+  border-radius: 14px;
+  font-size: 14px;
+  background: var(--glass-1);
+  border-color: var(--glass-line-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+:root[data-layout="liquid"] .titlebar-chip .titlebar-profile-head { width: 28px; height: 28px; border-radius: 7px; }
+:root[data-layout="liquid"] .titlebar-chip-name { max-width: 200px; }
+:root[data-layout="liquid"] .titlebar-chip-signin { padding-left: 14px; }
+:root[data-layout="liquid"] .titlebar-profile-dropdown { top: 62px; }
 .titlebar-version { display: none; }
 
 .titlebar-profile-dropdown {

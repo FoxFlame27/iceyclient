@@ -24,30 +24,33 @@ DUSK = dict(day=0.78, sun='ff9c5c', shade='7f78c0', ambient=0.52, glow=1.25, fog
 DAWN = dict(day=0.66, sun='ffb7c4', shade='8f86c8', ambient=0.56, glow=1.2, fog='c0a8d4', fogStart=11, fogEnd=40, fogMax=0.74, skyTop='2c2a62', skyBottom='f0aebc', light='e2d2ea')
 NIGHT = dict(day=0.30, sun='9fb6ff', shade='4a5e9e', ambient=0.34, glow=1.7, fog='0e1634', fogStart=10, fogEnd=38, fogMax=0.8, skyTop='050918', skyBottom='1a2650', light='a9b6de')
 
-# export id, name shown in the menu, falling snow, how it is lit
+# export id, name shown in the menu, how likely it snows / rains there at a start, how it is lit
 PICKS = [
-    ('snowy_village', 'Snowy Village', True, DAY),
-    ('plains_village', 'Plains Village', False, DAY),
-    ('village_dusk', 'Village at Dusk', False, DUSK),
-    ('savanna_village', 'Savanna Village', False, DAY),
-    ('desert_village', 'Desert Village', False, dict(DAY, day=0.56, ambient=0.5, sun='ffe6b8', shade='b9c4e6', fog='ecd9b4', skyBottom='f2e2c0', light='fff0d6')),
-    ('taiga_village', 'Taiga Village at Night', False, dict(NIGHT, day=0.42, ambient=0.46, shade='6478c0')),
-    ('outpost', 'Pillager Outpost', False, DUSK),
-    ('trial_chambers', 'Trial Chambers', False, dict(day=0.0, sun='ffffff', shade='ffe2c4', ambient=0.34, glow=1.35, fog='120d0c', fogStart=10, fogEnd=32, fogMax=0.85, skyTop='0b0909', skyBottom='0b0909', light='ecccaa')),
-    ('end_city', 'End City', False, dict(day=0.55, sun='e8d4ff', shade='b9a2e6', ambient=0.95, glow=1.0, fog='0d0a18', fogStart=13, fogEnd=42, fogMax=0.85, skyTop='07050e', skyBottom='1a1030', light='d4c6ec')),
-    ('bastion', 'Bastion Remnant', False, dict(day=0.0, sun='ffffff', shade='ffb49a', ambient=0.5, glow=1.4, fog='2a0c0b', fogStart=9, fogEnd=32, fogMax=0.85, skyTop='190706', skyBottom='340e0b', light='dcb4a2')),
+    ('snowy_village', 'Snowy Village', 0.65, 0.0, DAY),
+    ('plains_village', 'Plains Village', 0.0, 0.3, DAY),
+    ('village_dusk', 'Village at Dusk', 0.0, 0.2, DUSK),
+    ('savanna_village', 'Savanna Village', 0.0, 0.0, DAY),
+    ('desert_village', 'Desert Village', 0.0, 0.0, dict(DAY, day=0.56, ambient=0.5, sun='ffe6b8', shade='b9c4e6', fog='ecd9b4', skyBottom='f2e2c0', light='fff0d6')),
+    ('taiga_village', 'Taiga Village at Night', 0.0, 0.3, dict(NIGHT, day=0.42, ambient=0.46, shade='6478c0')),
+    ('outpost', 'Pillager Outpost', 0.0, 0.25, DUSK),
+    ('igloo', 'Igloo at Dawn', 0.7, 0.0, DAWN),
+    ('trial_chambers', 'Trial Chambers', 0.0, 0.0, dict(day=0.0, sun='ffffff', shade='ffe2c4', ambient=0.36, glow=1.35, fog='120d0c', fogStart=12, fogEnd=36, fogMax=0.85, skyTop='0b0909', skyBottom='0b0909', light='ecccaa')),
+    ('end_city', 'End City', 0.0, 0.0, dict(day=0.55, sun='e8d4ff', shade='b9a2e6', ambient=0.95, glow=1.0, fog='0d0a18', fogStart=13, fogEnd=42, fogMax=0.85, skyTop='07050e', skyBottom='1a1030', light='d4c6ec')),
+    ('bastion', 'Bastion Remnant', 0.0, 0.0, dict(day=0.0, sun='ffffff', shade='ffb49a', ambient=0.5, glow=1.4, fog='2a0c0b', fogStart=11, fogEnd=36, fogMax=0.85, skyTop='190706', skyBottom='340e0b', light='dcb4a2')),
 ]
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'src', 'main', 'resources', 'assets', 'iceymod', 'scenes')
 
 
-def friends(spots):
+def friends(spots, mobs):
     """Up to five places for friends: in view, clear of the panels, not crowding each other or the player."""
     me = (0.0, -1.78)                                  # the player on screen, in blocks from the middle (chest height)
     cand = []
     for dx, dy, dz, xv, yv, zv in spots:
         if dx == 0 and dz == 0:
+            continue
+        if any(abs(dx - m[0]) < 2 and abs(dz - m[2]) < 2 for m in mobs):      # a mob stands there
             continue
         if zv < -3.6 or zv > 20 or abs(xv) > 6.4:      # a little in front of the player is fine too
             continue
@@ -84,17 +87,17 @@ def main():
     src = sys.argv[1]
     os.makedirs(OUT, exist_ok=True)
     out = []
-    for sid, name, snow, lit in PICKS:
+    for sid, name, snowfall, rain, lit in PICKS:
         path = os.path.join(src, sid + '.json')
         if not os.path.exists(path):
             print('skip', sid, '(not exported)')
             continue
         data = json.load(open(path))
-        spots = friends(data['spots'])
+        spots = friends(data['spots'], data.get('mobs', []))
         model = {'yaw': data['yaw'], 'pitch': data['pitch'], 'centre': data['centre'], 'sun': data.get('sun'), 'textures': data['textures'], 'quads': data['quads']}
         with open(os.path.join(OUT, sid + '.json'), 'w') as f:
             json.dump(model, f, separators=(',', ':'))
-        out.append(dict(id=sid, name=name, snow=snow, spots=spots, **lit))
+        out.append(dict(id=sid, name=name, snowfall=snowfall, rain=rain, spots=spots, **lit))
         print('%-18s %5d faces, %2d textures, %d friend spots, %d kB' % (sid, len(data['quads']), len(data['textures']), len(spots), os.path.getsize(os.path.join(OUT, sid + '.json')) // 1024))
     with open(os.path.join(OUT, 'scenes.json'), 'w') as f:
         json.dump(out, f, indent=1)

@@ -33,7 +33,9 @@ public final class Scenes {
 
     public static final class Scene {
         public String id, name;
-        public boolean snow;
+        /** How likely it rains or snows there at a start of the game (0..1), and whether it does this time. */
+        public float rain, snowfall;
+        public boolean raining, snowing;
         /** The light on the players here (RGB): a dark place dims them so they do not look pasted in. */
         public int light = 0xFFFFFF;
         /** How the place is lit: daylight strength and colour, how strong lamps are, the darkest it gets. */
@@ -47,6 +49,41 @@ public final class Scenes {
         /** The sky behind everything, top and bottom. */
         public int skyTop = 0x5B8DD6, skyBottom = 0xBFD8F2;
         public final List<Spot> spots = new ArrayList<>();
+
+        /** This place under today's weather: the same place, lit for rain or snowfall when the dice say so. */
+        Scene withWeather(Random dice) {
+            Scene s = new Scene();
+            s.id = id; s.name = name; s.rain = rain; s.snowfall = snowfall;
+            s.light = light; s.day = day; s.glow = glow; s.ambient = ambient; s.sun = sun; s.shade = shade;
+            s.fog = fog; s.fogStart = fogStart; s.fogEnd = fogEnd; s.fogMax = fogMax; s.skyTop = skyTop; s.skyBottom = skyBottom;
+            s.spots.addAll(spots);
+            if (dice.nextFloat() < snowfall) {
+                s.snowing = true;
+                s.fog = blend(fog, 0xE4ECF6, 0.35f); s.fogStart = fogStart - 2f;
+            } else if (dice.nextFloat() < rain) {
+                s.raining = true;
+                s.day = day * 0.45f; s.ambient = ambient * 0.92f; s.glow = glow * 1.15f;
+                s.sun = blend(sun, 0xB8C4D4, 0.7f); s.shade = blend(shade, 0x8C9AB0, 0.6f);
+                s.fog = blend(fog, 0x8795A8, 0.75f); s.fogStart = fogStart - 3f; s.fogMax = Math.min(0.92f, fogMax + 0.1f);
+                s.skyTop = blend(skyTop, 0x4A5566, 0.8f); s.skyBottom = blend(skyBottom, 0x8A96A6, 0.8f);
+                s.light = blend(light, 0xB4BECC, 0.6f);
+            }
+            return s;
+        }
+    }
+
+    private static int blend(int a, int b, float t) {
+        int r = Math.round(((a >> 16) & 0xFF) + (((b >> 16) & 0xFF) - ((a >> 16) & 0xFF)) * t);
+        int g = Math.round(((a >> 8) & 0xFF) + (((b >> 8) & 0xFF) - ((a >> 8) & 0xFF)) * t);
+        int bl = Math.round((a & 0xFF) + ((b & 0xFF) - (a & 0xFF)) * t);
+        return (r << 16) | (g << 8) | bl;
+    }
+
+    private static final java.util.Map<String, Scene> TODAY = new java.util.HashMap<>();
+    private static final Random DICE = new Random();
+    /** The place as it is in this game session: the weather is rolled once per place and start. */
+    public static synchronized Scene today(Scene base) {
+        return TODAY.computeIfAbsent(base.id, k -> base.withWeather(DICE));
     }
 
     private static List<Scene> all;
@@ -66,7 +103,7 @@ public final class Scenes {
                         Scene s = new Scene();
                         s.id = o.get("id").getAsString();
                         s.name = o.get("name").getAsString();
-                        s.snow = o.has("snow") && o.get("snow").getAsBoolean();
+                        s.rain = num(o, "rain", 0f); s.snowfall = num(o, "snowfall", 0f);
                         s.light = hex(o, "light", s.light);
                         s.sun = hex(o, "sun", s.sun);
                         s.shade = hex(o, "shade", s.shade);

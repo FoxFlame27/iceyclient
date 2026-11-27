@@ -2,7 +2,8 @@
  {
   "id": "snowy_village",
   "name": "Snowy Village",
-  "snow": true,
+  "snowfall": 0.65,
+  "rain": 0.0,
   "spots": [
    [
     0,
@@ -18,11 +19,6 @@
     2,
     0,
     0
-   ],
-   [
-    -5,
-    0,
-    -2
    ]
   ],
   "day": 0.8,
@@ -41,32 +37,23 @@
  {
   "id": "plains_village",
   "name": "Plains Village",
-  "snow": false,
+  "snowfall": 0.0,
+  "rain": 0.3,
   "spots": [
-   [
-    0,
-    0,
-    -5
-   ],
    [
     -1,
     1,
-    -7
+    -5
    ],
    [
-    5,
-    1,
-    -7
+    0,
+    0,
+    -3
    ],
    [
-    10,
+    -5,
     1,
     -4
-   ],
-   [
-    7,
-    1,
-    -6
    ]
   ],
   "day": 0.8,
@@ -85,17 +72,23 @@
  {
   "id": "village_dusk",
   "name": "Village at Dusk",
-  "snow": false,
+  "snowfall": 0.0,
+  "rain": 0.2,
   "spots": [
    [
     0,
     -1,
-    5
+    6
    ],
    [
-    1,
+    -3,
     -1,
-    7
+    6
+   ],
+   [
+    -2,
+    -2,
+    11
    ]
   ],
   "day": 0.78,
@@ -114,22 +107,18 @@
  {
   "id": "savanna_village",
   "name": "Savanna Village",
-  "snow": false,
+  "snowfall": 0.0,
+  "rain": 0.0,
   "spots": [
    [
-    1,
+    0,
     0,
     -5
    ],
    [
     -1,
     0,
-    -6
-   ],
-   [
-    6,
-    0,
-    -13
+    -7
    ]
   ],
   "day": 0.8,
@@ -148,7 +137,8 @@
  {
   "id": "desert_village",
   "name": "Desert Village",
-  "snow": false,
+  "snowfall": 0.0,
+  "rain": 0.0,
   "spots": [],
   "day": 0.56,
   "sun": "ffe6b8",
@@ -166,14 +156,9 @@
  {
   "id": "taiga_village",
   "name": "Taiga Village at Night",
-  "snow": false,
-  "spots": [
-   [
-    -3,
-    2,
-    -4
-   ]
-  ],
+  "snowfall": 0.0,
+  "rain": 0.3,
+  "spots": [],
   "day": 0.42,
   "sun": "9fb6ff",
   "shade": "6478c0",
@@ -190,7 +175,8 @@
  {
   "id": "outpost",
   "name": "Pillager Outpost",
-  "snow": false,
+  "snowfall": 0.0,
+  "rain": 0.25,
   "spots": [
    [
     2,
@@ -200,17 +186,17 @@
    [
     2,
     0,
-    -3
-   ],
-   [
-    2,
-    0,
-    -7
-   ],
-   [
-    2,
-    0,
     1
+   ],
+   [
+    0,
+    0,
+    -2
+   ],
+   [
+    -1,
+    0,
+    -6
    ],
    [
     14,
@@ -232,39 +218,59 @@
   "light": "f6cdb8"
  },
  {
-  "id": "trial_chambers",
-  "name": "Trial Chambers",
-  "snow": false,
+  "id": "igloo",
+  "name": "Igloo at Dawn",
+  "snowfall": 0.7,
+  "rain": 0.0,
   "spots": [
    [
-    2,
-    1,
-    -1
-   ],
-   [
-    0,
-    2,
-    8
-   ],
-   [
     5,
-    2,
+    0,
+    4
+   ],
+   [
+    10,
+    1,
+    2
+   ],
+   [
+    -4,
+    0,
     0
    ],
    [
-    6,
-    2,
-    -2
+    10,
+    0,
+    11
    ]
   ],
+  "day": 0.66,
+  "sun": "ffb7c4",
+  "shade": "8f86c8",
+  "ambient": 0.56,
+  "glow": 1.2,
+  "fog": "c0a8d4",
+  "fogStart": 11,
+  "fogEnd": 40,
+  "fogMax": 0.74,
+  "skyTop": "2c2a62",
+  "skyBottom": "f0aebc",
+  "light": "e2d2ea"
+ },
+ {
+  "id": "trial_chambers",
+  "name": "Trial Chambers",
+  "snowfall": 0.0,
+  "rain": 0.0,
+  "spots": [],
   "day": 0.0,
   "sun": "ffffff",
   "shade": "ffe2c4",
-  "ambient": 0.34,
+  "ambient": 0.36,
   "glow": 1.35,
   "fog": "120d0c",
-  "fogStart": 10,
-  "fogEnd": 32,
+  "fogStart": 12,
+  "fogEnd": 36,
   "fogMax": 0.85,
   "skyTop": "0b0909",
   "skyBottom": "0b0909",
@@ -273,22 +279,23 @@
  {
   "id": "end_city",
   "name": "End City",
-  "snow": false,
+  "snowfall": 0.0,
+  "rain": 0.0,
   "spots": [
    [
-    9,
-    0,
-    -4
+    4,
+    -1,
+    -3
    ],
    [
-    12,
-    0,
+    6,
+    1,
+    -5
+   ],
+   [
+    6,
+    1,
     1
-   ],
-   [
-    13,
-    -2,
-    -2
    ]
   ],
   "day": 0.55,
@@ -307,16 +314,27 @@
  {
   "id": "bastion",
   "name": "Bastion Remnant",
-  "snow": false,
+  "snowfall": 0.0,
+  "rain": 0.0,
   "spots": [
    [
-    4,
+    -2,
     1,
-    -1
+    5
    ],
    [
-    2,
+    3,
     1,
+    4
+   ],
+   [
+    6,
+    0,
+    4
+   ],
+   [
+    3,
+    0,
     -1
    ]
   ],
@@ -326,8 +344,8 @@
   "ambient": 0.5,
   "glow": 1.4,
   "fog": "2a0c0b",
-  "fogStart": 9,
-  "fogEnd": 32,
+  "fogStart": 11,
+  "fogEnd": 36,
   "fogMax": 0.85,
   "skyTop": "190706",
   "skyBottom": "340e0b",
