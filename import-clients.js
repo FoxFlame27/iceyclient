@@ -73,6 +73,18 @@ module.exports = function createClientImporter(deps) {
     let servers = 0;
     try { servers = deps.readServers(path.join(gameDir, 'servers.dat')).length; } catch (_) {}
     if (!mods && !servers) return null;
+    // A snapshot, pre-release or release candidate is never imported: its
+    // mods have no stable builds and it would become an installation that
+    // breaks with the next snapshot. A folder that was last run as one
+    // only offers its server list.
+    if (mcVersion && !isRelease(mcVersion)) {
+      if (!servers) return null;
+      return {
+        id: idOf(gameDir), client, name: String(name || client), path: gameDir,
+        loader: null, mcVersion: null, mods: 0, servers, modsUsable: false, modsNote: null,
+        lastUsed: (info && info.lastUsed) || 0,
+      };
+    }
     let modsNote = null;
     if (mods) {
       if (loader && loader !== 'fabric' && loader !== 'vanilla') modsNote = 'loader';

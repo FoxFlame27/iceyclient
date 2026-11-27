@@ -297,6 +297,11 @@ function readInstallations() {
       log('info', 'Found version dirs: ' + dirNames.join(', '));
       for (const versionId of dirNames) {
         if (versionId.startsWith('fabric-loader')) continue;
+        // Releases only. The official launcher keeps every snapshot,
+        // pre-release and release candidate it ever ran ("26.1-pre-2",
+        // "26.2-snapshot-2"), and each of them used to turn up here as an
+        // installation of its own.
+        if (!/^\d+\.\d+(\.\d+)?$/.test(versionId)) continue;
         if (knownIds.has(versionId)) continue;
         if (deletedIds.has(versionId)) continue;
 
@@ -1623,6 +1628,11 @@ function launchMinecraft(installationId, opts = {}) {
     // Icey Shaders: the pack, Iris to run it, and the switch in Iris's config.
     try { await _applyIceyShaders(installGameDir, installation, settings.iceyShadersEnabled !== false); }   // on unless switched off
     catch (e) { log('warn', 'Icey Shaders: ' + e.message); }
+    // Every mod is in place now: make sure none of them refuses another.
+    if (installation.platform === 'fabric' || installation.fabricActive) {
+      try { await _repairLaunchConflicts(path.join(installGameDir, 'mods'), installation.version); }
+      catch (e) { log('warn', '[MODS] conflict repair: ' + e.message); }
+    }
 
     // Game args
     args.push('--username', launchUsername);
@@ -3402,7 +3412,7 @@ function _describeConflict(c, mods) {
 // resolves `conflict` with the other party AND leaves the fewest declared
 // conflicts overall — remaining ones are handled in later rounds. Returns
 // false when no candidate improves on the current state.
-async function _repickPackMod(id, mods, modsDir, mcVersion, packMods, conflict, limit) {
+async function _repickPackMod(id, mods, modsDir, mcVersion, packMods, conflict, limit, label) {
   const cur = mods.get(id);
   if (!cur) return false;
   const owner = packMods.get(cur.file);
@@ -3440,34 +3450,80 @@ async function _repickPackMod(id, mods, modsDir, mcVersion, packMods, conflict, 
   fs.copyFileSync(best.cacheFile, path.join(modsDir, best.cand.filename));
   packMods.delete(cur.file);
   packMods.set(best.cand.filename, { projectId: owner.projectId, versionId: best.cand.versionId, folder: 'mods' });
-  _mcConsole(`Java & Stuff: ${best.meta.name || id} ${cur.version} → ${best.meta.version} so it fits ${other.name || otherId}`, 'info');
+  _mcConsole(`${label || 'Java & Stuff'}: ${best.meta.name || id} ${cur.version} → ${best.meta.version} so it fits ${other.name || otherId}`, 'info');
+  log('info', `[MODS] ${best.meta.name || id} ${cur.version} → ${best.meta.version} so it fits ${other.name || otherId}`);
   return true;
 }
 
 // Resolve declared conflicts by re-picking pack-managed mods or, as a last
 // resort, dropping the one that can't be satisfied. Returns dropped files.
-async function _repairPackConflicts(modsDir, mcVersion, packMods) {
+async function _repairPackConflicts(modsDir, mcVersion, packMods, opts) {
+  const label = (opts && opts.label) || 'Java & Stuff';
+  const mayDrop = !opts || opts.drop !== false;
   const dropped = [];
+  const stuck = new Set();          // conflicts nothing could be done about (only when not dropping)
   for (let round = 0; round < 16; round++) {
     const mods = _scanMods(modsDir);
-    const conflicts = _findModConflicts(mods);
+    const conflicts = _findModConflicts(mods).filter(c => !stuck.has(c.kind + ':' + c.a + ':' + c.b));
     if (!conflicts.length) break;
     const c = conflicts[0];
     const A = mods.get(c.a), B = mods.get(c.b);
-    _mcConsole('Java & Stuff: ' + _describeConflict(c, mods) + ' — fixing', 'warn');
-    if (await _repickPackMod(c.b, mods, modsDir, mcVersion, packMods, c)) continue;
-    if (await _repickPackMod(c.a, mods, modsDir, mcVersion, packMods, c)) continue;
+    _mcConsole(label + ': ' + _describeConflict(c, mods) + ' — fixing', 'warn');
+    if (await _repickPackMod(c.b, mods, modsDir, mcVersion, packMods, c, 0, label)) continue;
+    if (await _repickPackMod(c.a, mods, modsDir, mcVersion, packMods, c, 0, label)) continue;
+    if (!mayDrop) {
+      stuck.add(c.kind + ':' + c.a + ':' + c.b);
+      _mcConsole(label + ': no other build of either mod fits — the game may refuse to start', 'warn');
+      continue;
+    }
     // Nothing fits. A hard dependency that can't be met means the dependent
     // can't run; for "breaks", remove whichever side the pack manages.
     const victims = c.kind === 'depends' ? [A] : [B, A];
     const victim = victims.find(m => m && packMods.has(m.file));
-    if (!victim) { _mcConsole('Java & Stuff: cannot fix this one (neither mod is managed by the pack) — the game may refuse to start', 'warn'); break; }
+    if (!victim) { _mcConsole(label + ': cannot fix this one (neither mod is managed by the pack) — the game may refuse to start', 'warn'); break; }
     try { fs.unlinkSync(path.join(modsDir, victim.file)); } catch (_) {}
     packMods.delete(victim.file);
     dropped.push(victim.file);
-    _mcConsole(`Java & Stuff: removed ${victim.name || victim.id} ${victim.version || ''} (no build compatible with the rest for MC ${mcVersion})`, 'warn');
+    _mcConsole(`${label}: removed ${victim.name || victim.id} ${victim.version || ''} (no build compatible with the rest for MC ${mcVersion})`, 'warn');
   }
   return dropped;
+}
+
+// Last stop before the game starts. Two mods that refuse each other
+// (Sodium 0.9.3 "breaks" Iris 1.11.7 on 26.3, which only runs with Sodium
+// 0.9.2) leave Fabric showing "Incompatible mods found!" instead of the
+// game. However the pair got there (the speed mods, Icey Shaders, mods
+// copied over from another installation, or a download by hand), the
+// mods in the argument are looked up on Modrinth by their hash and one of
+// them is swapped for a build of the same mod that the other accepts.
+// Mods that are not on Modrinth are left alone, and nothing is removed.
+async function _repairLaunchConflicts(modsDir, mcVersion) {
+  const mods = _scanMods(modsDir);
+  const conflicts = _findModConflicts(mods);
+  if (!conflicts.length) return;
+  const byHash = new Map();
+  for (const c of conflicts) {
+    for (const id of [c.a, c.b]) {
+      const m = mods.get(id);
+      if (!m || !m.file) continue;
+      try { byHash.set(_sha1File(path.join(modsDir, m.file)), m.file); } catch (_) {}
+    }
+  }
+  if (!byHash.size) return;
+  let found = {};
+  try {
+    found = await _modrinthPostJson('https://api.modrinth.com/v2/version_files', { hashes: [...byHash.keys()], algorithm: 'sha1' }) || {};
+  } catch (e) {
+    log('warn', '[MODS] conflict lookup failed: ' + e.message);
+    return;
+  }
+  const owned = new Map();
+  for (const [hash, file] of byHash) {
+    const v = found[hash];
+    if (v && v.project_id) owned.set(file, { projectId: v.project_id, versionId: v.id, folder: 'mods' });
+  }
+  if (!owned.size) return;
+  await _repairPackConflicts(modsDir, mcVersion, owned, { label: 'Mods', drop: false });
 }
 
 // Highest Java major any jar (or its nested jars) asks for ("java": ">=22").
@@ -4195,10 +4251,11 @@ async function _applyIceyShaders(gameDir, installation, enabled) {
   const modsDir = path.join(gameDir, 'mods');
   fs.mkdirSync(modsDir, { recursive: true });
   const have = fs.readdirSync(modsDir);
+  const q = (id) => `https://api.modrinth.com/v2/project/${id}/version?game_versions=${encodeURIComponent(JSON.stringify([installation.version]))}&loaders=${encodeURIComponent('["fabric"]')}`;
+  let iris = null;
   if (!have.some(f => /^iris.*\.jar$/i.test(f))) {
-    const q = (id) => `https://api.modrinth.com/v2/project/${id}/version?game_versions=${encodeURIComponent(JSON.stringify([installation.version]))}&loaders=${encodeURIComponent('["fabric"]')}`;
     const list = await httpGet(q('YL57xq9U'));
-    const iris = Array.isArray(list) ? list[0] : null;
+    iris = Array.isArray(list) ? (list.find(v => v.version_type === 'release') || list[0]) : null;
     const file = iris && (iris.files.find(f => f.primary) || iris.files[0]);
     if (!file) {
       _mcToast('Icey Shaders: Iris is not out for Minecraft ' + installation.version + ' yet', 'info');
@@ -4207,13 +4264,23 @@ async function _applyIceyShaders(gameDir, installation, enabled) {
     }
     await downloadFile(file.url, path.join(modsDir, file.filename));
     log('info', 'Icey Shaders: installed ' + file.filename);
-    if (!have.some(f => /^sodium.*\.jar$/i.test(f) && !/\.disabled$/i.test(f))) {
-      // The exact Sodium this Iris was built against, not simply the newest
-      const dep = (iris.dependencies || []).find(d => d.project_id === 'AANobbMI' && d.version_id);
-      const sv = dep ? await httpGet('https://api.modrinth.com/v2/version/' + dep.version_id) : (await httpGet(q('AANobbMI')) || [])[0];
-      const sf = sv && sv.files && (sv.files.find(f => f.primary) || sv.files[0]);
-      if (sf) { await downloadFile(sf.url, path.join(modsDir, sf.filename)); log('info', 'Icey Shaders: installed ' + sf.filename); }
+  }
+  // Iris does not start without Sodium. When none is there (the speed mods
+  // are off, or it was deleted), fetch the exact build this Iris was made
+  // against, not simply the newest: the newest often refuses this Iris.
+  const modsNow = _scanMods(modsDir);
+  if (modsNow.has('iris') && !modsNow.has('sodium')) {
+    if (!iris) {
+      try {
+        const hash = _sha1File(path.join(modsDir, modsNow.get('iris').file));
+        const found = await _modrinthPostJson('https://api.modrinth.com/v2/version_files', { hashes: [hash], algorithm: 'sha1' });
+        iris = (found && found[hash]) || null;
+      } catch (_) {}
     }
+    const dep = ((iris && iris.dependencies) || []).find(d => d.project_id === 'AANobbMI' && d.version_id);
+    const sv = dep ? await httpGet('https://api.modrinth.com/v2/version/' + dep.version_id) : (await httpGet(q('AANobbMI')) || [])[0];
+    const sf = sv && sv.files && (sv.files.find(f => f.primary) || sv.files[0]);
+    if (sf) { await downloadFile(sf.url, path.join(modsDir, sf.filename)); log('info', 'Icey Shaders: installed ' + sf.filename); }
   }
 
   // The pack itself, refreshed when the launcher that carries it changes
@@ -5440,8 +5507,13 @@ app.whenReady().then(() => {
     let byHash = {};
     try {
       send({ phase: 'lookup', done: 0, total, current: 'Asking Modrinth for ' + targetMc + ' builds…' });
-      matches = await _modrinthPostJson('https://api.modrinth.com/v2/version_files/update',
-        { hashes: jars.map(j => j.sha1), algorithm: 'sha1', loaders: ['fabric'], game_versions: [targetMc] }) || {};
+      // Stable builds first; a beta only for a mod that has nothing else for
+      // this version (the newest Sodium beta refused the current Iris).
+      const ask = (extra) => _modrinthPostJson('https://api.modrinth.com/v2/version_files/update',
+        Object.assign({ hashes: jars.map(j => j.sha1), algorithm: 'sha1', loaders: ['fabric'], game_versions: [targetMc] }, extra));
+      const stable = await ask({ version_types: ['release'] }) || {};
+      const any = await ask({}) || {};
+      matches = Object.assign({}, any, stable);
       // Which jars are on Modrinth at all (to word the failure correctly).
       try { byHash = await _modrinthPostJson('https://api.modrinth.com/v2/version_files', { hashes: jars.map(j => j.sha1), algorithm: 'sha1' }) || {}; } catch (_) {}
     } catch (e) {

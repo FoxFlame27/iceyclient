@@ -155,9 +155,56 @@
   color: var(--text-muted);
 }
 
-/* ── Import from another client ── */
-.setup-import-bits { display: flex; flex-wrap: wrap; gap: 2px 14px; }
-.setup-import-warn { margin-top: 3px; color: var(--text-muted); }
+/* ── Import from another client ──
+   One panel, one line per client: name and where it is from on the left,
+   what comes over on the right, the switch at the end. (It was a grid of
+   cards of different heights with three lines of small text each.) */
+.setup-imp {
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(8,14,28,0.5);
+  overflow: hidden;
+}
+.setup-imp-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 13px 18px;
+  min-height: 58px;
+  box-sizing: border-box;
+}
+label.setup-imp-row { cursor: pointer; }
+label.setup-imp-row:hover { background: rgba(255,255,255,0.04); }
+.setup-imp-row + .setup-imp-row { border-top: 1px solid rgba(255,255,255,0.08); }
+.setup-imp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.setup-imp-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.setup-imp-sub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.setup-imp-sub:empty { display: none; }
+.setup-imp-counts {
+  display: flex;
+  gap: 16px;
+  flex: none;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.setup-imp-row.off .setup-imp-main,
+.setup-imp-row.off .setup-imp-counts { opacity: 0.45; }
+.setup-imp-row.bad .setup-imp-name { color: var(--text-secondary); }
 .setup-import-actions {
   display: flex;
   align-items: center;
@@ -166,19 +213,6 @@
 }
 .setup-import-actions .options-btn { padding: 10px 20px !important; font-size: 13.5px; }
 .setup-import-progress { font-size: 13px; color: var(--text-secondary); margin-left: 6px; }
-.setup-import-result {
-  list-style: none;
-  margin: 14px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13.5px;
-  color: var(--text-secondary);
-}
-.setup-import-result li { display: flex; flex-wrap: wrap; gap: 2px 12px; }
-.setup-import-result b { color: var(--text-primary); font-weight: 600; }
-.setup-import-result .bad { color: var(--text-muted); font-size: 12.5px; }
 
 /* ── Finish ── */
 .setup-actions {

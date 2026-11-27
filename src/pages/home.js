@@ -1068,6 +1068,36 @@ function _deckRender() {
   _deckLayout();
 }
 
+// A server icon is 64 pixels, and the card shows it at about twice that.
+// Scaled smoothly it blurs; scaled with hard pixels at an uneven factor
+// (2.03x, on a card that sits on half a pixel) the pixels come out in
+// different widths. So each icon is redrawn once at 8x with hard edges,
+// and the browser scales that big picture down: sharp at any card size.
+const _deckCrispCache = new Map();
+function _deckCrisp(src) {
+  if (_deckCrispCache.has(src)) return _deckCrispCache.get(src);
+  const p = new Promise((resolve) => {
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const w = im.naturalWidth, h = im.naturalHeight;
+        if (!w || !h || w > 160 || h > 160) return resolve(src);
+        const k = Math.max(2, Math.round(512 / Math.max(w, h)));
+        const c = document.createElement('canvas');
+        c.width = w * k; c.height = h * k;
+        const g = c.getContext('2d');
+        g.imageSmoothingEnabled = false;
+        g.drawImage(im, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/png'));
+      } catch (_) { resolve(src); }       // a picture the page may not read back: left as it is
+    };
+    im.onerror = () => resolve(src);
+    im.src = src;
+  });
+  _deckCrispCache.set(src, p);
+  return p;
+}
+
 // Icon, colour and player count of one server card, from what is known so
 // far. The card takes its colour from the server's icon.
 function _deckPaintServer(card, it) {
@@ -1076,10 +1106,16 @@ function _deckPaintServer(card, it) {
   const own = !it.icon && it.key === _deckKey(FEATURED_SERVER.address);
   const src = it.icon || (own ? 'assets/icon.png' : DECK_DEFAULT_ICON);
   const icon = card.querySelector('.hq-card-icon');
-  if (icon && icon.getAttribute('src') !== src) {
+  if (icon && icon.dataset.src !== src) {
+    icon.dataset.src = src;
     icon.style.visibility = '';
     icon.style.imageRendering = own ? 'auto' : '';      // a big picture scaled down, not pixel art
     icon.src = src;
+    if (!own) _deckCrisp(src).then((big) => {
+      if (big === src || icon.dataset.src !== src) return;
+      icon.style.imageRendering = 'auto';
+      icon.src = big;
+    });
   }
   const art = card.querySelector('.hq-card-art');
   if (art) art.style.backgroundImage = `url("${src}")`;

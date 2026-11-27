@@ -350,18 +350,22 @@ let _setupImport = { scan: null, off: new Set(), accounts: true, busy: false, re
 
 function _setupImportRow(s) {
   const on = !_setupImport.off.has(s.id);
-  const bits = [`<span data-no-i18n>${_setupEsc(s.client)}${s.mcVersion ? ' · ' + _setupEsc(s.mcVersion) : ''}</span>`];
-  if (s.mods) bits.push(`<span>Mods: ${s.mods}</span>`);
-  if (s.servers) bits.push(`<span>Servers: ${s.servers}</span>`);
+  // One line under the name: where it is from and what it runs, or why
+  // only its servers can come along.
+  const from = [s.client !== s.name ? s.client : '', s.modsUsable && s.mcVersion ? s.mcVersion : ''].filter(Boolean).map(_setupEsc).join(' · ');
   const note = s.modsNote === 'loader' ? 'These mods are not for Fabric, so only the servers come over'
     : s.modsNote === 'version' ? 'The Minecraft version of these mods is unknown, so only the servers come over' : '';
+  const sub = note ? `<span>${note}</span>` : `<span data-no-i18n>${from}</span>`;
+  const counts = [];
+  if (s.mods && s.modsUsable) counts.push(`<span>Mods: ${s.mods}</span>`);
+  if (s.servers) counts.push(`<span>Servers: ${s.servers}</span>`);
   return `
-    <label class="options-toggle-card ${on ? 'on' : 'off'}">
-      <div class="options-toggle-body">
-        <div class="options-toggle-name" data-no-i18n>${_setupEsc(s.name)}</div>
-        <div class="options-toggle-desc setup-import-bits">${bits.join('')}</div>
-        ${note ? `<div class="options-toggle-desc setup-import-warn">${note}</div>` : ''}
-      </div>
+    <label class="setup-imp-row ${on ? 'on' : 'off'}">
+      <span class="setup-imp-main">
+        <span class="setup-imp-name" data-no-i18n>${_setupEsc(s.name)}</span>
+        <span class="setup-imp-sub">${sub}</span>
+      </span>
+      <span class="setup-imp-counts">${counts.join('')}</span>
       <span class="toggle">
         <input type="checkbox" ${on ? 'checked' : ''} onchange="_setupImportToggle('${s.id}', this)">
         <span class="toggle-slider"></span>
@@ -380,11 +384,12 @@ function _setupImportHtml() {
   const rows = sources.map(_setupImportRow);
   if (accounts.length) {
     rows.push(`
-    <label class="options-toggle-card ${st.accounts ? 'on' : 'off'}">
-      <div class="options-toggle-body">
-        <div class="options-toggle-name">Accounts</div>
-        <div class="options-toggle-desc setup-import-bits"><span>From the Minecraft Launcher</span><span data-no-i18n>${accounts.map(_setupEsc).join(', ')}</span></div>
-      </div>
+    <label class="setup-imp-row ${st.accounts ? 'on' : 'off'}">
+      <span class="setup-imp-main">
+        <span class="setup-imp-name">Accounts</span>
+        <span class="setup-imp-sub"><span>From the Minecraft Launcher</span></span>
+      </span>
+      <span class="setup-imp-counts"><span data-no-i18n>${accounts.map(_setupEsc).join(', ')}</span></span>
       <span class="toggle">
         <input type="checkbox" ${st.accounts ? 'checked' : ''} onchange="_setupImportToggle('', this)">
         <span class="toggle-slider"></span>
@@ -393,7 +398,7 @@ function _setupImportHtml() {
   }
   const off = st.busy ? 'disabled' : '';
   return `
-    ${rows.length ? `<div class="options-toggle-row setup-import-rows">${rows.join('')}</div>`
+    ${rows.length ? `<div class="setup-imp">${rows.join('')}</div>`
       : '<div class="setup-account-note">No other Minecraft client was found on this computer.</div>'}
     <div class="setup-import-actions">
       ${rows.length ? `<button class="options-btn options-btn-primary" onclick="_setupImportRun()" ${off}>Import</button>` : ''}
@@ -403,25 +408,32 @@ function _setupImportHtml() {
 }
 
 function _setupImportResultHtml(r) {
-  const lines = [];
+  const rows = [];
+  const row = (name, sub, counts, bad) => rows.push(`
+    <div class="setup-imp-row${bad ? ' bad' : ''}">
+      <span class="setup-imp-main">
+        <span class="setup-imp-name">${name}</span>
+        ${sub ? `<span class="setup-imp-sub">${sub}</span>` : ''}
+      </span>
+      <span class="setup-imp-counts">${counts.join('')}</span>
+    </div>`);
   for (const x of r.results || []) {
-    const name = `<b data-no-i18n>${_setupEsc(x.name)}</b>`;
-    if (x.error) { lines.push(`<li class="bad">${name} <span data-no-i18n>${_setupEsc(x.error)}</span></li>`); continue; }
-    const bits = [];
-    if (x.installation) bits.push('<span>New installation</span>');
-    if (x.mods) bits.push(`<span>Mods: ${x.mods.copied}</span>`);
-    bits.push(`<span>New servers: ${x.servers}</span>`);
-    lines.push(`<li>${name} <span class="setup-import-bits">${bits.join('')}</span></li>`);
+    const name = `<span data-no-i18n>${_setupEsc(x.name)}</span>`;
+    if (x.error) { row(name, `<span data-no-i18n>${_setupEsc(x.error)}</span>`, [], true); continue; }
+    const counts = [];
+    if (x.mods) counts.push(`<span>Mods: ${x.mods.copied}</span>`);
+    counts.push(`<span>New servers: ${x.servers}</span>`);
     const failed = (x.mods && x.mods.failed) || [];
-    if (failed.length) {
-      lines.push(`<li class="bad"><span>Left out, no version for this Minecraft:</span> <span data-no-i18n>${failed.map(f => _setupEsc(f.name)).join(', ')}</span></li>`);
-    }
+    const sub = failed.length
+      ? `<span>Left out, no version for this Minecraft:</span> <span data-no-i18n>${failed.map(f => _setupEsc(f.name)).join(', ')}</span>`
+      : (x.installation ? '<span>New installation</span>' : '');
+    row(name, sub, counts, false);
   }
   if (r.accounts && !r.accounts.error) {
-    lines.push(`<li><b>Accounts</b> <span class="setup-import-bits"><span>${r.accounts.imported ? 'Added: ' + r.accounts.imported : 'Already here'}</span></span></li>`);
+    row('<span>Accounts</span>', '', [`<span>${r.accounts.imported ? 'Added: ' + r.accounts.imported : 'Already here'}</span>`], false);
   }
   return `
-    <ul class="setup-import-result">${lines.join('')}</ul>
+    <div class="setup-imp">${rows.join('')}</div>
     <div class="setup-account-note">Done. Imported installations are on the Installations page.</div>`;
 }
 
@@ -438,7 +450,7 @@ async function _setupImportScan() {
 }
 
 function _setupImportToggle(id, input) {
-  const card = input.closest('.options-toggle-card');
+  const card = input.closest('.setup-imp-row');
   if (card) { card.classList.toggle('on', input.checked); card.classList.toggle('off', !input.checked); }
   if (!id) { _setupImport.accounts = !!input.checked; return; }
   if (input.checked) _setupImport.off.delete(id); else _setupImport.off.add(id);
