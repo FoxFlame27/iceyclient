@@ -113,6 +113,7 @@ public class HudManager {
         modules.add(new FpsBoostCloudsModule());
         modules.add(new FpsBoostShadowsModule());
         modules.add(new FpsBoostGraphicsModule());
+        modules.add(new FpsShaderGuardModule());
         modules.add(new NetDnsCacheModule());
         modules.add(new NetIpv4Module());
         modules.add(new NetNoDelayModule());

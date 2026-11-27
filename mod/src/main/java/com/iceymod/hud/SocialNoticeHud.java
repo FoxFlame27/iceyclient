@@ -47,6 +47,14 @@ public final class SocialNoticeHud {
 
     private SocialNoticeHud() {}
 
+    /** A notice from the mod itself (same box as the ones the launcher sends). */
+    public static void show(String noticeTitle, String noticeText) {
+        title = noticeTitle == null ? "" : noticeTitle;
+        text = noticeText == null ? "" : noticeText;
+        shownAt = System.currentTimeMillis();
+        shownIsMessage = false;
+    }
+
     public static void register() {
         HudHook.register("social-notice", (g, tickDelta) -> {
             try { render(g); }

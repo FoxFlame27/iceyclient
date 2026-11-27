@@ -1664,12 +1664,20 @@ function launchMinecraft(installationId, opts = {}) {
 
     try {
       const launchId = ++mcLaunchCounter;
+      _preferFastGpu(javaPath);
       const proc = spawn(javaPath, args, {
         cwd: installGameDir,
         stdio: 'pipe',
         detached: false,
         windowsHide: false
       });
+      // The game goes ahead of whatever else is running (a browser, a
+      // recorder): fewer stutters when the processor is busy. Windows lets
+      // any program raise itself this far; macOS and Linux only allow it
+      // to an administrator, so there it is not attempted.
+      if (process.platform === 'win32') {
+        try { os.setPriority(proc.pid, os.constants.priority.PRIORITY_ABOVE_NORMAL); } catch (_) {}
+      }
       // Ring buffer of the last ~120 output lines per process — used to show
       // a crash-log modal if MC exits with a non-zero code.
       const tail = [];
@@ -2658,7 +2666,7 @@ async function _resolveModForMc(projectIdOrSlug, mcVersion, loader) {
         result = {
           projectId: v.project_id, slug, title,
           filename: file.filename, url: file.url, sha1: file.hashes?.sha1 || null,
-          versionId: v.id, versionNumber: v.version_number,
+          versionId: v.id, versionNumber: v.version_number, versionType: v.version_type,
           dependencies: (v.dependencies || []).map(d => ({ project_id: d.project_id, dependency_type: d.dependency_type })),
         };
       }
@@ -2838,6 +2846,13 @@ const BUNDLED_MOD_REGISTRY = [
   { key: 'perf', label: 'Entity Culling',  slug: 'entityculling',   dest: 'IceyPerf-entityculling.jar',   stale: /^$/, bundledDir: null },
   { key: 'perf', label: 'Krypton',         slug: 'krypton',         dest: 'IceyPerf-krypton.jar',         stale: /^$/, bundledDir: null },
   { key: 'perf', label: 'Dynamic FPS',     slug: 'dynamic-fps',     dest: 'IceyPerf-dynamic-fps.jar',     stale: /^$/, bundledDir: null },
+  // Added 2026-11-27. More Culling skips block faces and leaves nobody can
+  // see, BadOptimizations drops work the game repeats every frame, and
+  // ScalableLux relights chunks on several cores. ScalableLux only goes in
+  // as a stable release: a test build of a lighting engine is not worth it.
+  { key: 'perf', label: 'More Culling',     slug: 'moreculling',      dest: 'IceyPerf-moreculling.jar',      stale: /^$/, bundledDir: null },
+  { key: 'perf', label: 'BadOptimizations', slug: 'badoptimizations', dest: 'IceyPerf-badoptimizations.jar', stale: /^$/, bundledDir: null },
+  { key: 'perf', label: 'ScalableLux',      slug: 'scalablelux',      dest: 'IceyPerf-scalablelux.jar',      stale: /^$/, bundledDir: null, stableOnly: true },
 ];
 
 function _bundledModDirs(sub) {
@@ -2904,6 +2919,10 @@ async function _ensureBundledMods(installGameDir, mcVersion, enabledKeys) {
     }
     if (!res) {
       _mcConsole(`${item.label} has no build for Minecraft ${mcVersion} yet — skipped`, 'warn');
+      continue;
+    }
+    if (item.entry && item.entry.stableOnly && res.versionType !== 'release') {
+      log('info', `[MODS] ${item.label} has no stable build for Minecraft ${mcVersion} yet — skipped`);
       continue;
     }
     if (res.projectId && seenProjects.has(res.projectId)) continue;
@@ -3523,7 +3542,98 @@ async function _repairLaunchConflicts(modsDir, mcVersion) {
     if (v && v.project_id) owned.set(file, { projectId: v.project_id, versionId: v.id, folder: 'mods' });
   }
   if (!owned.size) return;
-  await _repairPackConflicts(modsDir, mcVersion, owned, { label: 'Mods', drop: false });
+  await _solveModConflicts(modsDir, mcVersion, mods, owned);
+}
+
+// Finds the cheapest set of changes that leaves no declared conflict:
+// swapping a mod for another build of itself, or leaving out a jar the
+// launcher added on its own (Icey*.jar) that nothing else needs. It
+// searches, because one swap can trade a conflict for another: on 26.3
+// Iris 1.11.7 only takes Sodium 0.9.2, and More Culling 1.9.2 refuses
+// that Sodium, so More Culling has to move as well. Each mod moves at most
+// once, at most four changes deep; the player's own mods are swapped when
+// needed but never removed.
+async function _solveModConflicts(modsDir, mcVersion, mods, owned) {
+  const candCache = new Map();
+  const candidatesFor = async (rec) => {
+    if (candCache.has(rec.id)) return candCache.get(rec.id);
+    const out = [];
+    const owner = owned.get(rec.file);
+    if (owner) {
+      let list = [];
+      try { list = await _listModVersionsForMc(owner.projectId, mcVersion, 'fabric'); } catch (_) {}
+      const rank = (v) => v.versionType === 'release' ? 0 : (v.versionType === 'beta' ? 1 : 2);
+      list = list.slice().sort((a, b) => rank(a) - rank(b));        // stable builds first, newest first within each
+      for (const cand of list.slice(0, 12)) {
+        if (cand.versionId && cand.versionId === owner.versionId) continue;
+        try {
+          const cacheFile = await _ensureCachedFile(cand);
+          const meta = _readFabricModMeta(cacheFile);
+          if (meta && meta.id === rec.id && meta.version && meta.version !== rec.version) {
+            out.push({ rec: { ...meta, file: cand.filename }, cand, cacheFile, stable: rank(cand) === 0 });
+          }
+        } catch (e) { log('warn', '[MODS] candidate ' + cand.filename + ': ' + e.message); }
+      }
+    }
+    candCache.set(rec.id, out);
+    return out;
+  };
+  const neededBy = (state, rec) => {
+    const ids = [rec.id, ...(rec.provides || [])];
+    for (const m of new Set(state.values())) {
+      if (m !== rec && ids.some(id => (m.depends || {})[id] !== undefined)) return true;
+    }
+    return false;
+  };
+  // What a change costs: 1 for a stable build, 6 for a test build, 3 for
+  // leaving one of the launcher's own mods out. A beta is the last resort
+  // on purpose: what a beta declares about other mods is often not true
+  // yet (Sodium 0.9.3-beta.3 does not say it breaks Iris 1.11.7, the
+  // finished 0.9.3 does), so "fits on paper" can still crash the game.
+  let best = null;
+  const search = async (state, steps, cost, depth) => {
+    if (best && cost >= best.cost) return;
+    const conflicts = _findModConflicts(state);
+    if (!conflicts.length) { best = { cost, steps }; return; }
+    if (depth >= 4) return;
+    const c = conflicts[0];
+    for (const id of [c.b, c.a]) {
+      const cur = state.get(id), other = state.get(id === c.a ? c.b : c.a);
+      if (!cur || !other || steps.some(st => st.id === cur.id)) continue;
+      const cands = await candidatesFor(cur);
+      for (let i = 0; i < cands.length; i++) {
+        const k = cands[i];
+        if (!_pairFits(k.rec, other)) continue;
+        await search(_withReplaced(state, cur, k.rec), steps.concat({ id: cur.id, from: cur, to: k }), cost + 1 + (k.stable ? 0 : 5) + i * 0.01, depth + 1);
+      }
+      if (/^Icey/.test(cur.file) && !neededBy(state, cur)) {
+        const without = new Map([...state].filter(([, v]) => v !== cur));
+        await search(without, steps.concat({ id: cur.id, from: cur, to: null }), cost + 3, depth + 1);
+      }
+    }
+  };
+  await search(mods, [], 0, 0);
+  if (!best) {
+    for (const c of _findModConflicts(mods)) {
+      _mcConsole('Mods: ' + _describeConflict(c, mods) + ' — no other build fits, the game may refuse to start', 'warn');
+      log('warn', '[MODS] unsolved: ' + _describeConflict(c, mods));
+    }
+    return;
+  }
+  for (const st of best.steps) {
+    const name = st.from.name || st.id;
+    try { fs.unlinkSync(path.join(modsDir, st.from.file)); } catch (_) {}
+    if (st.to) {
+      // Under the build's own file name: the launcher then sees the mod as
+      // provided and does not put its newest build back at the next start.
+      fs.copyFileSync(st.to.cacheFile, path.join(modsDir, st.to.cand.filename));
+      _mcConsole(`Mods: ${name} ${st.from.version} → ${st.to.rec.version}, the build that fits the other mods`, 'info');
+      log('info', `[MODS] ${name} ${st.from.version} → ${st.to.rec.version} (fits the other mods)`);
+    } else {
+      _mcConsole(`Mods: left out ${name} ${st.from.version || ''}: no build of it fits the other mods on Minecraft ${mcVersion}`, 'warn');
+      log('info', `[MODS] left out ${st.from.file}: no build fits on ${mcVersion}`);
+    }
+  }
 }
 
 // Highest Java major any jar (or its nested jars) asks for ("java": ">=22").
@@ -3906,6 +4016,33 @@ function _compareVersions(a, b) {
   return 0;
 }
 
+// "0.9.3-beta.1" → "beta.1"; null for a plain release. Build metadata
+// after "+" is not part of it ("2.10.2+1.21.11-fabric" is a release).
+function _prereleaseOf(v) {
+  const main = String(v || '').trim().split('+')[0];
+  const i = main.indexOf('-');
+  return i < 0 ? null : main.slice(i + 1);
+}
+// Like _compareVersions, but a pre-release sorts below its release, as the
+// Fabric loader does it: 0.9.3-beta.1 < 0.9.3. Without this a rule such as
+// "breaks sodium <=0.9.3-beta.1" also matched 0.9.3 itself.
+function _compareWithPre(aStr, bStr) {
+  const c = _compareVersions(_parseVersion(aStr), _parseVersion(bStr));
+  if (c !== 0) return c;
+  const pa = _prereleaseOf(aStr), pb = _prereleaseOf(bStr);
+  if (pa === null || pb === null) return pa === pb ? 0 : (pa === null ? 1 : -1);
+  const xa = pa.split('.'), xb = pb.split('.');
+  for (let i = 0; i < Math.max(xa.length, xb.length); i++) {
+    if (xa[i] === undefined) return -1;
+    if (xb[i] === undefined) return 1;
+    const na = /^\d+$/.test(xa[i]), nb = /^\d+$/.test(xb[i]);
+    if (na && nb) { if (Number(xa[i]) !== Number(xb[i])) return Number(xa[i]) < Number(xb[i]) ? -1 : 1; }
+    else if (na !== nb) return na ? -1 : 1;
+    else if (xa[i] !== xb[i]) return xa[i] < xb[i] ? -1 : 1;
+  }
+  return 0;
+}
+
 function _satisfiesVersionRange(version, range) {
   if (!range || range === '*') return true;
   // Handle OR conditions (||)
@@ -3950,9 +4087,7 @@ function _satisfiesVersionRange(version, range) {
       else if (cond.startsWith('>')) { op = '>'; verStr = cond.slice(1); }
       else if (cond.startsWith('<')) { op = '<'; verStr = cond.slice(1); }
       else if (cond.startsWith('=')) { op = '='; verStr = cond.slice(1); }
-      const ver = _parseVersion(verStr);
-      const v = _parseVersion(version);
-      const cmp = _compareVersions(v, ver);
+      const cmp = _compareWithPre(version, verStr);
       if (op === '>=' && cmp < 0) { allMet = false; break; }
       if (op === '<=' && cmp > 0) { allMet = false; break; }
       if (op === '>' && cmp <= 0) { allMet = false; break; }
@@ -4236,6 +4371,7 @@ async function _applyIceyShaders(gameDir, installation, enabled) {
   const PACK = 'IceyShaders';
   const isFabric = installation && (installation.platform === 'fabric' || installation.fabricActive);
   if (!enabled || !isFabric) {
+    try { fs.unlinkSync(path.join(gameDir, 'config', '.icey-shaders-on')); } catch (_) {}    // switching the setting back on applies again
     _irisConfig(gameDir, (m) => {
       if (m.get('shaderPack') !== PACK || m.get('enableShaders') === 'false') return false;
       m.set('enableShaders', 'false');
@@ -4295,12 +4431,18 @@ async function _applyIceyShaders(gameDir, installation, enabled) {
     fs.writeFileSync(stampPath, stamp);
     log('info', 'Icey Shaders: pack written');
   }
-  _irisConfig(gameDir, (m) => {
-    if (m.get('shaderPack') === PACK && m.get('enableShaders') === 'true') return false;
-    m.set('shaderPack', PACK);
-    m.set('enableShaders', 'true');
-    return true;
-  });
+  // Switched on once. After that the game decides: N turns the shaders off
+  // and they stay off (this used to switch them back on at every start),
+  // and the mod's shader guard can turn them off on a slow graphics card.
+  const onceFile = path.join(gameDir, 'config', '.icey-shaders-on');
+  if (!fs.existsSync(onceFile)) {
+    _irisConfig(gameDir, (m) => {
+      m.set('shaderPack', PACK);
+      m.set('enableShaders', 'true');
+      return true;
+    });
+    try { fs.mkdirSync(path.dirname(onceFile), { recursive: true }); fs.writeFileSync(onceFile, stamp); } catch (_) {}
+  }
 }
 
 // ── IceyGlass: the mod's glass buttons, above the player's own packs ──
@@ -5987,6 +6129,13 @@ app.whenReady().then(() => {
     }
   });
 
+  // In-app update: where it stands, and "install now".
+  ipcMain.handle('update-state', () => _updatePublic());
+  ipcMain.handle('update-install', () => _updateInstall(true));
+  setTimeout(() => { _updateRun().catch((e) => log('warn', '[UPDATE] ' + e.message)); }, 4000);
+  // A launcher that stays open for days still finds the next version.
+  setInterval(() => { _updateRun().catch(() => {}); }, 30 * 60 * 1000);
+
   // Get data directory
   ipcMain.handle('get-data-dir', () => DATA_DIR);
 
@@ -6846,8 +6995,250 @@ app.whenReady().then(() => {
   });
 });
 
+// ── The fast graphics card, on a laptop that has two ──────────────────
+// A Windows laptop with built-in graphics next to an NVIDIA or AMD card
+// decides per program which one draws it, and for a Java that did not
+// come with the official launcher it usually picks the slow, built-in
+// one: Minecraft then runs at a third of the frame rate the machine can
+// do. Windows keeps that choice per program under "Graphics settings";
+// this writes "High performance" there for the Java that starts the game.
+// A choice the player made there themselves is left alone.
+const _gpuPrefDone = new Set();
+function _preferFastGpu(javaPath) {
+  if (process.platform !== 'win32') return;
+  try {
+    if (!javaPath || !path.isAbsolute(javaPath)) return;
+    const dir = path.dirname(javaPath);
+    const key = 'HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences';
+    for (const exe of ['javaw.exe', 'java.exe']) {
+      const full = path.join(dir, exe);
+      if (_gpuPrefDone.has(full) || !fs.existsSync(full)) continue;
+      _gpuPrefDone.add(full);
+      let has = false;
+      try { execFileSync('reg', ['query', key, '/v', full], { stdio: 'ignore', windowsHide: true, timeout: 4000 }); has = true; } catch (_) {}
+      if (has) continue;
+      execFileSync('reg', ['add', key, '/v', full, '/t', 'REG_SZ', '/d', 'GpuPreference=2;', '/f'], { stdio: 'ignore', windowsHide: true, timeout: 4000 });
+      log('info', '[LAUNCH] Graphics preference set to high performance for ' + full);
+    }
+  } catch (e) {
+    log('warn', '[LAUNCH] graphics preference: ' + e.message);
+  }
+}
+
+// ── In-app update ──────────────────────────────────────────────────────
+// A new version used to mean going to the website and installing by hand.
+// Now the launcher downloads the installer of the newest release in the
+// background, checks it against the checksum GitHub publishes for it, and
+// swaps itself: on Windows by running the installer silently, on macOS by
+// copying the app out of the disk image over this one once it has quit.
+// "Restart to update" does it at once; otherwise it happens when the
+// launcher is quit, so the next start is the new version. Linux (an .rpm
+// needs the system password) and an app that cannot write to its own
+// folder keep the old way: a note with the version number.
+const UPDATE_REPO = 'FoxFlame27/iceyclient';
+const _update = { state: 'idle', latest: null, percent: 0, file: null, error: null, installing: false };
+
+function _updatePublic() {
+  return { state: _update.state, latest: _update.latest, percent: _update.percent, error: _update.error, current: app.getVersion() };
+}
+function _updateSet(patch) {
+  Object.assign(_update, patch);
+  broadcast('update-state', _updatePublic());
+}
+function _updateNewer(a, b) {
+  const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  }
+  return false;
+}
+// The app this process runs from, when it is one this process may replace.
+function _updateTarget() {
+  if (!app.isPackaged) return null;
+  if (process.platform === 'win32') return { kind: 'win' };
+  if (process.platform !== 'darwin') return null;
+  const bundle = path.resolve(process.execPath, '..', '..', '..');
+  if (!/\.app$/.test(bundle)) return null;
+  // Started from the disk image, or from the random folder macOS runs a
+  // quarantined app in: there is nothing lasting to replace.
+  if (bundle.startsWith('/Volumes/') || bundle.includes('/AppTranslocation/')) return null;
+  try { fs.accessSync(bundle, fs.constants.W_OK); fs.accessSync(path.dirname(bundle), fs.constants.W_OK); } catch (_) { return null; }
+  return { kind: 'mac', bundle };
+}
+function _updateAsset(release) {
+  let want = null;
+  if (process.platform === 'win32') want = /^Icey\.Client\.Setup\.exe$/i;
+  else if (process.platform === 'darwin') {
+    const arm = process.arch === 'arm64' || app.runningUnderARM64Translation;
+    want = arm ? /^Icey\.Client-arm64\.dmg$/i : /^Icey\.Client-x64\.dmg$/i;
+  }
+  if (!want) return null;
+  const a = (release.assets || []).find(x => want.test(x.name || ''));
+  if (!a || !a.size || !String(a.browser_download_url || '').startsWith('https://github.com/' + UPDATE_REPO + '/releases/download/')) return null;
+  const m = /^sha256:([0-9a-f]{64})$/i.exec(a.digest || '');
+  return { name: a.name, url: a.browser_download_url, size: a.size, sha256: m ? m[1].toLowerCase() : null };
+}
+function _updateSha256(file) {
+  return new Promise((resolve, reject) => {
+    const h = crypto.createHash('sha256');
+    fs.createReadStream(file).on('data', d => h.update(d)).on('end', () => resolve(h.digest('hex'))).on('error', reject);
+  });
+}
+function _updateDownload(url, dest, size, onPercent) {
+  return new Promise((resolve, reject) => {
+    const part = dest + '.part';
+    const go = (u, hops) => {
+      if (hops > 6) return reject(new Error('Too many redirects'));
+      const req = https.get(u, { headers: { 'User-Agent': 'IceyClient-Updater' } }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          const next = new URL(res.headers.location, u).toString();
+          if (!next.startsWith('https://')) return reject(new Error('Insecure redirect'));
+          return go(next, hops + 1);
+        }
+        if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
+        const out = fs.createWriteStream(part);
+        let got = 0, last = -1;
+        res.on('data', (c) => {
+          got += c.length;
+          const pct = Math.min(99, Math.floor(got / size * 100));
+          if (pct !== last) { last = pct; onPercent(pct); }
+        });
+        res.pipe(out);
+        out.on('finish', () => out.close(() => {
+          if (got !== size) { try { fs.unlinkSync(part); } catch (_) {} return reject(new Error('Download ended early')); }
+          try { fs.renameSync(part, dest); resolve(dest); } catch (e) { reject(e); }
+        }));
+        const fail = (e) => { try { out.destroy(); fs.unlinkSync(part); } catch (_) {} reject(e); };
+        res.on('error', fail); out.on('error', fail);
+      });
+      req.on('error', reject);
+      req.setTimeout(30000, () => req.destroy(new Error('timeout')));
+    };
+    go(url, 0);
+  });
+}
+let _updateBusy = false;
+async function _updateRun() {
+  if (_updateBusy || _update.installing || _update.state === 'ready') return;
+  _updateBusy = true;
+  try {
+    const release = await _fetchJson('https://api.github.com/repos/' + UPDATE_REPO + '/releases/latest');
+    const latest = String((release && release.tag_name) || '').replace(/^v/, '');
+    const dir = path.join(DATA_DIR, 'updates');
+    if (!latest || !_updateNewer(latest, app.getVersion())) {
+      // Up to date: the installer that got us here is not needed any more.
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
+      _updateSet({ state: 'none', latest: latest || null });
+      return;
+    }
+    const target = _updateTarget();
+    if (!target) { _updateSet({ state: app.isPackaged ? 'manual' : 'none', latest }); return; }
+    // A release appears before its installers have finished uploading:
+    // nothing to fetch yet, the next check finds it.
+    const asset = _updateAsset(release);
+    if (!asset) { _updateSet({ state: 'none', latest }); return; }
+    const file = path.join(dir, latest, asset.name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    // Older downloads make room for this one.
+    for (const d of fs.readdirSync(dir)) if (d !== latest) { try { fs.rmSync(path.join(dir, d), { recursive: true, force: true }); } catch (_) {} }
+    let have = false;
+    try { have = fs.statSync(file).size === asset.size; } catch (_) {}
+    if (!have) {
+      _updateSet({ state: 'downloading', latest, percent: 0, error: null });
+      log('info', '[UPDATE] downloading ' + asset.name + ' of v' + latest);
+      await _updateDownload(asset.url, file, asset.size, (pct) => _updateSet({ percent: pct }));
+    }
+    if (asset.sha256) {
+      const sum = await _updateSha256(file);
+      if (sum !== asset.sha256) {
+        try { fs.unlinkSync(file); } catch (_) {}
+        throw new Error('the download does not match its checksum');
+      }
+    }
+    log('info', '[UPDATE] v' + latest + ' is ready to install');
+    _updateSet({ state: 'ready', latest, percent: 100, file, error: null });
+  } catch (e) {
+    log('warn', '[UPDATE] ' + e.message);
+    // Not shown as an error: the next check (in half an hour, or at the
+    // next start) tries again.
+    _updateSet({ state: 'idle', error: e.message });
+  } finally {
+    _updateBusy = false;
+  }
+}
+const _UPDATE_MAC_SCRIPT = `#!/bin/sh
+# Icey Client: swaps the app for the one inside a downloaded disk image.
+# Arguments: pid of the running app, the .dmg, the .app to replace, 1 to start it again, log file.
+PID="$1"; DMG="$2"; APP="$3"; RELAUNCH="$4"; LOG="$5"
+exec >>"$LOG" 2>&1
+echo "$(date) update from $DMG"
+i=0
+while kill -0 "$PID" 2>/dev/null && [ $i -lt 150 ]; do sleep 0.2; i=$((i+1)); done
+MNT=$(mktemp -d /tmp/icey-update.XXXXXX)
+NEW="$APP.new"; OLD="$APP.old"
+rm -rf "$NEW" "$OLD"
+if hdiutil attach "$DMG" -nobrowse -readonly -noautoopen -mountpoint "$MNT" >/dev/null; then
+  SRC=$(ls -d "$MNT"/*.app 2>/dev/null | head -1)
+  if [ -n "$SRC" ] && ditto "$SRC" "$NEW"; then
+    xattr -dr com.apple.quarantine "$NEW" 2>/dev/null
+    if pgrep -f "$APP/Contents/MacOS/" >/dev/null 2>&1; then
+      # Started again while this was copying: taking the app away from
+      # under it would break it. The next quit installs the update.
+      echo "$(date) the app is running again, left for the next quit"
+    elif mv "$APP" "$OLD" && mv "$NEW" "$APP"; then
+      rm -rf "$OLD"; touch "$APP"; echo "$(date) swapped"
+    else
+      echo "$(date) swap failed"
+      [ -d "$OLD" ] && [ ! -d "$APP" ] && mv "$OLD" "$APP"
+    fi
+  else
+    echo "$(date) copy failed"
+  fi
+  rm -rf "$NEW"
+  hdiutil detach "$MNT" -quiet || hdiutil detach "$MNT" -force -quiet
+else
+  echo "$(date) could not open the disk image"
+fi
+rmdir "$MNT" 2>/dev/null
+[ "$RELAUNCH" = "1" ] && open "$APP"
+exit 0
+`;
+// relaunch: true from the "Restart to update" button, false when the
+// launcher is being quit anyway. Returns false when nothing was started.
+function _updateInstall(relaunch) {
+  if (_update.installing || _update.state !== 'ready' || !_update.file || !fs.existsSync(_update.file)) return false;
+  // A game that is running keeps running, but the launcher that started
+  // it must not vanish from under it while the player presses a button.
+  if (relaunch && typeof mcProcesses !== 'undefined' && mcProcesses.size > 0) return { error: 'Close Minecraft first, then update' };
+  const target = _updateTarget();
+  if (!target) return false;
+  try {
+    if (target.kind === 'win') {
+      spawn(_update.file, relaunch ? ['--updated', '/S', '--force-run'] : ['--updated', '/S'], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      const script = path.join(DATA_DIR, 'updates', 'install.sh');
+      fs.writeFileSync(script, _UPDATE_MAC_SCRIPT, { mode: 0o755 });
+      spawn('/bin/sh', [script, String(process.pid), _update.file, target.bundle, relaunch ? '1' : '0', path.join(DATA_DIR, 'logs', 'update.log')],
+        { detached: true, stdio: 'ignore' }).unref();
+    }
+  } catch (e) {
+    log('warn', '[UPDATE] install: ' + e.message);
+    return { error: e.message };
+  }
+  _update.installing = true;
+  log('info', '[UPDATE] installing v' + _update.latest + (relaunch ? ' and restarting' : ' on quit'));
+  if (relaunch) {
+    _updateSet({ state: 'installing' });
+    setTimeout(() => { app.isQuitting = true; app.quit(); }, 600);
+  }
+  return true;
+}
+
 app.on('before-quit', () => {
   app.isQuitting = true;
+  // An update that is downloaded goes in now, so the next start is the new version.
+  try { _updateInstall(false); } catch (_) {}
   // Friends see this player go offline at once, not a minute later.
   try { if (_socialToken) fetch(SOCIAL_BASE + '/social/leave', { method: 'POST', headers: { authorization: 'Bearer ' + _socialToken.token } }).catch(() => {}); } catch (_) {}
 });

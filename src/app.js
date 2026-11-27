@@ -323,15 +323,69 @@ async function _navLogout() {
   loadNavProfile();
 }
 
-// Check for updates on launch
-async function _checkForUpdates() {
-  try {
-    const result = await window.icey.checkUpdate();
-    if (result && result.updateAvailable) {
-      Toast.info('Update available: v' + result.latest + ' (current: v' + result.current + ')', 8000);
+// Updates install themselves: the chip next to the version says what is
+// going on ("Updating Icey Client 43%"), turns into "Restart to update"
+// when the new version is downloaded, and quitting the launcher installs
+// it as well. Only where the app cannot replace itself (Linux) is it still
+// a note with the version number.
+let _updateNoted = null;
+function _updateDraw(st) {
+  const chip = document.getElementById('titlebar-update');
+  if (!chip || !st) return;
+  const set = (label, extra, clickable) => {
+    chip.hidden = false;
+    chip.disabled = !clickable;
+    chip.classList.toggle('ready', !!clickable);
+    chip.innerHTML = `<span>${label}</span>` + (extra ? `<span data-no-i18n>${extra}</span>` : '');
+  };
+  if (st.state === 'downloading') set('Updating Icey Client', (st.percent || 0) + '%', false);
+  else if (st.state === 'ready') set('Restart to update', '', true);
+  else if (st.state === 'installing') set('Updating Icey Client…', '', false);
+  else {
+    chip.hidden = true;
+    if (st.state === 'manual' && st.latest && _updateNoted !== st.latest) {
+      _updateNoted = st.latest;
+      Toast.info('Update available: v' + st.latest + ' (current: v' + st.current + ')', 8000);
     }
-  } catch (_) { /* silent */ }
+  }
 }
+async function _updateClick() {
+  const r = await window.icey.updateInstall();
+  if (r && r.error) Toast.info(r.error);
+}
+function _checkForUpdates() {
+  const chip = document.getElementById('titlebar-update');
+  if (chip) chip.onclick = _updateClick;
+  try { window.icey.onUpdateState(_updateDraw); } catch (_) {}
+  window.icey.updateState().then(_updateDraw).catch(() => {});
+}
+
+// While a game is running and the launcher is not the window in use, the
+// launcher stops drawing: its 3D skin, the falling snow and the drifting
+// background all cost the graphics card frames the game could have, most
+// of all on a laptop's built-in one. Click the launcher and it moves again.
+let _gamesUp = 0;
+function _applyDrawPause() {
+  const on = _gamesUp > 0 && !document.hasFocus();
+  if (document.documentElement.classList.contains('game-running') === on) return;
+  document.documentElement.classList.toggle('game-running', on);
+  const sized = (v) => !!(v && v.canvas && v.canvas.clientWidth > 0 && v.canvas.clientHeight > 0);
+  for (const v of [typeof _hqViewer !== 'undefined' ? _hqViewer : null, typeof _hgViewer !== 'undefined' ? _hgViewer : null,
+    typeof _chrViewer !== 'undefined' ? _chrViewer : null]) {
+    try { if (v) v.renderPaused = on || !sized(v); } catch (_) {}
+  }
+}
+async function _refreshGamesUp() {
+  try { _gamesUp = ((await window.icey.getRunningMc()) || []).length; } catch (_) { _gamesUp = 0; }
+  _applyDrawPause();
+}
+window.addEventListener('blur', _applyDrawPause);
+window.addEventListener('focus', _applyDrawPause);
+try {
+  window.icey.onMcEvent((e) => {
+    if (e && /^mc-(started|stopped|crashed|error)$/.test(e.type || '')) setTimeout(_refreshGamesUp, 300);
+  });
+} catch (_) {}
 
 // Init app
 (async () => {
@@ -344,6 +398,7 @@ async function _checkForUpdates() {
     if (el && v) el.textContent = 'v' + v;
   }).catch(() => {});
   setTimeout(_checkForUpdates, 2000);
+  _refreshGamesUp();
   // Friends: start asking who is online (notices show on every page).
   setTimeout(() => { if (typeof Social !== 'undefined') Social.start(); }, 1500);
 })();

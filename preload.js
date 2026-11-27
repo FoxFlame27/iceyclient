@@ -80,6 +80,13 @@ contextBridge.exposeInMainWorld('icey', {
 
   // Updates
   checkUpdate: () => ipcRenderer.invoke('check-update'),
+  updateState: () => ipcRenderer.invoke('update-state'),
+  updateInstall: () => ipcRenderer.invoke('update-install'),
+  onUpdateState: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('update-state', handler);
+    return () => ipcRenderer.removeListener('update-state', handler);
+  },
 
   // Misc
   autoDetectJava: () => ipcRenderer.invoke('auto-detect-java'),

@@ -1608,7 +1608,7 @@ function _hqInitSnow() {
   const frame = (now) => {
     if (run !== _hqSnowRun || !canvas.isConnected) return;
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    if (!w || !h) { last = now; setTimeout(() => requestAnimationFrame(frame), 400); return; }
+    if (!w || !h || document.documentElement.classList.contains('game-running')) { last = now; setTimeout(() => requestAnimationFrame(frame), 400); return; }
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     g.clearRect(0, 0, w, h);

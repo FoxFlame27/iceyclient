@@ -161,7 +161,7 @@ async function _renderMainOptions(page, settings) {
       <div class="options-modlist">
         ${toggleCard('iceyModsEnabled', iceyModsEnabled, 'Icey Mods', 'Icey mod and panorama pack', img('assets/icon.png'))}
         ${toggleCard('iceyShadersEnabled', iceyShadersEnabled, 'Icey Shaders', 'Blocky clouds, soft shadows, wind and reflecting water. N switches them on and off in game. Fabric only.', img('assets/shaders-icon.png'))}
-        ${toggleCard('performanceModsEnabled', perfEnabled, 'Performance Boost', 'Sodium, Lithium and five more speed-up mods, matched to your version. Fabric only.',
+        ${toggleCard('performanceModsEnabled', perfEnabled, 'Performance Boost', 'Sodium, Lithium and eight more speed-up mods, matched to your version. Fabric only.',
           '<div class="options-toggle-icon-svg"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>')}
         ${toggleCard('skinChangerEnabled', skinChangerEnabled, 'Skin Changer', 'Swap skins in game (SkinShuffle)', img('assets/mods/skinshuffle.png'))}
         ${toggleCard('healthIndicatorsEnabled', healthIndicatorsEnabled, 'Health Indicators', 'HP bars above players and mobs', img('assets/mods/healthindicators.png'))}

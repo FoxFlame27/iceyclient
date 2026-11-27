@@ -301,3 +301,41 @@
 .acctm-x:hover { background: rgba(255,90,90,0.14); color: var(--red, #ff6b6b); }
 .acctm-out:hover { background: rgba(255,90,90,0.10); color: var(--red, #ff6b6b); }
 .acctm-note { padding: 6px 8px; font-size: 11px; color: var(--text-muted); }
+
+/* ── Update chip: bottom left of the window, where no layout has anything.
+   (Next to the version it ran into the page tabs in a narrow window.) ── */
+.titlebar-update {
+  position: fixed;
+  left: 16px;
+  bottom: 14px;
+  z-index: 950;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(8,14,28,0.82);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.titlebar-update[hidden] { display: none; }
+.titlebar-update:disabled { cursor: default; }
+.titlebar-update.ready {
+  cursor: pointer;
+  color: #06121c;
+  background: rgb(var(--accent-rgb, 91,200,245));
+  border-color: transparent;
+}
+.titlebar-update.ready:hover { filter: brightness(1.08); }
+
+/* A game is running and the launcher is in the background: nothing moves
+   (see _applyDrawPause in app.js). */
+:root.game-running *,
+:root.game-running *::before,
+:root.game-running *::after { animation-play-state: paused !important; }
