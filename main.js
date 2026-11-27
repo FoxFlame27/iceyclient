@@ -5819,7 +5819,7 @@ app.whenReady().then(() => {
   });
 
   // Settings
-  ipcMain.handle('get-settings', () => readSettings());
+  ipcMain.handle('get-settings', () => { _updateAdoptSetup(); return readSettings(); });
 
   ipcMain.handle('save-settings', (_, data) => {
     const current = readSettings();
@@ -6443,20 +6443,7 @@ app.whenReady().then(() => {
   // again after every install: the version, plus the identity of the
   // program file, which is new whenever the app is installed again
   // (also the same version). Launching again leaves it alone.
-  ipcMain.handle('get-install-stamp', () => {
-    let version = '0';
-    try { version = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8')).version || '0'; } catch (_) {}
-    // macOS runs an app that was never moved out of Downloads from a
-    // throwaway location that changes per launch; go by version there.
-    if (process.execPath.includes('/AppTranslocation/')) return version;
-    try {
-      const st = fs.statSync(process.execPath, { bigint: true });
-      const when = process.platform === 'win32' ? st.birthtimeMs : process.platform === 'linux' ? st.ctimeMs : 0n;
-      return `${version}:${st.ino}:${when}`;
-    } catch (_) {
-      return version;
-    }
-  });
+  ipcMain.handle('get-install-stamp', () => { _updateAdoptSetup(); return _installStamp(); });
 
   // App version
   ipcMain.handle('get-app-version', () => {
@@ -7502,6 +7489,7 @@ async function _updateRun() {
   if (_updateBusy || _update.installing || _update.state === 'ready') return;
   _updateBusy = true;
   try {
+    _updateAdoptSetup();          // before the folder with the note and the installer is cleared below
     const release = await _fetchJson('https://api.github.com/repos/' + UPDATE_REPO + '/releases/latest');
     const latest = String((release && release.tag_name) || '').replace(/^v/, '');
     const dir = path.join(DATA_DIR, 'updates');
@@ -7583,6 +7571,62 @@ rmdir "$MNT" 2>/dev/null
 [ "$RELAUNCH" = "1" ] && open "$APP"
 exit 0
 `;
+// Identifies this copy of the app on disk, so Setup can be offered again
+// after it has been installed anew: the version, plus the identity of the
+// program file, which is new whenever the app is installed again (also the
+// same version). Launching again leaves it alone.
+function _installStamp() {
+  let version = '0';
+  try { version = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8')).version || '0'; } catch (_) {}
+  // macOS runs an app that was never moved out of Downloads from a
+  // throwaway location that changes per launch; go by version there.
+  if (process.execPath.includes('/AppTranslocation/')) return version;
+  try {
+    const st = fs.statSync(process.execPath, { bigint: true });
+    const when = process.platform === 'win32' ? st.birthtimeMs : process.platform === 'linux' ? st.ctimeMs : 0n;
+    return `${version}:${st.ino}:${when}`;
+  } catch (_) {
+    return version;
+  }
+}
+
+// Setup comes back after an install, which is right for someone who put
+// the app on by hand. An update the launcher installed by itself is not
+// that: the player set everything up already and only got a new version.
+// So the updater leaves a note before it swaps the app, and the first
+// start of that new version takes the note as "Setup is still done".
+const _UPDATE_NOTE = path.join(DATA_DIR, 'updates', 'installed-by-app.json');
+let _updateAdopted = false;
+function _updateAdoptSetup() {
+  if (_updateAdopted) return;
+  _updateAdopted = true;
+  try {
+    const version = String(app.getVersion());
+    const recent = (ms) => Date.now() - Number(ms || 0) < 3 * 24 * 3600 * 1000;
+    const note = _readJsonSafe(_UPDATE_NOTE);
+    let ours = !!note && String(note.version) === version && recent(note.at);
+    // Versions before 1.87.32 left no note. Their updater kept the installer
+    // it downloaded in updates/<version>: finding the one for the version
+    // that is running now says the same thing.
+    if (!ours) {
+      try {
+        const dir = path.join(DATA_DIR, 'updates', version);
+        ours = fs.readdirSync(dir).some(f => /\.(dmg|exe)$/i.test(f) && recent(fs.statSync(path.join(dir, f)).mtimeMs));
+      } catch (_) {}
+    }
+    if (ours) {
+      const settings = readSettings();
+      const stamp = _installStamp();
+      if (settings.setupCompleted && settings.setupInstallStamp !== stamp) {
+        settings.setupInstallStamp = stamp;
+        writeSettings(settings);
+        log('info', '[UPDATE] v' + version + ' was installed by the app: Setup stays done');
+      }
+    }
+    if (note && (String(note.version) === version || !recent(note.at))) { try { fs.unlinkSync(_UPDATE_NOTE); } catch (_) {} }
+  } catch (e) { log('warn', '[UPDATE] setup note: ' + e.message); }
+}
+
 // relaunch: true from the "Restart to update" button, false when the
 // launcher is being quit anyway. Returns false when nothing was started.
 function _updateInstall(relaunch) {
@@ -7593,6 +7637,8 @@ function _updateInstall(relaunch) {
   const target = _updateTarget();
   if (!target) return false;
   try {
+    // For the first start of the new version: this install is ours, do not offer Setup again.
+    _writeJsonSafe(_UPDATE_NOTE, { version: String(_update.latest || '').replace(/^v/, ''), at: Date.now() });
     if (target.kind === 'win') {
       spawn(_update.file, relaunch ? ['--updated', '/S', '--force-run'] : ['--updated', '/S'], { detached: true, stdio: 'ignore' }).unref();
     } else {
