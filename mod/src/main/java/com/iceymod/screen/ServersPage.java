@@ -33,6 +33,9 @@ final class ServersPage {
 
     void scroll(float step) { scroll -= step; }
 
+    /** How tall the pane wants to be for what is on this page. */
+    float wantH() { return form != 0 ? 300 : s.servers.isEmpty() ? 250 : 63 + s.servers.size() * 52 + 12; }
+
     private void openForm(int kind, ServerData d) {
         form = kind; editing = d;
         s.fields[1].setValue(d != null ? d.name : "");
@@ -85,26 +88,30 @@ final class ServersPage {
     }
 
     void draw(Gfx g, float x, float y, float w, float h, float al, int accent, float delta) {
-        s.text(g, "§lServers", x + 18, y + 16, 1.5f, SceneMenuScreen.a(0xFFFFFFFF, al));
         List<SceneMenuScreen.Entry> list = s.servers;
-        s.text(g, list.size() == 1 ? "1 saved" : list.size() + " saved", x + 18 + s.textW("§lServers", 1.5f) + 10, y + 21, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+        s.pageHead(g, x, y, Icons.GLOBE, "Servers", list.isEmpty() ? "Nothing saved yet" : list.size() == 1 ? "1 saved server" : list.size() + " saved servers", accent, al);
         if (form == 0) {
             float bx = x + w - 18;
-            float aw = s.textW("§lAdd server", 1f) + 22, dw = s.textW("§lDirect connect", 1f) + 22, rw = s.textW("§lRefresh", 1f) + 22;
-            if (s.pill(g, bx - aw, y + 13, aw, 22, "Add server", accent, true, al)) openForm(1, null);
-            if (s.pill(g, bx - aw - 8 - dw, y + 13, dw, 22, "Direct connect", 0xFF334058, false, al)) openForm(3, null);
-            if (s.pill(g, bx - aw - 8 - dw - 8 - rw, y + 13, rw, 22, "Refresh", 0xFF334058, false, al)) { ServerPing.forget(); s.loadServers(); }
+            float aw = s.buttonW(Icons.PLUS, "Add server"), dw = s.buttonW(Icons.PLUG, "Direct connect");
+            if (s.button(g, bx - aw, y + 16, aw, 24, Icons.PLUS, "Add server", 1, al)) openForm(1, null);
+            if (w > 470 && s.button(g, bx - aw - 8 - dw, y + 16, dw, 24, Icons.PLUG, "Direct connect", 0, al)) openForm(3, null);
+            if (w > 510 && s.iconButton(g, bx - aw - 8 - dw - 8 - 24, y + 16, 24, Icons.REFRESH, "Refresh", false, 1f, al)) { ServerPing.forget(); s.loadServers(); }
         }
-        g.fill(Math.round(x + 14), Math.round(y + 46), Math.round(x + w - 14), Math.round(y + 47), SceneMenuScreen.a(0x26FFFFFF, al));
+        g.fill(Math.round(x + 14), Math.round(y + 56), Math.round(x + w - 14), Math.round(y + 57), SceneMenuScreen.a(0x22FFFFFF, al));
 
-        if (form != 0) { form(g, x, y + 56, w, h - 56, al, accent, delta); return; }
+        if (form != 0) { form(g, x, y + 58, w, h - 58, al, accent, delta); return; }
 
-        float top = y + 52, bottom = y + h - 10, rowH = 40;
+        float top = y + 63, bottom = y + h - 10, rowH = 52;
         float max = Math.max(0, list.size() * rowH - (bottom - top));
         scroll = Math.max(0, Math.min(max, scroll));
         if (list.isEmpty()) {
-            s.textC(g, "§lNo servers yet", x + w / 2f, (top + bottom) / 2f - 14, 1.5f, SceneMenuScreen.a(0xFFFFFFFF, al));
-            s.textC(g, "Add one with the button at the top right.", x + w / 2f, (top + bottom) / 2f + 8, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+            float cy = (top + bottom) / 2f;
+            s.rect(g, x + w / 2f - 26, cy - 62, 52, 52, 12, SceneMenuScreen.a(0x1EFFFFFF, al));
+            s.icon(g, Icons.GLOBE, x + w / 2f, cy - 36, 26, SceneMenuScreen.a(0xFFC8D2E2, al));
+            s.textC(g, "§lNo servers yet", x + w / 2f, cy + 2, 1.5f, SceneMenuScreen.a(0xFFFFFFFF, al));
+            s.textC(g, "Save the servers you play on and join them from here.", x + w / 2f, cy + 22, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+            float aw = s.buttonW(Icons.PLUS, "Add server");
+            if (s.button(g, x + w / 2f - aw / 2f, cy + 42, aw, 24, Icons.PLUS, "Add server", 1, al)) openForm(1, null);
             return;
         }
         g.enableScissor(Math.round(x + 4), Math.round(top), Math.round(x + w - 4), Math.round(bottom));
@@ -114,38 +121,47 @@ final class ServersPage {
                 float ry = top + i * rowH - scroll;
                 if (ry + rowH < top || ry > bottom) continue;
                 boolean inView = s.my >= top && s.my < bottom;
-                boolean hov = inView && s.over(x + 10, ry, w - 20, rowH) && !s.accountOpen;
+                boolean hov = inView && s.over(x + 12, ry, w - 24, rowH - 4) && !s.accountOpen;
                 float hv = s.ease("srow" + i, hov, 16f);
-                s.rect(g, x + 10, ry + 2, w - 20, rowH - 4, 6, SceneMenuScreen.a(0xFFFFFFFF, (0.05f + 0.07f * hv) * al));
+                s.rect(g, x + 12, ry, w - 24, rowH - 6, 8, SceneMenuScreen.a(0xFFFFFFFF, (0.055f + 0.065f * hv) * al));
+                s.ring(g, x + 12, ry, w - 24, rowH - 6, 8, SceneMenuScreen.a(SceneMenuScreen.mix(0x1CFFFFFF, 0x55FFFFFF, hv), al));
                 ServerPing.Result ping = ServerPing.get(e.server.ip);
                 if (e.icon == null && ping.icon != null) e.icon = MenuTextures.fromBytes(e.server.ip, ping.icon);
-                s.icon(g, e, x + 18, ry + 6, 28, al);
-                float right = x + w - 22;
+                s.icon(g, e, x + 20, ry + 7, 32, al);
+                float right = x + w - 22, mid = ry + (rowH - 6) / 2f;
                 if (confirmDelete == e.server) {
-                    s.text(g, "§l" + s.fit(e.title(), w - 320, 1f), x + 56, ry + 9, 1f, SceneMenuScreen.a(0xFFFFFFFF, al));
-                    s.text(g, "Remove this server from the list?", x + 56, ry + 21, 1f, SceneMenuScreen.a(0xFFE0A070, al));
-                    if (s.pill(g, right - 56, ry + 10, 56, 20, "Remove", 0xFFE5484D, false, al)) { delete(e.server); return; }
-                    if (s.pill(g, right - 56 - 8 - 46, ry + 10, 46, 20, "Keep", 0xFF334058, false, al)) confirmDelete = null;
+                    s.text(g, "§l" + s.fit(e.title(), w - 330, 1f), x + 62, mid - 11, 1f, SceneMenuScreen.a(0xFFFFFFFF, al));
+                    s.text(g, "Remove this server from the list?", x + 62, mid + 2, 1f, SceneMenuScreen.a(0xFFF0A878, al));
+                    float rw = s.buttonW(Icons.TRASH, "Remove"), kw = s.buttonW((char) 0, "Keep");
+                    if (s.button(g, right - rw, mid - 12, rw, 24, Icons.TRASH, "Remove", 2, al)) { delete(e.server); return; }
+                    if (s.button(g, right - rw - 8 - kw, mid - 12, kw, 24, (char) 0, "Keep", 0, al)) confirmDelete = null;
                     continue;
                 }
-                // status on the right; the buttons take its place under the mouse
-                float textRight = right;
-                if (hv > 0.5f) {
-                    if (s.pill(g, right - 44, ry + 10, 44, 20, "Join", accent, true, al)) { s.join(e.server); return; }
-                    if (s.pill(g, right - 44 - 6 - 40, ry + 10, 40, 20, "Edit", 0xFF334058, false, al)) { openForm(2, e.server); return; }
-                    if (s.pill(g, right - 44 - 6 - 40 - 6 - 22, ry + 10, 22, 20, "×", 0xFF334058, false, al)) { confirmDelete = e.server; }
-                    textRight = right - 44 - 6 - 40 - 6 - 22 - 10;
-                } else {
-                    String st = ping.state == 0 ? "Checking…" : ping.state == 2 ? "No answer" : ping.online + " / " + ping.max;
-                    int col = ping.state == 1 ? 0xFFFFFFFF : ping.state == 2 ? 0xFFE08A7A : 0xFF9FB0C8;
-                    s.textR(g, st, right, ry + 9, 1f, SceneMenuScreen.a(col, al));
-                    if (ping.state == 1) s.textR(g, ping.ms + " ms", right, ry + 21, 1f, SceneMenuScreen.a(ping.ms < 80 ? 0xFF4ADE80 : ping.ms < 180 ? 0xFFE8C860 : 0xFFE08A7A, al));
-                    textRight = right - 76;
+                // From the right: Join, edit and remove (plain until the mouse is on the row), then how the server is doing.
+                float jw = s.buttonW(Icons.PLAY, "Join");
+                if (s.button(g, right - jw, mid - 12, jw, 24, Icons.PLAY, "Join", hv > 0.5f ? 1 : 0, al)) { s.join(e.server); return; }
+                float bx = right - jw - 8;
+                if (s.iconButton(g, bx - 24, mid - 12, 24, Icons.TRASH, "Remove", true, 0.35f + 0.65f * hv, al)) { confirmDelete = e.server; }
+                if (s.iconButton(g, bx - 24 - 4 - 24, mid - 12, 24, Icons.PENCIL, "Edit", false, 0.35f + 0.65f * hv, al)) { openForm(2, e.server); return; }
+                float statusRight = bx - 24 - 4 - 24 - 14;
+                int col = ping.state == 1 ? (ping.ms < 80 ? 0xFF4ADE80 : ping.ms < 180 ? 0xFFE8C860 : 0xFFF08A7A) : ping.state == 2 ? 0xFFF08A7A : 0xFF9FB0C8;
+                String line1 = ping.state == 0 ? "Checking…" : ping.state == 2 ? "No answer" : ping.online + " / " + ping.max;
+                String line2 = ping.state == 1 ? ping.ms + " ms" : "";
+                char bars = ping.state != 1 ? Icons.SIGNAL0 : ping.ms < 60 ? Icons.SIGNAL4 : ping.ms < 120 ? Icons.SIGNAL3 : ping.ms < 220 ? Icons.SIGNAL2 : Icons.SIGNAL1;
+                float sw = 0;
+                if (w > 430) {
+                    sw = Math.max(s.textW(line1, 1f), s.textW(line2, 1f)) + 18;
+                    s.textR(g, line1, statusRight, mid - 11, 1f, SceneMenuScreen.a(ping.state == 1 ? 0xFFFFFFFF : col, al));
+                    s.icon(g, ping.state == 1 ? Icons.USERS : Icons.SIGNAL0, statusRight - s.textW(line1, 1f) - 9, mid - 7, 11, SceneMenuScreen.a(ping.state == 1 ? 0xFF9FB0C8 : col, al));
+                    if (!line2.isEmpty()) {
+                        s.textR(g, line2, statusRight, mid + 2, 1f, SceneMenuScreen.a(col, al));
+                        s.icon(g, bars, statusRight - s.textW(line2, 1f) - 9, mid + 6, 11, SceneMenuScreen.a(col, al));
+                    }
                 }
-                float tw = textRight - (x + 56);
-                s.text(g, "§l" + s.fit(e.title(), tw, 1f), x + 56, ry + 9, 1f, SceneMenuScreen.a(0xFFFFFFFF, al));
+                float tw = statusRight - sw - 12 - (x + 62);
+                s.text(g, "§l" + s.fit(e.title(), tw, 1f), x + 62, mid - 11, 1f, SceneMenuScreen.a(0xFFFFFFFF, al));
                 String sub = ping.state == 1 && !ping.motd.isEmpty() ? ping.motd : e.server.ip;
-                s.text(g, s.fit(sub, tw, 1f), x + 56, ry + 21, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+                s.text(g, s.fit(sub, tw, 1f), x + 62, mid + 2, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
                 if (hov && s.clicked) {
                     long now = System.currentTimeMillis();
                     if (lastIndex == i && now - lastClick < 350) { s.click(); s.join(e.server); return; }
@@ -160,24 +176,38 @@ final class ServersPage {
     }
 
     private void form(Gfx g, float x, float y, float w, float h, float al, int accent, float delta) {
-        float fw = Math.min(360, w - 60), fx = x + (w - fw) / 2f, fy = y + Math.max(10, (h - 190) / 2f - 20);
+        float fw = Math.min(380, w - 48), fh = form == 3 ? 150 : 198;
+        float fx = x + (w - fw) / 2f, fy = y + Math.max(8, (h - fh) / 2f - 16);
+        s.rect(g, fx - 18, fy - 16, fw + 36, fh + 28, 10, SceneMenuScreen.a(0x33060A14, al));
+        s.ring(g, fx - 18, fy - 16, fw + 36, fh + 28, 10, SceneMenuScreen.a(0x24FFFFFF, al));
         String title = form == 1 ? "Add a server" : form == 2 ? "Edit server" : "Direct connect";
-        s.text(g, "§l" + title, fx, fy, 1.25f, SceneMenuScreen.a(0xFFFFFFFF, al));
-        float cy = fy + 26;
+        String sub = form == 3 ? "Join a server once, without saving it." : "It is saved to the game's own server list.";
+        s.rect(g, fx, fy, 30, 30, 8, SceneMenuScreen.a(SceneMenuScreen.withAlpha(accent, 0x38), al));
+        s.icon(g, form == 1 ? Icons.PLUS : form == 2 ? Icons.PENCIL : Icons.PLUG, fx + 15, fy + 15, 15, SceneMenuScreen.a(SceneMenuScreen.lighter(accent), al));
+        s.text(g, "§l" + title, fx + 40, fy + 4, 1.25f, SceneMenuScreen.a(0xFFFFFFFF, al));
+        s.text(g, sub, fx + 40, fy + 19, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+        float cy = fy + 44;
         if (form != 3) {
-            s.text(g, "Name", fx, cy, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
-            s.rect(g, fx, cy + 12, fw, 24, 5, SceneMenuScreen.a(0x66000000, al));
-            s.ring(g, fx, cy + 12, fw, 24, 5, SceneMenuScreen.a(s.focus == 1 ? accent : 0x33FFFFFF, al));
-            s.field(g, 1, fx + 8, cy + 20, fw - 16, "Minecraft Server", delta);
-            cy += 46;
+            s.text(g, "NAME", fx, cy, 1f, SceneMenuScreen.a(0xFF8E9AB0, al));
+            input(g, 1, Icons.PENCIL, fx, cy + 12, fw, "Minecraft Server", accent, al, delta);
+            cy += 48;
         }
-        s.text(g, "Address", fx, cy, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
-        s.rect(g, fx, cy + 12, fw, 24, 5, SceneMenuScreen.a(0x66000000, al));
-        s.ring(g, fx, cy + 12, fw, 24, 5, SceneMenuScreen.a(s.focus == 2 ? accent : 0x33FFFFFF, al));
-        s.field(g, 2, fx + 8, cy + 20, fw - 16, "play.example.net", delta);
-        cy += 50;
+        s.text(g, "ADDRESS", fx, cy, 1f, SceneMenuScreen.a(0xFF8E9AB0, al));
+        input(g, 2, Icons.LINK, fx, cy + 12, fw, "play.example.net", accent, al, delta);
+        cy += 52;
         String ok = form == 3 ? "Join" : "Save";
-        if (s.pill(g, fx + fw - 86, cy, 86, 24, ok, accent, true, al) || (s.enterHit && (s.focus == 1 || s.focus == 2))) { save(); return; }
-        if (s.pill(g, fx + fw - 86 - 8 - 70, cy, 70, 24, "Cancel", 0xFF334058, false, al)) form = 0;
+        float ow = Math.max(84, s.buttonW(form == 3 ? Icons.PLAY : Icons.CHECK, ok)), cw = s.buttonW((char) 0, "Cancel");
+        if (s.button(g, fx + fw - ow, cy, ow, 26, form == 3 ? Icons.PLAY : Icons.CHECK, ok, 1, al) || (s.enterHit && (s.focus == 1 || s.focus == 2))) { save(); return; }
+        if (s.button(g, fx + fw - ow - 8 - cw, cy, cw, 26, (char) 0, "Cancel", 0, al)) form = 0;
+    }
+
+    private void input(Gfx g, int slot, char icon, float x, float y, float w, String hint, int accent, float al, float delta) {
+        boolean on = s.focus == slot;
+        float fv = s.ease("in" + slot, on, 16f);
+        s.rect(g, x, y, w, 26, 6, SceneMenuScreen.a(0x70000000, al));
+        s.ring(g, x, y, w, 26, 6, SceneMenuScreen.a(SceneMenuScreen.mix(0x33FFFFFF, 0xFF000000 | accent, fv), al));
+        boolean icons = s.iconsUsable();
+        if (icons) s.icon(g, icon, x + 14, y + 13, 12, SceneMenuScreen.a(SceneMenuScreen.mix(0xFF8E9AB0, 0xFFFFFFFF, fv), al));
+        s.field(g, slot, x + (icons ? 28 : 9), y + 9, w - (icons ? 36 : 18), hint, delta);
     }
 }

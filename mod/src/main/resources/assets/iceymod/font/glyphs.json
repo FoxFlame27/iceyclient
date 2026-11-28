@@ -1,0 +1,5 @@
+{
+  "providers": [
+    { "type": "ttf", "file": "iceymod:lucide.ttf", "shift": [0.0, 9.0], "size": 16.0, "oversample": 4.0 }
+  ]
+}

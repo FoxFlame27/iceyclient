@@ -6,38 +6,38 @@
   "rain": 0.0,
   "spots": [
    [
-    0,
-    0,
-    -4
-   ],
-   [
     -3,
     0,
-    -2
+    -3
    ],
    [
-    2,
+    5,
     0,
-    0
+    -3
    ],
    [
-    -5,
+    1,
     0,
-    -2
+    -8
+   ],
+   [
+    -6,
+    0,
+    -6
    ]
   ],
-  "day": 0.8,
-  "sun": "fff1d6",
-  "shade": "a8c4f2",
-  "ambient": 0.66,
+  "day": 1.3,
+  "sun": "ffedc4",
+  "shade": "a6c4ff",
+  "ambient": 0.54,
   "glow": 0.9,
-  "fog": "bcd6f4",
-  "fogStart": 13,
-  "fogEnd": 42,
-  "fogMax": 0.7,
-  "skyTop": "4f8fe6",
-  "skyBottom": "d4e6fa",
-  "light": "fff8ee"
+  "fog": "c6defa",
+  "fogStart": 20,
+  "fogEnd": 56,
+  "fogMax": 1.0,
+  "skyTop": "3f86ea",
+  "skyBottom": "c6defa",
+  "light": "fff6e6"
  },
  {
   "id": "plains_village",
@@ -46,33 +46,33 @@
   "rain": 0.3,
   "spots": [
    [
-    1,
-    1,
-    -4
+    6,
+    0,
+    -2
    ],
    [
+    0,
     -1,
+    2
+   ],
+   [
+    4,
     1,
     -5
-   ],
-   [
-    -5,
-    1,
-    -4
    ]
   ],
-  "day": 0.8,
-  "sun": "fff1d6",
-  "shade": "a8c4f2",
-  "ambient": 0.66,
+  "day": 1.3,
+  "sun": "ffedc4",
+  "shade": "a6c4ff",
+  "ambient": 0.54,
   "glow": 0.9,
-  "fog": "bcd6f4",
-  "fogStart": 13,
-  "fogEnd": 42,
-  "fogMax": 0.7,
-  "skyTop": "4f8fe6",
-  "skyBottom": "d4e6fa",
-  "light": "fff8ee"
+  "fog": "c6defa",
+  "fogStart": 20,
+  "fogEnd": 56,
+  "fogMax": 1.0,
+  "skyTop": "3f86ea",
+  "skyBottom": "c6defa",
+  "light": "fff6e6"
  },
  {
   "id": "village_dusk",
@@ -81,27 +81,32 @@
   "rain": 0.2,
   "spots": [
    [
+    2,
     0,
-    -1,
-    5
+    -1
    ],
    [
-    1,
-    -1,
-    7
+    -2,
+    0,
+    0
+   ],
+   [
+    9,
+    2,
+    6
    ]
   ],
-  "day": 0.78,
-  "sun": "ff9c5c",
-  "shade": "7f78c0",
-  "ambient": 0.52,
-  "glow": 1.25,
-  "fog": "e09a80",
-  "fogStart": 11,
-  "fogEnd": 40,
-  "fogMax": 0.74,
-  "skyTop": "33367a",
-  "skyBottom": "f7a070",
+  "day": 1.0,
+  "sun": "ff9a55",
+  "shade": "8a80d0",
+  "ambient": 0.5,
+  "glow": 1.3,
+  "fog": "f2a47e",
+  "fogStart": 17,
+  "fogEnd": 56,
+  "fogMax": 1.0,
+  "skyTop": "2f3378",
+  "skyBottom": "f2a47e",
   "light": "f6cdb8"
  },
  {
@@ -111,51 +116,77 @@
   "rain": 0.0,
   "spots": [
    [
-    1,
+    -1,
     0,
-    -5
+    6
+   ],
+   [
+    -5,
+    0,
+    -1
+   ],
+   [
+    2,
+    0,
+    1
    ],
    [
     -1,
     0,
-    -6
-   ],
-   [
-    6,
-    0,
-    -13
+    10
    ]
   ],
-  "day": 0.8,
-  "sun": "fff1d6",
-  "shade": "a8c4f2",
-  "ambient": 0.66,
+  "day": 1.3,
+  "sun": "ffedc4",
+  "shade": "a6c4ff",
+  "ambient": 0.54,
   "glow": 0.9,
-  "fog": "bcd6f4",
-  "fogStart": 13,
-  "fogEnd": 42,
-  "fogMax": 0.7,
-  "skyTop": "4f8fe6",
-  "skyBottom": "d4e6fa",
-  "light": "fff8ee"
+  "fog": "c6defa",
+  "fogStart": 20,
+  "fogEnd": 56,
+  "fogMax": 1.0,
+  "skyTop": "3f86ea",
+  "skyBottom": "c6defa",
+  "light": "fff6e6"
  },
  {
   "id": "desert_village",
   "name": "Desert Village",
   "snowfall": 0.0,
   "rain": 0.0,
-  "spots": [],
-  "day": 0.56,
-  "sun": "ffe6b8",
-  "shade": "b9c4e6",
+  "spots": [
+   [
+    -3,
+    0,
+    -3
+   ],
+   [
+    2,
+    -1,
+    1
+   ],
+   [
+    1,
+    0,
+    -8
+   ],
+   [
+    -8,
+    0,
+    -9
+   ]
+  ],
+  "day": 1.0,
+  "sun": "ffe9bd",
+  "shade": "a6c4ff",
   "ambient": 0.5,
   "glow": 0.9,
-  "fog": "ecd9b4",
-  "fogStart": 13,
-  "fogEnd": 42,
-  "fogMax": 0.7,
-  "skyTop": "4f8fe6",
-  "skyBottom": "f2e2c0",
+  "fog": "efdcb6",
+  "fogStart": 20,
+  "fogEnd": 56,
+  "fogMax": 1.0,
+  "skyTop": "3f86ea",
+  "skyBottom": "efdcb6",
   "light": "fff0d6"
  },
  {
@@ -163,18 +194,29 @@
   "name": "Taiga Village at Night",
   "snowfall": 0.0,
   "rain": 0.3,
-  "spots": [],
-  "day": 0.42,
-  "sun": "9fb6ff",
-  "shade": "6478c0",
-  "ambient": 0.46,
+  "spots": [
+   [
+    1,
+    0,
+    2
+   ],
+   [
+    -9,
+    -3,
+    -4
+   ]
+  ],
+  "day": 0.5,
+  "sun": "a9bcff",
+  "shade": "566cb4",
+  "ambient": 0.4,
   "glow": 1.7,
-  "fog": "0e1634",
-  "fogStart": 10,
-  "fogEnd": 38,
-  "fogMax": 0.8,
+  "fog": "18244c",
+  "fogStart": 15,
+  "fogEnd": 56,
+  "fogMax": 1.0,
   "skyTop": "050918",
-  "skyBottom": "1a2650",
+  "skyBottom": "18244c",
   "light": "a9b6de"
  },
  {
@@ -184,101 +226,107 @@
   "rain": 0.25,
   "spots": [
    [
-    2,
+    -3,
     0,
-    -5
+    2
    ],
    [
     2,
     0,
-    -3
+    -1
    ],
    [
-    2,
+    -8,
     0,
-    -7
+    -4
    ],
    [
-    2,
-    0,
-    1
-   ],
-   [
-    14,
-    0,
-    1
+    -4,
+    -1,
+    4
    ]
   ],
-  "day": 0.78,
-  "sun": "ff9c5c",
-  "shade": "7f78c0",
-  "ambient": 0.52,
-  "glow": 1.25,
-  "fog": "e09a80",
-  "fogStart": 11,
-  "fogEnd": 40,
-  "fogMax": 0.74,
-  "skyTop": "33367a",
-  "skyBottom": "f7a070",
+  "day": 1.0,
+  "sun": "ff9a55",
+  "shade": "8a80d0",
+  "ambient": 0.5,
+  "glow": 1.3,
+  "fog": "f2a47e",
+  "fogStart": 17,
+  "fogEnd": 56,
+  "fogMax": 1.0,
+  "skyTop": "2f3378",
+  "skyBottom": "f2a47e",
   "light": "f6cdb8"
  },
  {
   "id": "igloo",
-  "name": "Igloo at Dawn",
+  "name": "Snowfield at Dawn",
   "snowfall": 0.7,
   "rain": 0.0,
   "spots": [
    [
-    3,
+    4,
     0,
-    3
-   ],
-   [
-    10,
-    1,
     2
    ],
    [
-    10,
+    -3,
+    0,
+    4
+   ],
+   [
+    3,
     0,
     8
    ],
    [
-    10,
+    9,
     0,
-    10
+    5
    ]
   ],
-  "day": 0.66,
-  "sun": "ffb7c4",
-  "shade": "8f86c8",
-  "ambient": 0.56,
+  "day": 0.9,
+  "sun": "ffb9c6",
+  "shade": "9a90d6",
+  "ambient": 0.54,
   "glow": 1.2,
-  "fog": "c0a8d4",
-  "fogStart": 11,
-  "fogEnd": 40,
-  "fogMax": 0.74,
+  "fog": "eab4c4",
+  "fogStart": 17,
+  "fogEnd": 56,
+  "fogMax": 1.0,
   "skyTop": "2c2a62",
-  "skyBottom": "f0aebc",
-  "light": "e2d2ea"
+  "skyBottom": "eab4c4",
+  "light": "e8d6ee"
  },
  {
   "id": "trial_chambers",
   "name": "Trial Chambers",
   "snowfall": 0.0,
   "rain": 0.0,
-  "spots": [],
+  "spots": [
+   [
+    3,
+    0,
+    1
+   ],
+   [
+    5,
+    0,
+    5
+   ]
+  ],
   "day": 0.0,
   "sun": "ffffff",
   "shade": "ffe2c4",
-  "ambient": 0.36,
-  "glow": 1.35,
+  "ambient": 0.4,
+  "glow": 1.4,
   "fog": "120d0c",
-  "fogStart": 12,
-  "fogEnd": 36,
-  "fogMax": 0.85,
+  "fogStart": 14,
+  "fogEnd": 40,
+  "fogMax": 1.0,
   "skyTop": "0b0909",
-  "skyBottom": "0b0909",
+  "skyBottom": "120d0c",
   "light": "ecccaa"
  },
  {
@@ -288,32 +336,27 @@
   "rain": 0.0,
   "spots": [
    [
-    4,
-    -1,
-    -3
+    3,
+    0,
+    0
    ],
    [
-    6,
-    1,
-    -5
-   ],
-   [
-    6,
-    1,
-    1
+    -2,
+    0,
+    0
    ]
   ],
-  "day": 0.55,
+  "day": 0.6,
   "sun": "e8d4ff",
   "shade": "b9a2e6",
   "ambient": 0.95,
   "glow": 1.0,
-  "fog": "0d0a18",
-  "fogStart": 13,
-  "fogEnd": 42,
-  "fogMax": 0.85,
+  "fog": "110c20",
+  "fogStart": 20,
+  "fogEnd": 56,
+  "fogMax": 1.0,
   "skyTop": "07050e",
-  "skyBottom": "1a1030",
+  "skyBottom": "110c20",
   "light": "d4c6ec"
  },
  {
@@ -323,37 +366,37 @@
   "rain": 0.0,
   "spots": [
    [
-    3,
     1,
-    5
+    0,
+    -3
    ],
    [
-    -2,
-    1,
-    5
+    0,
+    0,
+    2
+   ],
+   [
+    9,
+    -1,
+    0
    ],
    [
     5,
     1,
-    5
-   ],
-   [
-    4,
-    0,
-    1
+    -6
    ]
   ],
   "day": 0.0,
   "sun": "ffffff",
   "shade": "ffb49a",
-  "ambient": 0.5,
-  "glow": 1.4,
-  "fog": "2a0c0b",
-  "fogStart": 11,
-  "fogEnd": 36,
-  "fogMax": 0.85,
+  "ambient": 0.52,
+  "glow": 1.45,
+  "fog": "2e0d0b",
+  "fogStart": 13,
+  "fogEnd": 42,
+  "fogMax": 1.0,
   "skyTop": "190706",
-  "skyBottom": "340e0b",
+  "skyBottom": "2e0d0b",
   "light": "dcb4a2"
  }
 ]

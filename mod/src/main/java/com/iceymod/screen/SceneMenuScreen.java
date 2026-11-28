@@ -91,6 +91,7 @@ public class SceneMenuScreen extends VirtualScreen {
     WorldsPage worldsPage;
     OptionsPage optionsPage;
     float pgX, pgY, pgW, pgH;
+    private float pgWant = 1000, pgHNow;
 
     net.minecraft.client.Minecraft mc() { return minecraft; }
 
@@ -273,8 +274,8 @@ public class SceneMenuScreen extends VirtualScreen {
         prevEnter = enterNow;
 
         // The place: at the very first start it swings into view; it turns a little with the mouse.
-        float zoom = 1f - (intro ? 0.12f * (1f - outCubic(t / 1.7f)) : 0f) + 0.07f * leave * leave;
-        viewYaw = intro ? 18f * (1f - outCubic(t / 1.9f)) : 0f;
+        float zoom = 1f - (intro ? 0.14f * (1f - outCubic(t / 1.9f)) : 0f) + 0.09f * leave * leave;
+        viewYaw = intro ? 2.2f * (1f - outCubic(t / 1.9f)) : 0f;
         // "Another place": dip to black, swap, come back.
         float dip = 0f;
         if (swapAt != 0) {
@@ -284,7 +285,7 @@ public class SceneMenuScreen extends VirtualScreen {
             if (p >= 1f) swapAt = 0;
         }
         if (scene == null || model == null) { SceneMenu.failed = true; return; }
-        drawPlace(g, zoom, viewYaw, 1f);
+        drawPlace(g, zoom, viewYaw, 1f, false);
         // Dark at the top for the bar, a little at the bottom for the panels.
         for (int i = 0; i < 70; i++) g.fill(0, i, VW, i + 1, a(0xFF060912, 0.62f * (1f - i / 70f) * (1f - i / 70f)));
         for (int i = 0; i < 60; i++) g.fill(0, VH - 1 - i, VW, VH - i, a(0xFF060912, 0.26f * (1f - i / 60f)));
@@ -293,7 +294,12 @@ public class SceneMenuScreen extends VirtualScreen {
         float show = intro ? outCubic(span(t, 0.45f, 1.0f)) : outCubic(span(t, 0f, 0.28f));
         float pageK = ease("page", page != 0, 13f);
         pW = 232; pH = 204; pX = VW - M - pW + (1f - show) * 36f + pageK * (pW + 40); pY = VH - M - pH;
-        pgW = Math.min(620, VW - 2 * M - 8); pgH = VH - 50 - M;
+        pgW = Math.min(660, VW - 2 * M - 8);
+        // The pane is as tall as what is on the page, up to the window.
+        if (page != 0) pgWant = page == 1 ? serversPage.wantH() : page == 2 ? worldsPage.wantH() : optionsPage.wantH();
+        float pgTarget = Math.min(VH - 50 - M, Math.max(232, pgWant));
+        pgHNow = pgHNow <= 0 ? pgTarget : pgHNow + (pgTarget - pgHNow) * (1f - (float) Math.exp(-dt * 16f));
+        pgH = Math.round(pgHNow);
         pgX = (VW - pgW) / 2f; pgY = 50 + (1f - pageK) * 14f;
         float openK = ease("left", left != 0, 14f);
         lW = 216; lH = 34 + (Math.min(256, VH - 40 - M * 2 - 8) - 34) * openK;
@@ -307,17 +313,21 @@ public class SceneMenuScreen extends VirtualScreen {
         Standing hovered = null;
         if (!overUi && !busy && page == 0) for (Standing p : people) if (over(p.x - p.h * 0.24f, p.y - p.h * 1.03f, p.h * 0.48f, p.h * 1.06f)) hovered = p;
         people.sort((a2, b2) -> Float.compare(b2.depth, a2.depth));
-        float meX = placeX(0, 0, 0), meY = placeY(0, 0, 0), meH = playerHeight();
+        float[] meAt = place(0, 0, 0);
+        float meX = meAt[0], meY = meAt[1], meH = 1.875f * meAt[2];
         int n = 0;
+        float meIn = (intro ? outCubic(span(t, 0.5f, 0.95f)) : show) * (1f - pageK);
+        boolean meDrawn = false;
         for (Standing p : people) {
             float in = (intro ? outCubic(span(t, 0.75f + n * 0.09f, 1.15f + n * 0.09f)) : show) * (1f - pageK);
             n++;
             p.hover = p == hovered;
             float hv = ease("doll:" + p.f.uuid, p.hover, 12f);
+            // A friend who stands nearer to the camera than you is drawn after you.
+            if (!meDrawn && p.depth < meAt[3]) { drawMe(g, meX, meY, meH, meIn, tt); meDrawn = true; }
             drawFriend(g, p, in, hv, tt, meX);
         }
-        float meIn = (intro ? outCubic(span(t, 0.5f, 0.95f)) : show) * (1f - pageK);
-        drawMe(g, meX, meY, meH, meIn, tt);
+        if (!meDrawn) drawMe(g, meX, meY, meH, meIn, tt);
         weather(g, show);
 
         // Name tags over the figures.
@@ -362,25 +372,28 @@ public class SceneMenuScreen extends VirtualScreen {
         if (scene == null || model == null || !live) return out;
         List<MenuBridge.Friend> list = new ArrayList<>(st.friends);
         list.sort((a2, b2) -> a2.online != b2.online ? (a2.online ? -1 : 1) : Long.compare(b2.lastSeen, a2.lastSeen));
-        for (int i = 0; i < list.size() && i < scene.spots.size() && i < 5; i++) {
+        // Two friends stand with you: who is online first, then who was seen last.
+        for (int i = 0; i < list.size() && i < scene.spots.size() && i < 2; i++) {
             Standing p = new Standing();
             p.f = list.get(i);
             p.spot = scene.spots.get(i);
-            p.x = placeX(p.spot.x, p.spot.y, p.spot.z); p.y = placeY(p.spot.x, p.spot.y, p.spot.z); p.h = playerHeight();
-            p.depth = model.depthOf(p.spot.x, p.spot.y, p.spot.z);
+            float[] at = place(p.spot.x, p.spot.y, p.spot.z);
+            if (at[3] < 1.5f) continue;
+            p.x = at[0]; p.y = at[1]; p.h = 1.875f * at[2];
+            p.depth = at[3];
             out.add(p);
         }
         return out;
     }
 
-    /** The dark patch on the ground under a player: a circle seen from the view's angle. */
-    void shadow(Gfx g, float x, float y, float h, float alpha) {
-        float block = model.blockPx();
-        float squash = (float) Math.sin(Math.toRadians(model.pitch + orbitPitch));
-        float w = block * 0.82f, hh = Math.max(3f, block * 0.82f * squash);
-        rect(g, x - w / 2, y - hh / 2, w, hh, 12, a(0x26000000, alpha));
-        rect(g, x - w * 0.37f, y - hh * 0.37f, w * 0.74f, hh * 0.74f, 12, a(0x30000000, alpha));
-        rect(g, x - w * 0.22f, y - hh * 0.22f, w * 0.44f, hh * 0.44f, 12, a(0x30000000, alpha));
+    /** The dark patch on the ground under a player: a circle seen from the camera's height. */
+    void shadow(Gfx g, float x, float y, float h, float alpha, float pitchSeen) {
+        float block = h / 1.875f;
+        float squash = (float) Math.sin(Math.max(0.08f, pitchSeen));
+        float w = block * 0.86f, hh = Math.max(2f, block * 0.86f * squash);
+        rect(g, x - w / 2, y - hh / 2, w, hh, 12, a(0x2A000000, alpha));
+        rect(g, x - w * 0.37f, y - hh * 0.37f, w * 0.74f, hh * 0.74f, 12, a(0x34000000, alpha));
+        rect(g, x - w * 0.22f, y - hh * 0.22f, w * 0.44f, hh * 0.44f, 12, a(0x34000000, alpha));
     }
 
     void drawMe(Gfx g, float x, float y, float h, float in, float tt) {
@@ -390,14 +403,14 @@ public class SceneMenuScreen extends VirtualScreen {
         Doll.Pose p = new Doll.Pose();
         float lookX = Math.max(-1f, Math.min(1f, (mx - x) / (VW * 0.4f)));
         float lookY = Math.max(-1f, Math.min(1f, (my - (y - h * 0.85f)) / (VH * 0.5f)));
-        p.pitch = (float) Math.toRadians(model.pitch + orbitPitch);
-        p.yaw = 0.30f * lookX + (float) Math.toRadians(orbitYaw + viewYaw);
+        p.pitch = model.pitchSeen(0, 0, 0);
+        p.yaw = 0.30f * lookX + model.yawSeen(0, 0);
         p.headYaw = 0.55f * lookX;
         p.headPitch = 0.30f * lookY;
         float breathe = (float) Math.sin(tt * 1.7f);
         p.rArmZ = -(0.07f + 0.025f * breathe); p.lArmZ = 0.07f + 0.025f * breathe;
         p.rArmX = 0.06f * (float) Math.sin(tt * 1.1f); p.lArmX = -p.rArmX;
-        shadow(g, x, y, h, in);
+        shadow(g, x, y, h, in, p.pitch);
         Doll.draw(g, skin.id, skin.height, MenuBridge.slim(uuid), x, y, h * (0.9f + 0.1f * in), p, a(0xFF000000 | scene.light, in));
     }
 
@@ -408,8 +421,8 @@ public class SceneMenuScreen extends VirtualScreen {
         Doll.Pose p = new Doll.Pose();
         float toward = Math.max(-0.55f, Math.min(0.55f, (meX - s2.x) / (VW * 0.5f)));
         float lookX = Math.max(-1f, Math.min(1f, (mx - s2.x) / (VW * 0.4f)));
-        p.pitch = (float) Math.toRadians(model.pitch + orbitPitch);
-        p.yaw = toward * 0.8f * (1f - hv) + (float) Math.toRadians(orbitYaw + viewYaw);
+        p.pitch = model.pitchSeen(s2.spot.x, s2.spot.y, s2.spot.z);
+        p.yaw = toward * 0.8f * (1f - hv) + model.yawSeen(s2.spot.x, s2.spot.z);
         p.headYaw = (0.22f * (float) Math.sin(tt * 0.6f + ph)) * (1f - hv) + (0.5f * lookX - p.yaw * 0.5f) * hv;
         p.headPitch = 0.05f * (float) Math.sin(tt * 0.43f + ph * 2);
         float breathe = (float) Math.sin(tt * 1.6f + ph);
@@ -424,7 +437,7 @@ public class SceneMenuScreen extends VirtualScreen {
         int lit = 0xFF000000 | scene.light;
         int tint = s2.f.online ? lit : mix(lit, 0xFF4A5060, 0.45f);        // offline: dimmer
         tint = mix(tint, lit, hv * 0.6f);
-        shadow(g, s2.x, s2.y, s2.h, in);
+        shadow(g, s2.x, s2.y, s2.h, in, p.pitch);
         Doll.draw(g, skin.id, skin.height, s2.f.slim || MenuBridge.slim(s2.f.uuid), s2.x, s2.y - hop, s2.h * (0.9f + 0.1f * in) * (1f + 0.03f * hv), p, a(tint, in));
     }
 
@@ -521,7 +534,7 @@ public class SceneMenuScreen extends VirtualScreen {
             case 0 -> page = 0;
             case 1 -> { page = 1; left = 0; }
             case 2 -> { page = 2; left = 0; try { loadWorlds(); } catch (Throwable ignored) {} }
-            case 3 -> { left = left == 0 ? 1 : 0; }
+            case 3 -> { left = left == 0 ? 1 : 0; if (left != 0) page = 0; }
             case 4 -> leave(() -> MC.setScreen(minecraft, CardMenuScreen.current()), 0.14f);
             case 5 -> { page = 3; left = 0; }
             default -> {}
@@ -897,6 +910,64 @@ public class SceneMenuScreen extends VirtualScreen {
         return false;
     }
 
+    static int withAlpha(int rgb, int alpha) { return (alpha << 24) | (rgb & 0xFFFFFF); }
+    /** The accent colour, lightened: for small icons and labels on the dark glass. */
+    static int lighter(int accent) { return mix(0xFF000000 | accent, 0xFFFFFFFF, 0.35f); }
+    /** Ink that reads on the accent colour: dark on a light accent, white on a deep one. */
+    static int ink(int accent) {
+        float lum = (0.299f * ((accent >> 16) & 0xFF) + 0.587f * ((accent >> 8) & 0xFF) + 0.114f * (accent & 0xFF)) / 255f;
+        return lum > 0.56f ? 0xFF06101C : 0xFFFFFFFF;
+    }
+
+    /** The top of a page: its icon in a tinted square, its name and a line under it. */
+    void pageHead(Gfx g, float x, float y, char icon, String title, String sub, int accent, float al) {
+        boolean has = iconsUsable();
+        if (has) {
+            rect(g, x + 18, y + 13, 30, 30, 8, a(withAlpha(accent, 0x38), al));
+            icon(g, icon, x + 33, y + 28, 15, a(lighter(accent), al));
+        }
+        float tx = x + (has ? 58 : 18);
+        text(g, "§l" + title, tx, y + 14, 1.5f, a(0xFFFFFFFF, al));
+        text(g, sub, tx, y + 32, 1f, a(0xFF9FB0C8, al));
+    }
+
+    float buttonW(char icon, String label) { return textW("§l" + label, 1f) + 22 + (icon != 0 && iconsUsable() ? 15 : 0); }
+
+    /** A button with an icon and a label. {@code style}: 0 = quiet, 1 = the main action (accent colour), 2 = something that deletes. */
+    boolean button(Gfx g, float x, float y, float w, float h, char icon, String label, int style, float al) {
+        int accent = MenuPrefs.accent();
+        boolean hov = over(x, y, w, h) && !accountOpen;
+        String key = label + Math.round(x / 8f) + ":" + Math.round(y / 30f);
+        float hv = ease("btn" + key, hov, 16f), sv = ease("btnS" + key, style == 1, 14f);
+        int fill = style == 2 ? mix(0xFFD9434A, 0xFFFFFFFF, 0.14f * hv)
+                : mix(mix(0x24FFFFFF, 0x40FFFFFF, hv), mix(0xFF000000 | accent, 0xFFFFFFFF, 0.16f * hv), sv);
+        rect(g, x, y, w, h, 6, a(fill, al));
+        if (style != 2 && sv < 0.98f) ring(g, x, y, w, h, 6, a(0x30FFFFFF, al * (1f - sv)));
+        int inkC = style == 2 ? 0xFFFFFFFF : mix(0xFFFFFFFF, ink(accent), sv);
+        boolean has = icon != 0 && iconsUsable();
+        float cw = textW("§l" + label, 1f) + (has ? 15 : 0), cx = x + (w - cw) / 2f;
+        if (has) { icon(g, icon, cx + 5.5f, y + h / 2f, 11, a(inkC, al)); cx += 15; }
+        text(g, "§l" + label, cx, y + (h - 8) / 2f + 0.5f, 1f, a(inkC, al));
+        if (hov && clicked) { click(); swallowClick(); return true; }
+        return false;
+    }
+
+    /** A square button with only an icon; its name shows over it under the mouse. {@code strength}: how present it is (rows dim theirs until hovered). */
+    boolean iconButton(Gfx g, float x, float y, float size, char icon, String tip, boolean danger, float strength, float al) {
+        boolean hov = over(x, y, size, size) && !accountOpen;
+        float hv = ease("ib" + tip + Math.round(x / 8f) + ":" + Math.round(y / 30f), hov, 16f);
+        rect(g, x, y, size, size, 6, a(danger ? mix(0x1EFFFFFF, 0xFFD9434A, hv) : mix(0x1EFFFFFF, 0x48FFFFFF, hv), al * strength));
+        if (iconsUsable()) icon(g, icon, x + size / 2f, y + size / 2f, 12, a(mix(0xFFC8D2E2, 0xFFFFFFFF, hv), al * strength));
+        else textC(g, "§l" + tip.substring(0, 1), x + size / 2f, y + size / 2f - 4, 1f, a(0xFFFFFFFF, al * strength));
+        if (hv > 0.35f) {
+            float tw = textW(tip, 1f) + 12;
+            rect(g, x + size / 2f - tw / 2f, y - 19, tw, 15, 4, a(0xF00A0E1A, hv * al));
+            textC(g, tip, x + size / 2f, y - 15, 1f, a(0xFFFFFFFF, hv * al));
+        }
+        if (hov && clicked) { click(); swallowClick(); return true; }
+        return false;
+    }
+
     boolean pill(Gfx g, float x, float y, float w, float h, String label, int color, boolean dark, float al) {
         boolean hov = over(x, y, w, h) && !accountOpen;
         float hv = ease("pill" + label + Math.round(x) + ":" + Math.round(y / 40f), hov, 16f);
@@ -997,7 +1068,8 @@ public class SceneMenuScreen extends VirtualScreen {
             boolean link = i > 0;
             boolean hov = link && leaveRun == null && !accountOpen && over(x - 4, y - 4, w + 8, 16);
             float hv = ease("foot" + i, hov, 14f);
-            text(g, p, x, y, 1f, a(link ? mix(0xFFC3CEDF, accent, hv) : 0xFF9AA6BC, show));
+            text(g, p, x + 0.5f, y + 1f, 1f, a(0x8C050810, show));           // a soft dark edge: the sky behind can be bright
+            text(g, p, x, y, 1f, a(link ? mix(0xFFE2E9F4, accent, hv) : 0xFFC2CCDC, show));
             if (hv > 0.02f) g.fill(Math.round(x), Math.round(y + 9), Math.round(x + w * hv), Math.round(y + 10), a(accent, show));
             if (hov && clicked) {
                 click();

@@ -61,7 +61,7 @@ public class MenuChooserScreen extends VirtualScreen {
         long now = System.currentTimeMillis();
         float t = (now - openedAt) / 1000f;
         int accent = MenuPrefs.accent();
-        drawPlace(g, 0.94f, 0f, 1f);
+        drawPlace(g, 1f, 0f, 1f, true);
         g.fill(0, 0, VW, VH, 0x73060912);
 
         float in = outCubic(span(t, 0.05f, 0.5f));
@@ -140,15 +140,16 @@ public class MenuChooserScreen extends VirtualScreen {
                 // The scene itself, small: the real place with you in it.
                 if (scene != null && model != null) {
                     for (int i = 0; i < 10; i++) g.fill(ix, iy + ih * i / 10, ix + iw, iy + ih * (i + 1) / 10, a(mix(0xFF000000 | scene.skyTop, 0xFF000000 | scene.skyBottom, i / 9f), al));
-                    float block = h / 7.2f;
-                    model.view(orbitYaw, orbitPitch, block, x + w / 2f, y + h * 0.46f);
-                    model.draw(g, VW, VH, al);
+                    model.bounds(ix, iy, ix + iw, iy + ih);
+                    model.view(orbitYaw, orbitPitch, model.focalFor(h) * 1.08f, x + w / 2f, y + h * 0.5f);
+                    model.draw(g, ix, iy, ix + iw, iy + ih, al);
                     String uuid = minecraft.getUser().getProfileId().toString();
                     MenuTextures.Tex skin = MenuTextures.skin(uuid);
                     Doll.Pose p = new Doll.Pose();
-                    p.pitch = (float) Math.toRadians(model.pitch + orbitPitch);
-                    p.yaw = (float) Math.toRadians(orbitYaw) + 0.2f;
-                    Doll.draw(g, skin.id, skin.height, false, model.screenX(0, 0, 0), model.screenY(0, 0, 0), 1.875f * block, p, a(0xFF000000 | scene.light, al));
+                    float[] at = model.project(0, 0, 0);
+                    p.pitch = model.pitchSeen(0, 0, 0);
+                    p.yaw = model.yawSeen(0, 0) + 0.2f;
+                    Doll.draw(g, skin.id, skin.height, false, at[0], at[1], 1.875f * at[2], p, a(0xFF000000 | scene.light, al));
                 } else g.fill(ix, iy, ix + iw, iy + ih, a(0xFF16233A, al));
                 // its bar and its panel, hinted
                 g.fill(ix, iy, ix + iw, iy + 11, a(0x99060912, al));

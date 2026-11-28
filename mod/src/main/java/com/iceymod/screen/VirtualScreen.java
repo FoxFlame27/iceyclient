@@ -39,7 +39,11 @@ abstract class VirtualScreen extends IceyScreen {
 
     protected VirtualScreen(Component title) { super(title); }
 
+    // The glass panes of the last frame: behind them the world is blurred, everywhere else it is sharp.
+    private java.util.List<float[]> panes = new java.util.ArrayList<>(), lastPanes = new java.util.ArrayList<>();
+
     protected void beginFrame(int mouseX, int mouseY) {
+        java.util.List<float[]> swap = lastPanes; lastPanes = panes; panes = swap; panes.clear();
         int fbW = Math.max(1, minecraft.getWindow().getWidth()), fbH = Math.max(1, minecraft.getWindow().getHeight());
         int gui = Math.max(1, Math.round(fbW / (float) Math.max(1, this.width)));
         px = Math.max(1, Math.min(gui, Math.round(fbH / 480f)));
@@ -117,6 +121,19 @@ abstract class VirtualScreen extends IceyScreen {
         return pre + body.substring(0, lo).stripTrailing() + "…";
     }
 
+    /** An icon of the icon font, {@code size} canvas pixels wide and high, its middle at (cx, cy). */
+    protected void icon(Gfx g, char c, float cx, float cy, float size, int color) {
+        if ((color >>> 24) < 8 || !iconsUsable()) return;
+        float k = size / 16f;
+        g.pose().pushMatrix();
+        try {
+            g.pose().translate(cx - size / 2f, cy - size / 2f);
+            g.pose().scale(k, k);
+            g.drawString(this.font, UiFont.icon(c), 0, 0, color, false);
+        } finally { g.pose().popMatrix(); }
+    }
+    protected boolean iconsUsable() { return UiFont.iconsUsable(this.font); }
+
     // ── Shapes (rounded ones come from the glass sprites) ──
     protected void rect(Gfx g, float x, float y, float w, float h, int r, int color) {
         if ((color >>> 24) == 0) return;
@@ -165,34 +182,86 @@ abstract class VirtualScreen extends IceyScreen {
     }
 
     /**
-     * Draws the sky and the place, turned a little by the mouse, then blurs
-     * it all the way the game blurs behind its own menus: what comes after
-     * (the players, the panels) is sharp in front of a soft world.
+     * Draws the sky and the place as the camera behind the player sees it,
+     * moved a little by the mouse. The world is sharp; only what lies behind
+     * a glass pane is blurred, the way the game blurs behind its own menus
+     * (the pane is then frosted glass over a crisp world).
      *
-     * @param zoom  1 = eight blocks from top to bottom of the window
+     * @param zoom  1 = the camera's own opening angle; more = closer
      * @param extraYaw  degrees added to the turn (the sweep at the first start)
+     * @param blurAll  the whole place soft, as a backdrop
      */
-    protected void drawPlace(Gfx g, float zoom, float extraYaw, float alpha) {
+    protected void drawPlace(Gfx g, float zoom, float extraYaw, float alpha, boolean blurAll) {
         float k = 1f - (float) Math.exp(-dt * 3.5f);
-        float sway = (float) Math.sin(System.nanoTime() / 1e9 * 0.22) * 1.2f;
-        orbitYaw += (((mx / VW) - 0.5f) * -15f + sway - orbitYaw) * k;
-        orbitPitch += (((my / VH) - 0.5f) * 5f - orbitPitch) * k;
+        float sway = (float) Math.sin(System.nanoTime() / 1e9 * 0.22) * 0.9f;
+        orbitYaw += (((mx / VW) - 0.5f) * -11f + sway - orbitYaw) * k;
+        orbitPitch += (((my / VH) - 0.5f) * 3.6f - orbitPitch) * k;
         if (scene == null || model == null) { g.fill(0, 0, VW, VH, 0xFF0A0F1C); return; }
-        int bands = 32;
+        // A very wide window sees no more to the sides than the model has: it gets a closer picture instead.
+        model.bounds(0, 0, VW, VH);
+        model.view(orbitYaw + extraYaw, orbitPitch, model.focalFor(Math.max(VH, VW / 1.95f)) * zoom, VW / 2f, VH / 2f);
+        // The sky: deep at the top, the colour of the haze at the horizon and under it.
+        int horizon = Math.max(8, Math.min(VH, Math.round(model.horizonY())));
+        int bands = 28;
         for (int i = 0; i < bands; i++) {
-            int c = mix(0xFF000000 | scene.skyTop, 0xFF000000 | scene.skyBottom, i / (float) (bands - 1));
-            g.fill(0, VH * i / bands, VW, VH * (i + 1) / bands, c);
+            float t = i / (float) (bands - 1);
+            g.fill(0, horizon * i / bands, VW, horizon * (i + 1) / bands, mix(0xFF000000 | scene.skyTop, 0xFF000000 | scene.skyBottom, t * (2f - t)));
         }
+        if (horizon < VH) g.fill(0, horizon, VW, VH, 0xFF000000 | scene.skyBottom);
         g.nextStratum();
-        model.view(orbitYaw + extraYaw, orbitPitch, VH / 8.0f * zoom, VW / 2f, VH / 2f);
-        model.draw(g, VW, VH, alpha);
+        if (blurAll) {
+            model.draw(g, 0, 0, VW, VH, alpha);
+            g.blurBehind();
+            return;
+        }
+        if (lastPanes.isEmpty()) { model.draw(g, 0, 0, VW, VH, alpha); return; }
+        // Clipping works in whole GUI pixels, which are not the canvas's: the boxes are worked out in GUI pixels so they meet exactly.
+        int GW = this.width, GH = this.height;
+        // Behind each pane (and a little around it, so the blur has something to take from at the rim).
+        for (float[] p : lastPanes) {
+            int x0 = Math.max(0, (int) Math.floor((p[0] - 12) * s)), y0 = Math.max(0, (int) Math.floor((p[1] - 12) * s));
+            int x1 = Math.min(GW, (int) Math.ceil((p[2] + 12) * s)), y1 = Math.min(GH, (int) Math.ceil((p[3] + 12) * s));
+            if (x1 > x0 && y1 > y0) clipped(g, x0, y0, x1, y1, alpha);
+        }
         g.blurBehind();
+        // Everywhere else, sharp: the window without the panes, as rows of boxes.
+        java.util.TreeSet<Integer> ys = new java.util.TreeSet<>();
+        ys.add(0); ys.add(GH);
+        int[][] hole = new int[lastPanes.size()][];
+        for (int i = 0; i < hole.length; i++) {
+            float[] p = lastPanes.get(i);
+            // A few pixels in from the pane's edge, so its round corners have the sharp world behind them.
+            hole[i] = new int[] { (int) Math.ceil((p[0] + 3) * s), (int) Math.ceil((p[1] + 3) * s), (int) Math.floor((p[2] - 3) * s), (int) Math.floor((p[3] - 3) * s) };
+            if (hole[i][2] <= hole[i][0] || hole[i][3] <= hole[i][1]) { hole[i] = null; continue; }
+            ys.add(Math.max(0, Math.min(GH, hole[i][1]))); ys.add(Math.max(0, Math.min(GH, hole[i][3])));
+        }
+        Integer prev = null;
+        java.util.List<int[]> row = new java.util.ArrayList<>();
+        for (Integer y : ys) {
+            if (prev != null && y > prev) {
+                row.clear();
+                for (int[] h : hole) if (h != null && h[1] <= prev && h[3] >= y) row.add(h);
+                row.sort((a2, b2) -> Integer.compare(a2[0], b2[0]));
+                int x = 0;
+                for (int[] h : row) {
+                    if (h[0] > x) clipped(g, x, prev, Math.min(GW, h[0]), y, alpha);
+                    x = Math.max(x, h[2]);
+                }
+                if (x < GW) clipped(g, x, prev, GW, y, alpha);
+            }
+            prev = y;
+        }
     }
 
-    /** Where a spot of the place is on the canvas right now, and how tall a player is there. */
-    protected float placeX(float x, float y, float z) { return model.screenX(x, y, z); }
-    protected float placeY(float x, float y, float z) { return model.screenY(x, y, z); }
-    protected float playerHeight() { return 1.875f * model.blockPx(); }
+    /** The place, drawn only inside a box given in GUI pixels. */
+    private void clipped(Gfx g, int x0, int y0, int x1, int y1, float alpha) {
+        g.pose().pushMatrix();
+        try { g.pose().identity(); g.enableScissor(x0, y0, x1, y1); } finally { g.pose().popMatrix(); }
+        try { model.draw(g, x0 / s - 1, y0 / s - 1, x1 / s + 1, y1 / s + 1, alpha); } finally { g.disableScissor(); }
+    }
+
+    /** Where a spot of the place is on the canvas right now: x, y, canvas pixels to a block there, distance from the camera. */
+    protected float[] place(float x, float y, float z) { return model.project(x, y, z); }
 
     /**
      * A pane of frosted glass. The world behind is already blurred, so the
@@ -202,6 +271,7 @@ abstract class VirtualScreen extends IceyScreen {
     protected void glass(Gfx g, float fx, float fy, float fw, float fh, int r, float alpha) {
         int x = Math.round(fx), y = Math.round(fy), w = Math.round(fw), h = Math.round(fh);
         if (w <= 2 || h <= 2 || alpha <= 0.01f) return;
+        if (alpha > 0.12f) panes.add(new float[] { x, y, x + w, y + h });
         Glass.shadow(g, x, y + 3, w, h, a(0x70000000, alpha));
         Glass.fill(g, x, y, w, h, r, a(0x6E0C1322, alpha));
         Glass.fill(g, x, y, w, h, r, a(0x14FFFFFF, alpha));

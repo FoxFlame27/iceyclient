@@ -45,6 +45,30 @@ final class UiFont {
         return usable;
     }
 
+    private static final Identifier GLYPHS = Identifier.fromNamespaceAndPath(IceyMod.MOD_ID, "glyphs");
+    private static Style glyphs;
+    private static Boolean iconsUsable;
+    private static final Map<Character, Component> ICONS = new HashMap<>();
+
+    /** One icon of the icon font (see Icons), sixteen units wide and high. */
+    static Component icon(char c) {
+        Component i = ICONS.get(c);
+        if (i != null) return i;
+        if (glyphs == null) glyphs = Style.EMPTY.withFont(new net.minecraft.network.chat.FontDescription.Resource(GLYPHS));
+        i = Component.literal(String.valueOf(c)).withStyle(glyphs);
+        ICONS.put(c, i);
+        return i;
+    }
+
+    /** False when the icon font did not load (its glyphs are then the narrow "missing" box). */
+    static boolean iconsUsable(Font font) {
+        if (iconsUsable == null) {
+            try { iconsUsable = font.width(icon(Icons.SEARCH)) >= 13; } catch (Throwable t) { iconsUsable = false; }
+            if (!iconsUsable) System.out.println("[IceyMod] menu icons not loaded");
+        }
+        return iconsUsable;
+    }
+
     /** Text to draw; a leading §l asks for the bold cut. */
     static Component of(Font font, String text) {
         Component c = CACHE.get(text);

@@ -27,6 +27,9 @@ final class WorldsPage {
 
     void scroll(float step) { scroll -= step; }
 
+    /** How tall the pane wants to be for what is on this page. */
+    float wantH() { return s.worlds.isEmpty() ? 250 : 63 + s.worlds.size() * 52 + 12; }
+
     /** The game's own "create world" screen (how it is opened changed between game versions). */
     private void create() {
         s.leave(() -> {
@@ -54,19 +57,24 @@ final class WorldsPage {
     }
 
     void draw(Gfx g, float x, float y, float w, float h, float al, int accent, float delta) {
-        s.text(g, "§lWorlds", x + 18, y + 16, 1.5f, SceneMenuScreen.a(0xFFFFFFFF, al));
         List<SceneMenuScreen.Entry> list = s.worlds;
-        s.text(g, list.size() == 1 ? "1 world" : list.size() + " worlds", x + 18 + s.textW("§lWorlds", 1.5f) + 10, y + 21, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
-        float cw = s.textW("§lCreate new world", 1f) + 22;
-        if (s.pill(g, x + w - 18 - cw, y + 13, cw, 22, "Create new world", accent, true, al)) { create(); return; }
-        g.fill(Math.round(x + 14), Math.round(y + 46), Math.round(x + w - 14), Math.round(y + 47), SceneMenuScreen.a(0x26FFFFFF, al));
+        s.pageHead(g, x, y, Icons.WORLD, "Worlds", !s.worldsLoaded ? "Looking for your worlds…" : list.isEmpty() ? "Nothing here yet" : list.size() == 1 ? "1 world" : list.size() + " worlds", accent, al);
+        float cw = s.buttonW(Icons.PLUS, "Create new world");
+        if (s.button(g, x + w - 18 - cw, y + 16, cw, 24, Icons.PLUS, "Create new world", 1, al)) { create(); return; }
+        g.fill(Math.round(x + 14), Math.round(y + 56), Math.round(x + w - 14), Math.round(y + 57), SceneMenuScreen.a(0x22FFFFFF, al));
 
-        float top = y + 52, bottom = y + h - 10, rowH = 40;
+        float top = y + 63, bottom = y + h - 10, rowH = 52;
         float max = Math.max(0, list.size() * rowH - (bottom - top));
         scroll = Math.max(0, Math.min(max, scroll));
         if (list.isEmpty()) {
-            s.textC(g, s.worldsLoaded ? "§lNo worlds yet" : "§lLoading worlds…", x + w / 2f, (top + bottom) / 2f - 14, 1.5f, SceneMenuScreen.a(0xFFFFFFFF, al));
-            if (s.worldsLoaded) s.textC(g, "Make your first one with the button at the top right.", x + w / 2f, (top + bottom) / 2f + 8, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+            float cy = (top + bottom) / 2f;
+            s.rect(g, x + w / 2f - 26, cy - 62, 52, 52, 12, SceneMenuScreen.a(0x1EFFFFFF, al));
+            s.icon(g, Icons.WORLD, x + w / 2f, cy - 36, 26, SceneMenuScreen.a(0xFFC8D2E2, al));
+            s.textC(g, s.worldsLoaded ? "§lNo worlds yet" : "§lLoading worlds…", x + w / 2f, cy + 2, 1.5f, SceneMenuScreen.a(0xFFFFFFFF, al));
+            if (s.worldsLoaded) {
+                s.textC(g, "Your singleplayer worlds show up here.", x + w / 2f, cy + 22, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+                if (s.button(g, x + w / 2f - cw / 2f, cy + 42, cw, 24, Icons.PLUS, "Create new world", 1, al)) { create(); return; }
+            }
             return;
         }
         g.enableScissor(Math.round(x + 4), Math.round(top), Math.round(x + w - 4), Math.round(bottom));
@@ -76,27 +84,33 @@ final class WorldsPage {
                 float ry = top + i * rowH - scroll;
                 if (ry + rowH < top || ry > bottom) continue;
                 boolean inView = s.my >= top && s.my < bottom;
-                boolean hov = inView && s.over(x + 10, ry, w - 20, rowH) && !s.accountOpen;
+                boolean hov = inView && s.over(x + 12, ry, w - 24, rowH - 4) && !s.accountOpen;
                 float hv = s.ease("wrow" + i, hov, 16f);
-                s.rect(g, x + 10, ry + 2, w - 20, rowH - 4, 6, SceneMenuScreen.a(0xFFFFFFFF, (0.05f + 0.07f * hv) * al));
-                s.icon(g, e, x + 18, ry + 6, 28, al);
-                float right = x + w - 22;
+                s.rect(g, x + 12, ry, w - 24, rowH - 6, 8, SceneMenuScreen.a(0xFFFFFFFF, (0.055f + 0.065f * hv) * al));
+                s.ring(g, x + 12, ry, w - 24, rowH - 6, 8, SceneMenuScreen.a(SceneMenuScreen.mix(0x1CFFFFFF, 0x55FFFFFF, hv), al));
+                s.icon(g, e, x + 20, ry + 7, 32, al);
+                float right = x + w - 22, mid = ry + (rowH - 6) / 2f;
                 if (e.worldId.equals(confirmDelete)) {
-                    s.text(g, "§l" + s.fit(e.name, w - 320, 1f), x + 56, ry + 9, 1f, SceneMenuScreen.a(0xFFFFFFFF, al));
-                    s.text(g, "Delete this world for good?", x + 56, ry + 21, 1f, SceneMenuScreen.a(0xFFE0A070, al));
-                    if (s.pill(g, right - 54, ry + 10, 54, 20, "Delete", 0xFFE5484D, false, al)) { delete(e.worldId); return; }
-                    if (s.pill(g, right - 54 - 8 - 46, ry + 10, 46, 20, "Keep", 0xFF334058, false, al)) confirmDelete = null;
+                    s.text(g, "§l" + s.fit(e.name, w - 330, 1f), x + 62, mid - 11, 1f, SceneMenuScreen.a(0xFFFFFFFF, al));
+                    s.text(g, "Delete this world for good?", x + 62, mid + 2, 1f, SceneMenuScreen.a(0xFFF0A878, al));
+                    float dw = s.buttonW(Icons.TRASH, "Delete"), kw = s.buttonW((char) 0, "Keep");
+                    if (s.button(g, right - dw, mid - 12, dw, 24, Icons.TRASH, "Delete", 2, al)) { delete(e.worldId); return; }
+                    if (s.button(g, right - dw - 8 - kw, mid - 12, kw, 24, (char) 0, "Keep", 0, al)) confirmDelete = null;
                     continue;
                 }
-                float textRight = right;
-                if (hv > 0.5f) {
-                    if (!e.disabled && s.pill(g, right - 44, ry + 10, 44, 20, "Play", accent, true, al)) { s.playWorld(e); return; }
-                    if (s.pill(g, right - 44 - 6 - 54, ry + 10, 54, 20, "Delete", 0xFF334058, false, al)) confirmDelete = e.worldId;
-                    textRight = right - 44 - 6 - 54 - 10;
+                float pw = s.buttonW(Icons.PLAY, "Play");
+                float bx = right;
+                if (!e.disabled) {
+                    if (s.button(g, right - pw, mid - 12, pw, 24, Icons.PLAY, "Play", hv > 0.5f ? 1 : 0, al)) { s.playWorld(e); return; }
+                    bx = right - pw - 8;
                 }
-                float tw = textRight - (x + 56);
-                s.text(g, "§l" + s.fit(e.name, tw, 1f), x + 56, ry + 9, 1f, SceneMenuScreen.a(e.disabled ? 0xFF8C96A8 : 0xFFFFFFFF, al));
-                s.text(g, s.fit(e.disabled ? "Cannot be opened by this game version" : e.sub, tw, 1f), x + 56, ry + 21, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+                if (s.iconButton(g, bx - 24, mid - 12, 24, Icons.TRASH, "Delete", true, 0.35f + 0.65f * hv, al)) confirmDelete = e.worldId;
+                float tw = bx - 24 - 14 - (x + 62);
+                s.text(g, "§l" + s.fit(e.name, tw, 1f), x + 62, mid - 11, 1f, SceneMenuScreen.a(e.disabled ? 0xFF8C96A8 : 0xFFFFFFFF, al));
+                String sub = e.disabled ? "Cannot be opened by this game version" : e.sub;
+                boolean icons = s.iconsUsable();
+                if (icons) s.icon(g, e.disabled ? Icons.WARNING : Icons.CLOCK, x + 67, mid + 6, 10, SceneMenuScreen.a(e.disabled ? 0xFFF0A878 : 0xFF8E9AB0, al));
+                s.text(g, s.fit(sub, tw - 14, 1f), x + 62 + (icons ? 14 : 0), mid + 2, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
                 if (hov && s.clicked && !e.disabled) {
                     long now = System.currentTimeMillis();
                     if (lastIndex == i && now - lastClick < 350) { s.click(); s.playWorld(e); return; }

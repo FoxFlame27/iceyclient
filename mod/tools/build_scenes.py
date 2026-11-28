@@ -3,8 +3,8 @@
 
 Input: a folder of <id>.json files written by the scene exporter (a
 temporary in-game tool, kept outside the repository): every block face of
-a piece of a dev world that can be seen from the viewer's side, plus every
-spot in it where a player could stand in full view.
+a piece of a dev world that the camera behind the player can see, plus
+every spot in it where a player could stand in full view.
 
 Output, under src/main/resources/assets/iceymod/scenes:
   <id>.json      the faces (the 3D model the menu draws)
@@ -17,12 +17,13 @@ import os
 import sys
 
 # How a place is lit. sun/day: colour and strength of direct sunlight (or moonlight); shade/ambient: the light
-# of the sky where the sun does not reach; glow: lamps, torches, lava; fog*: the haze; sky*: behind everything;
+# of the sky where the sun does not reach; glow: lamps, torches, lava; fog*: the haze (it ends in the colour of
+# the sky at the horizon, skyBottom, so the far edge of the model melts into it); sky*: behind everything;
 # light: the tint on the players so they sit in the same light.
-DAY = dict(day=0.80, sun='fff1d6', shade='a8c4f2', ambient=0.66, glow=0.9, fog='bcd6f4', fogStart=13, fogEnd=42, fogMax=0.7, skyTop='4f8fe6', skyBottom='d4e6fa', light='fff8ee')
-DUSK = dict(day=0.78, sun='ff9c5c', shade='7f78c0', ambient=0.52, glow=1.25, fog='e09a80', fogStart=11, fogEnd=40, fogMax=0.74, skyTop='33367a', skyBottom='f7a070', light='f6cdb8')
-DAWN = dict(day=0.66, sun='ffb7c4', shade='8f86c8', ambient=0.56, glow=1.2, fog='c0a8d4', fogStart=11, fogEnd=40, fogMax=0.74, skyTop='2c2a62', skyBottom='f0aebc', light='e2d2ea')
-NIGHT = dict(day=0.30, sun='9fb6ff', shade='4a5e9e', ambient=0.34, glow=1.7, fog='0e1634', fogStart=10, fogEnd=38, fogMax=0.8, skyTop='050918', skyBottom='1a2650', light='a9b6de')
+DAY = dict(day=1.3, sun='ffedc4', shade='a6c4ff', ambient=0.54, glow=0.9, fog='c6defa', fogStart=20, fogEnd=56, fogMax=1.0, skyTop='3f86ea', skyBottom='c6defa', light='fff6e6')
+DUSK = dict(day=1.0, sun='ff9a55', shade='8a80d0', ambient=0.5, glow=1.3, fog='f2a47e', fogStart=17, fogEnd=56, fogMax=1.0, skyTop='2f3378', skyBottom='f2a47e', light='f6cdb8')
+DAWN = dict(day=0.9, sun='ffb9c6', shade='9a90d6', ambient=0.54, glow=1.2, fog='eab4c4', fogStart=17, fogEnd=56, fogMax=1.0, skyTop='2c2a62', skyBottom='eab4c4', light='e8d6ee')
+NIGHT = dict(day=0.5, sun='a9bcff', shade='566cb4', ambient=0.4, glow=1.7, fog='18244c', fogStart=15, fogEnd=56, fogMax=1.0, skyTop='050918', skyBottom='18244c', light='a9b6de')
 
 # export id, name shown in the menu, how likely it snows / rains there at a start, how it is lit
 PICKS = [
@@ -30,56 +31,74 @@ PICKS = [
     ('plains_village', 'Plains Village', 0.0, 0.3, DAY),
     ('village_dusk', 'Village at Dusk', 0.0, 0.2, DUSK),
     ('savanna_village', 'Savanna Village', 0.0, 0.0, DAY),
-    ('desert_village', 'Desert Village', 0.0, 0.0, dict(DAY, day=0.56, ambient=0.5, sun='ffe6b8', shade='b9c4e6', fog='ecd9b4', skyBottom='f2e2c0', light='fff0d6')),
-    ('taiga_village', 'Taiga Village at Night', 0.0, 0.3, dict(NIGHT, day=0.42, ambient=0.46, shade='6478c0')),
+    ('desert_village', 'Desert Village', 0.0, 0.0, dict(DAY, day=1.0, ambient=0.5, sun='ffe9bd', fog='efdcb6', skyBottom='efdcb6', light='fff0d6')),
+    ('taiga_village', 'Taiga Village at Night', 0.0, 0.3, NIGHT),
     ('outpost', 'Pillager Outpost', 0.0, 0.25, DUSK),
-    ('igloo', 'Igloo at Dawn', 0.7, 0.0, DAWN),
-    ('trial_chambers', 'Trial Chambers', 0.0, 0.0, dict(day=0.0, sun='ffffff', shade='ffe2c4', ambient=0.36, glow=1.35, fog='120d0c', fogStart=12, fogEnd=36, fogMax=0.85, skyTop='0b0909', skyBottom='0b0909', light='ecccaa')),
-    ('end_city', 'End City', 0.0, 0.0, dict(day=0.55, sun='e8d4ff', shade='b9a2e6', ambient=0.95, glow=1.0, fog='0d0a18', fogStart=13, fogEnd=42, fogMax=0.85, skyTop='07050e', skyBottom='1a1030', light='d4c6ec')),
-    ('bastion', 'Bastion Remnant', 0.0, 0.0, dict(day=0.0, sun='ffffff', shade='ffb49a', ambient=0.5, glow=1.4, fog='2a0c0b', fogStart=11, fogEnd=36, fogMax=0.85, skyTop='190706', skyBottom='340e0b', light='dcb4a2')),
+    ('igloo', 'Snowfield at Dawn', 0.7, 0.0, DAWN),
+    ('trial_chambers', 'Trial Chambers', 0.0, 0.0, dict(day=0.0, sun='ffffff', shade='ffe2c4', ambient=0.4, glow=1.4, fog='120d0c', fogStart=14, fogEnd=40, fogMax=1.0, skyTop='0b0909', skyBottom='120d0c', light='ecccaa')),
+    ('end_city', 'End City', 0.0, 0.0, dict(day=0.6, sun='e8d4ff', shade='b9a2e6', ambient=0.95, glow=1.0, fog='110c20', fogStart=20, fogEnd=56, fogMax=1.0, skyTop='07050e', skyBottom='110c20', light='d4c6ec')),
+    ('bastion', 'Bastion Remnant', 0.0, 0.0, dict(day=0.0, sun='ffffff', shade='ffb49a', ambient=0.52, glow=1.45, fog='2e0d0b', fogStart=13, fogEnd=42, fogMax=1.0, skyTop='190706', skyBottom='2e0d0b', light='dcb4a2')),
 ]
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'src', 'main', 'resources', 'assets', 'iceymod', 'scenes')
 
 
-def friends(spots, mobs):
-    """Up to five places for friends: in view, clear of the panels, not crowding each other or the player."""
-    me = (0.0, -1.78)                                  # the player on screen, in blocks from the middle (chest height)
+def friends(spots, me):
+    """Up to four places for friends, the best first. A spot is [dx, dy, dz, x, feet, head, far]: blocks from the player, then
+    where it is in the picture (across, and the height of feet and head, in half picture heights from the
+    middle; the picture is 1.78 wide each way) and how far from the camera."""
+    def half(s):
+        return (s[5] - s[4]) * 0.17                    # half a player's width in the picture
+    def clash(a, b, gap):
+        # Side by side they need room for the name tags over their heads.
+        tags = 0.36 if abs(a[5] - b[5]) < 0.16 else 0.0
+        if abs(a[3] - b[3]) >= max(half(a) + half(b) + gap, tags):
+            return False
+        return a[4] < b[5] + 0.16 and b[4] < a[5] + 0.16
+    mine = [0, 0, 0, me[0], me[1], me[2], 0]
     cand = []
-    for dx, dy, dz, xv, yv, zv in spots:
+    for s in spots:
+        dx, dy, dz, x, feet, head, far = s
         if dx == 0 and dz == 0:
             continue
-        if any(abs(dx - m[0]) < 2 and abs(dz - m[2]) < 2 for m in mobs):      # a mob stands there
+        if far < 5.6 or far > 22 or abs(dy) > 3:
             continue
-        if zv < -3.6 or zv > 20 or abs(xv) > 6.4:      # a little in front of the player is fine too
+        if head > 0.60 or feet < -0.90 or abs(x) + half(s) > 1.66:   # under the top bar and its name tag, on the canvas
             continue
-        if yv > 2.8 or yv < -2.8:                      # head under the top bar, feet above the bottom edge
+        if x + half(s) > 0.66 and feet < 0.04:         # behind the play panel
             continue
-        if xv > 1.9 and yv < 1.6:                      # behind the play panel
+        if x - half(s) < -0.72 and feet < -0.70:       # behind the friends bar
             continue
-        if xv < -3.2 and yv < -2.2:                    # behind the friends bar
+        if clash(s, mine, 0.14):
             continue
-        if abs(xv - me[0]) < 1.5 and abs(yv - me[1]) < 2.6:
-            continue
-        cand.append((dx, dy, dz, xv, yv, zv))
+        cand.append(s)
+    # Places wanted: (across, how far). The nearest free spot to each is taken. The menu shows two friends,
+    # so the first two are the ones that count: one to each side of the player, a little further back.
     chosen = []
-    # First the ground the player stands on; a step up or down only if that leaves the place empty.
-    for step in (1, 2):
-        pool = [s for s in cand if abs(s[1]) <= step and s[4] <= (2.0 if step == 1 else 2.4)]
-        pool.sort(key=lambda s: abs(s[5] - 4.0) + abs(abs(s[3]) - 3.2) * 0.6)
-        for s in pool:
-            if len(chosen) >= 5:
-                break
-            if s in chosen:
+    for tx, tfar in ((-0.8, 9.0), (0.55, 11.5), (-0.3, 15.0), (-1.3, 12.5)):
+        best = None
+        for s in cand:
+            if any(clash(s, c, 0.1) for c in chosen):
                 continue
-            if all(abs(s[3] - c[3]) >= 1.5 or abs(s[4] - c[4]) >= 2.7 for c in chosen):
-                left = sum(1 for c in chosen if c[3] < 0)
-                if (s[3] < 0 and left >= 3) or (s[3] >= 0 and len(chosen) - left >= 3):
-                    continue
+            # Not two on the same block, and not shoulder to shoulder in the world either.
+            if any(abs(s[0] - c[0]) < 2 and abs(s[2] - c[2]) < 2 for c in chosen):
+                continue
+            cost = abs(s[3] - tx) + abs(s[6] - tfar) * 0.07 + abs(s[1]) * 0.5
+            if best is None or cost < best[0]:
+                best = (cost, s)
+        if best and best[0] < 1.6:
+            chosen.append(best[1])
+    # A place with little room: rather a second friend a bit off the wanted spot than none.
+    if len(chosen) < 2:
+        rest = [s for s in cand if s not in chosen and not any(clash(s, c, 0.06) for c in chosen)
+                and not any(abs(s[0] - c[0]) < 2 and abs(s[2] - c[2]) < 2 for c in chosen)]
+        rest.sort(key=lambda s: abs(s[6] - 10.0) * 0.07 + abs(s[1]) * 0.5)
+        for s in rest:
+            if len(chosen) >= 2:
+                break
+            if not any(clash(s, c, 0.06) for c in chosen):
                 chosen.append(s)
-        if len(chosen) >= 3:
-            break
     return [[s[0], s[1], s[2]] for s in chosen]
 
 
@@ -93,10 +112,9 @@ def main():
             print('skip', sid, '(not exported)')
             continue
         data = json.load(open(path))
-        # No animals or villagers in the menu: their faces (flag 8) are left out, and friends may stand where they stood.
-        quads = [q for q in data['quads'] if not (q[19] & 8)]
-        spots = friends(data['spots'], [])
-        model = {'yaw': data['yaw'], 'pitch': data['pitch'], 'centre': data['centre'], 'sun': data.get('sun'), 'textures': [t for t in data['textures'] if not t.startswith('entity/')], 'quads': quads}
+        quads = data['quads']
+        spots = friends(data['spots'], data['me'])
+        model = {'yaw': data['yaw'], 'pitch': data['pitch'], 'dist': data['dist'], 'fov': data['fov'], 'far': data['far'], 'sun': data.get('sun'), 'textures': data['textures'], 'quads': quads}
         with open(os.path.join(OUT, sid + '.json'), 'w') as f:
             json.dump(model, f, separators=(',', ':'))
         out.append(dict(id=sid, name=name, snowfall=snowfall, rain=rain, spots=spots, **lit))
