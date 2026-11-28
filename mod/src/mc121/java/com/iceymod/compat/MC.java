@@ -15,6 +15,11 @@ public final class MC {
     private MC() {}
     public static Screen screen(Minecraft mc) { return mc.screen; }
     public static void setScreen(Minecraft mc, Screen s) { mc.setScreen(s); }
+    /** One of the game's own toasts (the boxes that slide in at the top right), so a notice looks like Minecraft and follows the resource pack. */
+    public static void toast(Minecraft mc, net.minecraft.network.chat.Component title, net.minecraft.network.chat.Component text) {
+        net.minecraft.client.gui.components.toasts.SystemToast.add(mc.getToastManager(),
+                net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION, title, text);
+    }
     public static Camera camera(Minecraft mc) { return mc.gameRenderer.getMainCamera(); }
     public static long dayTime(Level level) { return level.getDayTime(); }
     /**

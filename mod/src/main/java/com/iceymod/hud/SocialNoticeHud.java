@@ -11,7 +11,10 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 
 /**
- * A notice in the top right corner: a friend came online, or wrote.
+ * A notice in the top right corner: a friend came online, or wrote. It is
+ * shown as one of Minecraft's own toasts (the game's box, font and sound,
+ * in whatever resource pack is on); only if the game refuses is the mod's
+ * own plain box drawn instead.
  *
  * The launcher knows about friends (it is signed in to the friends
  * service); the game does not. So the launcher writes each notice into
@@ -53,6 +56,29 @@ public final class SocialNoticeHud {
         text = noticeText == null ? "" : noticeText;
         shownAt = System.currentTimeMillis();
         shownIsMessage = false;
+        present();
+    }
+
+    /** False once the game's toasts could not be used: the mod's own box takes over. */
+    private static boolean gameToasts = true;
+
+    /** Hands the notice to the game as a toast. When that works there is nothing left for the mod to draw. */
+    private static void present() {
+        if (!gameToasts || title.isEmpty()) return;
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc == null || mc.font == null) return;
+            String line1 = title, line2 = text;
+            // A message can be answered with a key: say so next to the name.
+            if (shownIsMessage && !replyKeyName.isEmpty()) line1 += "  (" + replyKeyName + " to reply)";
+            if (mc.font.width(line2) > 220) line2 = mc.font.plainSubstrByWidth(line2, 220 - mc.font.width("...")) + "...";
+            com.iceymod.compat.MC.toast(mc, net.minecraft.network.chat.Component.literal(line1),
+                    line2.isEmpty() ? null : net.minecraft.network.chat.Component.literal(line2));
+            title = "";
+        } catch (Throwable t) {
+            System.out.println("[IceyMod] the game's toasts are not usable here, drawing the notice ourselves: " + t);
+            gameToasts = false;
+        }
     }
 
     public static void register() {
@@ -89,6 +115,7 @@ public final class SocialNoticeHud {
                     replyUuid = u; replyName = n; replyAt = now; shownIsMessage = true;
                 }
             }
+            present();
         } catch (Throwable ignored) {}
     }
 

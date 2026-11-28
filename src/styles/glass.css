@@ -810,13 +810,7 @@ select option { background: #0d1220; color: var(--text-primary); }
   background: rgba(var(--accent-rgb),0.2);
   border-color: rgba(var(--accent-rgb),0.55);
 }
-.toast {
-  background: var(--glass-2);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-line);
-  box-shadow: var(--glass-shine), var(--glass-shadow);
-}
+/* Toasts are Minecraft's dark slab in every theme (styles/toasts.css). */
 
 /* ── Scrollbars follow the accent ── */
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); }
