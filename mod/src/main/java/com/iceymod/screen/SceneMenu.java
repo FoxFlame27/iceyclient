@@ -21,8 +21,19 @@ public final class SceneMenu {
     static volatile boolean asked;
     private static int titleTicks;
 
+    /** Ticks since a world was last open (large when none was in this session). */
+    private static int sinceWorld = 100000;
+
     public static void onTick(Minecraft mc) {
+        if (mc.level != null) sinceWorld = 0; else if (sinceWorld < 100000) sinceWorld++;
         Screen cur = MC.screen(mc);
+        // Leaving a server puts the game's own server list up. With the scene menu chosen, that menu comes instead.
+        if (cur instanceof net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen && mc.level == null && sinceWorld < 200
+                && MenuPrefs.isSceneTitle() && !failed && com.iceymod.menu.SceneModel.of(Scenes.current()) != null) {
+            sinceWorld = 100000;
+            MC.setScreen(mc, new SceneMenuScreen());
+            return;
+        }
         if (!(cur instanceof TitleScreen)) { titleTicks = 0; return; }
         if (MenuPrefs.isSceneTitle()) {
             if (!failed && com.iceymod.menu.SceneModel.of(Scenes.current()) != null) MC.setScreen(mc, new SceneMenuScreen());

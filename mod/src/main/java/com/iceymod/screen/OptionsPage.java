@@ -124,7 +124,8 @@ final class OptionsPage {
     private float slider(Gfx g, String key, String name, float x, float y, float w, int value, int min, int max, int step, Apply apply, Label label, float al, int accent, boolean live) {
         float trackX = x + 118, trackW = w - 118 - 64, ty = y + 9;
         Integer pending = held.get(key);
-        int shown = pending != null ? pending : value;
+        // A value outside the slider's range (full brightness sets 1500%) stops at its end.
+        int shown = Math.max(min, Math.min(max, pending != null ? pending : value));
         boolean hov = s.over(trackX - 6, y, trackW + 12, 22) && !s.accountOpen;
         if (hov && s.clicked) { dragging = key; s.swallowClick(); }
         if (key.equals(dragging)) {
@@ -145,7 +146,7 @@ final class OptionsPage {
         }
         if (key.equals(dragging)) lastDragged = key;
         float hv = s.ease("sl" + key, hov || key.equals(dragging), 16f);
-        float t = (shown - min) / (float) (max - min);
+        float t = Math.max(0f, Math.min(1f, (shown - min) / (float) (max - min)));
         s.text(g, name, x, y + 7, 1f, SceneMenuScreen.a(0xFFE6ECF6, al));
         s.rect(g, trackX, ty, trackW, 5, 2, SceneMenuScreen.a(0x66000000, al));
         s.rect(g, trackX, ty, Math.max(4, trackW * t), 5, 2, SceneMenuScreen.a(accent, al));

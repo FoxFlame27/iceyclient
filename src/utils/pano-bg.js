@@ -2,8 +2,9 @@
 // Background, or the Theme step of Setup). The other choice, and the
 // default, is the snow picture, which this file leaves alone.
 //
-// The panoramas are Minecraft's own title-screen ones, read from the game
-// on this computer, and Icey's panorama packs (main.js: get-bg-panoramas).
+// The panoramas are the ones the title screen in game is given: the pack
+// picked in Settings, or all of Icey's packs when that is on shuffle
+// (main.js: get-bg-panoramas).
 // They are shown the way the game shows them: the six pictures form a cube
 // around the viewer, who slowly turns. On shuffle: a different one at every
 // start, and a new one fades in every few minutes.
@@ -332,6 +333,8 @@ const PanoBg = (() => {
 
   const api = {
     apply,
+    // Another panorama was picked for the title screen: show that one.
+    reload: async () => { if (active) stop(false); await apply(); },
     // True when panoramas were asked for and none could be shown: the
     // snow picture stays, and Settings says why.
     unavailable: false,
@@ -344,6 +347,7 @@ const PanoBg = (() => {
   if (typeof SettingsManager === 'undefined') return;
   SettingsManager.onChange((key) => {
     if (key === 'launcherBackground' || key === 'layoutTheme' || key === 'skiflameMode') PanoBg.apply();
+    else if (key === 'selectedPanorama') PanoBg.reload();
   });
   const wait = () => { if (SettingsManager._settings) PanoBg.apply(); else setTimeout(wait, 40); };
   wait();

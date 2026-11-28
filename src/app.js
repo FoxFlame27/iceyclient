@@ -328,10 +328,62 @@ async function _navLogout() {
 // when the new version is downloaded, and quitting the launcher installs
 // it as well. Only where the app cannot replace itself (Linux) is it still
 // a note with the version number.
+// An update found when the launcher is opened takes the whole window:
+// "Updating Icey Client", a bar, and the launcher starts again by itself.
+let _updateStuckTimer = 0, _updateLastMove = 0, _updateLastPct = -1;
+function _updateOverlay(st) {
+  let el = document.getElementById('update-overlay');
+  const on = !!st && st.blocking && ['downloading', 'ready', 'installing'].includes(st.state);
+  if (!on) {
+    clearInterval(_updateStuckTimer); _updateStuckTimer = 0;
+    if (el && !el.classList.contains('leaving')) { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); }
+    return false;
+  }
+  if (!el || el.classList.contains('leaving')) {
+    if (el) el.remove();
+    el = document.createElement('div');
+    el.id = 'update-overlay';
+    el.innerHTML = `
+      <div class="update-card">
+        <img class="update-logo" src="assets/icon.png" alt="">
+        <div class="update-title">Updating Icey Client</div>
+        <div class="update-sub" id="update-sub">Please wait, this only takes a moment</div>
+        <div class="update-bar"><div class="update-fill" id="update-fill"></div></div>
+        <div class="update-meta">
+          <span id="update-versions" data-no-i18n></span>
+          <span id="update-pct" data-no-i18n></span>
+        </div>
+        <button class="update-skip" id="update-skip" hidden>Continue without updating</button>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelector('#update-skip').onclick = () => { try { window.icey.updateSkip(); } catch (_) {} };
+    _updateLastMove = Date.now(); _updateLastPct = -1;
+    // A download that stands still for half a minute must not lock the launcher.
+    _updateStuckTimer = setInterval(() => {
+      const skip = document.getElementById('update-skip');
+      if (skip && Date.now() - _updateLastMove > 25000) skip.hidden = false;
+    }, 1000);
+  }
+  const going = st.state !== 'downloading';
+  const pct = going ? 100 : Math.max(0, Math.min(100, st.percent || 0));
+  if (pct !== _updateLastPct) { _updateLastPct = pct; _updateLastMove = Date.now(); const skip = document.getElementById('update-skip'); if (skip && !going) skip.hidden = true; }
+  const fill = document.getElementById('update-fill');
+  if (fill) { fill.style.width = pct + '%'; fill.classList.toggle('busy', going); }
+  const sub = document.getElementById('update-sub');
+  const subText = going ? 'Installing the update. Icey Client restarts by itself' : 'Please wait, this only takes a moment';
+  if (sub && sub.dataset.t !== subText) { sub.dataset.t = subText; sub.textContent = subText; }
+  const ver = document.getElementById('update-versions');
+  if (ver) ver.textContent = 'v' + st.current + '  →  v' + st.latest;
+  const p = document.getElementById('update-pct');
+  if (p) p.textContent = going ? '' : pct + '%';
+  return true;
+}
+
 let _updateNoted = null;
 function _updateDraw(st) {
   const chip = document.getElementById('titlebar-update');
   if (!chip || !st) return;
+  if (_updateOverlay(st)) { chip.hidden = true; return; }
   const set = (label, extra, clickable) => {
     chip.hidden = false;
     chip.disabled = !clickable;

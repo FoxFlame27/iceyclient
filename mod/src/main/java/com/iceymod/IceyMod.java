@@ -39,7 +39,7 @@ public class IceyMod implements ClientModInitializer {
     public static final Identifier LOGO_TEXTURE = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
     public static final String KEY_CATEGORY = "key.categories.iceymod";
     /** Bumped with every release; shown in the log at start and at the bottom of the scene menu. */
-    public static final String BUILD = "v1.87.33";
+    public static final String BUILD = "v1.87.34";
 
     private static KeyMapping menuKey;
     private static KeyMapping replyKey;

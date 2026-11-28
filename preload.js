@@ -85,6 +85,7 @@ contextBridge.exposeInMainWorld('icey', {
   checkUpdate: () => ipcRenderer.invoke('check-update'),
   updateState: () => ipcRenderer.invoke('update-state'),
   updateInstall: () => ipcRenderer.invoke('update-install'),
+  updateSkip: () => ipcRenderer.invoke('update-skip'),
   onUpdateState: (callback) => {
     const handler = (_, data) => callback(data);
     ipcRenderer.on('update-state', handler);

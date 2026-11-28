@@ -1135,6 +1135,10 @@ function launchMinecraft(installationId, opts = {}) {
     const titleMenu = ['vanilla', 'icey', 'scene'].includes(settings.titleMenu) ? settings.titleMenu : '';
     const vanillaMenus = titleMenu === 'vanilla';
 
+    // Packs of the player's that the game dropped after a failed load come back first.
+    try { _rescueResourcePacks(installGameDir); }
+    catch (e) { log('warn', 'Resource pack rescue: ' + e.message); }
+
     // Panorama pack installs on ANY installation (vanilla or Fabric) because
     // it's just a resource pack — MC loads it regardless of mod loader.
     {
@@ -1164,9 +1168,24 @@ function launchMinecraft(installationId, opts = {}) {
             if (!choices.length) choices = listPanoramaFiles();
             selectedPanorama = choices.length ? choices[Math.floor(Math.random() * choices.length)] : 'Nether Panorama.zip';
           }
-          const srcPanorama = path.join(__dirname, 'resources', 'panoramas', selectedPanorama);
-          const altPanorama = path.join(process.resourcesPath || '', 'panoramas', selectedPanorama);
-          const panoSrc = fs.existsSync(srcPanorama) ? srcPanorama : (fs.existsSync(altPanorama) ? altPanorama : null);
+          const panoPath = (name) => {
+            const a = path.join(__dirname, 'resources', 'panoramas', name), b = path.join(process.resourcesPath || '', 'panoramas', name);
+            return fs.existsSync(a) ? a : (fs.existsSync(b) ? b : null);
+          };
+          let panoSrc = panoPath(selectedPanorama);
+          // A pack whose six faces do not fit together would make the game drop every resource pack: take another.
+          if (panoSrc && !_panoramaPackOk(panoSrc)) {
+            log('warn', 'Panorama pack is not whole, not used: ' + selectedPanorama);
+            panoSrc = null;
+            for (const other of ['Nether Panorama.zip', ...listPanoramaFiles()]) {
+              const p = panoPath(other);
+              if (p && _panoramaPackOk(p)) { panoSrc = p; selectedPanorama = other; break; }
+            }
+            if (!panoSrc) {
+              try { if (fs.existsSync(destIceyPack)) fs.unlinkSync(destIceyPack); } catch (_) {}
+              _unregisterResourcepackLine(installGameDir, iceyPackName);
+            }
+          }
           if (panoSrc) {
             const srcStat = fs.statSync(panoSrc);
             const destStat = fs.existsSync(destIceyPack) ? fs.statSync(destIceyPack) : null;
@@ -4798,6 +4817,111 @@ function _unregisterResourcepackLine(installGameDir, filename) {
   try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) {}
 }
 
+// ── Panorama packs must be whole ────────────────────────────────────────
+// Since 1.21.9 the game loads the title panorama as one cube. Six faces
+// that are not all the same square size make that fail, and a failed load
+// makes the game switch off EVERY resource pack the player has on ("Caught
+// error loading resourcepacks, removing all selected resourcepacks"). One
+// of the shipped packs had four faces of 1400x1440 (fixed in 1.87.34); a
+// pack is now looked at before it goes in, and one that is not whole never
+// does.
+const _panoOkCache = new Map();
+function _panoramaPackOk(zipPath) {
+  let key;
+  try { const st = fs.statSync(zipPath); key = zipPath + '|' + st.size + '|' + Math.round(st.mtimeMs); } catch (_) { return false; }
+  if (_panoOkCache.has(key)) return _panoOkCache.get(key);
+  let ok = false;
+  try {
+    const buf = fs.readFileSync(zipPath);
+    const byName = new Map(_zipEntries(buf).map(e => [e.name, e]));
+    let size = 0;
+    ok = true;
+    for (let i = 0; i < 6 && ok; i++) {
+      const e = byName.get('assets/minecraft/textures/gui/title/background/panorama_' + i + '.png');
+      const png = e ? _zipReadEntry(buf, e) : null;
+      // PNG: 8 bytes signature, then the IHDR chunk with width and height.
+      if (!png || png.length < 24 || png.readUInt32BE(0) !== 0x89504e47) { ok = false; break; }
+      const w = png.readUInt32BE(16), h = png.readUInt32BE(20);
+      if (!w || w !== h || (size && w !== size)) ok = false;
+      size = w;
+    }
+  } catch (_) { ok = false; }
+  _panoOkCache.set(key, ok);
+  return ok;
+}
+
+// ── The player's resource packs come back after the game dropped them ───
+// When a resource reload fails, the game takes every selected pack off
+// (see above). The launcher remembers which packs the player had on at
+// each start; when it then finds none on and the game's log says the game
+// took them off, it puts them back, once per such failure. Without a
+// remembered list (the first start with this version) the list is read
+// from the game's own logs.
+const _ICEY_PACK_ENTRY = /^file\/Icey(Panorama\.zip|Head|Glass|Vanilla|ModResourcePack\.zip|NetherPanorama\.zip)$/;
+const _PACK_WIPE_MARK = 'removing all selected resourcepacks';
+function _rescueResourcePacks(installGameDir) {
+  const optionsPath = path.join(installGameDir, 'options.txt');
+  if (!fs.existsSync(optionsPath)) return;
+  const notePath = path.join(installGameDir, 'config', 'iceymod-packs.json');
+  const lines = fs.readFileSync(optionsPath, 'utf-8').split('\n');
+  const at = lines.findIndex(l => l.startsWith('resourcePacks:'));
+  let current = [];
+  if (at >= 0) { try { current = JSON.parse(lines[at].slice('resourcePacks:'.length)); } catch (_) { return; } }
+  if (!Array.isArray(current)) return;
+  const mine = current.filter(p => typeof p === 'string' && p.startsWith('file/') && !_ICEY_PACK_ENTRY.test(p));
+  const note = _readJsonSafe(notePath) || {};
+  const remember = (packs) => {
+    try { fs.mkdirSync(path.dirname(notePath), { recursive: true }); fs.writeFileSync(notePath, JSON.stringify({ packs, savedAt: Date.now() }), 'utf-8'); } catch (_) {}
+  };
+  if (mine.length) { remember(mine); return; }
+
+  // None on. Did the game take them off since the list was last remembered?
+  const rpDir = path.join(installGameDir, 'resourcepacks');
+  let present = [];
+  try { present = fs.readdirSync(rpDir).filter(n => !_ICEY_PACK_ENTRY.test('file/' + n)); } catch (_) {}
+  if (!present.length) return;
+  const logsDir = path.join(installGameDir, 'logs');
+  let logs = [];
+  try {
+    logs = fs.readdirSync(logsDir).filter(n => n === 'latest.log' || /^\d{4}-\d{2}-\d{2}-\d+\.log\.gz$/.test(n))
+      .map(n => { try { return { file: path.join(logsDir, n), at: fs.statSync(path.join(logsDir, n)).mtimeMs }; } catch (_) { return null; } })
+      .filter(Boolean).sort((a, b) => b.at - a.at).slice(0, 8);
+  } catch (_) {}
+  const since = Math.max(Number(note.savedAt) || 0, Date.now() - 14 * 86400000);
+  const zlib = require('zlib');
+  let wiped = false, fromLog = null;
+  for (const l of logs) {
+    if (l.at < since && wiped) break;
+    let text = '';
+    try { const raw = fs.readFileSync(l.file); text = l.file.endsWith('.gz') ? zlib.gunzipSync(raw).toString('utf-8') : raw.toString('utf-8'); } catch (_) { continue; }
+    if (l.at >= since && text.includes(_PACK_WIPE_MARK)) wiped = true;
+    if (!fromLog) {
+      // The newest reload that had packs of the player's in it, in the order they were on.
+      const reloads = text.split('\n').filter(x => x.includes('Reloading ResourceManager:'));
+      for (let i = reloads.length - 1; i >= 0 && !fromLog; i--) {
+        const list = reloads[i].slice(reloads[i].indexOf('Reloading ResourceManager:') + 26) + ',';
+        const had = present.map(n => ({ n, i: list.indexOf(' file/' + n + ',') })).filter(x => x.i >= 0).sort((a, b) => a.i - b.i);
+        if (had.length) fromLog = had.map(x => 'file/' + x.n);
+      }
+    }
+  }
+  if (!wiped) return;
+  const want = (Array.isArray(note.packs) && note.packs.length ? note.packs : (fromLog || []))
+    .filter(p => typeof p === 'string' && present.includes(p.slice(5)));
+  if (!want.length) { remember([]); return; }
+  const next = current.filter(p => !want.includes(p));
+  if (!next.includes('vanilla')) next.unshift('vanilla');
+  // The player's packs go right after the game's own, under Icey's.
+  let pos = next.findIndex(p => _ICEY_PACK_ENTRY.test(p));
+  if (pos < 0) pos = next.length;
+  next.splice(pos, 0, ...want);
+  const line = 'resourcePacks:' + JSON.stringify(next);
+  if (at >= 0) lines[at] = line; else lines.push(line);
+  try { fs.writeFileSync(optionsPath, lines.join('\n'), 'utf-8'); } catch (_) { return; }
+  remember(want);
+  log('info', 'Resource packs the game had dropped are back on: ' + want.join(', '));
+}
+
 // ── Panorama catalog ────────────────────────────────────────────────────
 function getPanoramasDir() {
   const candidates = [
@@ -4816,11 +4940,9 @@ function listPanoramaFiles() {
 
 // ── Launcher background: panoramas ──────────────────────────────────────
 // The launcher can show a turning panorama behind its pages in place of the
-// snow picture (Settings → Appearance → Background). The pictures are the
-// game's own title-screen panoramas, read from what the game has downloaded
-// on this computer (nothing of Minecraft's ships with the launcher), and
-// the panorama packs Icey brings along. One entry per distinct panorama:
-// several game versions share one, and it is only listed once.
+// snow picture (Settings → Appearance → Background). It shows what the
+// title screen in game shows: the panorama picked in Settings, or, when
+// that is set to shuffle, all of Icey's panorama packs in turn.
 const BG_PANO_CACHE_DIR = path.join(DATA_DIR, 'cache', 'panoramas');
 const _bgPanoFace = (i) => 'minecraft/textures/gui/title/background/panorama_' + i + '.png';
 let _bgPanoSources = null;       // id → { id, name, source, heavy, read() → six Buffers }
@@ -4831,79 +4953,12 @@ async function _bgPanoramaSources() {
   if (_bgPanoSources && Date.now() - _bgPanoSourcesAt < 60000) return _bgPanoSources;
   const out = new Map();
 
-  // 1) What the game has downloaded: assets/indexes/<n>.json names each
-  //    face by its hash (the files in the jar are only stand-ins there).
-  try {
-    const assets = path.join(getDefaultMcDir(), 'assets');
-    const indexes = fs.readdirSync(path.join(assets, 'indexes')).filter(f => f.endsWith('.json'))
-      .sort((a, b) => (parseInt(b, 10) || 0) - (parseInt(a, 10) || 0));
-    for (const f of indexes) {
-      let objects;
-      try { objects = JSON.parse(await fs.promises.readFile(path.join(assets, 'indexes', f), 'utf-8')).objects; } catch (_) { continue; }
-      const files = [];
-      for (let i = 0; i < 6; i++) {
-        const o = objects && objects[_bgPanoFace(i)];
-        if (!o || !/^[0-9a-f]{40}$/.test(o.hash) || o.size < 4096 || o.size > 12 * 1024 * 1024) break;
-        const file = path.join(assets, 'objects', o.hash.slice(0, 2), o.hash);
-        if (!fs.existsSync(file)) break;
-        files.push(file);
-      }
-      if (files.length !== 6) continue;
-      const id = 'mc-' + path.basename(files[0]).slice(0, 16);
-      if (!out.has(id)) {
-        out.set(id, { id, name: 'Minecraft', source: 'game', heavy: false,
-          read: () => Promise.all(files.map(p => fs.promises.readFile(p))) });
-      }
-    }
-  } catch (_) {}
-
-  // 2) Older versions keep the six pictures in the game jar itself. A jar
-  //    is looked into once; what it holds is remembered in jars.json.
-  try {
-    const dir = path.join(getDefaultMcDir(), 'versions');
-    const indexPath = path.join(BG_PANO_CACHE_DIR, 'jars.json');
-    const known = _readJsonSafe(indexPath) || {};
-    const next = {};
-    let budget = 8, changed = false;
-    for (const v of fs.readdirSync(dir)) {
-      const p = path.join(dir, v, v + '.jar');
-      let st;
-      try { st = fs.statSync(p); } catch (_) { continue; }
-      if (st.size < 1024 * 1024) continue;
-      const key = p + '|' + st.size + '|' + Math.round(st.mtimeMs);
-      let sizes = known[key];
-      if (sizes === undefined) {
-        if (budget-- <= 0) continue;                 // the rest another time
-        changed = true;
-        sizes = null;
-        try {
-          const buf = await fs.promises.readFile(p);
-          const byName = new Map(_zipEntries(buf).map(e => [e.name, e]));
-          const faces = [0, 1, 2, 3, 4, 5].map(i => byName.get('assets/' + _bgPanoFace(i)));
-          if (faces.every(e => e && e.size >= 4096)) sizes = faces.map(e => e.size);
-        } catch (_) {}
-      }
-      next[key] = sizes;
-      if (!Array.isArray(sizes) || sizes.length !== 6) continue;
-      const id = 'jar-' + crypto.createHash('sha1').update(sizes.join('-')).digest('hex').slice(0, 16);
-      if (!out.has(id)) {
-        out.set(id, { id, name: 'Minecraft', source: 'game', heavy: true,
-          read: async () => {
-            const buf = await fs.promises.readFile(p);
-            const byName = new Map(_zipEntries(buf).map(e => [e.name, e]));
-            return [0, 1, 2, 3, 4, 5].map(i => { const e = byName.get('assets/' + _bgPanoFace(i)); return e ? _zipReadEntry(buf, e) : null; });
-          } });
-      }
-    }
-    if (changed || Object.keys(known).length !== Object.keys(next).length) _writeJsonSafe(indexPath, next);
-  } catch (_) {}
-
-  // 3) Icey's own panorama packs (the ones offered for the title screen).
+  // Icey's panorama packs: the same ones the title screen in game is given.
   try {
     const dir = getPanoramasDir();
     for (const filename of listPanoramaFiles()) {
       const id = 'icey-' + filename.replace(/\.zip$/i, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-      out.set(id, { id, name: filename.replace(/\.zip$/i, ''), source: 'icey', heavy: true,
+      out.set(id, { id, name: filename.replace(/\.zip$/i, ''), source: 'icey', file: filename, heavy: true,
         read: async () => {
           const buf = await fs.promises.readFile(path.join(dir, filename));
           const byName = new Map(_zipEntries(buf).map(e => [e.name, e]));
@@ -6405,7 +6460,13 @@ app.whenReady().then(() => {
 
   // Panoramas for the launcher's own background (see _bgPanoramaSources).
   ipcMain.handle('get-bg-panoramas', async () => {
-    try { return [...(await _bgPanoramaSources()).values()].map(s => ({ id: s.id, name: s.name, source: s.source })); }
+    try {
+      const all = [...(await _bgPanoramaSources()).values()];
+      // One panorama picked for the title screen: the launcher shows that one. Shuffle: all of them.
+      const picked = readSettings().selectedPanorama || 'Nether Panorama.zip';
+      const one = picked === 'shuffle' ? [] : all.filter(s => s.file === picked);
+      return (one.length ? one : all).map(s => ({ id: s.id, name: s.name, source: s.source }));
+    }
     catch (e) { log('warn', 'get-bg-panoramas: ' + e.message); return []; }
   });
   ipcMain.handle('get-bg-panorama', (_, id) => {
@@ -6498,7 +6559,9 @@ app.whenReady().then(() => {
   // In-app update: where it stands, and "install now".
   ipcMain.handle('update-state', () => _updatePublic());
   ipcMain.handle('update-install', () => _updateInstall(true));
-  setTimeout(() => { _updateRun().catch((e) => log('warn', '[UPDATE] ' + e.message)); }, 4000);
+  // "Continue without updating" (offered when the download hangs): the update goes in at the next quit instead.
+  ipcMain.handle('update-skip', () => { _update.skipped = true; _updateSet({ blocking: false }); return true; });
+  setTimeout(() => { _updateRun().catch((e) => log('warn', '[UPDATE] ' + e.message)); }, 500);
   // A launcher that stays open for days still finds the next version.
   setInterval(() => { _updateRun().catch(() => {}); }, 30 * 60 * 1000);
 
@@ -7402,10 +7465,23 @@ function _preferFastGpu(javaPath) {
 // needs the system password) and an app that cannot write to its own
 // folder keep the old way: a note with the version number.
 const UPDATE_REPO = 'FoxFlame27/iceyclient';
-const _update = { state: 'idle', latest: null, percent: 0, file: null, error: null, installing: false };
+const _update = { state: 'idle', latest: null, percent: 0, file: null, error: null, installing: false, startup: true, blocking: false, skipped: false };
 
 function _updatePublic() {
-  return { state: _update.state, latest: _update.latest, percent: _update.percent, error: _update.error, current: app.getVersion() };
+  return { state: _update.state, latest: _update.latest, percent: _update.percent, error: _update.error, current: app.getVersion(), blocking: !!_update.blocking };
+}
+// An update found when the launcher is opened goes in right away: the
+// window shows "Updating Icey Client" with a bar, and the launcher starts
+// again as the new version by itself. Not twice for one version (a swap
+// that failed would otherwise restart the launcher for ever; the update
+// then waits for the next quit as before), and never while a game runs.
+const _UPDATE_ATTEMPT = path.join(DATA_DIR, 'update-attempt.json');
+function _updateMayForce(latest) {
+  if (_update.skipped) return false;
+  if (typeof mcProcesses !== 'undefined' && mcProcesses.size > 0) return false;
+  const a = _readJsonSafe(_UPDATE_ATTEMPT);
+  if (a && String(a.version) === String(latest) && Date.now() - Number(a.at || 0) < 12 * 3600 * 1000) return false;
+  return true;
 }
 function _updateSet(patch) {
   Object.assign(_update, patch);
@@ -7496,11 +7572,13 @@ async function _updateRun() {
     if (!latest || !_updateNewer(latest, app.getVersion())) {
       // Up to date: the installer that got us here is not needed any more.
       try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
-      _updateSet({ state: 'none', latest: latest || null });
+      try { fs.unlinkSync(_UPDATE_ATTEMPT); } catch (_) {}
+      _updateSet({ state: 'none', latest: latest || null, blocking: false });
       return;
     }
     const target = _updateTarget();
     if (!target) { _updateSet({ state: app.isPackaged ? 'manual' : 'none', latest }); return; }
+    const force = _update.startup && _updateMayForce(latest);
     // A release appears before its installers have finished uploading:
     // nothing to fetch yet, the next check finds it.
     const asset = _updateAsset(release);
@@ -7512,7 +7590,7 @@ async function _updateRun() {
     let have = false;
     try { have = fs.statSync(file).size === asset.size; } catch (_) {}
     if (!have) {
-      _updateSet({ state: 'downloading', latest, percent: 0, error: null });
+      _updateSet({ state: 'downloading', latest, percent: 0, error: null, blocking: force });
       log('info', '[UPDATE] downloading ' + asset.name + ' of v' + latest);
       await _updateDownload(asset.url, file, asset.size, (pct) => _updateSet({ percent: pct }));
     }
@@ -7524,14 +7602,25 @@ async function _updateRun() {
       }
     }
     log('info', '[UPDATE] v' + latest + ' is ready to install');
-    _updateSet({ state: 'ready', latest, percent: 100, file, error: null });
+    const now = force && _updateMayForce(latest);
+    _updateSet({ state: 'ready', latest, percent: 100, file, error: null, blocking: now });
+    if (now) {
+      _writeJsonSafe(_UPDATE_ATTEMPT, { version: latest, at: Date.now() });
+      // A moment for the window to show that it is going in, then swap and start again.
+      setTimeout(() => {
+        let r = false;
+        try { r = _updateMayForce('') ? _updateInstall(true) : false; } catch (e) { log('warn', '[UPDATE] ' + e.message); }
+        if (r !== true) _updateSet({ blocking: false });
+      }, 900);
+    }
   } catch (e) {
     log('warn', '[UPDATE] ' + e.message);
     // Not shown as an error: the next check (in half an hour, or at the
     // next start) tries again.
-    _updateSet({ state: 'idle', error: e.message });
+    _updateSet({ state: 'idle', error: e.message, blocking: false });
   } finally {
     _updateBusy = false;
+    _update.startup = false;
   }
 }
 const _UPDATE_MAC_SCRIPT = `#!/bin/sh

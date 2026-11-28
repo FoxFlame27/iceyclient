@@ -93,12 +93,14 @@ def main():
             print('skip', sid, '(not exported)')
             continue
         data = json.load(open(path))
-        spots = friends(data['spots'], data.get('mobs', []))
-        model = {'yaw': data['yaw'], 'pitch': data['pitch'], 'centre': data['centre'], 'sun': data.get('sun'), 'textures': data['textures'], 'quads': data['quads']}
+        # No animals or villagers in the menu: their faces (flag 8) are left out, and friends may stand where they stood.
+        quads = [q for q in data['quads'] if not (q[19] & 8)]
+        spots = friends(data['spots'], [])
+        model = {'yaw': data['yaw'], 'pitch': data['pitch'], 'centre': data['centre'], 'sun': data.get('sun'), 'textures': [t for t in data['textures'] if not t.startswith('entity/')], 'quads': quads}
         with open(os.path.join(OUT, sid + '.json'), 'w') as f:
             json.dump(model, f, separators=(',', ':'))
         out.append(dict(id=sid, name=name, snowfall=snowfall, rain=rain, spots=spots, **lit))
-        print('%-18s %5d faces, %2d textures, %d friend spots, %d kB' % (sid, len(data['quads']), len(data['textures']), len(spots), os.path.getsize(os.path.join(OUT, sid + '.json')) // 1024))
+        print('%-18s %5d faces, %2d textures, %d friend spots, %d kB' % (sid, len(quads), len(model['textures']), len(spots), os.path.getsize(os.path.join(OUT, sid + '.json')) // 1024))
     with open(os.path.join(OUT, 'scenes.json'), 'w') as f:
         json.dump(out, f, indent=1)
         f.write('\n')
