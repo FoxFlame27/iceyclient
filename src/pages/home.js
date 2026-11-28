@@ -113,16 +113,6 @@ async function HomePageInit() {
   // Classic home: the player's skin centre stage with the launch button
   // under it, servers in a glass panel on the right. The installation is
   // picked from the menu on the launch button's arrow.
-  let _accountType = null;
-  try {
-    const _accts = await window.icey.getAccounts();
-    const _active = (_accts.accounts || []).find(a => a.uuid === _accts.activeUuid);
-    if (_active) _accountType = _active.type;
-  } catch (_) {}
-  const _accountLabel = !_liquidAuthUser ? 'Not signed in'
-    : _accountType === 'offline' ? 'Offline account'
-    : _accountType === 'launcher' ? 'Minecraft Launcher account'
-    : 'Microsoft account';
   const _skinName = encodeURIComponent(_liquidAuthUser || 'MHF_Steve');
 
   const classicHero = `
@@ -136,7 +126,7 @@ async function HomePageInit() {
 
         <button class="hg-identity" onclick="_liquidOpenAccount()" title="Accounts">
           <span class="hg-name">${_escapeHtml(_liquidAuthUser || 'Player')}</span>
-          <span class="hg-tag ${_liquidAuthUser ? 'on' : ''}"><span class="hg-tag-dot"></span>${_accountLabel}</span>
+          ${_liquidAuthUser ? '' : '<span class="hg-tag"><span class="hg-tag-dot"></span>Not signed in</span>'}
         </button>
 
         <div class="hg-skin-wrap">
