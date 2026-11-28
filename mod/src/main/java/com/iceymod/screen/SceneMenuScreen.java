@@ -919,16 +919,10 @@ public class SceneMenuScreen extends VirtualScreen {
         return lum > 0.56f ? 0xFF06101C : 0xFFFFFFFF;
     }
 
-    /** The top of a page: its icon in a tinted square, its name and a line under it. */
-    void pageHead(Gfx g, float x, float y, char icon, String title, String sub, int accent, float al) {
-        boolean has = iconsUsable();
-        if (has) {
-            rect(g, x + 18, y + 13, 30, 30, 8, a(withAlpha(accent, 0x38), al));
-            icon(g, icon, x + 33, y + 28, 15, a(lighter(accent), al));
-        }
-        float tx = x + (has ? 58 : 18);
-        text(g, "§l" + title, tx, y + 14, 1.5f, a(0xFFFFFFFF, al));
-        text(g, sub, tx, y + 32, 1f, a(0xFF9FB0C8, al));
+    /** The top of a page: its name and a line under it. */
+    void pageHead(Gfx g, float x, float y, String title, String sub, float al) {
+        text(g, "§l" + title, x + 18, y + 14, 1.5f, a(0xFFFFFFFF, al));
+        text(g, sub, x + 18, y + 32, 1f, a(0xFF9FB0C8, al));
     }
 
     float buttonW(char icon, String label) { return textW("§l" + label, 1f) + 22 + (icon != 0 && iconsUsable() ? 15 : 0); }

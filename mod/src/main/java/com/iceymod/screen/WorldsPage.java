@@ -58,7 +58,7 @@ final class WorldsPage {
 
     void draw(Gfx g, float x, float y, float w, float h, float al, int accent, float delta) {
         List<SceneMenuScreen.Entry> list = s.worlds;
-        s.pageHead(g, x, y, Icons.WORLD, "Worlds", !s.worldsLoaded ? "Looking for your worlds…" : list.isEmpty() ? "Nothing here yet" : list.size() == 1 ? "1 world" : list.size() + " worlds", accent, al);
+        s.pageHead(g, x, y, "Worlds", !s.worldsLoaded ? "Looking for your worlds…" : list.isEmpty() ? "Nothing here yet" : list.size() == 1 ? "1 world" : list.size() + " worlds", al);
         float cw = s.buttonW(Icons.PLUS, "Create new world");
         if (s.button(g, x + w - 18 - cw, y + 16, cw, 24, Icons.PLUS, "Create new world", 1, al)) { create(); return; }
         g.fill(Math.round(x + 14), Math.round(y + 56), Math.round(x + w - 14), Math.round(y + 57), SceneMenuScreen.a(0x22FFFFFF, al));
@@ -68,8 +68,6 @@ final class WorldsPage {
         scroll = Math.max(0, Math.min(max, scroll));
         if (list.isEmpty()) {
             float cy = (top + bottom) / 2f;
-            s.rect(g, x + w / 2f - 26, cy - 62, 52, 52, 12, SceneMenuScreen.a(0x1EFFFFFF, al));
-            s.icon(g, Icons.WORLD, x + w / 2f, cy - 36, 26, SceneMenuScreen.a(0xFFC8D2E2, al));
             s.textC(g, s.worldsLoaded ? "§lNo worlds yet" : "§lLoading worlds…", x + w / 2f, cy + 2, 1.5f, SceneMenuScreen.a(0xFFFFFFFF, al));
             if (s.worldsLoaded) {
                 s.textC(g, "Your singleplayer worlds show up here.", x + w / 2f, cy + 22, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
@@ -108,9 +106,7 @@ final class WorldsPage {
                 float tw = bx - 24 - 14 - (x + 62);
                 s.text(g, "§l" + s.fit(e.name, tw, 1f), x + 62, mid - 11, 1f, SceneMenuScreen.a(e.disabled ? 0xFF8C96A8 : 0xFFFFFFFF, al));
                 String sub = e.disabled ? "Cannot be opened by this game version" : e.sub;
-                boolean icons = s.iconsUsable();
-                if (icons) s.icon(g, e.disabled ? Icons.WARNING : Icons.CLOCK, x + 67, mid + 6, 10, SceneMenuScreen.a(e.disabled ? 0xFFF0A878 : 0xFF8E9AB0, al));
-                s.text(g, s.fit(sub, tw - 14, 1f), x + 62 + (icons ? 14 : 0), mid + 2, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+                s.text(g, s.fit(sub, tw, 1f), x + 62, mid + 2, 1f, SceneMenuScreen.a(e.disabled ? 0xFFF0A878 : 0xFF9FB0C8, al));
                 if (hov && s.clicked && !e.disabled) {
                     long now = System.currentTimeMillis();
                     if (lastIndex == i && now - lastClick < 350) { s.click(); s.playWorld(e); return; }

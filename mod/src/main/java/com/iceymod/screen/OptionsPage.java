@@ -48,7 +48,7 @@ final class OptionsPage {
     void draw(Gfx g, float x, float y, float w, float h, float al, int accent, float delta) {
         Minecraft mc = s.mc();
         var o = mc.options;
-        s.pageHead(g, x, y, Icons.SETTINGS, "Options", "The settings you change most, and the game's own", accent, al);
+        s.pageHead(g, x, y, "Options", "The settings you change most, and the game's own", al);
         float aw = s.buttonW(Icons.MODS, "All options");
         if (s.button(g, x + w - 18 - aw, y + 16, aw, 24, Icons.MODS, "All options", 0, al)) { open(() -> s.options()); return; }
         g.fill(Math.round(x + 14), Math.round(y + 56), Math.round(x + w - 14), Math.round(y + 57), SceneMenuScreen.a(0x22FFFFFF, al));

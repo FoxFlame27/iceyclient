@@ -160,6 +160,10 @@ public final class SceneModel {
                             if (!fill) { img.setPixel(ox + x, oy + y, 0); continue; }
                             p = 0xFF000000 | (holeR << 16) | (holeG << 8) | holeB; al = 255;
                         } else if (fill) al = 255;
+                        // Water, ice and tinted glass are drawn solid, a little darker the more see-through they are (the depth
+                        // behind them). Drawn see-through, the places where two pieces of a face overlap would add up to stripes.
+                        float depth = 1f;
+                        if (al < 255 || water) { depth = 0.45f + 0.55f * (water ? Math.min(al, 200) : al) / 255f; al = 255; }
                         float w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
                         // How much sun this spot gets: between the four nearest of the sixteen samples.
                         float gx = Math.max(0f, Math.min(3f, fx * 4f - 0.5f)), gy = Math.max(0f, Math.min(3f, fy * 4f - 0.5f));
@@ -171,14 +175,13 @@ public final class SceneModel {
                         float lg = base[0][1] * w00 + base[1][1] * w10 + base[2][1] * w01 + base[3][1] * w11 + sun * (sunL[0][1] * w00 + sunL[1][1] * w10 + sunL[2][1] * w01 + sunL[3][1] * w11);
                         float lb = base[0][2] * w00 + base[1][2] * w10 + base[2][2] * w01 + base[3][2] * w11 + sun * (sunL[0][2] * w00 + sunL[1][2] * w10 + sunL[2][2] * w01 + sunL[3][2] * w11);
                         if (emit >= 10) { lr = Math.max(lr, 1.05f); lg = Math.max(lg, 0.95f); lb = Math.max(lb, 0.78f); }
-                        float r = grade(((p >> 16) & 0xFF) * tr / 65025f * lr), g = grade(((p >> 8) & 0xFF) * tg / 65025f * lg), b = grade((p & 0xFF) * tb / 65025f * lb);
+                        float r = grade(((p >> 16) & 0xFF) * tr / 65025f * lr * depth), g = grade(((p >> 8) & 0xFF) * tg / 65025f * lg * depth), b = grade((p & 0xFF) * tb / 65025f * lb * depth);
                         // A little more colour, the way a shader pack's picture has it.
                         float lum = 0.299f * r + 0.587f * g + 0.114f * b;
                         r = lum + (r - lum) * SATURATION; g = lum + (g - lum) * SATURATION; b = lum + (b - lum) * SATURATION;
                         r = r * 255f; g = g * 255f; b = b * 255f;
                         r += (fr - r) * fogT; g += (fg - g) * fogT; b += (fb - b) * fogT;
                         int R = r > 255 ? 255 : r < 0 ? 0 : Math.round(r), G = g > 255 ? 255 : g < 0 ? 0 : Math.round(g), B = b > 255 ? 255 : b < 0 ? 0 : Math.round(b);
-                        if (water) al = Math.round(al * 0.82f);
                         img.setPixel(ox + x, oy + y, (al << 24) | (R << 16) | (G << 8) | B);
                     }
                 }
@@ -322,7 +325,10 @@ public final class SceneModel {
     /** How far a figure standing there is seen from the side (0 = straight from the front when the camera rests behind the player), in radians. */
     public float yawSeen(float x, float z) {
         float dx = x - camX, dz = z - camZ;
-        return (float) Math.atan2(-dx, dz) - baseYaw;
+        // Between -180 and 180 degrees: callers halve it (how far the head turns), and a full turn too many would point the head backwards.
+        double a = Math.atan2(-dx, dz) - baseYaw;
+        a = a - Math.floor((a + Math.PI) / (2 * Math.PI)) * (2 * Math.PI);
+        return (float) a;
     }
     /** How steeply the camera looks down on a figure standing there, in radians. */
     public float pitchSeen(float x, float y, float z) {

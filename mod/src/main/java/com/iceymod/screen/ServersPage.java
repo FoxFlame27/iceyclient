@@ -89,7 +89,7 @@ final class ServersPage {
 
     void draw(Gfx g, float x, float y, float w, float h, float al, int accent, float delta) {
         List<SceneMenuScreen.Entry> list = s.servers;
-        s.pageHead(g, x, y, Icons.GLOBE, "Servers", list.isEmpty() ? "Nothing saved yet" : list.size() == 1 ? "1 saved server" : list.size() + " saved servers", accent, al);
+        s.pageHead(g, x, y, "Servers", list.isEmpty() ? "Nothing saved yet" : list.size() == 1 ? "1 saved server" : list.size() + " saved servers", al);
         if (form == 0) {
             float bx = x + w - 18;
             float aw = s.buttonW(Icons.PLUS, "Add server"), dw = s.buttonW(Icons.PLUG, "Direct connect");
@@ -106,8 +106,6 @@ final class ServersPage {
         scroll = Math.max(0, Math.min(max, scroll));
         if (list.isEmpty()) {
             float cy = (top + bottom) / 2f;
-            s.rect(g, x + w / 2f - 26, cy - 62, 52, 52, 12, SceneMenuScreen.a(0x1EFFFFFF, al));
-            s.icon(g, Icons.GLOBE, x + w / 2f, cy - 36, 26, SceneMenuScreen.a(0xFFC8D2E2, al));
             s.textC(g, "§lNo servers yet", x + w / 2f, cy + 2, 1.5f, SceneMenuScreen.a(0xFFFFFFFF, al));
             s.textC(g, "Save the servers you play on and join them from here.", x + w / 2f, cy + 22, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
             float aw = s.buttonW(Icons.PLUS, "Add server");
@@ -147,16 +145,11 @@ final class ServersPage {
                 int col = ping.state == 1 ? (ping.ms < 80 ? 0xFF4ADE80 : ping.ms < 180 ? 0xFFE8C860 : 0xFFF08A7A) : ping.state == 2 ? 0xFFF08A7A : 0xFF9FB0C8;
                 String line1 = ping.state == 0 ? "Checking…" : ping.state == 2 ? "No answer" : ping.online + " / " + ping.max;
                 String line2 = ping.state == 1 ? ping.ms + " ms" : "";
-                char bars = ping.state != 1 ? Icons.SIGNAL0 : ping.ms < 60 ? Icons.SIGNAL4 : ping.ms < 120 ? Icons.SIGNAL3 : ping.ms < 220 ? Icons.SIGNAL2 : Icons.SIGNAL1;
                 float sw = 0;
                 if (w > 430) {
-                    sw = Math.max(s.textW(line1, 1f), s.textW(line2, 1f)) + 18;
-                    s.textR(g, line1, statusRight, mid - 11, 1f, SceneMenuScreen.a(ping.state == 1 ? 0xFFFFFFFF : col, al));
-                    s.icon(g, ping.state == 1 ? Icons.USERS : Icons.SIGNAL0, statusRight - s.textW(line1, 1f) - 9, mid - 7, 11, SceneMenuScreen.a(ping.state == 1 ? 0xFF9FB0C8 : col, al));
-                    if (!line2.isEmpty()) {
-                        s.textR(g, line2, statusRight, mid + 2, 1f, SceneMenuScreen.a(col, al));
-                        s.icon(g, bars, statusRight - s.textW(line2, 1f) - 9, mid + 6, 11, SceneMenuScreen.a(col, al));
-                    }
+                    sw = Math.max(s.textW(line1, 1f), s.textW(line2, 1f));
+                    s.textR(g, line1, statusRight, line2.isEmpty() ? mid - 4 : mid - 11, 1f, SceneMenuScreen.a(ping.state == 1 ? 0xFFFFFFFF : col, al));
+                    if (!line2.isEmpty()) s.textR(g, line2, statusRight, mid + 2, 1f, SceneMenuScreen.a(col, al));
                 }
                 float tw = statusRight - sw - 12 - (x + 62);
                 s.text(g, "§l" + s.fit(e.title(), tw, 1f), x + 62, mid - 11, 1f, SceneMenuScreen.a(0xFFFFFFFF, al));
@@ -182,10 +175,8 @@ final class ServersPage {
         s.ring(g, fx - 18, fy - 16, fw + 36, fh + 28, 10, SceneMenuScreen.a(0x24FFFFFF, al));
         String title = form == 1 ? "Add a server" : form == 2 ? "Edit server" : "Direct connect";
         String sub = form == 3 ? "Join a server once, without saving it." : "It is saved to the game's own server list.";
-        s.rect(g, fx, fy, 30, 30, 8, SceneMenuScreen.a(SceneMenuScreen.withAlpha(accent, 0x38), al));
-        s.icon(g, form == 1 ? Icons.PLUS : form == 2 ? Icons.PENCIL : Icons.PLUG, fx + 15, fy + 15, 15, SceneMenuScreen.a(SceneMenuScreen.lighter(accent), al));
-        s.text(g, "§l" + title, fx + 40, fy + 4, 1.25f, SceneMenuScreen.a(0xFFFFFFFF, al));
-        s.text(g, sub, fx + 40, fy + 19, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
+        s.text(g, "§l" + title, fx, fy + 4, 1.25f, SceneMenuScreen.a(0xFFFFFFFF, al));
+        s.text(g, sub, fx, fy + 19, 1f, SceneMenuScreen.a(0xFF9FB0C8, al));
         float cy = fy + 44;
         if (form != 3) {
             s.text(g, "NAME", fx, cy, 1f, SceneMenuScreen.a(0xFF8E9AB0, al));
